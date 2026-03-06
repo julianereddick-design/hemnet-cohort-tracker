@@ -1,0 +1,72 @@
+name: Cohort Automation
+
+on:
+  schedule:
+    # Daily at 20:00 UTC (21:00 CET / 22:00 CEST)
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Task to run'
+        required: true
+        default: 'track'
+        type: choice
+        options:
+          - track
+          - create
+          - report
+
+jobs:
+  daily-track:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.task == 'track')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install
+      - run: node cohort-track.js
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_SSL: ${{ secrets.DB_SSL }}
+
+  weekly-create:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.task == 'create'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install
+      - run: node cohort-create.js
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_SSL: ${{ secrets.DB_SSL }}
+
+  report:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.task == 'report'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install
+      - run: node cohort-report.js
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_SSL: ${{ secrets.DB_SSL }}

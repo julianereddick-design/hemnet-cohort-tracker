@@ -75,8 +75,6 @@ async function run() {
             [today, pair.id]
           );
           droppedBooli++;
-          // Still record last known views if available
-          if (bRes.rows.length > 0) booliViews = bRes.rows[0].times_viewed;
         }
       }
 
@@ -93,7 +91,6 @@ async function run() {
             [today, pair.id]
           );
           droppedHemnet++;
-          if (hRes.rows.length > 0) hemnetViews = hRes.rows[0].times_viewed;
         }
       }
 
