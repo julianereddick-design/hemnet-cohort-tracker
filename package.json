@@ -1,0 +1,15 @@
+{
+  "name": "hemnet-cohort-tracker",
+  "version": "1.0.0",
+  "description": "Cohort-based listing views tracker: Hemnet vs Booli",
+  "scripts": {
+    "setup": "node cohort-setup.js",
+    "create": "node cohort-create.js",
+    "track": "node cohort-track.js",
+    "report": "node cohort-report.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.0.0",
+    "pg": "^8.0.0"
+  }
+}
