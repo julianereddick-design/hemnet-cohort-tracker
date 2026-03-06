@@ -17,26 +17,34 @@ const HEMNET_COUNTIES = [
 
 // Get ISO week string (e.g. "2026-W10") and Mon-Sun date range
 function getCohortWeek(dateStr) {
-  // If a date is provided, use it; otherwise use today
-  const d = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
+  // Parse as local date (avoid timezone shifts)
+  const parts = dateStr.split('-').map(Number);
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
 
-  // Find Monday of this week
-  const day = d.getDay();
-  const diffToMon = day === 0 ? -6 : 1 - day;
+  // Find Monday of this week (getDay: 0=Sun, 1=Mon, ..., 6=Sat)
+  const dow = d.getDay();
+  const diffToMon = dow === 0 ? -6 : 1 - dow;
   const monday = new Date(d);
   monday.setDate(d.getDate() + diffToMon);
 
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
 
-  // ISO week number
-  const jan1 = new Date(monday.getFullYear(), 0, 1);
-  const dayOfYear = Math.floor((monday - jan1) / 86400000) + 1;
-  const weekNum = Math.ceil((dayOfYear + jan1.getDay()) / 7);
+  // ISO 8601 week number: week 1 contains the first Thursday of the year
+  const thu = new Date(monday);
+  thu.setDate(monday.getDate() + 3); // Thursday of this week
+  const jan1 = new Date(thu.getFullYear(), 0, 1);
+  const dayOfYear = Math.floor((thu - jan1) / 86400000) + 1;
+  const weekNum = Math.ceil(dayOfYear / 7);
 
-  const cohortId = `${monday.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
-  const fmt = (dt) => dt.toISOString().slice(0, 10);
+  const fmt = (dt) => {
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+  };
 
+  const cohortId = `${thu.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
   return { cohortId, weekStart: fmt(monday), weekEnd: fmt(sunday) };
 }
 
