@@ -9,6 +9,7 @@ function createClient() {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 10000,
   });
 }
 

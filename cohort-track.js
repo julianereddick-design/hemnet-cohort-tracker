@@ -1,12 +1,8 @@
-const { createClient } = require('./db');
+const { runJob } = require('./cron-wrapper');
 
-async function run() {
-  const client = createClient();
-  await client.connect();
-
+async function main(client, log) {
   const today = new Date().toISOString().slice(0, 10);
 
-  // Find all active cohorts (created within the last 30 days)
   const cohorts = await client.query(`
     SELECT cohort_id, week_start FROM cohorts
     WHERE week_start >= CURRENT_DATE - INTERVAL '37 days'
@@ -14,12 +10,11 @@ async function run() {
   `);
 
   if (cohorts.rows.length === 0) {
-    console.log('No active cohorts to track.');
-    await client.end();
-    return;
+    log('INFO', 'No active cohorts to track.');
+    return { cohortsTracked: 0, totalTracked: 0, totalDroppedBooli: 0, totalDroppedHemnet: 0 };
   }
 
-  console.log(`Tracking ${cohorts.rows.length} active cohort(s) for ${today}\n`);
+  log('INFO', `Tracking ${cohorts.rows.length} active cohort(s) for ${today}`);
 
   let totalTracked = 0;
   let totalDroppedBooli = 0;
@@ -30,13 +25,11 @@ async function run() {
       (new Date(today) - new Date(cohort.week_start)) / 86400000
     );
 
-    // Skip if beyond 30 days
     if (dayNum > 30) {
-      console.log(`  ${cohort.cohort_id}: day ${dayNum} > 30, skipping`);
+      log('INFO', `${cohort.cohort_id}: day ${dayNum} > 30, skipping`);
       continue;
     }
 
-    // Get all pairs for this cohort
     const pairs = await client.query(`
       SELECT cp.id, cp.booli_id, cp.hemnet_id,
              cp.booli_views_day0, cp.hemnet_views_day0,
@@ -50,14 +43,12 @@ async function run() {
     let droppedHemnet = 0;
 
     for (const pair of pairs.rows) {
-      // Skip if already tracked for this day
       const exists = await client.query(
         'SELECT 1 FROM cohort_daily_views WHERE pair_id = $1 AND day = $2',
         [pair.id, dayNum]
       );
       if (exists.rows.length > 0) continue;
 
-      // Look up current views
       let booliViews = null;
       let hemnetViews = null;
 
@@ -69,7 +60,6 @@ async function run() {
         if (bRes.rows.length > 0 && bRes.rows[0].is_active) {
           booliViews = bRes.rows[0].times_viewed;
         } else {
-          // Mark as dropped
           await client.query(
             'UPDATE cohort_pairs SET dropped_booli_on = $1 WHERE id = $2',
             [today, pair.id]
@@ -94,7 +84,6 @@ async function run() {
         }
       }
 
-      // Compute deltas (views decrease -> set delta to 0)
       let booliDelta = null;
       let hemnetDelta = null;
       if (booliViews !== null) {
@@ -114,7 +103,7 @@ async function run() {
       tracked++;
     }
 
-    console.log(`  ${cohort.cohort_id}: day ${dayNum}, tracked ${tracked} pairs` +
+    log('INFO', `${cohort.cohort_id}: day ${dayNum}, tracked ${tracked} pairs` +
       (droppedBooli ? `, ${droppedBooli} Booli dropped` : '') +
       (droppedHemnet ? `, ${droppedHemnet} Hemnet dropped` : ''));
 
@@ -123,15 +112,26 @@ async function run() {
     totalDroppedHemnet += droppedHemnet;
   }
 
-  console.log(`\nDone. Tracked ${totalTracked} pairs total.`);
+  log('INFO', `Done. Tracked ${totalTracked} pairs total.`);
   if (totalDroppedBooli || totalDroppedHemnet) {
-    console.log(`Dropped: ${totalDroppedBooli} Booli, ${totalDroppedHemnet} Hemnet`);
+    log('INFO', `Dropped: ${totalDroppedBooli} Booli, ${totalDroppedHemnet} Hemnet`);
   }
 
-  await client.end();
+  return {
+    cohortsTracked: cohorts.rows.length,
+    totalTracked,
+    totalDroppedBooli,
+    totalDroppedHemnet,
+  };
 }
 
-run().catch(err => {
-  console.error('Error:', err.message);
-  process.exit(1);
+runJob({
+  scriptName: 'cohort-track',
+  main,
+  validate: (summary) => {
+    if (summary.totalTracked === 0 && summary.cohortsTracked > 0) {
+      return `0 pairs tracked across ${summary.cohortsTracked} active cohort(s) — expected hundreds`;
+    }
+    return null;
+  },
 });

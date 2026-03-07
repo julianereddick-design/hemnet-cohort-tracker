@@ -1,14 +1,4 @@
-require('dotenv').config();
-const { Client } = require('pg');
-
-const client = new Client({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT),
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  ssl: { rejectUnauthorized: false },
-});
+const { runJob } = require('./cron-wrapper');
 
 function normalizeCounty(name) {
   if (!name) return '';
@@ -31,7 +21,7 @@ const CREATE_TABLE = `
     booli_pm_count  INTEGER NOT NULL DEFAULT 0,
     hemnet_fs_count INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (snapshot_date, region, age_bucket)
-  );
+  )
 `;
 
 const BOOLI_QUERY = `
@@ -60,9 +50,7 @@ const HEMNET_QUERY = `
   GROUP BY county
 `;
 
-async function run() {
-  await client.connect();
-
+async function main(client, log) {
   await client.query(CREATE_TABLE);
 
   const [booliRes, hemnetRes] = await Promise.all([
@@ -70,8 +58,7 @@ async function run() {
     client.query(HEMNET_QUERY),
   ]);
 
-  // Aggregate Booli PM by (region, bucket)
-  const booliByRegionBucket = {}; // "region|bucket" -> count
+  const booliByRegionBucket = {};
   for (const r of booliRes.rows) {
     const county = normalizeCounty(r.county);
     if (!county) continue;
@@ -80,7 +67,6 @@ async function run() {
     booliByRegionBucket[key] = (booliByRegionBucket[key] || 0) + Number(r.cnt);
   }
 
-  // Aggregate Hemnet FS by region
   const hemnetByRegion = { Stockholm: 0, VG: 0, Rest: 0 };
   for (const r of hemnetRes.rows) {
     const county = normalizeCounty(r.county);
@@ -89,7 +75,6 @@ async function run() {
     hemnetByRegion[region] += Number(r.cnt);
   }
 
-  // Upsert 18 rows
   const today = new Date().toISOString().slice(0, 10);
   const regions = ['Stockholm', 'VG', 'Rest'];
 
@@ -101,33 +86,35 @@ async function run() {
   `;
 
   let rowCount = 0;
+  const regionSummary = {};
   for (const region of regions) {
+    let booliTotal = 0;
     for (const bucket of BUCKET_ORDER) {
       const booli = booliByRegionBucket[`${region}|${bucket}`] || 0;
       const hemnet = hemnetByRegion[region];
       await client.query(UPSERT, [today, region, bucket, booli, hemnet]);
+      booliTotal += booli;
       rowCount++;
     }
+    regionSummary[region] = { booliTotal, hemnetFs: hemnetByRegion[region] };
   }
 
-  await client.end();
-
-  // Print summary
-  console.log(`\nSnapshot ${today}: upserted ${rowCount} rows\n`);
-
-  const summaryRows = [];
+  log('INFO', `Snapshot ${today}: upserted ${rowCount} rows`);
   for (const region of regions) {
-    const row = { Region: region, 'Hemnet FS': hemnetByRegion[region] };
-    let total = 0;
-    for (const bucket of BUCKET_ORDER) {
-      const cnt = booliByRegionBucket[`${region}|${bucket}`] || 0;
-      total += cnt;
-      row['Booli ' + bucket] = cnt;
-    }
-    row['Booli Total'] = total;
-    summaryRows.push(row);
+    const s = regionSummary[region];
+    log('INFO', `  ${region}: Booli PM=${s.booliTotal}, Hemnet FS=${s.hemnetFs}`);
   }
-  console.table(summaryRows);
+
+  return { rowCount, regions: regionSummary };
 }
 
-run().catch(err => { console.error(err.message); client.end(); process.exit(1); });
+runJob({
+  scriptName: 'sfpl-region-snapshot',
+  main,
+  validate: (summary) => {
+    if (summary.rowCount !== 18) {
+      return `Expected 18 rows upserted, got ${summary.rowCount}`;
+    }
+    return null;
+  },
+});
