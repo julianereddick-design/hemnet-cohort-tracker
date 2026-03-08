@@ -50,7 +50,7 @@ async function run() {
       hemnet_views INTEGER,                 -- NULL if listing was inactive
       booli_delta INTEGER,                  -- views - day0 views
       hemnet_delta INTEGER,                 -- views - day0 views
-      UNIQUE(pair_id, day)
+      UNIQUE(pair_id, date)
     )
   `);
   console.log('  Created: cohort_daily_views');

@@ -136,6 +136,75 @@ async function run() {
     }
   }
 
+  // --- Hemnet / Booli Ratio Table ---
+  console.log('\n\n--- Hemnet / Booli View Ratio (median of per-pair H/B) ---\n');
+
+  // Build ratio data: for each (level, day), collect per-pair H/B ratios
+  // Only include pairs where both deltas > 0 (ratio undefined otherwise)
+  const ratioData = {}; // { level: { day: [ratios] } }
+  for (const level of levels) {
+    ratioData[level] = {};
+  }
+
+  for (const r of views.rows) {
+    if (r.booli_delta <= 0 || r.hemnet_delta <= 0) continue;
+    const ratio = r.hemnet_delta / r.booli_delta;
+    if (!ratioData['Total'][r.day]) ratioData['Total'][r.day] = [];
+    ratioData['Total'][r.day].push(ratio);
+    if (!ratioData[r.county]) continue;
+    if (!ratioData[r.county][r.day]) ratioData[r.county][r.day] = [];
+    ratioData[r.county][r.day].push(ratio);
+  }
+
+  // Determine days that have data
+  const ratioDays = [];
+  for (let d = 0; d <= maxDay; d++) {
+    if (ratioData['Total'][d] && ratioData['Total'][d].length > 0) ratioDays.push(d);
+  }
+
+  // Print header
+  const colW = 9;
+  const labelW = 20;
+  let header = ''.padEnd(labelW) + ratioDays.map(d => ('Day ' + d).padStart(colW)).join('');
+  console.log(header);
+  console.log('-'.repeat(header.length));
+
+  for (const level of levels) {
+    if (level !== 'Total' && (countyCount[level] || 0) < MIN_PAIRS) continue;
+    let line = level.padEnd(labelW);
+    for (const d of ratioDays) {
+      const arr = ratioData[level][d];
+      if (!arr || arr.length < 5) {
+        line += '—'.padStart(colW);
+      } else {
+        line += (median(arr).toFixed(1) + 'x').padStart(colW);
+      }
+    }
+    // Append pair count for context
+    const totalRatioPairs = ratioDays.reduce((s, d) => s + (ratioData[level][d]?.length || 0), 0);
+    console.log(line);
+  }
+
+  // Also show mean ratio
+  console.log('\n(mean of per-pair H/B)');
+  header = ''.padEnd(labelW) + ratioDays.map(d => ('Day ' + d).padStart(colW)).join('');
+  console.log(header);
+  console.log('-'.repeat(header.length));
+
+  for (const level of levels) {
+    if (level !== 'Total' && (countyCount[level] || 0) < MIN_PAIRS) continue;
+    let line = level.padEnd(labelW);
+    for (const d of ratioDays) {
+      const arr = ratioData[level][d];
+      if (!arr || arr.length < 5) {
+        line += '—'.padStart(colW);
+      } else {
+        line += (mean(arr).toFixed(1) + 'x').padStart(colW);
+      }
+    }
+    console.log(line);
+  }
+
   // Match rate
   const unmatchedCount = await client.query(
     'SELECT COUNT(*) as cnt FROM cohort_unmatched WHERE cohort_id = $1', [cohortId]

@@ -202,7 +202,7 @@ async function main(client, log) {
     await client.query(`
       INSERT INTO cohort_daily_views (cohort_id, pair_id, day, date, booli_views, hemnet_views, booli_delta, hemnet_delta)
       VALUES ($1, $2, 0, $3, $4, $5, 0, 0)
-      ON CONFLICT (pair_id, day) DO NOTHING
+      ON CONFLICT (pair_id, date) DO NOTHING
     `, [cohortId, p.id, today, p.booli_views_day0, p.hemnet_views_day0]);
   }
 

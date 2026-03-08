@@ -1,11 +1,17 @@
 const { runJob } = require('./cron-wrapper');
 
+function daysBetween(dateStrA, dateStrB) {
+  const a = new Date(dateStrA + 'T00:00:00');
+  const b = new Date(dateStrB + 'T00:00:00');
+  return Math.round((b - a) / 86400000);
+}
+
 async function main(client, log) {
   const today = new Date().toISOString().slice(0, 10);
 
   const cohorts = await client.query(`
     SELECT cohort_id, week_start FROM cohorts
-    WHERE week_start >= CURRENT_DATE - INTERVAL '37 days'
+    WHERE week_start >= CURRENT_DATE - INTERVAL '44 days'
     ORDER BY week_start
   `);
 
@@ -21,19 +27,11 @@ async function main(client, log) {
   let totalDroppedHemnet = 0;
 
   for (const cohort of cohorts.rows) {
-    const dayNum = Math.floor(
-      (new Date(today) - new Date(cohort.week_start)) / 86400000
-    );
-
-    if (dayNum > 30) {
-      log('INFO', `${cohort.cohort_id}: day ${dayNum} > 30, skipping`);
-      continue;
-    }
-
     const pairs = await client.query(`
       SELECT cp.id, cp.booli_id, cp.hemnet_id,
              cp.booli_views_day0, cp.hemnet_views_day0,
-             cp.dropped_booli_on, cp.dropped_hemnet_on
+             cp.dropped_booli_on, cp.dropped_hemnet_on,
+             cp.booli_listed::text AS booli_listed
       FROM cohort_pairs cp
       WHERE cp.cohort_id = $1
     `, [cohort.cohort_id]);
@@ -43,9 +41,12 @@ async function main(client, log) {
     let droppedHemnet = 0;
 
     for (const pair of pairs.rows) {
+      const dayNum = daysBetween(pair.booli_listed, today);
+      if (dayNum < 0 || dayNum > 30) continue;
+
       const exists = await client.query(
-        'SELECT 1 FROM cohort_daily_views WHERE pair_id = $1 AND day = $2',
-        [pair.id, dayNum]
+        'SELECT 1 FROM cohort_daily_views WHERE pair_id = $1 AND date = $2',
+        [pair.id, today]
       );
       if (exists.rows.length > 0) continue;
 
@@ -97,13 +98,13 @@ async function main(client, log) {
         INSERT INTO cohort_daily_views
           (cohort_id, pair_id, day, date, booli_views, hemnet_views, booli_delta, hemnet_delta)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        ON CONFLICT (pair_id, day) DO NOTHING
+        ON CONFLICT (pair_id, date) DO NOTHING
       `, [cohort.cohort_id, pair.id, dayNum, today, booliViews, hemnetViews, booliDelta, hemnetDelta]);
 
       tracked++;
     }
 
-    log('INFO', `${cohort.cohort_id}: day ${dayNum}, tracked ${tracked} pairs` +
+    log('INFO', `${cohort.cohort_id}: tracked ${tracked} pairs` +
       (droppedBooli ? `, ${droppedBooli} Booli dropped` : '') +
       (droppedHemnet ? `, ${droppedHemnet} Hemnet dropped` : ''));
 
