@@ -125,11 +125,12 @@ function printSection1(rows, levels, countyCount) {
       'Pairs'.padStart(7) +
       'H Med'.padStart(8) +
       'B Med'.padStart(8) +
-      'H/B'.padStart(8) +
+      'M/M'.padStart(8) +
       'H Mean'.padStart(8) +
-      'B Mean'.padStart(8)
+      'B Mean'.padStart(8) +
+      'Mn/Mn'.padStart(8)
     );
-    console.log('-'.repeat(51));
+    console.log('-'.repeat(59));
 
     for (let d = 0; d <= maxDay; d++) {
       const dayRows = rows.filter(r =>
@@ -141,16 +142,20 @@ function printSection1(rows, levels, countyCount) {
       const bDeltas = dayRows.map(r => r.booli_delta);
       const hMed = median(hDeltas);
       const bMed = median(bDeltas);
-      const ratio = bMed > 0 ? (hMed / bMed).toFixed(1) : '—';
+      const hMean = mean(hDeltas);
+      const bMean = mean(bDeltas);
+      const medRatio = bMed > 0 ? (hMed / bMed).toFixed(1) + 'x' : '—';
+      const meanRatio = bMean > 0 ? (hMean / bMean).toFixed(1) + 'x' : '—';
 
       console.log(
         String(d).padStart(4) +
         String(dayRows.length).padStart(7) +
         fmtNum(hMed).padStart(8) +
         fmtNum(bMed).padStart(8) +
-        String(ratio).padStart(8) +
-        fmtNum(mean(hDeltas)).padStart(8) +
-        fmtNum(mean(bDeltas)).padStart(8)
+        String(medRatio).padStart(8) +
+        fmtNum(hMean).padStart(8) +
+        fmtNum(bMean).padStart(8) +
+        String(meanRatio).padStart(8)
       );
     }
   }
@@ -174,13 +179,14 @@ function printSection2(rows, levels, countyCount) {
       'Pairs'.padStart(7) +
       'H Med'.padStart(8) +
       'B Med'.padStart(8) +
-      'H/B'.padStart(8) +
+      'M/M'.padStart(8) +
       'H Mean'.padStart(8) +
       'B Mean'.padStart(8) +
+      'Mn/Mn'.padStart(8) +
       'H P75'.padStart(8) +
       'B P75'.padStart(8)
     );
-    console.log('-'.repeat(67));
+    console.log('-'.repeat(75));
 
     for (let d = 1; d <= Math.min(maxDay, 30); d++) {
       const dayRows = rows.filter(r =>
@@ -192,21 +198,20 @@ function printSection2(rows, levels, countyCount) {
       const bDeltas = dayRows.map(r => r.booli_delta);
       const hMed = median(hDeltas);
       const bMed = median(bDeltas);
-
-      // H/B ratio: median of per-pair ratios (where booli > 0)
-      const pairRatios = dayRows
-        .filter(r => r.booli_delta > 0)
-        .map(r => r.hemnet_delta / r.booli_delta);
-      const ratioMed = pairRatios.length >= 5 ? median(pairRatios).toFixed(1) : '—';
+      const hMean = mean(hDeltas);
+      const bMean = mean(bDeltas);
+      const medRatio = bMed > 0 ? (hMed / bMed).toFixed(1) + 'x' : '—';
+      const meanRatio = bMean > 0 ? (hMean / bMean).toFixed(1) + 'x' : '—';
 
       console.log(
         String(d).padStart(4) +
         String(dayRows.length).padStart(7) +
         fmtNum(hMed).padStart(8) +
         fmtNum(bMed).padStart(8) +
-        String(ratioMed).padStart(8) +
-        fmtNum(mean(hDeltas)).padStart(8) +
-        fmtNum(mean(bDeltas)).padStart(8) +
+        String(medRatio).padStart(8) +
+        fmtNum(hMean).padStart(8) +
+        fmtNum(bMean).padStart(8) +
+        String(meanRatio).padStart(8) +
         fmtNum(percentile(hDeltas, 75)).padStart(8) +
         fmtNum(percentile(bDeltas, 75)).padStart(8)
       );
@@ -250,11 +255,12 @@ function printSection2(rows, levels, countyCount) {
       'Pairs'.padStart(7) +
       'H Med'.padStart(8) +
       'B Med'.padStart(8) +
-      'H/B'.padStart(8) +
+      'M/M'.padStart(8) +
       'H Mean'.padStart(8) +
-      'B Mean'.padStart(8)
+      'B Mean'.padStart(8) +
+      'Mn/Mn'.padStart(8)
     );
-    console.log('-'.repeat(51));
+    console.log('-'.repeat(59));
 
     for (let d = 2; d <= 30; d++) {
       if (!incr[d]) continue;
@@ -265,20 +271,20 @@ function printSection2(rows, levels, countyCount) {
       const bVals = dayRows.map(r => r.booli_incr);
       const hMed = median(hVals);
       const bMed = median(bVals);
-
-      const pairRatios = dayRows
-        .filter(r => r.booli_incr > 0)
-        .map(r => r.hemnet_incr / r.booli_incr);
-      const ratioMed = pairRatios.length >= 5 ? median(pairRatios).toFixed(1) : '—';
+      const hMean = mean(hVals);
+      const bMean = mean(bVals);
+      const medRatio = bMed > 0 ? (hMed / bMed).toFixed(1) + 'x' : '—';
+      const meanRatio = bMean > 0 ? (hMean / bMean).toFixed(1) + 'x' : '—';
 
       console.log(
         String(d).padStart(4) +
         String(dayRows.length).padStart(7) +
         fmtNum(hMed).padStart(8) +
         fmtNum(bMed).padStart(8) +
-        String(ratioMed).padStart(8) +
-        fmtNum(mean(hVals)).padStart(8) +
-        fmtNum(mean(bVals)).padStart(8)
+        String(medRatio).padStart(8) +
+        fmtNum(hMean).padStart(8) +
+        fmtNum(bMean).padStart(8) +
+        String(meanRatio).padStart(8)
       );
     }
   }
