@@ -38,18 +38,14 @@ async function run() {
   `);
   console.log('  Created: cohort_pairs');
 
-  // 3. Daily view snapshots — one row per pair per day
+  // 3. Daily view snapshots — one row per pair per date
   await client.query(`
     CREATE TABLE IF NOT EXISTS cohort_daily_views (
       id SERIAL PRIMARY KEY,
-      cohort_id TEXT NOT NULL REFERENCES cohorts(cohort_id),
       pair_id INTEGER NOT NULL REFERENCES cohort_pairs(id),
-      day INTEGER NOT NULL,                 -- 0-30
       date DATE NOT NULL,
-      booli_views INTEGER,                  -- NULL if listing was inactive
-      hemnet_views INTEGER,                 -- NULL if listing was inactive
-      booli_delta INTEGER,                  -- views - day0 views
-      hemnet_delta INTEGER,                 -- views - day0 views
+      booli_views INTEGER,
+      hemnet_views INTEGER,
       UNIQUE(pair_id, date)
     )
   `);
