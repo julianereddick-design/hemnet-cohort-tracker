@@ -17,19 +17,19 @@ async function main(client, log) {
 
   if (cohorts.rows.length === 0) {
     log('INFO', 'No active cohorts to track.');
-    return { cohortsTracked: 0, totalTracked: 0, totalDroppedBooli: 0, totalDroppedHemnet: 0 };
+    return { cohortsTracked: 0, totalTracked: 0, totalSkipped: 0, totalDroppedBooli: 0, totalDroppedHemnet: 0 };
   }
 
   log('INFO', `Tracking ${cohorts.rows.length} active cohort(s) for ${today}`);
 
   let totalTracked = 0;
+  let totalSkipped = 0;
   let totalDroppedBooli = 0;
   let totalDroppedHemnet = 0;
 
   for (const cohort of cohorts.rows) {
     const pairs = await client.query(`
       SELECT cp.id, cp.booli_id, cp.hemnet_id,
-             cp.booli_views_day0, cp.hemnet_views_day0,
              cp.dropped_booli_on, cp.dropped_hemnet_on,
              cp.booli_listed::text AS booli_listed
       FROM cohort_pairs cp
@@ -37,18 +37,16 @@ async function main(client, log) {
     `, [cohort.cohort_id]);
 
     let tracked = 0;
+    let skipped = 0;
     let droppedBooli = 0;
     let droppedHemnet = 0;
 
     for (const pair of pairs.rows) {
       const dayNum = daysBetween(pair.booli_listed, today);
-      if (dayNum < 0 || dayNum > 30) continue;
-
-      const exists = await client.query(
-        'SELECT 1 FROM cohort_daily_views WHERE pair_id = $1 AND date = $2',
-        [pair.id, today]
-      );
-      if (exists.rows.length > 0) continue;
+      if (dayNum < 0 || dayNum > 30) {
+        skipped++;
+        continue;
+      }
 
       let booliViews = null;
       let hemnetViews = null;
@@ -85,42 +83,31 @@ async function main(client, log) {
         }
       }
 
-      let booliDelta = null;
-      let hemnetDelta = null;
-      if (booliViews !== null) {
-        booliDelta = Math.max(0, booliViews - pair.booli_views_day0);
-      }
-      if (hemnetViews !== null) {
-        hemnetDelta = Math.max(0, hemnetViews - pair.hemnet_views_day0);
-      }
-
       await client.query(`
-        INSERT INTO cohort_daily_views
-          (cohort_id, pair_id, day, date, booli_views, hemnet_views, booli_delta, hemnet_delta)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO cohort_daily_views (pair_id, date, booli_views, hemnet_views)
+        VALUES ($1, $2, $3, $4)
         ON CONFLICT (pair_id, date) DO NOTHING
-      `, [cohort.cohort_id, pair.id, dayNum, today, booliViews, hemnetViews, booliDelta, hemnetDelta]);
+      `, [pair.id, today, booliViews, hemnetViews]);
 
       tracked++;
     }
 
-    log('INFO', `${cohort.cohort_id}: tracked ${tracked} pairs` +
+    log('INFO', `${cohort.cohort_id}: tracked ${tracked}, skipped ${skipped} (>30d)` +
       (droppedBooli ? `, ${droppedBooli} Booli dropped` : '') +
       (droppedHemnet ? `, ${droppedHemnet} Hemnet dropped` : ''));
 
     totalTracked += tracked;
+    totalSkipped += skipped;
     totalDroppedBooli += droppedBooli;
     totalDroppedHemnet += droppedHemnet;
   }
 
-  log('INFO', `Done. Tracked ${totalTracked} pairs total.`);
-  if (totalDroppedBooli || totalDroppedHemnet) {
-    log('INFO', `Dropped: ${totalDroppedBooli} Booli, ${totalDroppedHemnet} Hemnet`);
-  }
+  log('INFO', `Done. Tracked: ${totalTracked}, Skipped: ${totalSkipped}, Dropped: ${totalDroppedBooli} Booli / ${totalDroppedHemnet} Hemnet`);
 
   return {
     cohortsTracked: cohorts.rows.length,
     totalTracked,
+    totalSkipped,
     totalDroppedBooli,
     totalDroppedHemnet,
   };
