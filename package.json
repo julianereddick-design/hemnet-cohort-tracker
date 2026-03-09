@@ -6,10 +6,9 @@
     "setup": "node cohort-setup.js",
     "create": "node cohort-create.js",
     "track": "node cohort-track.js",
-    "report": "node cohort-report.js",
+    "report": "node cohort-report-new.js",
     "setup-cron": "node cron-setup.js",
-    "health": "node cron-health.js",
-    "views-report": "node cohort-views-report.js"
+    "health": "node cron-health.js"
   },
   "dependencies": {
     "dotenv": "^17.0.0",
