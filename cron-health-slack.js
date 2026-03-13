@@ -138,6 +138,40 @@ async function run() {
     }
   }
 
+  // Check cohort view growth — flag if most pairs had zero incremental views
+  const growthRes = await client.query(`
+    WITH latest_two AS (
+      SELECT dv.pair_id, dv.date, dv.booli_views, dv.hemnet_views,
+             ROW_NUMBER() OVER (PARTITION BY dv.pair_id ORDER BY dv.date DESC) AS rn
+      FROM cohort_daily_views dv
+      JOIN cohort_pairs cp ON cp.id = dv.pair_id
+      JOIN cohorts c ON c.cohort_id = cp.cohort_id
+      WHERE c.week_start >= CURRENT_DATE - INTERVAL '44 days'
+        AND dv.booli_views IS NOT NULL
+        AND dv.hemnet_views IS NOT NULL
+    )
+    SELECT
+      COUNT(*) AS total_pairs,
+      COUNT(*) FILTER (
+        WHERE curr.booli_views = prev.booli_views
+          AND curr.hemnet_views = prev.hemnet_views
+      ) AS zero_growth_pairs
+    FROM latest_two curr
+    JOIN latest_two prev ON prev.pair_id = curr.pair_id AND prev.rn = 2
+    WHERE curr.rn = 1
+      AND curr.date - prev.date = 1
+  `);
+
+  if (growthRes.rows.length > 0 && growthRes.rows[0].total_pairs > 0) {
+    const { total_pairs, zero_growth_pairs } = growthRes.rows[0];
+    const zeroPct = Math.round((zero_growth_pairs / total_pairs) * 100);
+    lines.push('');
+    lines.push(`:bar_chart:  *View Growth Check*  —  ${zero_growth_pairs}/${total_pairs} pairs (${zeroPct}%) had zero growth`);
+    if (zeroPct >= 80) {
+      issues.push(`Stale view data: ${zeroPct}% of pairs had zero incremental views — scrapers may be down`);
+    }
+  }
+
   await client.end();
 
   // Build Slack message
