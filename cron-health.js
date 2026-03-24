@@ -23,8 +23,13 @@ function formatTimestamp(ts) {
 function summarizeResult(scriptName, summary) {
   if (!summary) return '-';
   switch (scriptName) {
-    case 'cohort-track':
-      return `tracked=${summary.totalTracked || 0} cohorts=${summary.cohortsTracked || 0} dropped_b=${summary.totalDroppedBooli || 0} dropped_h=${summary.totalDroppedHemnet || 0}`;
+    case 'cohort-track': {
+      let s = `tracked=${summary.totalTracked || 0} cohorts=${summary.cohortsTracked || 0} dropped_b=${summary.totalDroppedBooli || 0} dropped_h=${summary.totalDroppedHemnet || 0}`;
+      if (summary.totalNullBooli || summary.totalNullHemnet) {
+        s += ` null_b=${summary.totalNullBooli || 0} null_h=${summary.totalNullHemnet || 0}`;
+      }
+      return s;
+    }
     case 'cohort-create':
       if (summary.skipped) return `skipped (${summary.cohortId} exists)`;
       return `${summary.cohortId} matched=${summary.matched || 0} unmatched=${summary.unmatched || 0} rate=${summary.matchRate || '-'}`;
@@ -141,6 +146,17 @@ async function run() {
       const s = lastSuccess.result_summary;
       if (scriptName === 'cohort-track' && s.totalTracked === 0 && s.cohortsTracked > 0) {
         issues.push(`${scriptName}: last success tracked 0 pairs with ${s.cohortsTracked} active cohorts`);
+      }
+      if (scriptName === 'cohort-track' && s.totalTracked > 0) {
+        const nullBooliPct = Math.round(((s.totalNullBooli || 0) / s.totalTracked) * 100);
+        const nullHemnetPct = Math.round(((s.totalNullHemnet || 0) / s.totalTracked) * 100);
+        if (nullBooliPct > 80) issues.push(`${scriptName}: ${nullBooliPct}% of pairs had null Booli views`);
+        if (nullHemnetPct > 80) issues.push(`${scriptName}: ${nullHemnetPct}% of pairs had null Hemnet views`);
+        const nc = s.newestCohortNullPct;
+        if (nc) {
+          if (nc.booli > 0.3) issues.push(`${scriptName}: newest cohort ${Math.round(nc.booli * 100)}% null Booli views — scraper may be down`);
+          if (nc.hemnet > 0.3) issues.push(`${scriptName}: newest cohort ${Math.round(nc.hemnet * 100)}% null Hemnet views — scraper may be down`);
+        }
       }
       if (scriptName === 'sfpl-region-snapshot' && s.rowCount !== 18) {
         issues.push(`${scriptName}: last success upserted ${s.rowCount} rows (expected 18)`);

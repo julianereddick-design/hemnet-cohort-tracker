@@ -24,8 +24,13 @@ function formatTimestamp(ts) {
 function summarizeResult(scriptName, summary) {
   if (!summary) return '';
   switch (scriptName) {
-    case 'cohort-track':
-      return `tracked=${summary.totalTracked || 0} cohorts=${summary.cohortsTracked || 0}`;
+    case 'cohort-track': {
+      let s = `tracked=${summary.totalTracked || 0} cohorts=${summary.cohortsTracked || 0}`;
+      if (summary.totalNullBooli || summary.totalNullHemnet) {
+        s += ` null_b=${summary.totalNullBooli || 0} null_h=${summary.totalNullHemnet || 0}`;
+      }
+      return s;
+    }
     case 'cohort-create':
       if (summary.skipped) return `skipped (${summary.cohortId} exists)`;
       return `${summary.cohortId} matched=${summary.matched || 0} rate=${summary.matchRate || '-'}`;
@@ -170,6 +175,46 @@ async function run() {
     if (zeroPct >= 80) {
       issues.push(`Stale view data: ${zeroPct}% of pairs had zero incremental views — scrapers may be down`);
     }
+  }
+
+  // Check per-cohort null view rates
+  const nullViewRes = await client.query(`
+    SELECT
+      cp.cohort_id,
+      COUNT(*) AS total_pairs,
+      COUNT(*) FILTER (WHERE hemnet_views IS NULL) AS null_hemnet,
+      COUNT(*) FILTER (WHERE booli_views IS NULL) AS null_booli
+    FROM cohort_daily_views dv
+    JOIN cohort_pairs cp ON cp.id = dv.pair_id
+    JOIN cohorts c ON c.cohort_id = cp.cohort_id
+    WHERE c.week_start >= CURRENT_DATE - INTERVAL '44 days'
+      AND dv.date = (SELECT MAX(date) FROM cohort_daily_views)
+    GROUP BY cp.cohort_id
+    ORDER BY cp.cohort_id
+  `);
+
+  if (nullViewRes.rows.length > 0) {
+    lines.push('');
+    lines.push(`:mag:  *View Data Quality* (latest data)`);
+    const lastIdx = nullViewRes.rows.length - 1;
+    for (let i = 0; i < nullViewRes.rows.length; i++) {
+      const r = nullViewRes.rows[i];
+      const bPct = Math.round((r.null_booli / r.total_pairs) * 100);
+      const hPct = Math.round((r.null_hemnet / r.total_pairs) * 100);
+      const warn = (bPct > 95 || hPct > 95) ? '  :warning:' : '';
+      const canary = (i === lastIdx) ? '  ← canary' : '';
+      lines.push(`      ${r.cohort_id}: ${r.null_booli}/${r.total_pairs} null Booli (${bPct}%), ${r.null_hemnet}/${r.total_pairs} null Hemnet (${hPct}%)${warn}${canary}`);
+
+      if (bPct > 95) issues.push(`Cohort ${r.cohort_id}: ${bPct}% null Booli views`);
+      if (hPct > 95) issues.push(`Cohort ${r.cohort_id}: ${hPct}% null Hemnet views`);
+    }
+
+    // Canary check: newest cohort should have low null rates
+    const newest = nullViewRes.rows[lastIdx];
+    const newestBPct = Math.round((newest.null_booli / newest.total_pairs) * 100);
+    const newestHPct = Math.round((newest.null_hemnet / newest.total_pairs) * 100);
+    if (newestBPct > 30) issues.push(`Newest cohort ${newest.cohort_id}: ${newestBPct}% null Booli views — scraper may be down`);
+    if (newestHPct > 30) issues.push(`Newest cohort ${newest.cohort_id}: ${newestHPct}% null Hemnet views — scraper may be down`);
   }
 
   await client.end();

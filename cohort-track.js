@@ -40,6 +40,9 @@ async function main(client, log) {
   let totalStreakHemnet = 0;
   let totalRecoveredBooli = 0;
   let totalRecoveredHemnet = 0;
+  let totalNullBooli = 0;
+  let totalNullHemnet = 0;
+  let newestCohortNullPct = null;
 
   for (const cohort of cohorts.rows) {
     const pairs = await client.query(`
@@ -59,6 +62,8 @@ async function main(client, log) {
     let streakIncHemnet = 0;
     let recoveredBooli = 0;
     let recoveredHemnet = 0;
+    let nullBooli = 0;
+    let nullHemnet = 0;
 
     for (const pair of pairs.rows) {
       const dayNum = daysBetween(pair.booli_listed, today);
@@ -182,6 +187,9 @@ async function main(client, log) {
         ON CONFLICT (pair_id, date) DO NOTHING
       `, [pair.id, today, booliViews, hemnetViews]);
 
+      if (booliViews === null) nullBooli++;
+      if (hemnetViews === null) nullHemnet++;
+
       tracked++;
     }
 
@@ -191,7 +199,9 @@ async function main(client, log) {
       (droppedBooli ? `, ${droppedBooli} Booli DROPPED` : '') +
       (droppedHemnet ? `, ${droppedHemnet} Hemnet DROPPED` : '') +
       (recoveredBooli ? `, ${recoveredBooli} Booli RECOVERED` : '') +
-      (recoveredHemnet ? `, ${recoveredHemnet} Hemnet RECOVERED` : ''));
+      (recoveredHemnet ? `, ${recoveredHemnet} Hemnet RECOVERED` : '') +
+      (nullBooli ? `, ${nullBooli} Booli null` : '') +
+      (nullHemnet ? `, ${nullHemnet} Hemnet null` : ''));
 
     totalTracked += tracked;
     totalSkipped += skipped;
@@ -201,12 +211,23 @@ async function main(client, log) {
     totalStreakHemnet += streakIncHemnet;
     totalRecoveredBooli += recoveredBooli;
     totalRecoveredHemnet += recoveredHemnet;
+    totalNullBooli += nullBooli;
+    totalNullHemnet += nullHemnet;
+
+    // Track newest cohort null rates (last cohort in ordered list = newest)
+    if (tracked > 0) {
+      newestCohortNullPct = {
+        booli: nullBooli / tracked,
+        hemnet: nullHemnet / tracked,
+      };
+    }
   }
 
   log('INFO', `Done. Tracked: ${totalTracked}, Skipped: ${totalSkipped}` +
     `, Dropped: ${totalDroppedBooli} Booli / ${totalDroppedHemnet} Hemnet` +
     (totalStreakBooli || totalStreakHemnet ? `, Streak++: ${totalStreakBooli} Booli / ${totalStreakHemnet} Hemnet` : '') +
-    (totalRecoveredBooli || totalRecoveredHemnet ? `, Recovered: ${totalRecoveredBooli} Booli / ${totalRecoveredHemnet} Hemnet` : ''));
+    (totalRecoveredBooli || totalRecoveredHemnet ? `, Recovered: ${totalRecoveredBooli} Booli / ${totalRecoveredHemnet} Hemnet` : '') +
+    `, NullViews: ${totalNullBooli} Booli / ${totalNullHemnet} Hemnet`);
 
   return {
     cohortsTracked: cohorts.rows.length,
@@ -218,6 +239,9 @@ async function main(client, log) {
     totalStreakHemnet,
     totalRecoveredBooli,
     totalRecoveredHemnet,
+    totalNullBooli,
+    totalNullHemnet,
+    newestCohortNullPct,
   };
 }
 
@@ -227,6 +251,19 @@ runJob({
   validate: (summary) => {
     if (summary.totalTracked === 0 && summary.cohortsTracked > 0) {
       return `0 pairs tracked across ${summary.cohortsTracked} active cohort(s) — expected hundreds`;
+    }
+    if (summary.totalTracked > 0) {
+      const warnings = [];
+      const booliPct = summary.totalNullBooli / summary.totalTracked;
+      const hemnetPct = summary.totalNullHemnet / summary.totalTracked;
+      if (booliPct > 0.8) warnings.push(`${Math.round(booliPct * 100)}% of all pairs have null Booli views`);
+      if (hemnetPct > 0.8) warnings.push(`${Math.round(hemnetPct * 100)}% of all pairs have null Hemnet views`);
+      const nc = summary.newestCohortNullPct;
+      if (nc) {
+        if (nc.booli > 0.3) warnings.push(`Newest cohort: ${Math.round(nc.booli * 100)}% null Booli views — scraper may be down`);
+        if (nc.hemnet > 0.3) warnings.push(`Newest cohort: ${Math.round(nc.hemnet * 100)}% null Hemnet views — scraper may be down`);
+      }
+      if (warnings.length > 0) return warnings.join('; ');
     }
     return null;
   },
