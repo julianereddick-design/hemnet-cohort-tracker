@@ -75,8 +75,11 @@ function buildRegionData(rows) {
 }
 
 async function main(client, log) {
-  const weeks = 8;
-  const since = weeksBack(weeks);
+  // Only collect data from 2026-03-24 onwards (historical scraper data unreliable)
+  const FLOW_START = '2026-03-24';
+  const weeks = 16;
+  const lookback = weeksBack(weeks);
+  const since = lookback > FLOW_START ? lookback : FLOW_START;
 
   await client.query(CREATE_TABLE);
 

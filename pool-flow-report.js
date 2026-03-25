@@ -39,9 +39,8 @@ function fmtDate(d) {
   return `${months[dt.getMonth()]} ${String(dt.getDate()).padStart(2)}`;
 }
 
-// ── Pool Table ──────────────────────────────────────────────────
-function buildPoolTable(rows) {
-  // Index: date -> region -> segment -> {hemnet, booli}
+// ── Pool helpers ────────────────────────────────────────────────
+function parsePoolData(rows) {
   const data = {};
   const dates = [];
   for (const r of rows) {
@@ -50,18 +49,50 @@ function buildPoolTable(rows) {
     if (!data[d][r.region]) data[d][r.region] = {};
     data[d][r.region][r.segment] = { h: r.hemnet_count, b: r.booli_count };
   }
-  dates.sort().reverse(); // most recent first
+  dates.sort().reverse();
+  return { data, dates };
+}
 
-  const W = 8; // column width
+function num(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+
+// ── Pool Raw Numbers Table ──────────────────────────────────────
+function buildPoolRawTable(data, dates) {
+  const W = 8;
   const header = 'Date   '
-    + pad('NatFS/FS', W) + pad('NatFS%', W) + pad('NatTot', W)
-    + pad('StkFS/FS', W) + pad('StkFS%', W) + pad('StkTot', W)
-    + pad('VG FS/FS', W) + pad('VG FS%', W) + pad('VG Tot', W)
-    + pad('BFS/Tot', W);
+    + pad('H FS', W) + pad('B FS', W)
+    + pad('H PM', W) + pad('B PM', W)
+    + pad('H Tot', W) + pad('B Tot', W);
 
   const sep = '-'.repeat(header.length);
-
   const lines = [header, sep];
+
+  for (const d of dates) {
+    const get = (region, seg) => (data[d]?.[region]?.[seg]) || { h: 0, b: 0 };
+    const natFS = get('National', 'fs');
+    const natPM = get('National', 'pm');
+    const natTot = get('National', 'total');
+
+    lines.push(
+      fmtDate(d).padEnd(7)
+      + pad(num(natFS.h), W) + pad(num(natFS.b), W)
+      + pad(num(natPM.h), W) + pad(num(natPM.b), W)
+      + pad(num(natTot.h), W) + pad(num(natTot.b), W)
+    );
+  }
+  return lines.join('\n');
+}
+
+// ── Pool Ratios Table ───────────────────────────────────────────
+function buildPoolRatioTable(data, dates) {
+  const W = 8;
+  const header = 'Date   '
+    + pad('NatFS/FS', W) + pad('NatFS%', W) + pad('NatTot', W) + pad('BFS/Tot', W)
+    + pad('StkFS/FS', W) + pad('StkFS%', W) + pad('StkTot', W)
+    + pad('VG FS/FS', W) + pad('VG FS%', W) + pad('VG Tot', W);
+
+  const sep = '-'.repeat(header.length);
+  const lines = [header, sep];
+
   for (const d of dates) {
     const get = (region, seg) => (data[d]?.[region]?.[seg]) || { h: 0, b: 0 };
     const natFS = get('National', 'fs');
@@ -73,16 +104,16 @@ function buildPoolTable(rows) {
 
     lines.push(
       fmtDate(d).padEnd(7)
-      + pad(pct(natFS.h, natFS.b), W)    // Nat FS/FS
-      + pad(pct(natFS.h, natTot.b), W)   // Nat FS%
-      + pad(pct(natTot.h, natTot.b), W)  // Nat Tot%
-      + pad(pct(stkFS.h, stkFS.b), W)    // Stk FS/FS
-      + pad(pct(stkFS.h, stkTot.b), W)   // Stk FS%
-      + pad(pct(stkTot.h, stkTot.b), W)  // Stk Tot%
-      + pad(pct(vgFS.h, vgFS.b), W)      // VG FS/FS
-      + pad(pct(vgFS.h, vgTot.b), W)     // VG FS%
-      + pad(pct(vgTot.h, vgTot.b), W)    // VG Tot%
-      + pad(pct(natFS.b, natTot.b), W)   // B FS/Tot
+      + pad(pct(natFS.h, natFS.b), W)
+      + pad(pct(natFS.h, natTot.b), W)
+      + pad(pct(natTot.h, natTot.b), W)
+      + pad(pct(natFS.b, natTot.b), W)
+      + pad(pct(stkFS.h, stkFS.b), W)
+      + pad(pct(stkFS.h, stkTot.b), W)
+      + pad(pct(stkTot.h, stkTot.b), W)
+      + pad(pct(vgFS.h, vgFS.b), W)
+      + pad(pct(vgFS.h, vgTot.b), W)
+      + pad(pct(vgTot.h, vgTot.b), W)
     );
   }
   return lines.join('\n');
@@ -113,10 +144,9 @@ function buildFlowTable(rows) {
 
   const W = 8;
   const header = 'Week   '
-    + pad('NatFS%', W) + pad('NatPM%', W) + pad('NatTot', W)
+    + pad('NatFS%', W) + pad('NatPM%', W) + pad('NatTot', W) + pad('BPM/Tot', W)
     + pad('StkFS%', W) + pad('StkPM%', W) + pad('StkTot', W)
-    + pad('VG FS%', W) + pad('VG PM%', W) + pad('VG Tot', W)
-    + pad('BPM/Tot', W);
+    + pad('VG FS%', W) + pad('VG PM%', W) + pad('VG Tot', W);
 
   const sep = '-'.repeat(header.length);
 
@@ -150,13 +180,13 @@ function buildFlowTable(rows) {
       + pad(pct(hNatFS, bNatFS), W)     // Nat FS%
       + pad(pct(hNatPM, bNatPM), W)     // Nat PM%
       + pad(pct(hNatTot, bNatTot), W)   // Nat Tot%
+      + pad(pct(bNatPM, bNatTot), W)    // B PM/Tot
       + pad(pct(hStkFS, bStkFS), W)     // Stk FS%
       + pad(pct(hStkPM, bStkPM), W)     // Stk PM%
       + pad(pct(hStkTot, bStkTot), W)   // Stk Tot%
       + pad(pct(hVgFS, bVgFS), W)       // VG FS%
       + pad(pct(hVgPM, bVgPM), W)       // VG PM%
       + pad(pct(hVgTot, bVgTot), W)     // VG Tot%
-      + pad(pct(bNatPM, bNatTot), W)    // B PM/Tot
     );
   }
   return lines.join('\n');
@@ -164,28 +194,51 @@ function buildFlowTable(rows) {
 
 // ── Main ────────────────────────────────────────────────────────
 async function main(client, log) {
+  // Pool: one row per week — take latest snapshot per ISO week
   const poolRes = await client.query(`
     SELECT snapshot_date, region, segment, hemnet_count, booli_count
     FROM listing_gap_weekly
     WHERE snapshot_date >= CURRENT_DATE - 112
+      AND snapshot_date = (
+        SELECT MAX(snapshot_date) FROM listing_gap_weekly lgw
+        WHERE date_trunc('week', lgw.snapshot_date) = date_trunc('week', listing_gap_weekly.snapshot_date)
+      )
     ORDER BY snapshot_date, region, segment
   `);
 
+  // Flow: only from 2026-03-24 onwards (historical data unreliable)
   const flowRes = await client.query(`
     SELECT week_start, region, platform, segment, new_listings
     FROM listing_flow_weekly
-    WHERE week_start >= CURRENT_DATE - 112
+    WHERE week_start >= '2026-03-24'
     ORDER BY week_start, region, platform, segment
   `);
 
   const today = new Date().toISOString().slice(0, 10);
-  const poolTable = buildPoolTable(poolRes.rows);
+  const { data: poolData, dates: poolDates } = parsePoolData(poolRes.rows);
+  const poolRaw = buildPoolRawTable(poolData, poolDates);
+  const poolRatios = buildPoolRatioTable(poolData, poolDates);
   const flowTable = buildFlowTable(flowRes.rows);
 
+  const key = 'Nat=National | Stk=Stockholm | VG=Västra Götaland | H=Hemnet | B=Booli\n'
+    + '\n'
+    + 'Pool:\n'
+    + 'NatFS/FS = H ForSale vs B ForSale — for sale market share nationally\n'
+    + 'NatFS%   = H ForSale vs B Total — SFPL success converting B PM to FS nationally\n'
+    + 'NatTot   = H Total vs B Total\n'
+    + 'BFS/Tot  = B ForSale / B Total — H success reducing scope of PM in market\n'
+    + '\n'
+    + 'Flow:\n'
+    + 'NatFS%   = H FS new / B FS new — for sale market share nationally\n'
+    + 'NatPM%   = H PM new / B PM new — pre-market market share nationally\n'
+    + 'NatTot   = H Tot new / B Tot new — total listings market share nationally\n'
+    + 'BPM/Tot  = B PM new / B Tot new — H success reducing PM in market';
+
   const message = `*Hemnet vs Booli — Weekly Report (${today})*\n\n`
-    + `*Pool* (active listings ≤360d, H as % of B)\n\`\`\`\n${poolTable}\n\`\`\`\n\n`
-    + `*Flow* (new listings per week, H as % of B)\n\`\`\`\n${flowTable}\n\`\`\`\n`
-    + `_Hemnet PM undercounted (~30% scraper gap)_`;
+    + `*Pool — Raw Counts* (national, active ≤360d)\n\`\`\`\n${poolRaw}\n\`\`\`\n\n`
+    + `*Pool — Ratios*\n\`\`\`\n${poolRatios}\n\`\`\`\n\n`
+    + `*Flow* (new listings per week)\n\`\`\`\n${flowTable}\n\`\`\`\n\n`
+    + `\`\`\`\n${key}\n\`\`\``;
 
   const webhookUrl = process.env.SLACK_WEBHOOK_URL;
   if (!webhookUrl) {
