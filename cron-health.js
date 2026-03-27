@@ -24,8 +24,14 @@ function summarizeResult(scriptName, summary) {
   if (!summary) return '-';
   switch (scriptName) {
     case 'cohort-track': {
-      let s = `tracked=${summary.totalTracked || 0} cohorts=${summary.cohortsTracked || 0} dropped_b=${summary.totalDroppedBooli || 0} dropped_h=${summary.totalDroppedHemnet || 0}`;
-      if (summary.totalNullBooli || summary.totalNullHemnet) {
+      let s = `tracked=${summary.totalTracked || 0} cohorts=${summary.cohortsTracked || 0}`;
+      if (summary.perCohortNull) {
+        for (const c of summary.perCohortNull) {
+          const bPct = Math.round((c.nullBooli / c.tracked) * 100);
+          const hPct = Math.round((c.nullHemnet / c.tracked) * 100);
+          s += `\n      ${c.cohortId}: null_b=${c.nullBooli}(${bPct}%) null_h=${c.nullHemnet}(${hPct}%)`;
+        }
+      } else if (summary.totalNullBooli || summary.totalNullHemnet) {
         s += ` null_b=${summary.totalNullBooli || 0} null_h=${summary.totalNullHemnet || 0}`;
       }
       return s;
@@ -147,16 +153,19 @@ async function run() {
       if (scriptName === 'cohort-track' && s.totalTracked === 0 && s.cohortsTracked > 0) {
         issues.push(`${scriptName}: last success tracked 0 pairs with ${s.cohortsTracked} active cohorts`);
       }
-      if (scriptName === 'cohort-track' && s.totalTracked > 0) {
+      if (scriptName === 'cohort-track' && s.perCohortNull) {
+        for (const c of s.perCohortNull) {
+          const bPct = Math.round((c.nullBooli / c.tracked) * 100);
+          const hPct = Math.round((c.nullHemnet / c.tracked) * 100);
+          if (bPct > 50) issues.push(`${scriptName}: ${c.cohortId} has ${bPct}% null Booli views (${c.nullBooli}/${c.tracked})`);
+          if (hPct > 50) issues.push(`${scriptName}: ${c.cohortId} has ${hPct}% null Hemnet views (${c.nullHemnet}/${c.tracked})`);
+        }
+      } else if (scriptName === 'cohort-track' && s.totalTracked > 0) {
+        // Fallback for older log entries without perCohortNull
         const nullBooliPct = Math.round(((s.totalNullBooli || 0) / s.totalTracked) * 100);
         const nullHemnetPct = Math.round(((s.totalNullHemnet || 0) / s.totalTracked) * 100);
-        if (nullBooliPct > 80) issues.push(`${scriptName}: ${nullBooliPct}% of pairs had null Booli views`);
-        if (nullHemnetPct > 80) issues.push(`${scriptName}: ${nullHemnetPct}% of pairs had null Hemnet views`);
-        const nc = s.newestCohortNullPct;
-        if (nc) {
-          if (nc.booli > 0.3) issues.push(`${scriptName}: newest cohort ${Math.round(nc.booli * 100)}% null Booli views — scraper may be down`);
-          if (nc.hemnet > 0.3) issues.push(`${scriptName}: newest cohort ${Math.round(nc.hemnet * 100)}% null Hemnet views — scraper may be down`);
-        }
+        if (nullBooliPct > 50) issues.push(`${scriptName}: ${nullBooliPct}% of pairs had null Booli views`);
+        if (nullHemnetPct > 50) issues.push(`${scriptName}: ${nullHemnetPct}% of pairs had null Hemnet views`);
       }
       if (scriptName === 'sfpl-region-snapshot' && s.rowCount !== 18) {
         issues.push(`${scriptName}: last success upserted ${s.rowCount} rows (expected 18)`);

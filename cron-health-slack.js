@@ -201,12 +201,12 @@ async function run() {
       const r = nullViewRes.rows[i];
       const bPct = Math.round((r.null_booli / r.total_pairs) * 100);
       const hPct = Math.round((r.null_hemnet / r.total_pairs) * 100);
-      const warn = (bPct > 95 || hPct > 95) ? '  :warning:' : '';
+      const warn = (bPct > 50 || hPct > 50) ? '  :warning:' : '';
       const canary = (i === lastIdx) ? '  ← canary' : '';
       lines.push(`      ${r.cohort_id}: ${r.null_booli}/${r.total_pairs} null Booli (${bPct}%), ${r.null_hemnet}/${r.total_pairs} null Hemnet (${hPct}%)${warn}${canary}`);
 
-      if (bPct > 95) issues.push(`Cohort ${r.cohort_id}: ${bPct}% null Booli views`);
-      if (hPct > 95) issues.push(`Cohort ${r.cohort_id}: ${hPct}% null Hemnet views`);
+      if (bPct > 50) issues.push(`Cohort ${r.cohort_id}: ${bPct}% null Booli views`);
+      if (hPct > 50) issues.push(`Cohort ${r.cohort_id}: ${hPct}% null Hemnet views`);
     }
 
     // Canary check: newest cohort should have low null rates

@@ -43,6 +43,7 @@ async function main(client, log) {
   let totalNullBooli = 0;
   let totalNullHemnet = 0;
   let newestCohortNullPct = null;
+  const perCohortNull = []; // { cohortId, tracked, nullBooli, nullHemnet }
 
   for (const cohort of cohorts.rows) {
     const pairs = await client.query(`
@@ -214,8 +215,15 @@ async function main(client, log) {
     totalNullBooli += nullBooli;
     totalNullHemnet += nullHemnet;
 
-    // Track newest cohort null rates (last cohort in ordered list = newest)
+    // Track per-cohort null rates
     if (tracked > 0) {
+      perCohortNull.push({
+        cohortId: cohort.cohort_id,
+        tracked,
+        nullBooli,
+        nullHemnet,
+      });
+      // Newest = last in ordered list
       newestCohortNullPct = {
         booli: nullBooli / tracked,
         hemnet: nullHemnet / tracked,
@@ -242,6 +250,7 @@ async function main(client, log) {
     totalNullBooli,
     totalNullHemnet,
     newestCohortNullPct,
+    perCohortNull,
   };
 }
 
@@ -252,19 +261,17 @@ runJob({
     if (summary.totalTracked === 0 && summary.cohortsTracked > 0) {
       return `0 pairs tracked across ${summary.cohortsTracked} active cohort(s) — expected hundreds`;
     }
-    if (summary.totalTracked > 0) {
-      const warnings = [];
-      const booliPct = summary.totalNullBooli / summary.totalTracked;
-      const hemnetPct = summary.totalNullHemnet / summary.totalTracked;
-      if (booliPct > 0.8) warnings.push(`${Math.round(booliPct * 100)}% of all pairs have null Booli views`);
-      if (hemnetPct > 0.8) warnings.push(`${Math.round(hemnetPct * 100)}% of all pairs have null Hemnet views`);
-      const nc = summary.newestCohortNullPct;
-      if (nc) {
-        if (nc.booli > 0.3) warnings.push(`Newest cohort: ${Math.round(nc.booli * 100)}% null Booli views — scraper may be down`);
-        if (nc.hemnet > 0.3) warnings.push(`Newest cohort: ${Math.round(nc.hemnet * 100)}% null Hemnet views — scraper may be down`);
+    const warnings = [];
+    // Check each cohort individually — catches outages that only affect older cohorts
+    if (summary.perCohortNull) {
+      for (const c of summary.perCohortNull) {
+        const bPct = Math.round((c.nullBooli / c.tracked) * 100);
+        const hPct = Math.round((c.nullHemnet / c.tracked) * 100);
+        if (bPct > 50) warnings.push(`${c.cohortId}: ${bPct}% null Booli (${c.nullBooli}/${c.tracked})`);
+        if (hPct > 50) warnings.push(`${c.cohortId}: ${hPct}% null Hemnet (${c.nullHemnet}/${c.tracked})`);
       }
-      if (warnings.length > 0) return warnings.join('; ');
     }
+    if (warnings.length > 0) return warnings.join('; ');
     return null;
   },
 });
