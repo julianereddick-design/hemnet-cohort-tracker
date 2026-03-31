@@ -141,6 +141,8 @@ async function run() {
   }
 
   // --- Compute per-pair incrementals ---
+  // Hemnet: 1-day delta (updates daily)
+  // Booli: 2-day delta / 2 (scraper only updates views every other day)
   // incrMap: Map<"pairId_date", { h: number, b: number }>
   const incrMap = new Map();
   for (const pair of pairs) {
@@ -151,15 +153,31 @@ async function run() {
       const gap = Math.round((currDate - prevDate) / DAY_MS);
       if (gap !== 1) continue;
 
-      const prev = viewMap.get(`${pair.id}_${pairDates[i - 1]}`);
       const curr = viewMap.get(`${pair.id}_${pairDates[i]}`);
-      if (curr.hemnet_views == null || prev.hemnet_views == null) continue;
-      if (curr.booli_views == null || prev.booli_views == null) continue;
+      const prev1 = viewMap.get(`${pair.id}_${pairDates[i - 1]}`);
 
-      incrMap.set(`${pair.id}_${pairDates[i]}`, {
-        h: curr.hemnet_views - prev.hemnet_views,
-        b: curr.booli_views - prev.booli_views,
-      });
+      // Hemnet: 1-day delta
+      let h = null;
+      if (curr.hemnet_views != null && prev1.hemnet_views != null) {
+        h = curr.hemnet_views - prev1.hemnet_views;
+      }
+
+      // Booli: 2-day lookback for daily average (scraper updates every other day)
+      let b = null;
+      if (i >= 2) {
+        const prev2Date = new Date(pairDates[i - 2]);
+        const gap2 = Math.round((currDate - prev2Date) / DAY_MS);
+        if (gap2 === 2) {
+          const prev2 = viewMap.get(`${pair.id}_${pairDates[i - 2]}`);
+          if (curr.booli_views != null && prev2.booli_views != null) {
+            b = (curr.booli_views - prev2.booli_views) / 2;
+          }
+        }
+      }
+
+      if (h !== null || b !== null) {
+        incrMap.set(`${pair.id}_${pairDates[i]}`, { h, b });
+      }
     }
   }
 
@@ -200,6 +218,7 @@ async function run() {
   const fileA = writeCsv(outDir, `cumulative.csv`, linesA);
 
   // === File B: Per-Pair Incremental Daily ===
+  // H = 1-day delta, B = 2-day daily average (Booli scraper updates every other day)
   const headerB = ['pair_id', 'booli_id', 'hemnet_id', 'street_address', 'municipality', 'county'];
   for (const d of dates) { headerB.push(`H_incr_${d}`, `B_incr_${d}`); }
   const linesB = [headerB.join(',')];
@@ -207,8 +226,8 @@ async function run() {
     const row = [pair.id, pair.booli_id, pair.hemnet_id, escapeCsv(pair.street_address), escapeCsv(pair.municipality), escapeCsv(pair.county)];
     for (const d of dates) {
       const incr = incrMap.get(`${pair.id}_${d}`);
-      row.push(incr != null ? incr.h : '');
-      row.push(incr != null ? incr.b : '');
+      row.push(incr != null && incr.h != null ? incr.h : '');
+      row.push(incr != null && incr.b != null ? fmtNum(incr.b) : '');
     }
     linesB.push(row.join(','));
   }
@@ -261,10 +280,11 @@ async function run() {
   let negCount = 0;
   let zeroCount = 0;
   for (const [, v] of incrMap) {
-    if (v.h < 0 || v.b < 0) negCount++;
+    if ((v.h != null && v.h < 0) || (v.b != null && v.b < 0)) negCount++;
     if (v.h === 0 && v.b === 0) zeroCount++;
   }
   console.log(`\nData quality: ${negCount} negative incrementals, ${zeroCount} zero-delta entries`);
+  console.log(`Note: Booli incrementals use 2-day avg (scraper updates every other day)`);
 
   await client.end();
 }
@@ -291,8 +311,8 @@ function buildAggregate(label, dates, pairs, dataMap, pairRegionMap) {
         if (val == null) continue;
         // Exclude pairs where both H and B are 0
         if (val.h === 0 && val.b === 0) continue;
-        dateValues[d].hVals.push(val.h);
-        dateValues[d].bVals.push(val.b);
+        if (val.h != null) dateValues[d].hVals.push(val.h);
+        if (val.b != null) dateValues[d].bVals.push(val.b);
       }
     }
 

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "dotenv": "^17.0.0",
+    "exceljs": "^4.4.0",
     "pg": "^8.0.0"
   }
 }
