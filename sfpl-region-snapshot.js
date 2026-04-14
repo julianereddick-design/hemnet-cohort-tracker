@@ -24,6 +24,10 @@ const CREATE_TABLE = `
   )
 `;
 
+const ADD_BOOLI_FS_COL = `
+  ALTER TABLE sfpl_region_daily ADD COLUMN IF NOT EXISTS booli_fs_count INTEGER NOT NULL DEFAULT 0
+`;
+
 const BOOLI_QUERY = `
   SELECT
     county,
@@ -42,6 +46,14 @@ const BOOLI_QUERY = `
   GROUP BY county, bucket
 `;
 
+const BOOLI_FS_QUERY = `
+  SELECT county, COUNT(*) AS cnt
+  FROM booli_listing
+  WHERE is_pre_market = false
+    AND removed IS NULL
+  GROUP BY county
+`;
+
 const HEMNET_QUERY = `
   SELECT county, COUNT(*) AS cnt
   FROM hemnet_listingv2
@@ -52,9 +64,11 @@ const HEMNET_QUERY = `
 
 async function main(client, log) {
   await client.query(CREATE_TABLE);
+  await client.query(ADD_BOOLI_FS_COL);
 
-  const [booliRes, hemnetRes] = await Promise.all([
+  const [booliRes, booliFs, hemnetRes] = await Promise.all([
     client.query(BOOLI_QUERY),
+    client.query(BOOLI_FS_QUERY),
     client.query(HEMNET_QUERY),
   ]);
 
@@ -65,6 +79,14 @@ async function main(client, log) {
     const region = countyToRegion(county);
     const key = `${region}|${r.bucket}`;
     booliByRegionBucket[key] = (booliByRegionBucket[key] || 0) + Number(r.cnt);
+  }
+
+  const booliFsByRegion = { Stockholm: 0, VG: 0, Rest: 0 };
+  for (const r of booliFs.rows) {
+    const county = normalizeCounty(r.county);
+    if (!county) continue;
+    const region = countyToRegion(county);
+    booliFsByRegion[region] += Number(r.cnt);
   }
 
   const hemnetByRegion = { Stockholm: 0, VG: 0, Rest: 0 };
@@ -79,30 +101,31 @@ async function main(client, log) {
   const regions = ['Stockholm', 'VG', 'Rest'];
 
   const UPSERT = `
-    INSERT INTO sfpl_region_daily (snapshot_date, region, age_bucket, booli_pm_count, hemnet_fs_count)
-    VALUES ($1, $2, $3, $4, $5)
+    INSERT INTO sfpl_region_daily (snapshot_date, region, age_bucket, booli_pm_count, hemnet_fs_count, booli_fs_count)
+    VALUES ($1, $2, $3, $4, $5, $6)
     ON CONFLICT (snapshot_date, region, age_bucket)
-    DO UPDATE SET booli_pm_count = EXCLUDED.booli_pm_count, hemnet_fs_count = EXCLUDED.hemnet_fs_count
+    DO UPDATE SET booli_pm_count = EXCLUDED.booli_pm_count, hemnet_fs_count = EXCLUDED.hemnet_fs_count, booli_fs_count = EXCLUDED.booli_fs_count
   `;
 
   let rowCount = 0;
   const regionSummary = {};
   for (const region of regions) {
-    let booliTotal = 0;
+    let booliPmTotal = 0;
     for (const bucket of BUCKET_ORDER) {
-      const booli = booliByRegionBucket[`${region}|${bucket}`] || 0;
+      const booliPm = booliByRegionBucket[`${region}|${bucket}`] || 0;
       const hemnet = hemnetByRegion[region];
-      await client.query(UPSERT, [today, region, bucket, booli, hemnet]);
-      booliTotal += booli;
+      const booliFs = booliFsByRegion[region];
+      await client.query(UPSERT, [today, region, bucket, booliPm, hemnet, booliFs]);
+      booliPmTotal += booliPm;
       rowCount++;
     }
-    regionSummary[region] = { booliTotal, hemnetFs: hemnetByRegion[region] };
+    regionSummary[region] = { booliPmTotal, booliFsTotal: booliFsByRegion[region], hemnetFs: hemnetByRegion[region] };
   }
 
   log('INFO', `Snapshot ${today}: upserted ${rowCount} rows`);
   for (const region of regions) {
     const s = regionSummary[region];
-    log('INFO', `  ${region}: Booli PM=${s.booliTotal}, Hemnet FS=${s.hemnetFs}`);
+    log('INFO', `  ${region}: Booli PM=${s.booliPmTotal}, Booli FS=${s.booliFsTotal}, Hemnet FS=${s.hemnetFs}`);
   }
 
   return { rowCount, regions: regionSummary };
