@@ -273,7 +273,8 @@ async function main(client, log) {
     + `*Pool — Ratios*\n\`\`\`\n${poolRatios}\n\`\`\`\n\n`
     + `*Flow — Raw Counts* (national, new per week)\n\`\`\`\n${flowRaw}\n\`\`\`\n\n`
     + `*Flow — Ratios*\n\`\`\`\n${flowRatios}\n\`\`\`\n\n`
-    + `\`\`\`\n${key}\n\`\`\``;
+    + `\`\`\`\n${key}\n\`\`\`\n\n`
+    + `<http://170.64.197.241:3800/pool-flow-dashboard.html|View Dashboard Charts>`;
 
   const webhookUrl = process.env.SLACK_WEBHOOK_URL;
   if (!webhookUrl) {
