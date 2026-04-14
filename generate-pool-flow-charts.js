@@ -99,27 +99,27 @@ async function main(client, log) {
   <div class="grid">
     <div class="card">
       <h2>1. Pool Market Share (H/B FS Ratio)</h2>
-      <div class="desc">Hemnet FS / Booli FS active listings (&le;360d). Above 100% = Hemnet has more.</div>
+      <div class="desc">Hemnet's share of for-sale listings relative to Booli. Declining = market share erosion.</div>
       <canvas id="chart1"></canvas>
     </div>
     <div class="card">
       <h2>2. Weekly Net Pool Change</h2>
-      <div class="desc">Week-on-week change in FS pool. Leading indicator of share shift.</div>
+      <div class="desc">Weekly net change in for-sale pool. Shows whether platforms are growing in step. Note: true new listing flow is hard to isolate given classification differences between platforms.</div>
       <canvas id="chart2"></canvas>
     </div>
     <div class="card">
-      <h2>3a. SFPL Test — Hemnet FS / Booli Total</h2>
-      <div class="desc">Hemnet FS / (Booli FS + PM). Rising = SFPL converting PM sellers to Hemnet FS.</div>
+      <h2>3a. SFPL Test &mdash; Hemnet FS / Booli Total</h2>
+      <div class="desc">SFPL effectiveness: Hemnet FS as a share of total Booli supply (FS + PM). Rising = SFPL is shifting sellers away from pre-market toward for-sale on Hemnet.</div>
       <canvas id="chart3a"></canvas>
     </div>
     <div class="card">
-      <h2>3b. Booli PM / Booli FS Ratio</h2>
-      <div class="desc">Booli PM as % of Booli FS. Falling = pre-market shrinking relative to for-sale.</div>
+      <h2>3b. SFPL Test &mdash; Booli PM / Booli FS</h2>
+      <div class="desc">SFPL from Booli's perspective: is pre-market shrinking as a share of Booli's for-sale pool? Falling = fewer sellers choosing pre-market.</div>
       <canvas id="chart3b"></canvas>
     </div>
     <div class="card">
-      <h2>4. Pre-Market Gap (Partnership Test)</h2>
-      <div class="desc">Hemnet PM / Booli PM (&le;180d only). Rising = Hemnet closing the pre-market gap.</div>
+      <h2>4. Pre-Market Gap (Strategic Partnerships)</h2>
+      <div class="desc">Strategic partnerships: is Hemnet gaining pre-market share? Compares Hemnet PM to Booli PM (&le;180d). Expect slow movement &mdash; partnerships take time to build pipeline.</div>
       <canvas id="chart4"></canvas>
     </div>
   </div>
