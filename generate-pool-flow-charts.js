@@ -3,106 +3,63 @@ const fs = require('fs');
 const path = require('path');
 
 async function main(client, log) {
-  // Query all pool data (National) — use to_char to avoid timezone shift
+  // Query all pool data — all regions
   const poolRes = await client.query(`
-    SELECT to_char(snapshot_date, 'YYYY-MM-DD') AS snapshot_date, segment, hemnet_count, booli_count
+    SELECT to_char(snapshot_date, 'YYYY-MM-DD') AS snapshot_date, region, segment, hemnet_count, booli_count
     FROM listing_gap_weekly
-    WHERE region = 'National'
-    ORDER BY snapshot_date, segment
+    ORDER BY snapshot_date, region, segment
   `);
 
-  // Query PM with ≤180 day filter for Chart 4
+  // Query PM ≤180d per region from sfpl_region_daily
   const pmRes = await client.query(`
-    SELECT to_char(snapshot_date, 'YYYY-MM-DD') AS snapshot_date,
-      SUM(booli_pm_count) AS booli_pm,
-      SUM(DISTINCT hemnet_fs_count) AS hemnet_fs
+    SELECT to_char(snapshot_date, 'YYYY-MM-DD') AS snapshot_date, region,
+      SUM(booli_pm_count) AS booli_pm
     FROM sfpl_region_daily
     WHERE age_bucket IN ('0-7d', '8-14d', '15-28d', '29-90d', '91-180d')
-    GROUP BY snapshot_date
-    ORDER BY snapshot_date
+    GROUP BY snapshot_date, region
+    ORDER BY snapshot_date, region
   `);
 
-  // Also query Hemnet PM per snapshot from listing_gap_weekly
-  const hmPmRes = await client.query(`
-    SELECT to_char(snapshot_date, 'YYYY-MM-DD') AS snapshot_date, hemnet_count AS hemnet_pm, booli_count AS booli_pm
-    FROM listing_gap_weekly
-    WHERE region = 'National' AND segment = 'pm'
-    ORDER BY snapshot_date
-  `);
+  // Build data structure: { region: { date: { fs: {h,b}, pm: {h,b}, pm180: {b} } } }
+  const allData = {};
+  const allDates = new Set();
 
-  // Group pool data by date (snapshot_date is already a string from to_char)
-  const byDate = {};
-  const dates = [];
   for (const r of poolRes.rows) {
+    const region = r.region;
     const d = r.snapshot_date;
-    if (!byDate[d]) { byDate[d] = {}; dates.push(d); }
-    byDate[d][r.segment] = { h: r.hemnet_count, b: r.booli_count };
+    allDates.add(d);
+    if (!allData[region]) allData[region] = {};
+    if (!allData[region][d]) allData[region][d] = {};
+    allData[region][d][r.segment] = { h: r.hemnet_count, b: r.booli_count };
   }
-  dates.sort();
 
-  // PM ≤180d data by date (from sfpl_region_daily — snapshot_date is a string)
-  const pmByDate = {};
-  const pmDates = [];
+  // Add PM ≤180d data
+  // Also compute National PM ≤180d by summing regions
+  const pm180ByDateRegion = {};
   for (const r of pmRes.rows) {
     const d = r.snapshot_date;
-    pmByDate[d] = { booliPm: parseInt(r.booli_pm) };
-    pmDates.push(d);
+    const region = r.region;
+    if (!pm180ByDateRegion[d]) pm180ByDateRegion[d] = {};
+    pm180ByDateRegion[d][region] = parseInt(r.booli_pm);
   }
 
-  // Hemnet PM by date (from listing_gap_weekly — snapshot_date is a string)
-  const hmPmByDate = {};
-  for (const r of hmPmRes.rows) {
-    const d = r.snapshot_date;
-    hmPmByDate[d] = { h: r.hemnet_pm, b: r.booli_pm };
+  // Merge PM ≤180d into allData and compute National
+  for (const d of Object.keys(pm180ByDateRegion)) {
+    const regions = pm180ByDateRegion[d];
+    let nationalPm180 = 0;
+    for (const [region, booliPm] of Object.entries(regions)) {
+      if (allData[region] && allData[region][d]) {
+        allData[region][d].pm180 = { b: booliPm };
+      }
+      nationalPm180 += booliPm;
+    }
+    if (allData['National'] && allData['National'][d]) {
+      allData['National'][d].pm180 = { b: nationalPm180 };
+    }
   }
 
-  // Cleaned dates: exclude Mar 25 (mid-week Booli scraper anomaly, 100% H/B)
-  const displayDates = dates.filter(d => d !== '2026-03-25');
-
-  // Chart 1: Pool H/B FS Ratio
-  const chart1Dates = displayDates;
-  const poolRatio = chart1Dates.map(d => {
-    const fs = byDate[d].fs || { h: 0, b: 0 };
-    return fs.b > 0 ? +(fs.h / fs.b * 100).toFixed(1) : null;
-  });
-
-  // Chart 2: Weekly Net Pool Change — only use clean weekly intervals
-  // Start from Mar 30 as baseline, skip Mar 24→30 (Booli scraper glitch in between)
-  const changeDates = displayDates.filter(d => d >= '2026-03-30');
-  const hFsChange = [];
-  const bFsChange = [];
-  const changeLabels = [];
-  for (let i = 1; i < changeDates.length; i++) {
-    const prev = byDate[changeDates[i - 1]].fs || { h: 0, b: 0 };
-    const curr = byDate[changeDates[i]].fs || { h: 0, b: 0 };
-    changeLabels.push(changeDates[i]);
-    hFsChange.push(curr.h - prev.h);
-    bFsChange.push(curr.b - prev.b);
-  }
-
-  // Chart 3a: Hemnet FS / (Booli FS + PM) — SFPL effectiveness
-  const hFsVsBooliTotal = displayDates.map(d => {
-    const fs = byDate[d].fs || { h: 0, b: 0 };
-    const pm = byDate[d].pm || { h: 0, b: 0 };
-    const booliTotal = fs.b + pm.b;
-    return booliTotal > 0 ? +(fs.h / booliTotal * 100).toFixed(1) : null;
-  });
-
-  // Chart 3b: Booli PM / Booli FS
-  const booliPmVsFs = displayDates.map(d => {
-    const fs = byDate[d].fs || { h: 0, b: 0 };
-    const pm = byDate[d].pm || { h: 0, b: 0 };
-    return fs.b > 0 ? +(pm.b / fs.b * 100).toFixed(1) : null;
-  });
-
-  // Chart 4: PM Gap Ratio = H PM / B PM (≤180d)
-  const chart4Dates = displayDates.filter(d => hmPmByDate[d] && pmByDate[d]);
-  const pmRatio = chart4Dates.map(d => {
-    const hPm = hmPmByDate[d].h;
-    const bPm = pmByDate[d].booliPm;
-    return bPm > 0 ? +(hPm / bPm * 100).toFixed(1) : null;
-  });
-
+  const dates = [...allDates].sort();
+  const regions = ['National', 'Stockholm', 'VG', 'Rest'];
   const today = new Date().toISOString().slice(0, 10);
 
   const html = `<!DOCTYPE html>
@@ -115,10 +72,11 @@ async function main(client, log) {
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; color: #1a1a2e; padding: 24px; }
-    h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+    .header { display: flex; align-items: baseline; gap: 16px; margin-bottom: 4px; }
+    h1 { font-size: 22px; font-weight: 600; }
+    select { font-size: 16px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; background: #fff; }
     .subtitle { font-size: 13px; color: #666; margin-bottom: 24px; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1400px; margin: 0 auto; }
-    .wide { grid-column: 1 / -1; }
     .card { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
     .card h2 { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: #1a1a2e; }
     .card .desc { font-size: 12px; color: #888; margin-bottom: 12px; }
@@ -127,13 +85,21 @@ async function main(client, log) {
   </style>
 </head>
 <body>
-  <h1>Hemnet vs Booli — National</h1>
+  <div class="header">
+    <h1>Hemnet vs Booli —</h1>
+    <select id="regionSelect">
+      <option value="National">National</option>
+      <option value="Stockholm">Stockholm</option>
+      <option value="VG">V&auml;stra G&ouml;taland</option>
+      <option value="Rest">Rest of Sweden</option>
+    </select>
+  </div>
   <div class="subtitle">Updated ${today} &middot; Data from listing_gap_weekly + sfpl_region_daily</div>
 
   <div class="grid">
     <div class="card">
       <h2>1. Pool Market Share (H/B FS Ratio)</h2>
-      <div class="desc">Hemnet FS / Booli FS active listings (&#8804;360d). Above 100% = Hemnet has more.</div>
+      <div class="desc">Hemnet FS / Booli FS active listings (&le;360d). Above 100% = Hemnet has more.</div>
       <canvas id="chart1"></canvas>
     </div>
     <div class="card">
@@ -153,125 +119,124 @@ async function main(client, log) {
     </div>
     <div class="card">
       <h2>4. Pre-Market Gap (Partnership Test)</h2>
-      <div class="desc">Hemnet PM / Booli PM (&#8804;180d only). Rising = Hemnet closing the pre-market gap.</div>
+      <div class="desc">Hemnet PM / Booli PM (&le;180d only). Rising = Hemnet closing the pre-market gap.</div>
       <canvas id="chart4"></canvas>
     </div>
   </div>
 
   <script>
-    const fmt = (d) => { const dt = new Date(d); return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); };
+    const ALL_DATA = ${JSON.stringify(allData)};
+    const ALL_DATES = ${JSON.stringify(dates)};
 
-    const blue = '#2563eb';
-    const orange = '#f59e0b';
-    const green = '#10b981';
-    const red = '#ef4444';
+    const fmt = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    const blue = '#2563eb', orange = '#f59e0b', green = '#10b981';
 
-    // Chart 1: Pool H/B Ratio (excl Mar 24)
-    new Chart(document.getElementById('chart1'), {
-      type: 'line',
-      data: {
-        labels: ${JSON.stringify(chart1Dates)}.map(fmt),
-        datasets: [{
-          label: 'H/B FS Ratio %',
-          data: ${JSON.stringify(poolRatio)},
-          borderColor: blue,
-          backgroundColor: blue + '20',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 4,
-        }]
-      },
-      options: {
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { title: { display: true, text: 'H/B %' }, suggestedMin: 80, suggestedMax: 100 }
-        }
+    const charts = {};
+
+    function renderCharts(region) {
+      // Destroy existing
+      Object.values(charts).forEach(c => c.destroy());
+
+      const data = ALL_DATA[region] || {};
+      const dates = ALL_DATES.filter(d => data[d]);
+      // Exclude Mar 25 anomaly
+      const displayDates = dates.filter(d => d !== '2026-03-25');
+
+      // Chart 1: H/B FS ratio
+      const poolRatio = displayDates.map(d => {
+        const fs = data[d]?.fs || { h: 0, b: 0 };
+        return fs.b > 0 ? +(fs.h / fs.b * 100).toFixed(1) : null;
+      });
+
+      charts.c1 = new Chart(document.getElementById('chart1'), {
+        type: 'line',
+        data: {
+          labels: displayDates.map(fmt),
+          datasets: [{ label: 'H/B FS %', data: poolRatio, borderColor: blue, backgroundColor: blue + '20', fill: true, tension: 0.3, pointRadius: 4 }]
+        },
+        options: { plugins: { legend: { display: false } }, scales: { y: { title: { display: true, text: 'H/B %' }, suggestedMin: 80, suggestedMax: 100 } } }
+      });
+
+      // Chart 2: Net pool change (skip first unreliable interval)
+      const changeDates = displayDates.filter(d => d >= '2026-03-30');
+      const changeLabels = [], hChg = [], bChg = [];
+      for (let i = 1; i < changeDates.length; i++) {
+        const prev = data[changeDates[i-1]]?.fs || { h: 0, b: 0 };
+        const curr = data[changeDates[i]]?.fs || { h: 0, b: 0 };
+        changeLabels.push(changeDates[i]);
+        hChg.push(curr.h - prev.h);
+        bChg.push(curr.b - prev.b);
       }
-    });
 
-    // Chart 2: Net Pool Change (excl unreliable weeks)
-    new Chart(document.getElementById('chart2'), {
-      type: 'bar',
-      data: {
-        labels: ${JSON.stringify(changeLabels)}.map(fmt),
-        datasets: [
-          { label: 'Hemnet FS', data: ${JSON.stringify(hFsChange)}, backgroundColor: blue },
-          { label: 'Booli FS', data: ${JSON.stringify(bFsChange)}, backgroundColor: orange },
-        ]
-      },
-      options: {
-        plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
-        scales: { y: { title: { display: true, text: 'Net Change' } } }
-      }
-    });
+      charts.c2 = new Chart(document.getElementById('chart2'), {
+        type: 'bar',
+        data: {
+          labels: changeLabels.map(fmt),
+          datasets: [
+            { label: 'Hemnet FS', data: hChg, backgroundColor: blue },
+            { label: 'Booli FS', data: bChg, backgroundColor: orange },
+          ]
+        },
+        options: { plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } }, scales: { y: { title: { display: true, text: 'Net Change' } } } }
+      });
 
-    // Chart 3a: Hemnet FS / (Booli FS + PM)
-    new Chart(document.getElementById('chart3a'), {
-      type: 'line',
-      data: {
-        labels: ${JSON.stringify(displayDates)}.map(fmt),
-        datasets: [{
-          label: 'H FS / (B FS + B PM) %',
-          data: ${JSON.stringify(hFsVsBooliTotal)},
-          borderColor: blue,
-          backgroundColor: blue + '20',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 4,
-        }]
-      },
-      options: {
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { title: { display: true, text: '%' } }
-        }
-      }
-    });
+      // Chart 3a: H FS / (B FS + B PM)
+      const sfpl = displayDates.map(d => {
+        const fs = data[d]?.fs || { h: 0, b: 0 };
+        const pm = data[d]?.pm || { h: 0, b: 0 };
+        const total = fs.b + pm.b;
+        return total > 0 ? +(fs.h / total * 100).toFixed(1) : null;
+      });
 
-    // Chart 3b: Booli PM / Booli FS
-    new Chart(document.getElementById('chart3b'), {
-      type: 'line',
-      data: {
-        labels: ${JSON.stringify(displayDates)}.map(fmt),
-        datasets: [{
-          label: 'Booli PM / Booli FS %',
-          data: ${JSON.stringify(booliPmVsFs)},
-          borderColor: orange,
-          backgroundColor: orange + '20',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 4,
-        }]
-      },
-      options: {
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { title: { display: true, text: '%' } }
-        }
-      }
-    });
+      charts.c3a = new Chart(document.getElementById('chart3a'), {
+        type: 'line',
+        data: {
+          labels: displayDates.map(fmt),
+          datasets: [{ label: 'H FS / (B FS+PM) %', data: sfpl, borderColor: blue, backgroundColor: blue + '20', fill: true, tension: 0.3, pointRadius: 4 }]
+        },
+        options: { plugins: { legend: { display: false } }, scales: { y: { title: { display: true, text: '%' } } } }
+      });
 
-    // Chart 4: PM Gap (≤180d)
-    new Chart(document.getElementById('chart4'), {
-      type: 'line',
-      data: {
-        labels: ${JSON.stringify(chart4Dates)}.map(fmt),
-        datasets: [{
-          label: 'H PM / B PM (≤180d) %',
-          data: ${JSON.stringify(pmRatio)},
-          borderColor: green,
-          backgroundColor: green + '20',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 4,
-        }]
-      },
-      options: {
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { title: { display: true, text: 'H/B PM %' }, suggestedMin: 15, suggestedMax: 30 }
-        }
-      }
+      // Chart 3b: B PM / B FS
+      const pmFs = displayDates.map(d => {
+        const fs = data[d]?.fs || { h: 0, b: 0 };
+        const pm = data[d]?.pm || { h: 0, b: 0 };
+        return fs.b > 0 ? +(pm.b / fs.b * 100).toFixed(1) : null;
+      });
+
+      charts.c3b = new Chart(document.getElementById('chart3b'), {
+        type: 'line',
+        data: {
+          labels: displayDates.map(fmt),
+          datasets: [{ label: 'B PM / B FS %', data: pmFs, borderColor: orange, backgroundColor: orange + '20', fill: true, tension: 0.3, pointRadius: 4 }]
+        },
+        options: { plugins: { legend: { display: false } }, scales: { y: { title: { display: true, text: '%' } } } }
+      });
+
+      // Chart 4: H PM / B PM (≤180d)
+      const pm180Dates = displayDates.filter(d => data[d]?.pm && data[d]?.pm180);
+      const pmGap = pm180Dates.map(d => {
+        const hPm = data[d].pm.h;
+        const bPm = data[d].pm180.b;
+        return bPm > 0 ? +(hPm / bPm * 100).toFixed(1) : null;
+      });
+
+      charts.c4 = new Chart(document.getElementById('chart4'), {
+        type: 'line',
+        data: {
+          labels: pm180Dates.map(fmt),
+          datasets: [{ label: 'H PM / B PM (≤180d) %', data: pmGap, borderColor: green, backgroundColor: green + '20', fill: true, tension: 0.3, pointRadius: 4 }]
+        },
+        options: { plugins: { legend: { display: false } }, scales: { y: { title: { display: true, text: 'H/B PM %' }, suggestedMin: 15, suggestedMax: 30 } } }
+      });
+    }
+
+    // Initial render
+    renderCharts('National');
+
+    // Dropdown handler
+    document.getElementById('regionSelect').addEventListener('change', (e) => {
+      renderCharts(e.target.value);
     });
   </script>
 </body>
@@ -283,7 +248,7 @@ async function main(client, log) {
   fs.writeFileSync(outPath, html);
   log('INFO', `Dashboard written to ${outPath}`);
 
-  return { dates: dates.length, chartDataPoints: poolRatio.length };
+  return { dates: dates.length, regions: regions.length };
 }
 
 runJob({
