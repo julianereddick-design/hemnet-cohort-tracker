@@ -28,7 +28,7 @@ const HEMNET_QUERY = `
     date_trunc('week', crawled)::date AS week_start,
     county,
     CASE WHEN is_pre_market = true THEN 'pm' ELSE 'fs' END AS segment,
-    COUNT(*)::int AS new_listings
+    COUNT(DISTINCT hemnet_id)::int AS new_listings
   FROM hemnet_listingv2
   WHERE crawled >= $1
   GROUP BY 1, 2, 3

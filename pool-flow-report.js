@@ -119,9 +119,37 @@ function buildPoolRatioTable(data, dates) {
   return lines.join('\n');
 }
 
-// ── Flow Table ──────────────────────────────────────────────────
-function buildFlowTable(rows) {
-  // Index: week -> region -> platform -> segment -> count
+// ── Flow Raw Numbers Table ──────────────────────────────────────
+function buildFlowRawTable(rows, display, data) {
+  const W = 8;
+  const header = 'Week   '
+    + pad('H FS', W) + pad('B FS', W)
+    + pad('H PM', W) + pad('B PM', W)
+    + pad('H Tot', W) + pad('B Tot', W);
+
+  const sep = '-'.repeat(header.length);
+  const lines = [header, sep];
+
+  for (const w of display) {
+    const get = (region, platform, seg) => data[w]?.[region]?.[platform]?.[seg] || 0;
+
+    const hNatFS = get('National', 'hemnet', 'fs');
+    const hNatPM = get('National', 'hemnet', 'pm');
+    const bNatFS = get('National', 'booli', 'fs');
+    const bNatPM = get('National', 'booli', 'pm');
+
+    lines.push(
+      fmtDate(w).padEnd(7)
+      + pad(num(hNatFS), W) + pad(num(bNatFS), W)
+      + pad(num(hNatPM), W) + pad(num(bNatPM), W)
+      + pad(num(hNatFS + hNatPM), W) + pad(num(bNatFS + bNatPM), W)
+    );
+  }
+  return lines.join('\n');
+}
+
+// ── Flow Data Parser ────────────────────────────────────────────
+function parseFlowData(rows) {
   const data = {};
   const weeks = new Set();
   for (const r of rows) {
@@ -133,15 +161,19 @@ function buildFlowTable(rows) {
     data[w][r.region][r.platform][r.segment] = r.new_listings;
   }
 
-  // Sort weeks, exclude current partial week (most recent)
+  // Sort weeks, exclude current partial week
   const sorted = [...weeks].sort();
-  // Remove the last week if it's the current week
   const now = new Date();
   const currentWeekStart = new Date(now);
   currentWeekStart.setDate(now.getDate() - now.getDay() + 1); // Monday
   const currentWeekStr = currentWeekStart.toISOString().slice(0, 10);
   const display = sorted.filter(w => w < currentWeekStr).reverse();
 
+  return { data, display };
+}
+
+// ── Flow Ratios Table ───────────────────────────────────────────
+function buildFlowRatioTable(display, data) {
   const W = 8;
   const header = 'Week   '
     + pad('NatFS%', W) + pad('NatPM%', W) + pad('NatTot', W) + pad('BPM/Tot', W)
@@ -218,7 +250,9 @@ async function main(client, log) {
   const { data: poolData, dates: poolDates } = parsePoolData(poolRes.rows);
   const poolRaw = buildPoolRawTable(poolData, poolDates);
   const poolRatios = buildPoolRatioTable(poolData, poolDates);
-  const flowTable = buildFlowTable(flowRes.rows);
+  const { data: flowData, display: flowDisplay } = parseFlowData(flowRes.rows);
+  const flowRaw = buildFlowRawTable(flowRes.rows, flowDisplay, flowData);
+  const flowRatios = buildFlowRatioTable(flowDisplay, flowData);
 
   const key = 'Nat=National | Stk=Stockholm | VG=Västra Götaland | H=Hemnet | B=Booli\n'
     + '\n'
@@ -237,7 +271,8 @@ async function main(client, log) {
   const message = `*Hemnet vs Booli — Weekly Report (${today})*\n\n`
     + `*Pool — Raw Counts* (national, active ≤360d)\n\`\`\`\n${poolRaw}\n\`\`\`\n\n`
     + `*Pool — Ratios*\n\`\`\`\n${poolRatios}\n\`\`\`\n\n`
-    + `*Flow* (new listings per week)\n\`\`\`\n${flowTable}\n\`\`\`\n\n`
+    + `*Flow — Raw Counts* (national, new per week)\n\`\`\`\n${flowRaw}\n\`\`\`\n\n`
+    + `*Flow — Ratios*\n\`\`\`\n${flowRatios}\n\`\`\`\n\n`
     + `\`\`\`\n${key}\n\`\`\``;
 
   const webhookUrl = process.env.SLACK_WEBHOOK_URL;
