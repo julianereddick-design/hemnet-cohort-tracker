@@ -516,7 +516,98 @@ function validate(summary) {
 }
 
 // ---------------------------------------------------------------
-// --smoke block goes here in Task 2 (BEFORE the runJob call).
+// --smoke: pure-function self-test of normalizePostcode, cardMatches,
+// and shapeListingForDb. No DB, no network. Used by Task 2 verify.
+// Exits 0 on pass, 1 on fail. MUST short-circuit before runJob() below.
 // ---------------------------------------------------------------
+
+if (process.argv.includes('--smoke')) {
+  const assert = require('assert');
+  let pass = 0;
+  let fail = 0;
+  function check(name, fn) {
+    try { fn(); pass++; }
+    catch (e) { console.error(`SMOKE FAIL [${name}]: ${e.message}`); fail++; }
+  }
+
+  // --- postcode normalize ---
+  check('postcode: 176 71 normalises to 17671', () => {
+    assert.strictEqual(normalizePostcode('176 71'), '17671');
+  });
+  check('postcode: 17671 stays 17671', () => {
+    assert.strictEqual(normalizePostcode('17671'), '17671');
+  });
+  check('postcode: cross-form equality (Booli vs Hemnet)', () => {
+    assert.strictEqual(normalizePostcode('176 71'), normalizePostcode('17671'));
+  });
+  check('postcode: multi-space collapsed', () => {
+    assert.strictEqual(normalizePostcode('176  71'), '17671');
+  });
+  check('postcode: leading/trailing trimmed', () => {
+    assert.strictEqual(normalizePostcode('  176 71  '), '17671');
+  });
+
+  // --- match filter ---
+  const booliListedSec = 1714521600; // 2026-04-30 fixed reference
+  const booliStreetLower = 'storgatan 5';
+  const SEVEN = 7 * 86400;
+  const m = (card) => cardMatches(card, booliStreetLower, booliListedSec);
+
+  check('match: case+trim equality, same publishedAt', () => {
+    assert.strictEqual(m({ streetAddress: '  STORGATAN 5  ', publishedAt: booliListedSec, upcoming: false }), true);
+  });
+  check('match: different street rejected', () => {
+    assert.strictEqual(m({ streetAddress: 'Annan väg 1', publishedAt: booliListedSec, upcoming: false }), false);
+  });
+  check('match: +7d boundary inclusive', () => {
+    assert.strictEqual(m({ streetAddress: 'Storgatan 5', publishedAt: booliListedSec + SEVEN, upcoming: false }), true);
+  });
+  check('match: -7d boundary inclusive', () => {
+    assert.strictEqual(m({ streetAddress: 'Storgatan 5', publishedAt: booliListedSec - SEVEN, upcoming: false }), true);
+  });
+  check('match: +7d + 1s rejected', () => {
+    assert.strictEqual(m({ streetAddress: 'Storgatan 5', publishedAt: booliListedSec + SEVEN + 1, upcoming: false }), false);
+  });
+  check('match: null streetAddress rejected', () => {
+    assert.strictEqual(m({ streetAddress: null, publishedAt: booliListedSec, upcoming: false }), false);
+  });
+  check('match: null publishedAt rejected', () => {
+    assert.strictEqual(m({ streetAddress: 'Storgatan 5', publishedAt: null, upcoming: false }), false);
+  });
+  check('match: upcoming=true rejected', () => {
+    assert.strictEqual(m({ streetAddress: 'Storgatan 5', publishedAt: booliListedSec, upcoming: true }), false);
+  });
+
+  // --- field mapping (4 counties + null) ---
+  const mapCases = [
+    { in: { municipality: { fullName: 'Järfälla kommun' }, county: { fullName: 'Stockholms län' },
+            streetAddress: 'Filarvägen 3', postCode: '17671', timesViewed: 1234, isUpcoming: false, publishedAt: 1714521600 },
+      out: { municipality: 'Järfälla', county: 'Stockholms', street_address: 'Filarvägen 3', postcode: '17671',
+             times_viewed: 1234, is_pre_market: false, published_at_seconds: 1714521600 } },
+    { in: { municipality: { fullName: 'Göteborgs kommun' }, county: { fullName: 'Västra Götalands län' },
+            streetAddress: 'X', postCode: '40000', timesViewed: 0, isUpcoming: true, publishedAt: 1 },
+      out: { municipality: 'Göteborgs', county: 'Västra Götalands' } },
+    { in: { municipality: { fullName: 'Malmö kommun' }, county: { fullName: 'Skåne län' },
+            streetAddress: 'Y', postCode: '20000', timesViewed: 5, isUpcoming: false, publishedAt: 2 },
+      out: { municipality: 'Malmö', county: 'Skåne' } },
+    { in: { municipality: { fullName: 'Uppsala kommun' }, county: { fullName: 'Uppsala län' },
+            streetAddress: 'Z', postCode: '75000', timesViewed: 10, isUpcoming: false, publishedAt: 3 },
+      out: { municipality: 'Uppsala', county: 'Uppsala' } },
+    { in: { municipality: { fullName: null }, county: { fullName: null },
+            streetAddress: null, postCode: null, timesViewed: null, isUpcoming: false, publishedAt: null },
+      out: { municipality: null, county: null } },
+  ];
+  for (const c of mapCases) {
+    check(`map: muni=${c.in.municipality.fullName} county=${c.in.county.fullName}`, () => {
+      const got = shapeListingForDb(c.in);
+      for (const k of Object.keys(c.out)) {
+        assert.strictEqual(got[k], c.out[k], `field ${k}: got ${JSON.stringify(got[k])}, want ${JSON.stringify(c.out[k])}`);
+      }
+    });
+  }
+
+  console.log(`smoke: ${pass} pass, ${fail} fail`);
+  process.exit(fail === 0 ? 0 : 1);
+}
 
 runJob({ scriptName: 'hemnet-targeted-match', main, validate });
