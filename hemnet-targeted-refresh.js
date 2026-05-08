@@ -269,4 +269,102 @@ function validate(summary) {
   return null;
 }
 
+// ---------------------------------------------------------------
+// --smoke: pure-function self-test of shapeListingForDb. No DB,
+// no network. Used by Task 2 verify. Exits 0 on pass, 1 on fail.
+// ---------------------------------------------------------------
+if (process.argv.includes('--smoke')) {
+  const assert = require('assert');
+  const cases = [
+    {
+      in: {
+        municipality: { fullName: 'Järfälla kommun' },
+        county: { fullName: 'Stockholms län' },
+        streetAddress: 'Filarvägen 3',
+        postCode: '17671',
+        timesViewed: 1234,
+        isUpcoming: false,
+        publishedAt: 1714521600,
+      },
+      out: {
+        municipality: 'Järfälla',
+        county: 'Stockholms',
+        street_address: 'Filarvägen 3',
+        postcode: '17671',
+        times_viewed: 1234,
+        is_pre_market: false,
+        published_at_seconds: 1714521600,
+      },
+    },
+    {
+      in: {
+        municipality: { fullName: 'Göteborgs kommun' },
+        county: { fullName: 'Västra Götalands län' },
+        streetAddress: 'X',
+        postCode: '40000',
+        timesViewed: 0,
+        isUpcoming: true,
+        publishedAt: 1,
+      },
+      out: { municipality: 'Göteborgs', county: 'Västra Götalands' },
+    },
+    {
+      in: {
+        municipality: { fullName: null },
+        county: { fullName: null },
+        streetAddress: null,
+        postCode: null,
+        timesViewed: null,
+        isUpcoming: false,
+        publishedAt: null,
+      },
+      out: { municipality: null, county: null },
+    },
+    {
+      in: {
+        municipality: { fullName: 'Malmö kommun' },
+        county: { fullName: 'Skåne län' },
+        streetAddress: 'Y',
+        postCode: '20000',
+        timesViewed: 5,
+        isUpcoming: false,
+        publishedAt: 2,
+      },
+      out: { municipality: 'Malmö', county: 'Skåne' },
+    },
+    {
+      in: {
+        municipality: { fullName: 'Uppsala kommun' },
+        county: { fullName: 'Uppsala län' },
+        streetAddress: 'Z',
+        postCode: '75000',
+        timesViewed: 10,
+        isUpcoming: false,
+        publishedAt: 3,
+      },
+      out: { municipality: 'Uppsala', county: 'Uppsala' },
+    },
+  ];
+  let pass = 0;
+  let fail = 0;
+  for (const c of cases) {
+    try {
+      const got = shapeListingForDb(c.in);
+      for (const k of Object.keys(c.out)) {
+        assert.strictEqual(
+          got[k],
+          c.out[k],
+          `field ${k}: got ${JSON.stringify(got[k])}, want ${JSON.stringify(c.out[k])}`,
+        );
+      }
+      pass++;
+    } catch (e) {
+      console.error(`SMOKE FAIL: ${e.message}`);
+      fail++;
+    }
+  }
+  console.log(`smoke: ${pass} pass, ${fail} fail`);
+  process.exit(fail === 0 ? 0 : 1);
+}
+
 runJob({ scriptName: 'hemnet-targeted-refresh', main, validate });
