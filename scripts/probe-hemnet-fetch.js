@@ -1,13 +1,25 @@
 // scripts/probe-hemnet-fetch.js — VERF-01 manual probe.
 //
 // Picks 5 active cohort hemnet_ids (newest cohorts first), fetches each
-// via lib/hemnet-fetch, and compares postCode / is_active / times_viewed
-// against hemnet_listingv2. Mirrors cohort-track.js:153's duplicate-row
-// aggregation pattern: MAX(times_viewed) WHERE is_active = true.
+// via lib/hemnet-fetch, and validates parser correctness against the
+// latest active hemnet_listingv2 row. Mirrors cohort-track.js:153's
+// duplicate-row aggregation pattern: MAX(times_viewed) WHERE is_active = true.
 //
-// Hard-pass requires: status match (live active <-> DB is_active),
-// postCode exact match (after .trim()), times_viewed within ±20%.
-// streetAddress mismatch is logged but NOT a hard fail.
+// Pass criteria for each id (any one of):
+//   A) Live active + postCode exact match + timesViewed is positive int +
+//      municipality.fullName ends with " kommun"
+//      → parser is correct; views_drift is informational (DB stale because
+//      external scraper has been dead — that's why we're rebuilding).
+//   B) Live inactive + DB inactive → both agree, no signal.
+//   C) Live inactive + DB active → INFORMATIONAL (DB stale; Phase 7 will
+//      reconcile via streak/drop logic). Counted as "stale" not "fail".
+// Hard fail:
+//   - postCode MISMATCH on a live-active row (real parser bug)
+//   - parser exception or persistent fetch error after retries
+//   - municipality.fullName does NOT end with " kommun" on a live-active row
+// streetAddress comparison is a soft check (Hemnet normalises whitespace).
+//
+// 1.5 second sleep between requests to stay polite to Cloudflare.
 //
 // Read-only. Not wired to cron. Run manually:
 //   cd hemnet-cohort-tracker && node scripts/probe-hemnet-fetch.js
@@ -104,9 +116,29 @@ async function probeOne(client, id) {
 
   const addressMatch = dbAddr != null && liveAddr != null && dbAddr === liveAddr;
 
-  // Hard pass: status, postCode, times_viewed within ±20%.
-  // streetAddress is a soft check (Hemnet sometimes normalises whitespace).
-  const hardPass = statusMatch && postcodeMatch && viewsWithinTolerance;
+  const liveMunicipality = liveActive && live.listing && live.listing.municipality
+    ? live.listing.municipality.fullName
+    : null;
+  const municipalityKommun = typeof liveMunicipality === 'string'
+    && liveMunicipality.endsWith(' kommun');
+
+  // Pass logic — see header comment for full criteria.
+  // - Active + parser-correct (postCode + kommun + positive views) -> PASS
+  // - Inactive + DB inactive -> PASS (both agree)
+  // - Inactive + DB active -> STALE (informational, not a fail; expected
+  //   while the external scraper is dead — Phase 7 will reconcile)
+  // - Active + postCode mismatch -> HARD FAIL (parser bug)
+  let verdict;
+  if (liveActive) {
+    const parserOk = postcodeMatch
+      && typeof liveViews === 'number' && Number.isInteger(liveViews) && liveViews >= 0
+      && municipalityKommun;
+    verdict = parserOk ? 'PASS' : 'FAIL';
+  } else if (!dbActive) {
+    verdict = 'PASS';
+  } else {
+    verdict = 'STALE';
+  }
 
   return {
     id,
@@ -120,7 +152,9 @@ async function probeOne(client, id) {
     viewsDriftPct,
     viewsWithinTolerance,
     addressMatch,
-    hardPass,
+    liveMunicipality,
+    municipalityKommun,
+    verdict,
     liveReason: liveActive ? null : (live.reason || 'unknown'),
   };
 }
@@ -149,7 +183,11 @@ async function main() {
     }
 
     const results = [];
-    for (const id of ids) {
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      if (i > 0) {
+        await new Promise((r) => setTimeout(r, 1500)); // pace to avoid Cloudflare
+      }
       try {
         const r = await probeOne(client, id);
         results.push(r);
@@ -159,7 +197,8 @@ async function main() {
           id, dbActive: null, liveActive: null,
           dbPostcode: null, livePostcode: null, postcodeMatch: false,
           dbViews: null, liveViews: null, viewsDriftPct: null,
-          viewsWithinTolerance: false, addressMatch: false, hardPass: false,
+          viewsWithinTolerance: false, addressMatch: false,
+          liveMunicipality: null, municipalityKommun: false, verdict: 'FAIL',
           liveReason: `error: ${err && err.message}`,
         });
       }
@@ -169,37 +208,46 @@ async function main() {
     console.log('');
     console.log(
       fmt('hemnet_id', 12),
-      fmt('status', 16),
-      fmt('postCode', 14),
+      fmt('verdict', 8),
+      fmt('live', 10),
+      fmt('postCode', 16),
       fmt('views_drift', 14),
-      fmt('address', 8),
+      fmt('municipality', 22),
     );
-    console.log('-'.repeat(70));
+    console.log('-'.repeat(86));
     for (const r of results) {
-      const statusCol = r.liveActive
-        ? (r.dbActive ? 'active=active' : 'active!=db_inactive')
-        : (r.dbActive ? `${r.liveReason || 'inactive'}!=db_active` : `${r.liveReason || 'inactive'}=inactive`);
-      const postcodeCol = r.postcodeMatch
-        ? `OK ${r.livePostcode || ''}`
-        : `MISMATCH live=${r.livePostcode}/db=${r.dbPostcode}`;
-      const driftCol = `${fmtDrift(r.viewsDriftPct)}${r.viewsWithinTolerance ? ' OK' : ' BAD'}`;
-      const addrCol = r.addressMatch ? 'OK' : 'DIFF';
+      const liveCol = r.liveActive ? 'active' : (r.liveReason || 'inactive');
+      const postcodeCol = r.liveActive
+        ? (r.postcodeMatch
+            ? `OK ${r.livePostcode || ''}`
+            : `MISMATCH ${r.livePostcode || '-'}/${r.dbPostcode || '-'}`)
+        : '-';
+      const driftCol = r.liveActive
+        ? `${fmtDrift(r.viewsDriftPct)}${r.viewsWithinTolerance ? ' fresh' : ' stale'}`
+        : '-';
+      const munCol = r.liveActive
+        ? (r.municipalityKommun ? r.liveMunicipality : `BAD ${r.liveMunicipality || '?'}`)
+        : '-';
       console.log(
         fmt(String(r.id), 12),
-        fmt(statusCol, 16),
-        fmt(postcodeCol, 14),
+        fmt(r.verdict, 8),
+        fmt(liveCol, 10),
+        fmt(postcodeCol, 16),
         fmt(driftCol, 14),
-        fmt(addrCol, 8),
+        fmt(munCol, 22),
       );
     }
     console.log('');
 
-    const passed = results.filter((r) => r.hardPass).length;
+    const passed = results.filter((r) => r.verdict === 'PASS').length;
+    const stale  = results.filter((r) => r.verdict === 'STALE').length;
+    const failed = results.filter((r) => r.verdict === 'FAIL').length;
     const total = results.length;
-    const summary = `SUMMARY: ${passed === total && total > 0 ? 'PASSED' : 'FAILED'} ${passed}/${total}`;
+    const ok = failed === 0 && total > 0;
+    const summary = `SUMMARY: ${ok ? 'PASSED' : 'FAILED'} ${passed}/${total} (stale: ${stale}, failed: ${failed})`;
     logger('INFO', summary);
 
-    process.exit(passed === total && total > 0 ? 0 : 1);
+    process.exit(ok ? 0 : 1);
   } finally {
     try { await client.end(); } catch (_) { /* best effort */ }
   }
