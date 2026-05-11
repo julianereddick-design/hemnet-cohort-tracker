@@ -14,7 +14,11 @@
 'use strict';
 
 const { runJob } = require('./cron-wrapper');
-const { fetchDetail } = require('./lib/hemnet-fetch');
+const {
+  fetchDetail,
+  getOxylabsStats,
+  resetOxylabsStats,
+} = require('./lib/hemnet-fetch');
 
 // ---------------------------------------------------------------
 // CLI parsing
@@ -193,6 +197,9 @@ async function main(client, log) {
   const { limit, dryRun } = parseArgs(process.argv);
   const startMs = Date.now();
 
+  // Phase 7.1: reset per-run Oxylabs counters before any fetch.
+  resetOxylabsStats();
+
   // 1. Locked cohort-id SELECT (REFR-01).
   const idsRes = await client.query(`
     SELECT DISTINCT cp.hemnet_id
@@ -247,6 +254,13 @@ async function main(client, log) {
   await Promise.all([worker(), worker()]);
 
   summary.durationMs = Date.now() - startMs;
+
+  // Phase 7.1: Oxylabs fallback usage stats from lib/hemnet-fetch.js.
+  const _oxStats = getOxylabsStats();
+  summary.oxylabsCallCount = _oxStats.oxylabsCallCount;
+  summary.oxylabsFailureCount = _oxStats.oxylabsFailureCount;
+  summary.oxylabsFallbackRate = _oxStats.oxylabsFallbackRate;
+
   log('INFO', `Final: ${JSON.stringify(summary)}`);
   return summary;
 }
@@ -265,6 +279,16 @@ function validate(summary) {
   if (summary.totalIds > 0 && (summary.errors / summary.totalIds) > 0.05) {
     const pct = ((summary.errors / summary.totalIds) * 100).toFixed(1);
     return `high error rate: ${summary.errors}/${summary.totalIds} (${pct}%)`;
+  }
+  // Phase 7.1: surface degraded direct-curl health early.
+  if (summary.oxylabsFallbackRate > 0.30) {
+    const pct = (summary.oxylabsFallbackRate * 100).toFixed(1);
+    return `high Oxylabs fallback rate: ${pct}% — direct curl path degraded; investigate Cloudflare changes`;
+  }
+  if (summary.oxylabsCallCount > 0 &&
+      summary.oxylabsFailureCount / summary.oxylabsCallCount > 0.10) {
+    const pct = ((summary.oxylabsFailureCount / summary.oxylabsCallCount) * 100).toFixed(1);
+    return `Oxylabs failures: ${summary.oxylabsFailureCount}/${summary.oxylabsCallCount} (${pct}%) — check API status or credit balance`;
   }
   return null;
 }
