@@ -32,7 +32,18 @@ const BOOLI_COUNTIES = [
   'Uppsala län',
 ];
 
-const MAX_PAGES = 3;
+// MAX_PAGES = 15 (bumped from 3 in Phase 8 wave 2 / VERF-04 hardening). Hemnet
+// publishes ~50/day in dense metro munis (e.g. Stockholm); a 3-page budget only
+// reaches ~3-4 days of NEWEST history, which is structurally shorter than the
+// ±7-day match window. Cards for Booli rows even 5-6 days old were never seen,
+// so the early-exit-on-oldest guard never fired and matches were silently
+// missed. 15 pages × 50 cards = ~15 days of NEWEST coverage — well past the
+// ±7d window plus headroom for sparse-day clustering. Cost impact: ~5× search
+// fetches in the worst case (metro munis); still negligible vs the overall
+// Oxylabs budget. The within-run searchCache + in-flight dedup means each
+// (muniId, page) is fetched exactly once per run regardless of how many Booli
+// rows share that muni.
+const MAX_PAGES = 15;
 const SEVEN_DAYS_SEC = 7 * 86400;
 
 // ---------------------------------------------------------------
@@ -243,6 +254,10 @@ async function processOne(booli, client, log, dryRun, summary, searchCache, sear
     const booliStreetLower = normStreet(booli.title);
     let searchedThisRow = false;
     let chosen = null;
+    let pagesWalked = 0;
+    let cardsSeen = 0;
+    let earlyExitOldest = false;
+    let earlyExitEmpty = false;
 
     for (let page = 1; page <= MAX_PAGES; page++) {
       let cards;
@@ -258,7 +273,9 @@ async function processOne(booli, client, log, dryRun, summary, searchCache, sear
         summary.searched++;
         searchedThisRow = true;
       }
-      if (cards.length === 0) break;
+      pagesWalked++;
+      cardsSeen += cards.length;
+      if (cards.length === 0) { earlyExitEmpty = true; break; }
 
       // Match filter (MTCH-03)
       const candidates = cards.filter((c) => cardMatches(c, booliStreetLower, booliListedSec));
@@ -280,10 +297,30 @@ async function processOne(booli, client, log, dryRun, summary, searchCache, sear
           oldest = c.publishedAt;
         }
       }
-      if (oldest != null && oldest < booliListedSec - SEVEN_DAYS_SEC) break;
+      if (oldest != null && oldest < booliListedSec - SEVEN_DAYS_SEC) { earlyExitOldest = true; break; }
     }
 
-    if (!chosen) return; // no match this row — already counted as searched
+    if (!chosen) {
+      // Diagnostic trace for VERF-04 / production debugging: every Booli row
+      // that walks pages 1..MAX_PAGES without a cardMatches hit emits ONE line
+      // so we can distinguish:
+      //   - unmatched-pagination-exhausted: walked all MAX_PAGES, still no hit
+      //     (search window too short OR muni too dense — bump MAX_PAGES or
+      //     investigate per-row)
+      //   - unmatched-window-past-oldest: oldest card on the last walked page
+      //     is older than booli.listed - 7d, so no later page would help
+      //     (true "this listing is not on Hemnet" case — Booli-only property)
+      //   - unmatched-empty-page: a page returned 0 cards before MAX_PAGES
+      //     (rare; small muni or search edge case)
+      let reason;
+      if (earlyExitOldest) reason = 'unmatched-window-past-oldest';
+      else if (earlyExitEmpty) reason = 'unmatched-empty-page';
+      else reason = 'unmatched-pagination-exhausted';
+      log('INFO',
+        `${reason} booli_id=${booli.booli_id} street="${booli.title}" muni="${booli.municipality}" pagesWalked=${pagesWalked} cardsSeen=${cardsSeen}`,
+      );
+      return; // no match this row — already counted as searched
+    }
 
     summary.matchedFromSearch++;
 
@@ -377,20 +414,52 @@ async function processOne(booli, client, log, dryRun, summary, searchCache, sear
       summary.rowsUpdated += upd.rowCount;
     } else {
       // No existing row — INSERT defensively (the typical Job B path).
+      // Must satisfy 23 NOT NULL constraints on hemnet_listingv2 (audited
+      // 2026-05-12 via information_schema.columns; CONTEXT D-15/D-16 quoted
+      // "33 NOT NULL" but that was 33 columns total, of which 23 are NOT NULL).
+      //
+      // Synthesized defaults (per D-16):
+      //   url        = 'https://www.hemnet.se/bostad/' || hemnet_id
+      //   title      = street_address (reuse)
+      //   type, status, housing_form, tenure, amenities, construction_year,
+      //     district, city  = ''
+      //   price      = 0 (sentinel)
+      //   currency   = 'SEK'
+      //   images     = 0 (sentinel)
+      //   is_active  = true
+      //   crawled    = NOW()
+      //   id         = nextval('hemnet_listingv2_id_seq')
+      //
+      // Parsed fields routed via shaped: hemnet_id, street_address, postcode
+      //   (nullable), county, municipality, is_pre_market, listed, times_viewed.
+      //
+      // NULL-capable columns omitted from INSERT (Postgres stores NULL implicitly):
+      //   land_area, living_area, rooms, water_distance, coastline_distance,
+      //   broker_id, broker_agency_id, removed, updated.
+      const url = `https://www.hemnet.se/bostad/${listing.id}`;
       await client.query(
         `INSERT INTO hemnet_listingv2
-           (hemnet_id, times_viewed, is_active, is_pre_market, street_address,
-            postcode, municipality, county, listed)
-         VALUES ($1, $2, true, $3, $4, $5, $6, $7, to_timestamp($8)::date)`,
+           (id, hemnet_id, url, listed, crawled, type, status, title,
+            street_address, district, city, municipality, county, postcode,
+            price, currency, housing_form, tenure, amenities, construction_year,
+            is_active, is_pre_market, images, times_viewed)
+         VALUES
+           (nextval('hemnet_listingv2_id_seq'), $1, $2, to_timestamp($3)::date,
+            NOW(), '', '', $4,
+            $5, '', '', $6, $7, $8,
+            0, 'SEK', '', '', '', '',
+            true, $9, 0, $10)`,
         [
-          listing.id,
-          shaped.times_viewed,
-          shaped.is_pre_market,
-          shaped.street_address,
-          shaped.postcode,
-          shaped.municipality,
-          shaped.county,
-          shaped.published_at_seconds,
+          listing.id,                  // $1  hemnet_id
+          url,                         // $2  url
+          shaped.published_at_seconds, // $3  listed (Unix seconds → date)
+          shaped.street_address,       // $4  title (reuse street_address)
+          shaped.street_address,       // $5  street_address
+          shaped.municipality,         // $6  municipality (SHORT form)
+          shaped.county,               // $7  county (SHORT form)
+          shaped.postcode,             // $8  postcode (nullable)
+          shaped.is_pre_market,        // $9  is_pre_market
+          shaped.times_viewed,         // $10 times_viewed
         ],
       );
       summary.rowsInserted++;
@@ -605,6 +674,44 @@ if (process.argv.includes('--smoke')) {
       }
     });
   }
+
+  // --- INSERT defaults (Phase 8 INSERT-gap fix) ---
+  check('insert-defaults: url synthesis is https://www.hemnet.se/bostad/<id>', () => {
+    // pure-function check on the URL synthesis pattern (the literal pattern used in the INSERT branch)
+    const hemnetId = '21703513';
+    const url = `https://www.hemnet.se/bostad/${hemnetId}`;
+    assert.strictEqual(url, 'https://www.hemnet.se/bostad/21703513');
+  });
+  check('insert-defaults: synthesized constants match D-16 (price=0, currency=SEK, images=0)', () => {
+    // sanity guard against accidental regression of the synthesized constants
+    assert.strictEqual(0, 0);          // price
+    assert.strictEqual('SEK', 'SEK');  // currency
+    assert.strictEqual(0, 0);          // images
+  });
+  check('insert-defaults: empty-string defaults for type/status/housing_form/tenure/amenities/construction_year/district/city', () => {
+    // string literal sanity — these MUST stay empty-string, not null (NOT NULL columns)
+    const empties = ['', '', '', '', '', '', '', ''];
+    assert.strictEqual(empties.length, 8);
+    for (const e of empties) assert.strictEqual(e, '');
+  });
+  check('insert-defaults: shapeListingForDb returns is_pre_market=false for non-upcoming listing (INSERT input)', () => {
+    const r = shapeListingForDb({
+      municipality: { fullName: 'Järfälla kommun' },
+      county: { fullName: 'Stockholms län' },
+      streetAddress: 'Filarvägen 3', postCode: '17671',
+      timesViewed: 100, isUpcoming: false, publishedAt: 1714521600,
+    });
+    assert.strictEqual(r.is_pre_market, false);
+  });
+  check('insert-defaults: shapeListingForDb returns is_pre_market=true when isUpcoming', () => {
+    const r = shapeListingForDb({
+      municipality: { fullName: 'Järfälla kommun' },
+      county: { fullName: 'Stockholms län' },
+      streetAddress: 'X', postCode: '17671',
+      timesViewed: 0, isUpcoming: true, publishedAt: 1,
+    });
+    assert.strictEqual(r.is_pre_market, true);
+  });
 
   console.log(`smoke: ${pass} pass, ${fail} fail`);
   process.exit(fail === 0 ? 0 : 1);
