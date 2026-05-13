@@ -44,6 +44,13 @@ const BOOLI_COUNTIES = [
 
 const SEVEN_DAYS_SEC = 7 * 86400;
 
+// LIBC-03 (Phase 8.5 / D-08): defensive ceiling on the per-county search walk.
+// The 7-day `published < cutoff` test is the primary terminator; this bound
+// exists so paginationExhausted has a literal meaning when Booli returns
+// malformed published dates that prevent the cutoff from firing. Was unbounded
+// `while (true)` pre-Phase-8.5.
+const MAX_PAGES_BOOLI = 100;
+
 // ---------------------------------------------------------------
 // getCohortWeek — copied verbatim from cohort-create.js:17-44.
 // Do NOT extract into a shared util in this phase (D-06 / D-29 invariant).
@@ -154,7 +161,15 @@ function jitter() { return 100 + Math.random() * 200; }
 function bucket(summary, name) {
   const k = name || '(unknown)';
   if (!summary.perCounty[k]) {
-    summary.perCounty[k] = { searchPages: 0, fsCandidates: 0, inserted: 0, updated: 0, errors: 0 };
+    summary.perCounty[k] = {
+      searchPages: 0,
+      fsCandidates: 0,
+      inserted: 0,
+      updated: 0,
+      errors: 0,
+      pagesWalked: 0,             // LIBC-03 / D-08
+      paginationExhausted: false, // LIBC-03 / D-08
+    };
   }
   return summary.perCounty[k];
 }
@@ -305,7 +320,10 @@ async function walkCountySearch(countyDef, nowSec, limit, log, summary) {
   const inWindowCards = [];
   let page = 1;
 
-  while (true) {
+  // LIBC-03 (Phase 8.5 / D-08): bounded walk. The 7-day cutoff is the primary
+  // terminator; MAX_PAGES_BOOLI is a defensive ceiling guarding against
+  // malformed `published` dates that would prevent the cutoff from firing.
+  while (page <= MAX_PAGES_BOOLI) {
     let searchResult;
     try {
       searchResult = await fetchBooliSearch(countyDef.areaId, { page, logger: log });
@@ -317,6 +335,7 @@ async function walkCountySearch(countyDef, nowSec, limit, log, summary) {
     }
     summary.searchPagesFetched++;
     bucket(summary, countyDef.name).searchPages++;
+    bucket(summary, countyDef.name).pagesWalked = page; // monotonic: latest page reached
 
     const cards = searchResult.cards || [];
     if (cards.length === 0) {
@@ -359,6 +378,18 @@ async function walkCountySearch(countyDef, nowSec, limit, log, summary) {
       `fs-in-window=${pageFsInWindow} running-total=${inWindowCards.length}`,
     );
     page++;
+  }
+
+  // LIBC-03 (Phase 8.5 / D-08): if we exited the loop because we hit the
+  // MAX_PAGES_BOOLI ceiling (rather than via the 7-day cutoff or an empty
+  // page), flag this county as pagination-exhausted. This is the symptom of
+  // either a Booli published-date parse problem or a genuine recall miss —
+  // Phase 9 alerting consumes this flag.
+  if (page > MAX_PAGES_BOOLI) {
+    bucket(summary, countyDef.name).paginationExhausted = true;
+    log('WARN',
+      `county=${countyDef.name} hit MAX_PAGES_BOOLI=${MAX_PAGES_BOOLI} without 7-day cutoff firing — pagination-exhausted`,
+    );
   }
 
   return inWindowCards;
@@ -408,6 +439,7 @@ async function main(client, log) {
     oxylabsFailureCount: 0,
     oxylabsFallbackRate: 0,
     perCounty: {},
+    paginationExhaustedAny: false,  // LIBC-03 / D-09 (Phase 8.5)
     durationMs: 0,
     dryRun: !!dryRun,
     weekStart,
@@ -452,6 +484,12 @@ async function main(client, log) {
   summary.oxylabsCallCount = oxStats.oxylabsCallCount;
   summary.oxylabsFailureCount = oxStats.oxylabsFailureCount;
   summary.oxylabsFallbackRate = oxStats.oxylabsFallbackRate;
+
+  // LIBC-03 (Phase 8.5 / D-09): root-level paginationExhaustedAny derived from
+  // perCounty. Computed BEFORE the final JSON.stringify(summary) log so the
+  // derived field appears in the final-log line.
+  summary.paginationExhaustedAny =
+    Object.values(summary.perCounty).some((c) => c.paginationExhausted);
 
   summary.durationMs = Date.now() - startMs;
   log('INFO', `Final: ${JSON.stringify(summary)}`);
@@ -590,6 +628,24 @@ if (process.argv.includes('--smoke')) {
   check('validate: healthy run → null', () => {
     const r = validate({ dryRun: false, inWindowCandidates: 100, cardsSeen: 100, fetchErrors: 0, oxylabsFallbackRate: 0.05, detailFetched: 100, inserted: 95, updated: 5 });
     assert.strictEqual(r, null);
+  });
+
+  // --- LIBC-03 (perCounty extension + MAX_PAGES_BOOLI bound) ---
+  check('perCounty bucket init: includes pagesWalked=0 and paginationExhausted=false (LIBC-03)', () => {
+    const s = { perCounty: {} };
+    const b = bucket(s, 'Stockholms län');
+    assert.strictEqual(b.searchPages, 0);
+    assert.strictEqual(b.fsCandidates, 0);
+    assert.strictEqual(b.inserted, 0);
+    assert.strictEqual(b.updated, 0);
+    assert.strictEqual(b.errors, 0);
+    assert.strictEqual(b.pagesWalked, 0);
+    assert.strictEqual(b.paginationExhausted, false);
+  });
+  check('MAX_PAGES_BOOLI: defensive ceiling equals 100 (LIBC-03)', () => {
+    assert.strictEqual(MAX_PAGES_BOOLI, 100);
+    assert.ok(Number.isFinite(MAX_PAGES_BOOLI));
+    assert.ok(MAX_PAGES_BOOLI > 0);
   });
 
   console.log(`smoke: ${pass} pass, ${fail} fail`);

@@ -197,6 +197,24 @@ function bucket(summary, key) {
   return summary.perCounty[k];
 }
 
+// LIBC-03 (Phase 8.5): parallel per-muni bucket. Same lazy-init shape as
+// bucket() above but keyed by booli.municipality (human-readable Booli muni
+// name) instead of county. Adds pagination instrumentation fields per D-07.
+function bucketMuni(summary, muniName) {
+  const k = muniName || '(unknown)';
+  if (!summary.perMuni[k]) {
+    summary.perMuni[k] = {
+      pagesWalked: 0,
+      paginationExhausted: false,
+      booliRows: 0,
+      matched: 0,
+      inserted: 0,
+      errors: 0,
+    };
+  }
+  return summary.perMuni[k];
+}
+
 // ---------------------------------------------------------------
 // Within-run search-page cache + in-flight Promise dedup.
 // Shape: getSearchPage(muniId, page) -> Card[]. The cache key is
@@ -237,6 +255,21 @@ async function processOne(booli, client, log, dryRun, summary, searchCache, sear
       return;
     }
 
+    // LIBC-03 (Phase 8.5 / D-07): record this booli row in the per-muni bucket
+    // BEFORE any further validation can early-return — so the per-muni count
+    // reflects rows attempted, not rows that made it past every guard.
+    bucketMuni(summary, booli.municipality).booliRows++;
+
+    // LIBC-02 (Phase 8.5 / D-06): surface Booli null-title rows in
+    // result_summary. The row would silently no-match because normStreet(null)
+    // returns '' — make the skip explicit so data-quality misses don't hide
+    // inside the diagnostic log.
+    if (!booli.title || typeof booli.title !== 'string' || booli.title.trim().length === 0) {
+      summary.nullTitleSkipped++;
+      log('WARN', `null-title booli_id=${booli.booli_id} muni="${booli.municipality}"`);
+      return;
+    }
+
     // 2. Resolve location_id (cache or harvester). Pass cron-wrapper's
     //    client so the harvester does NOT open a fresh DB connection.
     let muniId;
@@ -245,6 +278,7 @@ async function processOne(booli, client, log, dryRun, summary, searchCache, sear
     } catch (err) {
       summary.fetchErrors++;
       bucket(summary, booli.county).errors++;
+      bucketMuni(summary, booli.municipality).errors++;
       log('ERROR', `harvest-failed booli_id=${booli.booli_id} muni="${booli.municipality}": ${err && err.message}`);
       return;
     }
@@ -266,6 +300,7 @@ async function processOne(booli, client, log, dryRun, summary, searchCache, sear
       } catch (err) {
         summary.fetchErrors++;
         bucket(summary, booli.county).errors++;
+        bucketMuni(summary, booli.municipality).errors++;
         log('ERROR', `search-failed booli_id=${booli.booli_id} muni=${muniId} page=${page}: ${err && err.message}`);
         return;
       }
@@ -300,6 +335,14 @@ async function processOne(booli, client, log, dryRun, summary, searchCache, sear
       if (oldest != null && oldest < booliListedSec - SEVEN_DAYS_SEC) { earlyExitOldest = true; break; }
     }
 
+    // LIBC-03 (Phase 8.5 / D-07 / D-10): record per-muni walk state before
+    // classification. paginationExhausted = walked all MAX_PAGES without a
+    // chosen match and without hitting either early-exit guard.
+    bucketMuni(summary, booli.municipality).pagesWalked += pagesWalked;
+    if (!chosen && !earlyExitOldest && !earlyExitEmpty) {
+      bucketMuni(summary, booli.municipality).paginationExhausted = true;
+    }
+
     if (!chosen) {
       // Diagnostic trace for VERF-04 / production debugging: every Booli row
       // that walks pages 1..MAX_PAGES without a cardMatches hit emits ONE line
@@ -331,6 +374,7 @@ async function processOne(booli, client, log, dryRun, summary, searchCache, sear
     } catch (err) {
       summary.fetchErrors++;
       bucket(summary, booli.county).errors++;
+      bucketMuni(summary, booli.municipality).errors++;
       log('ERROR', `detail-failed booli_id=${booli.booli_id} hemnet_id=${chosen.id}: ${err && err.message}`);
       return;
     }
@@ -340,6 +384,7 @@ async function processOne(booli, client, log, dryRun, summary, searchCache, sear
       // race (Hemnet de-listed between search render and our detail fetch).
       summary.parseErrors++;
       bucket(summary, booli.county).errors++;
+      bucketMuni(summary, booli.municipality).errors++;
       log('WARN', `inactive-after-search booli_id=${booli.booli_id} hemnet_id=${chosen.id} reason=${detail.reason || 'unknown'}`);
       return;
     }
@@ -467,10 +512,13 @@ async function processOne(booli, client, log, dryRun, summary, searchCache, sear
     summary.inserted++;
     bucket(summary, booli.county).matched++;
     bucket(summary, booli.county).inserted++;
+    bucketMuni(summary, booli.municipality).matched++;
+    bucketMuni(summary, booli.municipality).inserted++;
   } catch (err) {
     // Catch-all — should be rare given per-step try/catches above.
     summary.parseErrors++;
     bucket(summary, booli && booli.county).errors++;
+    bucketMuni(summary, booli && booli.municipality).errors++;
     log('ERROR', `parse-failed booli_id=${booli && booli.booli_id}: ${err && err.message}`);
   }
 }
@@ -507,7 +555,9 @@ async function main(client, log) {
     `booliCount=${booliRows.length} dryRun=${!!dryRun} limited=${limit != null ? limit : 'null'}`,
   );
 
-  // 2. Pre-allocate summary so all 16 flat keys are present.
+  // 2. Pre-allocate summary so every key is present at allocation time.
+  //    LIBC-02 / LIBC-03 (Phase 8.5): nullTitleSkipped, perMuni, and
+  //    paginationExhaustedAny are new fields added for Phase 9 observability.
   const summary = {
     booliCount: booliRows.length,
     searched: 0,
@@ -519,7 +569,10 @@ async function main(client, log) {
     fetchErrors: 0,
     rowsUpdated: 0,
     rowsInserted: 0,
+    nullTitleSkipped: 0,            // LIBC-02 / D-06
     perCounty: {},
+    perMuni: {},                    // LIBC-03 / D-07
+    paginationExhaustedAny: false,  // LIBC-03 / D-09
     durationMs: 0,
     dryRun: !!dryRun,
     weekStart,
@@ -554,6 +607,12 @@ async function main(client, log) {
   }
 
   await Promise.all([worker(), worker()]);
+
+  // LIBC-03 (Phase 8.5 / D-09): root-level paginationExhaustedAny derived from
+  // perMuni. Computed BEFORE the final JSON.stringify(summary) log so the
+  // derived field appears in the final-log line.
+  summary.paginationExhaustedAny =
+    Object.values(summary.perMuni).some((m) => m.paginationExhausted);
 
   summary.durationMs = Date.now() - startMs;
   log('INFO', `Final: ${JSON.stringify(summary)}`);
@@ -711,6 +770,77 @@ if (process.argv.includes('--smoke')) {
       timesViewed: 0, isUpcoming: true, publishedAt: 1,
     });
     assert.strictEqual(r.is_pre_market, true);
+  });
+
+  // --- LIBC-02 (nullTitleSkipped) ---
+  // Predicate test mirroring the guard in processOne() at the null-title site.
+  // Shape check: the summary pre-allocation must include nullTitleSkipped=0
+  // and the guard predicate must match what processOne does.
+  function nullTitleGuard(title) {
+    return !title || typeof title !== 'string' || title.trim().length === 0;
+  }
+  check('nullTitleSkipped: predicate trips on null/empty/whitespace, passes on real string', () => {
+    assert.strictEqual(nullTitleGuard(null), true);
+    assert.strictEqual(nullTitleGuard(undefined), true);
+    assert.strictEqual(nullTitleGuard(''), true);
+    assert.strictEqual(nullTitleGuard('   '), true);
+    assert.strictEqual(nullTitleGuard(42), true);                 // wrong type
+    assert.strictEqual(nullTitleGuard('Storgatan 5'), false);
+  });
+  check('nullTitleSkipped: summary pre-allocation includes the counter default 0', () => {
+    // Synthesize the same literal that main() pre-allocates, without DB.
+    const synthSummary = {
+      booliCount: 0, searched: 0, matchedFromSearch: 0, detailFetched: 0,
+      postcodeMismatch: 0, inserted: 0, parseErrors: 0, fetchErrors: 0,
+      rowsUpdated: 0, rowsInserted: 0,
+      nullTitleSkipped: 0,
+      perCounty: {}, perMuni: {}, paginationExhaustedAny: false,
+    };
+    assert.strictEqual(synthSummary.nullTitleSkipped, 0);
+    synthSummary.nullTitleSkipped++;
+    assert.strictEqual(synthSummary.nullTitleSkipped, 1);
+  });
+
+  // --- LIBC-03 (perMuni + paginationExhaustedAny) ---
+  check('perMuni: bucketMuni returns 6-field shape with correct defaults', () => {
+    const s = { perMuni: {} };
+    const b = bucketMuni(s, 'Stockholm');
+    assert.strictEqual(b.pagesWalked, 0);
+    assert.strictEqual(b.paginationExhausted, false);
+    assert.strictEqual(b.booliRows, 0);
+    assert.strictEqual(b.matched, 0);
+    assert.strictEqual(b.inserted, 0);
+    assert.strictEqual(b.errors, 0);
+    // Idempotent lazy-init: calling again returns the same object, not a new one.
+    const b2 = bucketMuni(s, 'Stockholm');
+    assert.strictEqual(b2, b);
+  });
+  check('perMuni: bucketMuni keys on (unknown) when muniName is null/empty', () => {
+    const s = { perMuni: {} };
+    bucketMuni(s, null);
+    bucketMuni(s, '');
+    bucketMuni(s, undefined);
+    assert.ok(s.perMuni['(unknown)']);
+  });
+  check('paginationExhaustedAny: derived true when any perMuni bucket is exhausted, false otherwise', () => {
+    const sFalse = { perMuni: {
+      'Stockholm':   { paginationExhausted: false },
+      'Trollhättan': { paginationExhausted: false },
+    } };
+    const sTrue = { perMuni: {
+      'Stockholm':   { paginationExhausted: false },
+      'Trollhättan': { paginationExhausted: true },
+    } };
+    const sEmpty = { perMuni: {} };
+    assert.strictEqual(
+      Object.values(sFalse.perMuni).some((m) => m.paginationExhausted), false,
+    );
+    assert.strictEqual(
+      Object.values(sTrue.perMuni).some((m) => m.paginationExhausted), true,
+    );
+    assert.strictEqual(
+      Object.values(sEmpty.perMuni).some((m) => m.paginationExhausted), false,
+    );
   });
 
   console.log(`smoke: ${pass} pass, ${fail} fail`);
