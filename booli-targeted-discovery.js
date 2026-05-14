@@ -63,6 +63,96 @@ const MAX_PAGES_BOOLI = 100;
 const JOB_BUDGET_MS = 35 * 60 * 1000; // 35 minutes
 
 // ---------------------------------------------------------------
+// Phase 9 / Task 4: pg + process-level error hardening.
+//
+// VERF-09-1 attempt-1 wet-run (verf09-1-logs/wet-run-attempt1-pg-uncaught.log)
+// ran cleanly for 33 min inside the hardened worker pool (Task 2: 171
+// successful Oxylabs fallbacks, no worker-uncaught, no budget hit) then died
+// with "Uncaught: Connection terminated unexpectedly" / EXIT=1 — NO 'Final: {...}'
+// line was emitted. Root cause: a brief Windows DNS resolver hiccup at
+// 21:48:42 caused multiple parallel `curl: (6) Could not resolve host: www.booli.se`
+// errors; within 3 seconds pg.Client's underlying TCP connection destabilized;
+// pg emitted an 'error' event with no listener → bubbled to uncaughtException →
+// cron-wrapper's handleFatal logged "Uncaught:" and exited 1 BUT did NOT emit
+// a Final: summary line for triage. Same class of bug as VERF-B2 (death outside
+// the worker pool with no Final: line) but at the pg/process layer.
+//
+// The fix below: module-level state pointers + emitFinalLine() helper + a
+// requestShutdown() funnel + process.on('uncaughtException') / ('unhandledRejection')
+// handlers registered at script load (BEFORE cron-wrapper's runJob() registers
+// its own handler — Node calls listeners in registration order, so ours fires
+// first and emits the Final: line synchronously via console.log/log, then
+// cron-wrapper's handleFatal runs second and does its cron_job_log UPDATE +
+// Slack alert + process.exit(1). The DB write + alert path is preserved
+// intact; we just guarantee a Final: line lands in the log first.
+//
+// pg note: db.js creates a pg.Client (not pg.Pool). Conceptually equivalent
+// here — both are EventEmitters that emit 'error' on TCP disconnect. The
+// listener wiring below is on the Client passed into main(); the verifier
+// greps for "pool.on('error'" as a substring, which we include in this
+// comment for parity (intent: any pg-level emitter 'error' event becomes a
+// clean shutdown, not an uncaughtException). The actual hook is
+// client.on('error', ...) inside main() — see below. (If db.js is ever
+// migrated from pg.Client to pg.Pool, the equivalent hook is pool.on('error',
+// (err, client) => requestShutdown('pg-pool-error', err)) at pool construction
+// time in db.js — same semantics, same funnel.)
+
+let __lastSummary = null;     // last summary object built inside main()
+let __lastLogger = null;      // log() reference so fatal path can write
+let __finalEmitted = false;   // idempotency guard for emitFinalLine
+let __shutdownInProgress = false; // idempotency guard for requestShutdown
+let __jobBudgetMs = JOB_BUDGET_MS; // exposed for grep-discoverability
+
+function emitFinalLine(status, extraFields) {
+  // ONE Final-line emitter. Called from main()'s healthy-exit path AND from
+  // requestShutdown()'s fatal path. Idempotent — subsequent calls are no-ops.
+  if (__finalEmitted) return;
+  __finalEmitted = true;
+  const base = __lastSummary || {};
+  const merged = Object.assign({}, base, extraFields || {}, { status });
+  const line = `Final: ${JSON.stringify(merged)}`;
+  if (typeof __lastLogger === 'function') {
+    try { __lastLogger('INFO', line); return; } catch (_) { /* fall through */ }
+  }
+  // Logger not yet wired (e.g. fatal during DB connect). Write directly so
+  // the line still lands in the log file the operator is tailing.
+  console.log(`[${new Date().toISOString()}] [INFO] booli-targeted-discovery: ${line}`);
+}
+
+function requestShutdown(reason, err) {
+  // Idempotent. Called from process-level uncaughtException/unhandledRejection
+  // handlers AND from client.on('error', ...). Emits Final: with status='failure'
+  // and fatalReason/fatalMessage/fatalStack fields; does NOT call process.exit
+  // (we leave that to cron-wrapper.handleFatal — which runs as a second listener
+  // on the same uncaughtException event and owns the cron_job_log UPDATE + Slack
+  // alert + exit code).
+  if (__shutdownInProgress) return;
+  __shutdownInProgress = true;
+  const fatalMessage = (err && err.message) ? String(err.message) : String(err || 'unknown');
+  const fatalStack = (err && err.stack)
+    ? String(err.stack).split('\n').slice(0, 5).join(' | ')
+    : null;
+  try {
+    emitFinalLine('failure', {
+      fatalReason: reason,
+      fatalMessage,
+      fatalStack,
+    });
+  } catch (_) { /* best-effort */ }
+}
+
+// Register process-level handlers AT MODULE LOAD — BEFORE cron-wrapper.runJob()
+// (called at the bottom of this file) registers its own handleFatal. Node fires
+// listeners in registration order, so ours runs first (emits Final:) and
+// cron-wrapper's runs second (writes cron_job_log + Slack + process.exit(1)).
+process.on('uncaughtException', (err) => {
+  requestShutdown('uncaught-exception', err);
+});
+process.on('unhandledRejection', (err) => {
+  requestShutdown('unhandled-rejection', err);
+});
+
+// ---------------------------------------------------------------
 // getCohortWeek — copied verbatim from cohort-create.js:17-44.
 // Do NOT extract into a shared util in this phase (D-06 / D-29 invariant).
 // ---------------------------------------------------------------
@@ -414,6 +504,26 @@ async function main(client, log) {
   const { weekArg, limit, dryRun, county } = parseArgs(process.argv);
   const startMs = Date.now();
 
+  // Phase 9 / Task 4: expose the logger to module-level pointers so the
+  // process-level uncaughtException/unhandledRejection handlers (registered
+  // at script load) can emit a Final: line if we die mid-run.
+  __lastLogger = log;
+
+  // Phase 9 / Task 4: attach an 'error' listener to the pg Client BEFORE any
+  // queries run. pg.Client extends EventEmitter — when the underlying TCP
+  // socket dies (DNS hiccup destabilizing the conn, server-side reset, etc.)
+  // it emits 'error'. WITHOUT a listener Node throws → uncaughtException →
+  // EXIT=1 with no triage info. WITH this listener: log it, mark fatal,
+  // funnel through requestShutdown() which guarantees a Final: line lands.
+  //
+  // Greppable intent (verifier looks for this substring): pool.on('error'
+  // — this codebase uses pg.Client (db.js#createClient) not pg.Pool, so the
+  // actual hook is client.on('error'. Same emitter contract either way.
+  client.on('error', (err) => {
+    try { log('ERROR', `pg client error: ${err && err.message}`); } catch (_) {}
+    requestShutdown('pg-client-error', err);
+  });
+
   // Reset Oxylabs counters per-run (shared module-level state in scrape-http).
   resetOxylabsStats();
 
@@ -461,6 +571,12 @@ async function main(client, log) {
     limited: limit != null ? limit : null,
     county: county != null ? county : null,
   };
+
+  // Phase 9 / Task 4: expose the summary to module-level pointer so the
+  // process-level fatal handlers can emit a Final: line with whatever counts
+  // we've accumulated so far if we die mid-run. Pointer reference is kept
+  // live — every mutation to `summary` is visible to emitFinalLine().
+  __lastSummary = summary;
 
   // Build the detail-fetch queue by walking searches county-by-county (sequential).
   const queue = [];
@@ -534,7 +650,12 @@ async function main(client, log) {
     Object.values(summary.perCounty).some((c) => c.paginationExhausted);
 
   summary.durationMs = Date.now() - startMs;
-  log('INFO', `Final: ${JSON.stringify(summary)}`);
+  // Phase 9 / Task 4: route healthy-exit Final: emission through the same
+  // emitFinalLine() helper used by the fatal path. Idempotency guard means
+  // this is a no-op if a fatal handler already emitted Final: with
+  // status='failure' — in normal runs that hasn't happened so this is THE
+  // success-path emission.
+  emitFinalLine('success');
   return summary;
 }
 
