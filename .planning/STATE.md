@@ -2,7 +2,7 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Self-hosted scraper
-status: Executing Phase 09 — Plan 09-1.5 planned and verified; ready to execute
+status: Executing Phase 09 — Plan 09-1.5 Tasks 1-2 done; PAUSED for operator (Oxylabs subscription + chosen-plan.txt)
 last_updated: "2026-05-15T00:00:00.000Z"
 current_phase: 09-production-cutover-self-hosted-scraper-launch
 current_plan: 09-1.5
