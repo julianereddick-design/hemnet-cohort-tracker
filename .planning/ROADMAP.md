@@ -106,15 +106,16 @@ Plans:
   3. Droplet crontab schedules the every-2-days view-refresh cycle (14:00 Job D / 18:00 Job A / 22:00 cohort-track UTC on odd days), preserves the existing Job C Sun 22:00 UTC + Job B Mon 03:00 UTC + cohort-create Mon 06:00 UTC + sfpl-region-snapshot daily 08:00 UTC slots, and REMOVES the prior cohort-track 23:30 UTC + 02:00 UTC daily slots
   4. The cohort pipeline runs to green for one full week-cycle on self-hosted data alone (Jobs A+B+C+D + cohort-create + cohort-track)
   5. A short runbook in `deploy-instructions.md` (or sibling) covers: how to detect, diagnose, and re-run each job after a failure
-**Plans**: 4 plans (Booli hardening / Job D / cron integration with every-2-days cadence / cutover + runbook)
+**Plans**: 5 plans (Booli hardening / Oxylabs+county-loop triage / Job D / cron integration with every-2-days cadence / cutover + runbook)
 
 Plans:
 - [x] 09-01-PLAN.md — Booli discovery hardening: catch worker-level rejections, add 35-min wall-clock budget, resolve VERF-B2 EXIT=1
+- [ ] 09-1.5-PLAN.md — Oxylabs detail-page fallback + multi-county walk triage (from 09-01-SUMMARY carry-forward issues #1 + #2) — must close before 09-02
 - [ ] 09-02-PLAN.md — Job D booli-targeted-refresh: pair-only Booli view refresh, hardened worker-pool, VERF-09-2 wet-run
 - [ ] 09-03-PLAN.md — Cron integration with every-2-days cadence: Jobs A/B/C/D + cohort-track on odd days (14/18/22 UTC), remove daily cohort-track slots, SLACK_WEBHOOK_URL
 - [ ] 09-04-PLAN.md — Cutover + runbook: halve cohort-track streak threshold to 5, green-week observation, no parallel-run
 
-**Out of scope for Phase 9**: Investigating the 42.4% Hemnet match rate from VERF-05 (deferred — accepted with warning override). If the cutover surfaces this as a launch blocker, file a follow-up phase. Updating downstream reports for every-2-days `cohort_daily_views` granularity (deferred to Phase 10 per CONTEXT [[downstream-reports-deferred]]).
+**Out of scope for Phase 9**: Investigating the 42.4% Hemnet match rate from VERF-05 (deferred — accepted with warning override). If the cutover surfaces this as a launch blocker, file a follow-up phase. Updating downstream reports for every-2-days `cohort_daily_views` granularity (deferred to Phase 10 per CONTEXT [[downstream-reports-deferred]]). The `Final:`-JSON-`status:success` vs cron-wrapper-`status:warning` cosmetic mismatch (09-01-SUMMARY carry-forward issue #3) is also deferred to Phase 10.
 
 ## Progress
 
@@ -130,7 +131,7 @@ Plans:
 | 6. Hemnet fetcher foundation | v2.0 | 1/1 | Complete | 2026-03 |
 | 7. Hemnet daily refresh (Job A) + Oxylabs fallback | v2.0 | 2/2 | Complete | 2026-04 |
 | 8. Hemnet weekly seeding + Booli discovery | v2.0 | 4/4 | Complete (with overrides) | 2026-05-12 |
-| 9. Production cutover — self-hosted scraper launch | v2.0 | 1/4 | In Progress | - |
+| 9. Production cutover — self-hosted scraper launch | v2.0 | 1/5 | In Progress | - |
 
 ---
 
