@@ -97,23 +97,24 @@ Plans:
 **Known carry-forward**: VERF-05 Hemnet match rate 42.4% (warning override accepted). VERF-B2 wet-run terminated `EXIT=1` mid-run on Booli `/annons/` 403s (carries into Phase 9).
 
 #### Phase 9: Production cutover — self-hosted scraper launch
-**Goal**: Cut over from the external scraping process to this repo's Job A / Job B / Job C as the canonical writers of `hemnet_listingv2` and `booli_listing`, with all three wrapped by `cron-wrapper.js`, scheduled on the Droplet, alerting to Slack, and observable enough to debug a failed run without local repro.
+**Goal**: Own both view streams (Booli + Hemnet) end-to-end on an every-2-days cadence (Job D + Job A + cohort-track on odd days, plus weekly Job C + Job B + cohort-create), then run the cohort pipeline to green for one full week-cycle on self-hosted data alone (both external scrapers already off).
 **Depends on**: Phase 8
 **Requirements**: TBD (no REQUIREMENTS.md yet)
 **Success Criteria**:
   1. Booli discovery (Job C) completes a full weekly run end-to-end without `EXIT=1` — the VERF-B2 mid-run failure on `/annons/` 403s is resolved
-  2. All three jobs (A, B, C) run under `cron-wrapper.runJob` with `cron_job_log` rows, Slack alerts on failure/warning, and stable exit codes
-  3. Droplet crontab schedules Job A daily, Job B + Job C on the Mon-pre-cohort-create window, with no overlap against the existing `cohort-create.js`/`cohort-track.js`/`sfpl-region-snapshot.js` slots
-  4. External scraping process is decommissioned (or quiesced) and the cohort pipeline runs to green for one full week-cycle on self-hosted data alone
+  2. All four jobs (A, B, C, D) run under `cron-wrapper.runJob` with `cron_job_log` rows, Slack alerts on failure/warning, and stable exit codes
+  3. Droplet crontab schedules the every-2-days view-refresh cycle (14:00 Job D / 18:00 Job A / 22:00 cohort-track UTC on odd days), preserves the existing Job C Sun 22:00 UTC + Job B Mon 03:00 UTC + cohort-create Mon 06:00 UTC + sfpl-region-snapshot daily 08:00 UTC slots, and REMOVES the prior cohort-track 23:30 UTC + 02:00 UTC daily slots
+  4. The cohort pipeline runs to green for one full week-cycle on self-hosted data alone (Jobs A+B+C+D + cohort-create + cohort-track)
   5. A short runbook in `deploy-instructions.md` (or sibling) covers: how to detect, diagnose, and re-run each job after a failure
-**Plans**: 3 plans (Booli hardening / cron integration / cutover + runbook)
+**Plans**: 4 plans (Booli hardening / Job D / cron integration with every-2-days cadence / cutover + runbook)
 
 Plans:
 - [ ] 09-01-PLAN.md — Booli discovery hardening: catch worker-level rejections, add 35-min wall-clock budget, resolve VERF-B2 EXIT=1
-- [ ] 09-02-PLAN.md — Cron integration: install Droplet crontab for Jobs A/B/C, set SLACK_WEBHOOK_URL, verify with controlled-warning test
-- [ ] 09-03-PLAN.md — Cutover: parallel-run observation week, GO/NO-GO checklist, quiesce external scraper, append runbook to deploy-instructions.md
+- [ ] 09-02-PLAN.md — Job D booli-targeted-refresh: pair-only Booli view refresh, hardened worker-pool, VERF-09-2 wet-run
+- [ ] 09-03-PLAN.md — Cron integration with every-2-days cadence: Jobs A/B/C/D + cohort-track on odd days (14/18/22 UTC), remove daily cohort-track slots, SLACK_WEBHOOK_URL
+- [ ] 09-04-PLAN.md — Cutover + runbook: halve cohort-track streak threshold to 5, green-week observation, no parallel-run
 
-**Out of scope for Phase 9**: Investigating the 42.4% Hemnet match rate from VERF-05 (deferred — accepted with warning override). If the cutover surfaces this as a launch blocker, file a follow-up phase.
+**Out of scope for Phase 9**: Investigating the 42.4% Hemnet match rate from VERF-05 (deferred — accepted with warning override). If the cutover surfaces this as a launch blocker, file a follow-up phase. Updating downstream reports for every-2-days `cohort_daily_views` granularity (deferred to Phase 10 per CONTEXT [[downstream-reports-deferred]]).
 
 ## Progress
 
@@ -129,7 +130,7 @@ Plans:
 | 6. Hemnet fetcher foundation | v2.0 | 1/1 | Complete | 2026-03 |
 | 7. Hemnet daily refresh (Job A) + Oxylabs fallback | v2.0 | 2/2 | Complete | 2026-04 |
 | 8. Hemnet weekly seeding + Booli discovery | v2.0 | 4/4 | Complete (with overrides) | 2026-05-12 |
-| 9. Production cutover — self-hosted scraper launch | v2.0 | 0/3 | Not started | - |
+| 9. Production cutover — self-hosted scraper launch | v2.0 | 0/4 | Not started | - |
 
 ---
 
