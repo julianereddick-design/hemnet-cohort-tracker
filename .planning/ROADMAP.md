@@ -109,7 +109,7 @@ Plans:
 **Plans**: 4 plans (Booli hardening / Job D / cron integration with every-2-days cadence / cutover + runbook)
 
 Plans:
-- [ ] 09-01-PLAN.md — Booli discovery hardening: catch worker-level rejections, add 35-min wall-clock budget, resolve VERF-B2 EXIT=1
+- [x] 09-01-PLAN.md — Booli discovery hardening: catch worker-level rejections, add 35-min wall-clock budget, resolve VERF-B2 EXIT=1
 - [ ] 09-02-PLAN.md — Job D booli-targeted-refresh: pair-only Booli view refresh, hardened worker-pool, VERF-09-2 wet-run
 - [ ] 09-03-PLAN.md — Cron integration with every-2-days cadence: Jobs A/B/C/D + cohort-track on odd days (14/18/22 UTC), remove daily cohort-track slots, SLACK_WEBHOOK_URL
 - [ ] 09-04-PLAN.md — Cutover + runbook: halve cohort-track streak threshold to 5, green-week observation, no parallel-run
@@ -130,7 +130,7 @@ Plans:
 | 6. Hemnet fetcher foundation | v2.0 | 1/1 | Complete | 2026-03 |
 | 7. Hemnet daily refresh (Job A) + Oxylabs fallback | v2.0 | 2/2 | Complete | 2026-04 |
 | 8. Hemnet weekly seeding + Booli discovery | v2.0 | 4/4 | Complete (with overrides) | 2026-05-12 |
-| 9. Production cutover — self-hosted scraper launch | v2.0 | 0/4 | Not started | - |
+| 9. Production cutover — self-hosted scraper launch | v2.0 | 1/4 | In Progress | - |
 
 ---
 
