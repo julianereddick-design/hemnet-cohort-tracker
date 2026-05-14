@@ -1,0 +1,1232 @@
+[dotenv@17.3.1] injecting env (9) from .env -- tip: ⚙️  enable debug logging with { debug: true }
+[2026-05-12T05:36:10.585Z] [INFO] booli-targeted-discovery: Connected to DB
+[2026-05-12T05:36:10.615Z] [INFO] booli-targeted-discovery: cohortId=2026-W19 weekStart=2026-05-04 weekEnd=2026-05-10 counties=2,23,64,118 dryRun=false limit=null
+[2026-05-12T05:36:10.615Z] [INFO] booli-targeted-discovery: === walking county=Stockholms län (areaId=2) ===
+[2026-05-12T05:36:10.801Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=1 returned 403 (attempt 1/3)
+[2026-05-12T05:36:11.999Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=1 returned 403 (attempt 2/3)
+[2026-05-12T05:36:14.207Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=1 returned 403 (attempt 3/3)
+[2026-05-12T05:36:14.208Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=1 direct-status=403 attempt=1
+[2026-05-12T05:36:21.695Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=1 ms=7487
+[2026-05-12T05:36:21.714Z] [INFO] booli-targeted-discovery: county=Stockholms län page=1 cards=35 fs-in-window=13 running-total=13
+[2026-05-12T05:36:21.914Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=2 returned 403 (attempt 1/3)
+[2026-05-12T05:36:23.116Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=2 returned 403 (attempt 2/3)
+[2026-05-12T05:36:25.403Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=2 returned 403 (attempt 3/3)
+[2026-05-12T05:36:25.403Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=2 direct-status=403 attempt=1
+[2026-05-12T05:36:30.050Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=2 ms=4647
+[2026-05-12T05:36:30.061Z] [INFO] booli-targeted-discovery: county=Stockholms län page=2 cards=35 fs-in-window=15 running-total=28
+[2026-05-12T05:36:30.257Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=3 returned 403 (attempt 1/3)
+[2026-05-12T05:36:31.458Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=3 returned 403 (attempt 2/3)
+[2026-05-12T05:36:33.657Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=3 returned 403 (attempt 3/3)
+[2026-05-12T05:36:33.658Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=3 direct-status=403 attempt=1
+[2026-05-12T05:36:38.167Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=3 ms=4509
+[2026-05-12T05:36:38.178Z] [INFO] booli-targeted-discovery: county=Stockholms län page=3 cards=35 fs-in-window=19 running-total=47
+[2026-05-12T05:36:38.525Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=4 returned 403 (attempt 1/3)
+[2026-05-12T05:36:39.810Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=4 returned 403 (attempt 2/3)
+[2026-05-12T05:36:42.390Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=4 returned 403 (attempt 3/3)
+[2026-05-12T05:36:42.391Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=4 direct-status=403 attempt=1
+[2026-05-12T05:36:47.430Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=4 ms=5039
+[2026-05-12T05:36:47.438Z] [INFO] booli-targeted-discovery: county=Stockholms län page=4 cards=35 fs-in-window=20 running-total=67
+[2026-05-12T05:36:47.675Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=5 returned 403 (attempt 1/3)
+[2026-05-12T05:36:48.941Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=5 returned 403 (attempt 2/3)
+[2026-05-12T05:36:51.216Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=5 returned 403 (attempt 3/3)
+[2026-05-12T05:36:51.217Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=5 direct-status=403 attempt=1
+[2026-05-12T05:36:56.383Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=5 ms=5166
+[2026-05-12T05:36:56.390Z] [INFO] booli-targeted-discovery: county=Stockholms län page=5 cards=35 fs-in-window=13 running-total=80
+[2026-05-12T05:36:56.592Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=6 returned 403 (attempt 1/3)
+[2026-05-12T05:36:57.842Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=6 returned 403 (attempt 2/3)
+[2026-05-12T05:37:00.128Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=6 returned 403 (attempt 3/3)
+[2026-05-12T05:37:00.128Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=6 direct-status=403 attempt=1
+[2026-05-12T05:37:04.530Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=6 ms=4401
+[2026-05-12T05:37:04.543Z] [INFO] booli-targeted-discovery: county=Stockholms län page=6 cards=35 fs-in-window=18 running-total=98
+[2026-05-12T05:37:04.803Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=7 returned 403 (attempt 1/3)
+[2026-05-12T05:37:06.119Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=7 returned 403 (attempt 2/3)
+[2026-05-12T05:37:08.524Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=7 returned 403 (attempt 3/3)
+[2026-05-12T05:37:08.524Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=7 direct-status=403 attempt=1
+[2026-05-12T05:37:13.702Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=7 ms=5178
+[2026-05-12T05:37:13.725Z] [INFO] booli-targeted-discovery: county=Stockholms län page=7 cards=35 fs-in-window=19 running-total=117
+[2026-05-12T05:37:14.017Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=8 returned 403 (attempt 1/3)
+[2026-05-12T05:37:15.257Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=8 returned 403 (attempt 2/3)
+[2026-05-12T05:37:17.523Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=8 returned 403 (attempt 3/3)
+[2026-05-12T05:37:17.524Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=8 direct-status=403 attempt=1
+[2026-05-12T05:37:22.212Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=8 ms=4688
+[2026-05-12T05:37:22.239Z] [INFO] booli-targeted-discovery: county=Stockholms län page=8 cards=35 fs-in-window=13 running-total=130
+[2026-05-12T05:37:22.583Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=9 returned 403 (attempt 1/3)
+[2026-05-12T05:37:23.840Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=9 returned 403 (attempt 2/3)
+[2026-05-12T05:37:26.170Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=9 returned 403 (attempt 3/3)
+[2026-05-12T05:37:26.171Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=9 direct-status=403 attempt=1
+[2026-05-12T05:37:30.702Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=9 ms=4531
+[2026-05-12T05:37:30.715Z] [INFO] booli-targeted-discovery: county=Stockholms län page=9 cards=35 fs-in-window=15 running-total=145
+[2026-05-12T05:37:31.104Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=10 returned 403 (attempt 1/3)
+[2026-05-12T05:37:32.431Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=10 returned 403 (attempt 2/3)
+[2026-05-12T05:37:34.780Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=10 returned 403 (attempt 3/3)
+[2026-05-12T05:37:34.780Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=10 direct-status=403 attempt=1
+[2026-05-12T05:37:40.118Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=10 ms=5337
+[2026-05-12T05:37:40.124Z] [INFO] booli-targeted-discovery: county=Stockholms län page=10 cards=35 fs-in-window=22 running-total=167
+[2026-05-12T05:37:40.374Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=11 returned 403 (attempt 1/3)
+[2026-05-12T05:37:41.622Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=11 returned 403 (attempt 2/3)
+[2026-05-12T05:37:43.829Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=11 returned 403 (attempt 3/3)
+[2026-05-12T05:37:43.829Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=11 direct-status=403 attempt=1
+[2026-05-12T05:37:48.232Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=11 ms=4402
+[2026-05-12T05:37:48.245Z] [INFO] booli-targeted-discovery: county=Stockholms län page=11 cards=35 fs-in-window=16 running-total=183
+[2026-05-12T05:37:48.433Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=12 returned 403 (attempt 1/3)
+[2026-05-12T05:37:49.694Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=12 returned 403 (attempt 2/3)
+[2026-05-12T05:37:51.902Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=12 returned 403 (attempt 3/3)
+[2026-05-12T05:37:51.902Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=12 direct-status=403 attempt=1
+[2026-05-12T05:37:56.480Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=12 ms=4578
+[2026-05-12T05:37:56.485Z] [INFO] booli-targeted-discovery: county=Stockholms län page=12 cards=35 fs-in-window=21 running-total=204
+[2026-05-12T05:37:56.641Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=13 returned 403 (attempt 1/3)
+[2026-05-12T05:37:57.893Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=13 returned 403 (attempt 2/3)
+[2026-05-12T05:38:00.063Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=13 returned 403 (attempt 3/3)
+[2026-05-12T05:38:00.063Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=13 direct-status=403 attempt=1
+[2026-05-12T05:38:03.507Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=13 ms=3443
+[2026-05-12T05:38:03.512Z] [INFO] booli-targeted-discovery: county=Stockholms län page=13 cards=35 fs-in-window=21 running-total=225
+[2026-05-12T05:38:03.659Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=14 returned 403 (attempt 1/3)
+[2026-05-12T05:38:04.840Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=14 returned 403 (attempt 2/3)
+[2026-05-12T05:38:06.992Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=14 returned 403 (attempt 3/3)
+[2026-05-12T05:38:06.992Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=14 direct-status=403 attempt=1
+[2026-05-12T05:38:11.660Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=14 ms=4668
+[2026-05-12T05:38:11.662Z] [INFO] booli-targeted-discovery: county=Stockholms län page=14 cards=35 fs-in-window=22 running-total=247
+[2026-05-12T05:38:11.808Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=15 returned 403 (attempt 1/3)
+[2026-05-12T05:38:12.979Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=15 returned 403 (attempt 2/3)
+[2026-05-12T05:38:15.174Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=15 returned 403 (attempt 3/3)
+[2026-05-12T05:38:15.174Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=15 direct-status=403 attempt=1
+[2026-05-12T05:38:19.686Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=15 ms=4512
+[2026-05-12T05:38:19.691Z] [INFO] booli-targeted-discovery: county=Stockholms län page=15 cards=35 fs-in-window=26 running-total=273
+[2026-05-12T05:38:19.851Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=16 returned 403 (attempt 1/3)
+[2026-05-12T05:38:21.037Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=16 returned 403 (attempt 2/3)
+[2026-05-12T05:38:23.186Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=16 returned 403 (attempt 3/3)
+[2026-05-12T05:38:23.186Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=16 direct-status=403 attempt=1
+[2026-05-12T05:38:28.815Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=16 ms=5629
+[2026-05-12T05:38:28.824Z] [INFO] booli-targeted-discovery: county=Stockholms län page=16 cards=35 fs-in-window=26 running-total=299
+[2026-05-12T05:38:28.997Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=17 returned 403 (attempt 1/3)
+[2026-05-12T05:38:30.131Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=17 returned 403 (attempt 2/3)
+[2026-05-12T05:38:32.277Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=17 returned 403 (attempt 3/3)
+[2026-05-12T05:38:32.277Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=17 direct-status=403 attempt=1
+[2026-05-12T05:38:36.660Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=17 ms=4383
+[2026-05-12T05:38:36.664Z] [INFO] booli-targeted-discovery: county=Stockholms län page=17 cards=35 fs-in-window=31 running-total=330
+[2026-05-12T05:38:36.823Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=18 returned 403 (attempt 1/3)
+[2026-05-12T05:38:38.014Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=18 returned 403 (attempt 2/3)
+[2026-05-12T05:38:40.214Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=18 returned 403 (attempt 3/3)
+[2026-05-12T05:38:40.214Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=18 direct-status=403 attempt=1
+[2026-05-12T05:38:44.812Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=18 ms=4598
+[2026-05-12T05:38:44.816Z] [INFO] booli-targeted-discovery: county=Stockholms län page=18 cards=35 fs-in-window=21 running-total=351
+[2026-05-12T05:38:44.999Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=19 returned 403 (attempt 1/3)
+[2026-05-12T05:38:46.127Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=19 returned 403 (attempt 2/3)
+[2026-05-12T05:38:48.267Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=19 returned 403 (attempt 3/3)
+[2026-05-12T05:38:48.267Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=19 direct-status=403 attempt=1
+[2026-05-12T05:38:51.683Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=19 ms=3416
+[2026-05-12T05:38:51.688Z] [INFO] booli-targeted-discovery: county=Stockholms län page=19 cards=35 fs-in-window=23 running-total=374
+[2026-05-12T05:38:51.814Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=20 returned 403 (attempt 1/3)
+[2026-05-12T05:38:52.984Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=20 returned 403 (attempt 2/3)
+[2026-05-12T05:38:55.115Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=20 returned 403 (attempt 3/3)
+[2026-05-12T05:38:55.115Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=20 direct-status=403 attempt=1
+[2026-05-12T05:38:59.855Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=20 ms=4740
+[2026-05-12T05:38:59.860Z] [INFO] booli-targeted-discovery: county=Stockholms län page=20 cards=35 fs-in-window=26 running-total=400
+[2026-05-12T05:39:00.015Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=21 returned 403 (attempt 1/3)
+[2026-05-12T05:39:01.175Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=21 returned 403 (attempt 2/3)
+[2026-05-12T05:39:03.504Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=21 returned 403 (attempt 3/3)
+[2026-05-12T05:39:03.504Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=21 direct-status=403 attempt=1
+[2026-05-12T05:39:07.438Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=21 ms=3934
+[2026-05-12T05:39:07.442Z] [INFO] booli-targeted-discovery: county=Stockholms län page=21 cards=35 fs-in-window=23 running-total=423
+[2026-05-12T05:39:07.564Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=22 returned 403 (attempt 1/3)
+[2026-05-12T05:39:08.735Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=22 returned 403 (attempt 2/3)
+[2026-05-12T05:39:10.944Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=22 returned 403 (attempt 3/3)
+[2026-05-12T05:39:10.944Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=22 direct-status=403 attempt=1
+[2026-05-12T05:39:15.355Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=22 ms=4410
+[2026-05-12T05:39:15.358Z] [INFO] booli-targeted-discovery: county=Stockholms län page=22 cards=35 fs-in-window=22 running-total=445
+[2026-05-12T05:39:15.654Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=23 returned 403 (attempt 1/3)
+[2026-05-12T05:39:16.827Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=23 returned 403 (attempt 2/3)
+[2026-05-12T05:39:18.997Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=23 returned 403 (attempt 3/3)
+[2026-05-12T05:39:18.997Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=23 direct-status=403 attempt=1
+[2026-05-12T05:39:28.899Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=23 ms=9902
+[2026-05-12T05:39:28.906Z] [INFO] booli-targeted-discovery: county=Stockholms län page=23 cards=35 fs-in-window=18 running-total=463
+[2026-05-12T05:39:29.073Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=24 returned 403 (attempt 1/3)
+[2026-05-12T05:39:30.300Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=24 returned 403 (attempt 2/3)
+[2026-05-12T05:39:32.460Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=24 returned 403 (attempt 3/3)
+[2026-05-12T05:39:32.461Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=24 direct-status=403 attempt=1
+[2026-05-12T05:39:36.877Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=24 ms=4416
+[2026-05-12T05:39:36.881Z] [INFO] booli-targeted-discovery: county=Stockholms län page=24 cards=35 fs-in-window=30 running-total=493
+[2026-05-12T05:39:37.035Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=25 returned 403 (attempt 1/3)
+[2026-05-12T05:39:38.233Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=25 returned 403 (attempt 2/3)
+[2026-05-12T05:39:40.438Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=25 returned 403 (attempt 3/3)
+[2026-05-12T05:39:40.439Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=25 direct-status=403 attempt=1
+[2026-05-12T05:39:44.870Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=25 ms=4431
+[2026-05-12T05:39:44.873Z] [INFO] booli-targeted-discovery: county=Stockholms län page=25 cards=35 fs-in-window=26 running-total=519
+[2026-05-12T05:39:45.025Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=26 returned 403 (attempt 1/3)
+[2026-05-12T05:39:46.153Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=26 returned 403 (attempt 2/3)
+[2026-05-12T05:39:48.306Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=26 returned 403 (attempt 3/3)
+[2026-05-12T05:39:48.306Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=26 direct-status=403 attempt=1
+[2026-05-12T05:39:55.352Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=26 ms=7046
+[2026-05-12T05:39:55.356Z] [INFO] booli-targeted-discovery: county=Stockholms län page=26 cards=35 fs-in-window=27 running-total=546
+[2026-05-12T05:39:55.475Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=27 returned 403 (attempt 1/3)
+[2026-05-12T05:39:56.612Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=27 returned 403 (attempt 2/3)
+[2026-05-12T05:39:58.761Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=27 returned 403 (attempt 3/3)
+[2026-05-12T05:39:58.761Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=27 direct-status=403 attempt=1
+[2026-05-12T05:40:04.789Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=27 ms=6028
+[2026-05-12T05:40:04.793Z] [INFO] booli-targeted-discovery: county=Stockholms län page=27 cards=35 fs-in-window=24 running-total=570
+[2026-05-12T05:40:04.945Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=28 returned 403 (attempt 1/3)
+[2026-05-12T05:40:06.115Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=28 returned 403 (attempt 2/3)
+[2026-05-12T05:40:08.253Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=28 returned 403 (attempt 3/3)
+[2026-05-12T05:40:08.253Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=28 direct-status=403 attempt=1
+[2026-05-12T05:40:12.403Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=28 ms=4150
+[2026-05-12T05:40:12.405Z] [INFO] booli-targeted-discovery: county=Stockholms län page=28 cards=35 fs-in-window=24 running-total=594
+[2026-05-12T05:40:12.541Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=29 returned 403 (attempt 1/3)
+[2026-05-12T05:40:13.753Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=29 returned 403 (attempt 2/3)
+[2026-05-12T05:40:15.892Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=29 returned 403 (attempt 3/3)
+[2026-05-12T05:40:15.892Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=29 direct-status=403 attempt=1
+[2026-05-12T05:40:20.861Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=29 ms=4969
+[2026-05-12T05:40:20.865Z] [INFO] booli-targeted-discovery: county=Stockholms län page=29 cards=35 fs-in-window=23 running-total=617
+[2026-05-12T05:40:21.008Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=30 returned 403 (attempt 1/3)
+[2026-05-12T05:40:22.139Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=30 returned 403 (attempt 2/3)
+[2026-05-12T05:40:24.277Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=30 returned 403 (attempt 3/3)
+[2026-05-12T05:40:24.277Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=30 direct-status=403 attempt=1
+[2026-05-12T05:40:28.989Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=30 ms=4712
+[2026-05-12T05:40:28.992Z] [INFO] booli-targeted-discovery: county=Stockholms län page=30 cards=35 fs-in-window=25 running-total=642
+[2026-05-12T05:40:29.144Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=31 returned 403 (attempt 1/3)
+[2026-05-12T05:40:30.290Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=31 returned 403 (attempt 2/3)
+[2026-05-12T05:40:32.461Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=31 returned 403 (attempt 3/3)
+[2026-05-12T05:40:32.461Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=31 direct-status=403 attempt=1
+[2026-05-12T05:40:40.548Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=31 ms=8087
+[2026-05-12T05:40:40.551Z] [INFO] booli-targeted-discovery: county=Stockholms län page=31 cards=35 fs-in-window=33 running-total=675
+[2026-05-12T05:40:40.691Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=32 returned 403 (attempt 1/3)
+[2026-05-12T05:40:41.840Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=32 returned 403 (attempt 2/3)
+[2026-05-12T05:40:44.043Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=32 returned 403 (attempt 3/3)
+[2026-05-12T05:40:44.043Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=32 direct-status=403 attempt=1
+[2026-05-12T05:40:48.900Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=32 ms=4857
+[2026-05-12T05:40:48.904Z] [INFO] booli-targeted-discovery: county=Stockholms län page=32 cards=35 fs-in-window=26 running-total=701
+[2026-05-12T05:40:49.029Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=33 returned 403 (attempt 1/3)
+[2026-05-12T05:40:50.194Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=33 returned 403 (attempt 2/3)
+[2026-05-12T05:40:52.348Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=33 returned 403 (attempt 3/3)
+[2026-05-12T05:40:52.348Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=33 direct-status=403 attempt=1
+[2026-05-12T05:40:56.160Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=33 ms=3812
+[2026-05-12T05:40:56.163Z] [INFO] booli-targeted-discovery: county=Stockholms län page=33 cards=35 fs-in-window=23 running-total=724
+[2026-05-12T05:40:56.317Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=34 returned 403 (attempt 1/3)
+[2026-05-12T05:40:57.480Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=34 returned 403 (attempt 2/3)
+[2026-05-12T05:40:59.606Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=34 returned 403 (attempt 3/3)
+[2026-05-12T05:40:59.606Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=34 direct-status=403 attempt=1
+[2026-05-12T05:41:04.463Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=34 ms=4857
+[2026-05-12T05:41:04.466Z] [INFO] booli-targeted-discovery: county=Stockholms län page=34 cards=35 fs-in-window=24 running-total=748
+[2026-05-12T05:41:04.589Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=35 returned 403 (attempt 1/3)
+[2026-05-12T05:41:05.769Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=35 returned 403 (attempt 2/3)
+[2026-05-12T05:41:07.901Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=35 returned 403 (attempt 3/3)
+[2026-05-12T05:41:07.901Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=35 direct-status=403 attempt=1
+[2026-05-12T05:41:12.307Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=35 ms=4406
+[2026-05-12T05:41:12.315Z] [INFO] booli-targeted-discovery: county=Stockholms län page=35 cards=35 fs-in-window=27 running-total=775
+[2026-05-12T05:41:12.478Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=36 returned 403 (attempt 1/3)
+[2026-05-12T05:41:13.639Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=36 returned 403 (attempt 2/3)
+[2026-05-12T05:41:15.788Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=36 returned 403 (attempt 3/3)
+[2026-05-12T05:41:15.788Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=36 direct-status=403 attempt=1
+[2026-05-12T05:41:18.950Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=36 ms=3162
+[2026-05-12T05:41:18.955Z] [INFO] booli-targeted-discovery: county=Stockholms län page=36 cards=35 fs-in-window=26 running-total=801
+[2026-05-12T05:41:19.156Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=37 returned 403 (attempt 1/3)
+[2026-05-12T05:41:20.409Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=37 returned 403 (attempt 2/3)
+[2026-05-12T05:41:22.590Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=37 returned 403 (attempt 3/3)
+[2026-05-12T05:41:22.591Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=37 direct-status=403 attempt=1
+[2026-05-12T05:41:27.288Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=37 ms=4697
+[2026-05-12T05:41:27.296Z] [INFO] booli-targeted-discovery: county=Stockholms län page=37 cards=35 fs-in-window=21 running-total=822
+[2026-05-12T05:41:27.558Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=38 returned 403 (attempt 1/3)
+[2026-05-12T05:41:28.713Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=38 returned 403 (attempt 2/3)
+[2026-05-12T05:41:30.888Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=38 returned 403 (attempt 3/3)
+[2026-05-12T05:41:30.888Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=38 direct-status=403 attempt=1
+[2026-05-12T05:41:35.637Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=38 ms=4748
+[2026-05-12T05:41:35.640Z] [INFO] booli-targeted-discovery: county=Stockholms län page=38 cards=35 fs-in-window=32 running-total=854
+[2026-05-12T05:41:35.821Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=39 returned 403 (attempt 1/3)
+[2026-05-12T05:41:36.950Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=39 returned 403 (attempt 2/3)
+[2026-05-12T05:41:39.112Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=39 returned 403 (attempt 3/3)
+[2026-05-12T05:41:39.112Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=39 direct-status=403 attempt=1
+[2026-05-12T05:41:43.747Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=39 ms=4635
+[2026-05-12T05:41:43.750Z] [INFO] booli-targeted-discovery: county=Stockholms län page=39 cards=35 fs-in-window=23 running-total=877
+[2026-05-12T05:41:43.923Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=40 returned 403 (attempt 1/3)
+[2026-05-12T05:41:45.090Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=40 returned 403 (attempt 2/3)
+[2026-05-12T05:41:47.348Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=40 returned 403 (attempt 3/3)
+[2026-05-12T05:41:47.348Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=40 direct-status=403 attempt=1
+[2026-05-12T05:41:51.828Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=40 ms=4480
+[2026-05-12T05:41:51.834Z] [INFO] booli-targeted-discovery: county=Stockholms län page=40 cards=35 fs-in-window=22 running-total=899
+[2026-05-12T05:41:52.025Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=41 returned 403 (attempt 1/3)
+[2026-05-12T05:41:53.181Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=41 returned 403 (attempt 2/3)
+[2026-05-12T05:41:55.385Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=41 returned 403 (attempt 3/3)
+[2026-05-12T05:41:55.386Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=41 direct-status=403 attempt=1
+[2026-05-12T05:42:00.039Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=41 ms=4653
+[2026-05-12T05:42:00.049Z] [INFO] booli-targeted-discovery: county=Stockholms län page=41 cards=35 fs-in-window=28 running-total=927
+[2026-05-12T05:42:00.269Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=42 returned 403 (attempt 1/3)
+[2026-05-12T05:42:01.491Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=42 returned 403 (attempt 2/3)
+[2026-05-12T05:42:03.708Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=42 returned 403 (attempt 3/3)
+[2026-05-12T05:42:03.708Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=42 direct-status=403 attempt=1
+[2026-05-12T05:42:06.868Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=42 ms=3160
+[2026-05-12T05:42:06.873Z] [INFO] booli-targeted-discovery: county=Stockholms län page=42 cards=35 fs-in-window=30 running-total=957
+[2026-05-12T05:42:07.034Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=43 returned 403 (attempt 1/3)
+[2026-05-12T05:42:08.200Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=43 returned 403 (attempt 2/3)
+[2026-05-12T05:42:10.337Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=43 returned 403 (attempt 3/3)
+[2026-05-12T05:42:10.338Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=43 direct-status=403 attempt=1
+[2026-05-12T05:42:14.645Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=43 ms=4307
+[2026-05-12T05:42:14.647Z] [INFO] booli-targeted-discovery: county=Stockholms län page=43 cards=35 fs-in-window=24 running-total=981
+[2026-05-12T05:42:14.758Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=44 returned 403 (attempt 1/3)
+[2026-05-12T05:42:15.900Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=44 returned 403 (attempt 2/3)
+[2026-05-12T05:42:18.071Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=44 returned 403 (attempt 3/3)
+[2026-05-12T05:42:18.071Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=44 direct-status=403 attempt=1
+[2026-05-12T05:42:22.333Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=44 ms=4262
+[2026-05-12T05:42:22.338Z] [INFO] booli-targeted-discovery: county=Stockholms län page=44 cards=35 fs-in-window=28 running-total=1009
+[2026-05-12T05:42:22.479Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=45 returned 403 (attempt 1/3)
+[2026-05-12T05:42:23.621Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=45 returned 403 (attempt 2/3)
+[2026-05-12T05:42:25.769Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=45 returned 403 (attempt 3/3)
+[2026-05-12T05:42:25.769Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=45 direct-status=403 attempt=1
+[2026-05-12T05:42:30.797Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=45 ms=5028
+[2026-05-12T05:42:30.801Z] [INFO] booli-targeted-discovery: county=Stockholms län page=45 cards=35 fs-in-window=21 running-total=1030
+[2026-05-12T05:42:30.914Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=46 returned 403 (attempt 1/3)
+[2026-05-12T05:42:32.104Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=46 returned 403 (attempt 2/3)
+[2026-05-12T05:42:34.263Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=46 returned 403 (attempt 3/3)
+[2026-05-12T05:42:34.263Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=46 direct-status=403 attempt=1
+[2026-05-12T05:42:40.585Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=46 ms=6322
+[2026-05-12T05:42:40.588Z] [INFO] booli-targeted-discovery: county=Stockholms län page=46 cards=35 fs-in-window=19 running-total=1049
+[2026-05-12T05:42:40.753Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=47 returned 403 (attempt 1/3)
+[2026-05-12T05:42:42.021Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=47 returned 403 (attempt 2/3)
+[2026-05-12T05:42:44.190Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=47 returned 403 (attempt 3/3)
+[2026-05-12T05:42:44.190Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=47 direct-status=403 attempt=1
+[2026-05-12T05:42:48.163Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=47 ms=3973
+[2026-05-12T05:42:48.165Z] [INFO] booli-targeted-discovery: county=Stockholms län page=47 cards=35 fs-in-window=18 running-total=1067
+[2026-05-12T05:42:48.300Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=48 returned 403 (attempt 1/3)
+[2026-05-12T05:42:49.436Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=48 returned 403 (attempt 2/3)
+[2026-05-12T05:42:51.596Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=48 returned 403 (attempt 3/3)
+[2026-05-12T05:42:51.597Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=48 direct-status=403 attempt=1
+[2026-05-12T05:42:56.335Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=48 ms=4738
+[2026-05-12T05:42:56.339Z] [INFO] booli-targeted-discovery: county=Stockholms län page=48 cards=35 fs-in-window=22 running-total=1089
+[2026-05-12T05:42:56.496Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=49 returned 403 (attempt 1/3)
+[2026-05-12T05:42:57.644Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=49 returned 403 (attempt 2/3)
+[2026-05-12T05:42:59.825Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=49 returned 403 (attempt 3/3)
+[2026-05-12T05:42:59.825Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=49 direct-status=403 attempt=1
+[2026-05-12T05:43:04.234Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=49 ms=4409
+[2026-05-12T05:43:04.237Z] [INFO] booli-targeted-discovery: county=Stockholms län page=49 cards=35 fs-in-window=19 running-total=1108
+[2026-05-12T05:43:04.349Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=50 returned 403 (attempt 1/3)
+[2026-05-12T05:43:05.492Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=50 returned 403 (attempt 2/3)
+[2026-05-12T05:43:07.637Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=50 returned 403 (attempt 3/3)
+[2026-05-12T05:43:07.637Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=50 direct-status=403 attempt=1
+[2026-05-12T05:43:14.189Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=50 ms=6552
+[2026-05-12T05:43:14.192Z] [INFO] booli-targeted-discovery: county=Stockholms län page=50 cards=35 fs-in-window=18 running-total=1126
+[2026-05-12T05:43:14.297Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=51 returned 403 (attempt 1/3)
+[2026-05-12T05:43:15.441Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=51 returned 403 (attempt 2/3)
+[2026-05-12T05:43:17.579Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=51 returned 403 (attempt 3/3)
+[2026-05-12T05:43:17.580Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=51 direct-status=403 attempt=1
+[2026-05-12T05:43:22.041Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=51 ms=4461
+[2026-05-12T05:43:22.044Z] [INFO] booli-targeted-discovery: county=Stockholms län page=51 cards=35 fs-in-window=15 running-total=1141
+[2026-05-12T05:43:22.178Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=52 returned 403 (attempt 1/3)
+[2026-05-12T05:43:23.301Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=52 returned 403 (attempt 2/3)
+[2026-05-12T05:43:25.439Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=52 returned 403 (attempt 3/3)
+[2026-05-12T05:43:25.439Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=52 direct-status=403 attempt=1
+[2026-05-12T05:43:30.755Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=52 ms=5316
+[2026-05-12T05:43:30.759Z] [INFO] booli-targeted-discovery: county=Stockholms län page=52 cards=35 fs-in-window=22 running-total=1163
+[2026-05-12T05:43:30.902Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=53 returned 403 (attempt 1/3)
+[2026-05-12T05:43:32.141Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=53 returned 403 (attempt 2/3)
+[2026-05-12T05:43:34.294Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=53 returned 403 (attempt 3/3)
+[2026-05-12T05:43:34.294Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=53 direct-status=403 attempt=1
+[2026-05-12T05:43:38.897Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=53 ms=4603
+[2026-05-12T05:43:38.900Z] [INFO] booli-targeted-discovery: county=Stockholms län page=53 cards=35 fs-in-window=15 running-total=1178
+[2026-05-12T05:43:39.019Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=54 returned 403 (attempt 1/3)
+[2026-05-12T05:43:40.150Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=54 returned 403 (attempt 2/3)
+[2026-05-12T05:43:42.294Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=54 returned 403 (attempt 3/3)
+[2026-05-12T05:43:42.294Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=54 direct-status=403 attempt=1
+[2026-05-12T05:43:46.717Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=54 ms=4423
+[2026-05-12T05:43:46.720Z] [INFO] booli-targeted-discovery: county=Stockholms län page=54 cards=35 fs-in-window=21 running-total=1199
+[2026-05-12T05:43:46.848Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=55 returned 403 (attempt 1/3)
+[2026-05-12T05:43:47.999Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=55 returned 403 (attempt 2/3)
+[2026-05-12T05:43:50.139Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=55 returned 403 (attempt 3/3)
+[2026-05-12T05:43:50.139Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=55 direct-status=403 attempt=1
+[2026-05-12T05:43:54.649Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=55 ms=4509
+[2026-05-12T05:43:54.651Z] [INFO] booli-targeted-discovery: county=Stockholms län page=55 cards=35 fs-in-window=17 running-total=1216
+[2026-05-12T05:43:54.770Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=56 returned 403 (attempt 1/3)
+[2026-05-12T05:43:55.903Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=56 returned 403 (attempt 2/3)
+[2026-05-12T05:43:58.071Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=56 returned 403 (attempt 3/3)
+[2026-05-12T05:43:58.071Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=56 direct-status=403 attempt=1
+[2026-05-12T05:44:02.748Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=56 ms=4677
+[2026-05-12T05:44:02.751Z] [INFO] booli-targeted-discovery: county=Stockholms län page=56 cards=35 fs-in-window=21 running-total=1237
+[2026-05-12T05:44:02.887Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=57 returned 403 (attempt 1/3)
+[2026-05-12T05:44:04.012Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=57 returned 403 (attempt 2/3)
+[2026-05-12T05:44:06.163Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=57 returned 403 (attempt 3/3)
+[2026-05-12T05:44:06.163Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=57 direct-status=403 attempt=1
+[2026-05-12T05:44:10.767Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=57 ms=4603
+[2026-05-12T05:44:10.769Z] [INFO] booli-targeted-discovery: county=Stockholms län page=57 cards=35 fs-in-window=17 running-total=1254
+[2026-05-12T05:44:10.912Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=58 returned 403 (attempt 1/3)
+[2026-05-12T05:44:12.062Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=58 returned 403 (attempt 2/3)
+[2026-05-12T05:44:14.195Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=58 returned 403 (attempt 3/3)
+[2026-05-12T05:44:14.195Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=58 direct-status=403 attempt=1
+[2026-05-12T05:44:18.817Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=58 ms=4622
+[2026-05-12T05:44:18.820Z] [INFO] booli-targeted-discovery: county=Stockholms län page=58 cards=35 fs-in-window=15 running-total=1269
+[2026-05-12T05:44:18.953Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=59 returned 403 (attempt 1/3)
+[2026-05-12T05:44:20.096Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=59 returned 403 (attempt 2/3)
+[2026-05-12T05:44:22.220Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=59 returned 403 (attempt 3/3)
+[2026-05-12T05:44:22.220Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=59 direct-status=403 attempt=1
+[2026-05-12T05:44:26.776Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=59 ms=4555
+[2026-05-12T05:44:26.779Z] [INFO] booli-targeted-discovery: county=Stockholms län page=59 cards=35 fs-in-window=15 running-total=1284
+[2026-05-12T05:44:26.927Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=60 returned 403 (attempt 1/3)
+[2026-05-12T05:44:28.072Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=60 returned 403 (attempt 2/3)
+[2026-05-12T05:44:30.235Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=60 returned 403 (attempt 3/3)
+[2026-05-12T05:44:30.235Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=60 direct-status=403 attempt=1
+[2026-05-12T05:44:34.883Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=60 ms=4648
+[2026-05-12T05:44:34.886Z] [INFO] booli-targeted-discovery: county=Stockholms län page=60 cards=35 fs-in-window=15 running-total=1299
+[2026-05-12T05:44:35.018Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=61 returned 403 (attempt 1/3)
+[2026-05-12T05:44:36.197Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=61 returned 403 (attempt 2/3)
+[2026-05-12T05:44:38.355Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=61 returned 403 (attempt 3/3)
+[2026-05-12T05:44:38.355Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=61 direct-status=403 attempt=1
+[2026-05-12T05:44:43.331Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=61 ms=4976
+[2026-05-12T05:44:43.334Z] [INFO] booli-targeted-discovery: county=Stockholms län page=61 cards=35 fs-in-window=18 running-total=1317
+[2026-05-12T05:44:43.453Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=62 returned 403 (attempt 1/3)
+[2026-05-12T05:44:44.600Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=62 returned 403 (attempt 2/3)
+[2026-05-12T05:44:46.740Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=62 returned 403 (attempt 3/3)
+[2026-05-12T05:44:46.740Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=62 direct-status=403 attempt=1
+[2026-05-12T05:44:51.296Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=62 ms=4556
+[2026-05-12T05:44:51.299Z] [INFO] booli-targeted-discovery: county=Stockholms län page=62 cards=35 fs-in-window=16 running-total=1333
+[2026-05-12T05:44:51.418Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=63 returned 403 (attempt 1/3)
+[2026-05-12T05:44:52.548Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=63 returned 403 (attempt 2/3)
+[2026-05-12T05:44:54.667Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=63 returned 403 (attempt 3/3)
+[2026-05-12T05:44:54.667Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=63 direct-status=403 attempt=1
+[2026-05-12T05:45:00.448Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=63 ms=5781
+[2026-05-12T05:45:00.451Z] [INFO] booli-targeted-discovery: county=Stockholms län page=63 cards=35 fs-in-window=25 running-total=1358
+[2026-05-12T05:45:00.597Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=64 returned 403 (attempt 1/3)
+[2026-05-12T05:45:01.740Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=64 returned 403 (attempt 2/3)
+[2026-05-12T05:45:03.858Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=64 returned 403 (attempt 3/3)
+[2026-05-12T05:45:03.859Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=64 direct-status=403 attempt=1
+[2026-05-12T05:45:08.762Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=64 ms=4903
+[2026-05-12T05:45:08.764Z] [INFO] booli-targeted-discovery: county=Stockholms län page=64 cards=35 fs-in-window=13 running-total=1371
+[2026-05-12T05:45:08.924Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=65 returned 403 (attempt 1/3)
+[2026-05-12T05:45:10.047Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=65 returned 403 (attempt 2/3)
+[2026-05-12T05:45:12.163Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=65 returned 403 (attempt 3/3)
+[2026-05-12T05:45:12.163Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=65 direct-status=403 attempt=1
+[2026-05-12T05:45:16.724Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=65 ms=4561
+[2026-05-12T05:45:16.728Z] [INFO] booli-targeted-discovery: county=Stockholms län page=65 cards=35 fs-in-window=15 running-total=1386
+[2026-05-12T05:45:16.862Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=66 returned 403 (attempt 1/3)
+[2026-05-12T05:45:18.004Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=66 returned 403 (attempt 2/3)
+[2026-05-12T05:45:20.164Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=66 returned 403 (attempt 3/3)
+[2026-05-12T05:45:20.164Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=66 direct-status=403 attempt=1
+[2026-05-12T05:45:25.042Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=66 ms=4878
+[2026-05-12T05:45:25.046Z] [INFO] booli-targeted-discovery: county=Stockholms län page=66 cards=35 fs-in-window=18 running-total=1404
+[2026-05-12T05:45:25.209Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=67 returned 403 (attempt 1/3)
+[2026-05-12T05:45:26.354Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=67 returned 403 (attempt 2/3)
+[2026-05-12T05:45:28.471Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=67 returned 403 (attempt 3/3)
+[2026-05-12T05:45:28.471Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=67 direct-status=403 attempt=1
+[2026-05-12T05:45:33.158Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=67 ms=4687
+[2026-05-12T05:45:33.161Z] [INFO] booli-targeted-discovery: county=Stockholms län page=67 cards=35 fs-in-window=14 running-total=1418
+[2026-05-12T05:45:33.445Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=68 returned 403 (attempt 1/3)
+[2026-05-12T05:45:34.579Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=68 returned 403 (attempt 2/3)
+[2026-05-12T05:45:36.680Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=68 returned 403 (attempt 3/3)
+[2026-05-12T05:45:36.681Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=68 direct-status=403 attempt=1
+[2026-05-12T05:45:40.260Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=68 ms=3579
+[2026-05-12T05:45:40.261Z] [INFO] booli-targeted-discovery: county=Stockholms län page=68 cards=35 fs-in-window=11 running-total=1429
+[2026-05-12T05:45:40.395Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=69 returned 403 (attempt 1/3)
+[2026-05-12T05:45:41.526Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=69 returned 403 (attempt 2/3)
+[2026-05-12T05:45:43.673Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=69 returned 403 (attempt 3/3)
+[2026-05-12T05:45:43.673Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=69 direct-status=403 attempt=1
+[2026-05-12T05:45:48.316Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=69 ms=4642
+[2026-05-12T05:45:48.318Z] [INFO] booli-targeted-discovery: county=Stockholms län page=69 cards=35 fs-in-window=20 running-total=1449
+[2026-05-12T05:45:48.421Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=70 returned 403 (attempt 1/3)
+[2026-05-12T05:45:49.573Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=70 returned 403 (attempt 2/3)
+[2026-05-12T05:45:51.742Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=70 returned 403 (attempt 3/3)
+[2026-05-12T05:45:51.742Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=70 direct-status=403 attempt=1
+[2026-05-12T05:45:57.011Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=70 ms=5269
+[2026-05-12T05:45:57.013Z] [INFO] booli-targeted-discovery: county=Stockholms län page=70 cards=35 fs-in-window=16 running-total=1465
+[2026-05-12T05:45:57.127Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=71 returned 403 (attempt 1/3)
+[2026-05-12T05:45:58.316Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=71 returned 403 (attempt 2/3)
+[2026-05-12T05:46:00.436Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=71 returned 403 (attempt 3/3)
+[2026-05-12T05:46:00.436Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=71 direct-status=403 attempt=1
+[2026-05-12T05:46:04.972Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=71 ms=4536
+[2026-05-12T05:46:04.975Z] [INFO] booli-targeted-discovery: county=Stockholms län page=71 cards=35 fs-in-window=14 running-total=1479
+[2026-05-12T05:46:05.098Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=72 returned 403 (attempt 1/3)
+[2026-05-12T05:46:06.219Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=72 returned 403 (attempt 2/3)
+[2026-05-12T05:46:08.357Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=72 returned 403 (attempt 3/3)
+[2026-05-12T05:46:08.357Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=72 direct-status=403 attempt=1
+[2026-05-12T05:46:11.423Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=72 ms=3065
+[2026-05-12T05:46:11.427Z] [INFO] booli-targeted-discovery: county=Stockholms län page=72 cards=35 fs-in-window=24 running-total=1503
+[2026-05-12T05:46:11.613Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=73 returned 403 (attempt 1/3)
+[2026-05-12T05:46:12.746Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=73 returned 403 (attempt 2/3)
+[2026-05-12T05:46:14.888Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=73 returned 403 (attempt 3/3)
+[2026-05-12T05:46:14.888Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=73 direct-status=403 attempt=1
+[2026-05-12T05:46:19.780Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=73 ms=4892
+[2026-05-12T05:46:19.782Z] [INFO] booli-targeted-discovery: county=Stockholms län page=73 cards=35 fs-in-window=4 running-total=1507
+[2026-05-12T05:46:19.940Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=74 returned 403 (attempt 1/3)
+[2026-05-12T05:46:21.102Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=74 returned 403 (attempt 2/3)
+[2026-05-12T05:46:23.256Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=2&page=74 returned 403 (attempt 3/3)
+[2026-05-12T05:46:23.256Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=2&page=74 direct-status=403 attempt=1
+[2026-05-12T05:46:28.902Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=2&page=74 ms=5646
+[2026-05-12T05:46:28.907Z] [INFO] booli-targeted-discovery: county=Stockholms län page=74 first-card-published=1777930416 < cutoff=1777959370 — stopping
+[2026-05-12T05:46:28.908Z] [INFO] booli-targeted-discovery: === walking county=Västra Götalands län (areaId=23) ===
+[2026-05-12T05:46:29.035Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=1 returned 403 (attempt 1/3)
+[2026-05-12T05:46:30.192Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=1 returned 403 (attempt 2/3)
+[2026-05-12T05:46:32.327Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=1 returned 403 (attempt 3/3)
+[2026-05-12T05:46:32.328Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=1 direct-status=403 attempt=1
+[2026-05-12T05:46:38.099Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=1 ms=5771
+[2026-05-12T05:46:38.105Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=1 cards=35 fs-in-window=20 running-total=20
+[2026-05-12T05:46:38.277Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=2 returned 403 (attempt 1/3)
+[2026-05-12T05:46:39.417Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=2 returned 403 (attempt 2/3)
+[2026-05-12T05:46:41.566Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=2 returned 403 (attempt 3/3)
+[2026-05-12T05:46:41.566Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=2 direct-status=403 attempt=1
+[2026-05-12T05:46:44.807Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=2 ms=3241
+[2026-05-12T05:46:44.811Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=2 cards=35 fs-in-window=19 running-total=39
+[2026-05-12T05:46:44.979Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=3 returned 403 (attempt 1/3)
+[2026-05-12T05:46:46.150Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=3 returned 403 (attempt 2/3)
+[2026-05-12T05:46:48.282Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=3 returned 403 (attempt 3/3)
+[2026-05-12T05:46:48.282Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=3 direct-status=403 attempt=1
+[2026-05-12T05:46:52.469Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=3 ms=4187
+[2026-05-12T05:46:52.474Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=3 cards=35 fs-in-window=18 running-total=57
+[2026-05-12T05:46:52.632Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=4 returned 403 (attempt 1/3)
+[2026-05-12T05:46:53.803Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=4 returned 403 (attempt 2/3)
+[2026-05-12T05:46:56.013Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=4 returned 403 (attempt 3/3)
+[2026-05-12T05:46:56.013Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=4 direct-status=403 attempt=1
+[2026-05-12T05:47:00.071Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=4 ms=4057
+[2026-05-12T05:47:00.079Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=4 cards=35 fs-in-window=22 running-total=79
+[2026-05-12T05:47:00.261Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=5 returned 403 (attempt 1/3)
+[2026-05-12T05:47:01.581Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=5 returned 403 (attempt 2/3)
+[2026-05-12T05:47:03.795Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=5 returned 403 (attempt 3/3)
+[2026-05-12T05:47:03.796Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=5 direct-status=403 attempt=1
+[2026-05-12T05:47:08.049Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=5 ms=4253
+[2026-05-12T05:47:08.060Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=5 cards=35 fs-in-window=22 running-total=101
+[2026-05-12T05:47:08.273Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=6 returned 403 (attempt 1/3)
+[2026-05-12T05:47:09.484Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=6 returned 403 (attempt 2/3)
+[2026-05-12T05:47:11.651Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=6 returned 403 (attempt 3/3)
+[2026-05-12T05:47:11.651Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=6 direct-status=403 attempt=1
+[2026-05-12T05:47:16.954Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=6 ms=5302
+[2026-05-12T05:47:16.967Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=6 cards=35 fs-in-window=23 running-total=124
+[2026-05-12T05:47:17.219Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=7 returned 403 (attempt 1/3)
+[2026-05-12T05:47:18.455Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=7 returned 403 (attempt 2/3)
+[2026-05-12T05:47:20.752Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=7 returned 403 (attempt 3/3)
+[2026-05-12T05:47:20.752Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=7 direct-status=403 attempt=1
+[2026-05-12T05:47:25.392Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=7 ms=4640
+[2026-05-12T05:47:25.401Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=7 cards=35 fs-in-window=22 running-total=146
+[2026-05-12T05:47:25.669Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=8 returned 403 (attempt 1/3)
+[2026-05-12T05:47:26.885Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=8 returned 403 (attempt 2/3)
+[2026-05-12T05:47:29.333Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=8 returned 403 (attempt 3/3)
+[2026-05-12T05:47:29.333Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=8 direct-status=403 attempt=1
+[2026-05-12T05:47:35.300Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=8 ms=5967
+[2026-05-12T05:47:35.305Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=8 cards=35 fs-in-window=20 running-total=166
+[2026-05-12T05:47:35.543Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=9 returned 403 (attempt 1/3)
+[2026-05-12T05:47:36.726Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=9 returned 403 (attempt 2/3)
+[2026-05-12T05:47:38.883Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=9 returned 403 (attempt 3/3)
+[2026-05-12T05:47:38.883Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=9 direct-status=403 attempt=1
+[2026-05-12T05:47:43.070Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=9 ms=4187
+[2026-05-12T05:47:43.074Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=9 cards=35 fs-in-window=28 running-total=194
+[2026-05-12T05:47:43.202Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=10 returned 403 (attempt 1/3)
+[2026-05-12T05:47:44.355Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=10 returned 403 (attempt 2/3)
+[2026-05-12T05:47:46.487Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=10 returned 403 (attempt 3/3)
+[2026-05-12T05:47:46.487Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=10 direct-status=403 attempt=1
+[2026-05-12T05:47:51.158Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=10 ms=4671
+[2026-05-12T05:47:51.166Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=10 cards=35 fs-in-window=19 running-total=213
+[2026-05-12T05:47:51.360Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=11 returned 403 (attempt 1/3)
+[2026-05-12T05:47:52.503Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=11 returned 403 (attempt 2/3)
+[2026-05-12T05:47:54.659Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=11 returned 403 (attempt 3/3)
+[2026-05-12T05:47:54.659Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=11 direct-status=403 attempt=1
+[2026-05-12T05:48:05.751Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=11 ms=11092
+[2026-05-12T05:48:05.755Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=11 cards=35 fs-in-window=20 running-total=233
+[2026-05-12T05:48:05.907Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=12 returned 403 (attempt 1/3)
+[2026-05-12T05:48:07.067Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=12 returned 403 (attempt 2/3)
+[2026-05-12T05:48:09.221Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=12 returned 403 (attempt 3/3)
+[2026-05-12T05:48:09.221Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=12 direct-status=403 attempt=1
+[2026-05-12T05:48:16.314Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=12 ms=7093
+[2026-05-12T05:48:16.317Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=12 cards=35 fs-in-window=21 running-total=254
+[2026-05-12T05:48:16.484Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=13 returned 403 (attempt 1/3)
+[2026-05-12T05:48:17.637Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=13 returned 403 (attempt 2/3)
+[2026-05-12T05:48:19.802Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=13 returned 403 (attempt 3/3)
+[2026-05-12T05:48:19.802Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=13 direct-status=403 attempt=1
+[2026-05-12T05:48:26.167Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=13 ms=6365
+[2026-05-12T05:48:26.170Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=13 cards=35 fs-in-window=21 running-total=275
+[2026-05-12T05:48:26.290Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=14 returned 403 (attempt 1/3)
+[2026-05-12T05:48:27.421Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=14 returned 403 (attempt 2/3)
+[2026-05-12T05:48:29.617Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=14 returned 403 (attempt 3/3)
+[2026-05-12T05:48:29.618Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=14 direct-status=403 attempt=1
+[2026-05-12T05:48:34.920Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=14 ms=5302
+[2026-05-12T05:48:34.923Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=14 cards=35 fs-in-window=21 running-total=296
+[2026-05-12T05:48:35.099Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=15 returned 403 (attempt 1/3)
+[2026-05-12T05:48:36.271Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=15 returned 403 (attempt 2/3)
+[2026-05-12T05:48:38.424Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=15 returned 403 (attempt 3/3)
+[2026-05-12T05:48:38.424Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=15 direct-status=403 attempt=1
+[2026-05-12T05:48:42.736Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=15 ms=4312
+[2026-05-12T05:48:42.742Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=15 cards=35 fs-in-window=19 running-total=315
+[2026-05-12T05:48:42.890Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=16 returned 403 (attempt 1/3)
+[2026-05-12T05:48:44.042Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=16 returned 403 (attempt 2/3)
+[2026-05-12T05:48:46.183Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=16 returned 403 (attempt 3/3)
+[2026-05-12T05:48:46.183Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=16 direct-status=403 attempt=1
+[2026-05-12T05:48:49.878Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=16 ms=3695
+[2026-05-12T05:48:49.880Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=16 cards=35 fs-in-window=25 running-total=340
+[2026-05-12T05:48:50.011Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=17 returned 403 (attempt 1/3)
+[2026-05-12T05:48:51.178Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=17 returned 403 (attempt 2/3)
+[2026-05-12T05:48:53.353Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=17 returned 403 (attempt 3/3)
+[2026-05-12T05:48:53.353Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=17 direct-status=403 attempt=1
+[2026-05-12T05:48:59.007Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=17 ms=5654
+[2026-05-12T05:48:59.019Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=17 cards=35 fs-in-window=23 running-total=363
+[2026-05-12T05:48:59.248Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=18 returned 403 (attempt 1/3)
+[2026-05-12T05:49:00.403Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=18 returned 403 (attempt 2/3)
+[2026-05-12T05:49:02.562Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=18 returned 403 (attempt 3/3)
+[2026-05-12T05:49:02.562Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=18 direct-status=403 attempt=1
+[2026-05-12T05:49:07.665Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=18 ms=5103
+[2026-05-12T05:49:07.669Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=18 cards=35 fs-in-window=25 running-total=388
+[2026-05-12T05:49:07.828Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=19 returned 403 (attempt 1/3)
+[2026-05-12T05:49:08.982Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=19 returned 403 (attempt 2/3)
+[2026-05-12T05:49:11.149Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=19 returned 403 (attempt 3/3)
+[2026-05-12T05:49:11.149Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=19 direct-status=403 attempt=1
+[2026-05-12T05:49:15.565Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=19 ms=4416
+[2026-05-12T05:49:15.568Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=19 cards=35 fs-in-window=27 running-total=415
+[2026-05-12T05:49:15.708Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=20 returned 403 (attempt 1/3)
+[2026-05-12T05:49:16.884Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=20 returned 403 (attempt 2/3)
+[2026-05-12T05:49:19.066Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=20 returned 403 (attempt 3/3)
+[2026-05-12T05:49:19.066Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=20 direct-status=403 attempt=1
+[2026-05-12T05:49:23.834Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=20 ms=4768
+[2026-05-12T05:49:23.836Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=20 cards=35 fs-in-window=24 running-total=439
+[2026-05-12T05:49:23.996Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=21 returned 403 (attempt 1/3)
+[2026-05-12T05:49:25.170Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=21 returned 403 (attempt 2/3)
+[2026-05-12T05:49:27.394Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=21 returned 403 (attempt 3/3)
+[2026-05-12T05:49:27.394Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=21 direct-status=403 attempt=1
+[2026-05-12T05:49:33.813Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=21 ms=6419
+[2026-05-12T05:49:33.819Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=21 cards=35 fs-in-window=28 running-total=467
+[2026-05-12T05:49:33.973Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=22 returned 403 (attempt 1/3)
+[2026-05-12T05:49:35.150Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=22 returned 403 (attempt 2/3)
+[2026-05-12T05:49:37.333Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=22 returned 403 (attempt 3/3)
+[2026-05-12T05:49:37.333Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=22 direct-status=403 attempt=1
+[2026-05-12T05:49:42.173Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=22 ms=4840
+[2026-05-12T05:49:42.178Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=22 cards=35 fs-in-window=18 running-total=485
+[2026-05-12T05:49:42.355Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=23 returned 403 (attempt 1/3)
+[2026-05-12T05:49:43.536Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=23 returned 403 (attempt 2/3)
+[2026-05-12T05:49:45.696Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=23 returned 403 (attempt 3/3)
+[2026-05-12T05:49:45.696Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=23 direct-status=403 attempt=1
+[2026-05-12T05:49:49.761Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=23 ms=4065
+[2026-05-12T05:49:49.765Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=23 cards=35 fs-in-window=17 running-total=502
+[2026-05-12T05:49:49.902Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=24 returned 403 (attempt 1/3)
+[2026-05-12T05:49:51.015Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=24 returned 403 (attempt 2/3)
+[2026-05-12T05:49:53.251Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=24 returned 403 (attempt 3/3)
+[2026-05-12T05:49:53.251Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=24 direct-status=403 attempt=1
+[2026-05-12T05:49:59.227Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=24 ms=5976
+[2026-05-12T05:49:59.230Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=24 cards=35 fs-in-window=20 running-total=522
+[2026-05-12T05:49:59.353Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=25 returned 403 (attempt 1/3)
+[2026-05-12T05:50:00.510Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=25 returned 403 (attempt 2/3)
+[2026-05-12T05:50:02.684Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=25 returned 403 (attempt 3/3)
+[2026-05-12T05:50:02.685Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=25 direct-status=403 attempt=1
+[2026-05-12T05:50:07.618Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=25 ms=4933
+[2026-05-12T05:50:07.621Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=25 cards=35 fs-in-window=18 running-total=540
+[2026-05-12T05:50:07.772Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=26 returned 403 (attempt 1/3)
+[2026-05-12T05:50:08.892Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=26 returned 403 (attempt 2/3)
+[2026-05-12T05:50:11.051Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=26 returned 403 (attempt 3/3)
+[2026-05-12T05:50:11.051Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=26 direct-status=403 attempt=1
+[2026-05-12T05:50:15.105Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=26 ms=4053
+[2026-05-12T05:50:15.108Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=26 cards=35 fs-in-window=21 running-total=561
+[2026-05-12T05:50:15.272Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=27 returned 403 (attempt 1/3)
+[2026-05-12T05:50:16.461Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=27 returned 403 (attempt 2/3)
+[2026-05-12T05:50:18.608Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=27 returned 403 (attempt 3/3)
+[2026-05-12T05:50:18.608Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=27 direct-status=403 attempt=1
+[2026-05-12T05:50:24.274Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=27 ms=5666
+[2026-05-12T05:50:24.276Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=27 cards=35 fs-in-window=26 running-total=587
+[2026-05-12T05:50:24.420Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=28 returned 403 (attempt 1/3)
+[2026-05-12T05:50:25.582Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=28 returned 403 (attempt 2/3)
+[2026-05-12T05:50:27.764Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=28 returned 403 (attempt 3/3)
+[2026-05-12T05:50:27.764Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=28 direct-status=403 attempt=1
+[2026-05-12T05:50:38.763Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=28 ms=10999
+[2026-05-12T05:50:38.767Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=28 cards=35 fs-in-window=24 running-total=611
+[2026-05-12T05:50:38.931Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=29 returned 403 (attempt 1/3)
+[2026-05-12T05:50:40.061Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=29 returned 403 (attempt 2/3)
+[2026-05-12T05:50:42.227Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=29 returned 403 (attempt 3/3)
+[2026-05-12T05:50:42.227Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=29 direct-status=403 attempt=1
+[2026-05-12T05:50:47.171Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=29 ms=4944
+[2026-05-12T05:50:47.175Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=29 cards=35 fs-in-window=22 running-total=633
+[2026-05-12T05:50:47.331Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=30 returned 403 (attempt 1/3)
+[2026-05-12T05:50:48.466Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=30 returned 403 (attempt 2/3)
+[2026-05-12T05:50:50.615Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=30 returned 403 (attempt 3/3)
+[2026-05-12T05:50:50.615Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=30 direct-status=403 attempt=1
+[2026-05-12T05:50:54.918Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=30 ms=4303
+[2026-05-12T05:50:54.925Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=30 cards=35 fs-in-window=28 running-total=661
+[2026-05-12T05:50:55.060Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=31 returned 403 (attempt 1/3)
+[2026-05-12T05:50:56.231Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=31 returned 403 (attempt 2/3)
+[2026-05-12T05:50:58.388Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=31 returned 403 (attempt 3/3)
+[2026-05-12T05:50:58.388Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=31 direct-status=403 attempt=1
+[2026-05-12T05:51:03.088Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=31 ms=4700
+[2026-05-12T05:51:03.090Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=31 cards=35 fs-in-window=24 running-total=685
+[2026-05-12T05:51:03.256Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=32 returned 403 (attempt 1/3)
+[2026-05-12T05:51:04.414Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=32 returned 403 (attempt 2/3)
+[2026-05-12T05:51:06.594Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=32 returned 403 (attempt 3/3)
+[2026-05-12T05:51:06.594Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=32 direct-status=403 attempt=1
+[2026-05-12T05:51:10.913Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=32 ms=4319
+[2026-05-12T05:51:10.916Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=32 cards=35 fs-in-window=22 running-total=707
+[2026-05-12T05:51:11.053Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=33 returned 403 (attempt 1/3)
+[2026-05-12T05:51:12.204Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=33 returned 403 (attempt 2/3)
+[2026-05-12T05:51:14.330Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=33 returned 403 (attempt 3/3)
+[2026-05-12T05:51:14.330Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=33 direct-status=403 attempt=1
+[2026-05-12T05:51:20.395Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=33 ms=6065
+[2026-05-12T05:51:20.403Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=33 cards=35 fs-in-window=19 running-total=726
+[2026-05-12T05:51:20.555Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=34 returned 403 (attempt 1/3)
+[2026-05-12T05:51:21.701Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=34 returned 403 (attempt 2/3)
+[2026-05-12T05:51:23.919Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=34 returned 403 (attempt 3/3)
+[2026-05-12T05:51:23.920Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=34 direct-status=403 attempt=1
+[2026-05-12T05:51:30.098Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=34 ms=6178
+[2026-05-12T05:51:30.103Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=34 cards=35 fs-in-window=24 running-total=750
+[2026-05-12T05:51:30.280Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=35 returned 403 (attempt 1/3)
+[2026-05-12T05:51:31.402Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=35 returned 403 (attempt 2/3)
+[2026-05-12T05:51:33.588Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=35 returned 403 (attempt 3/3)
+[2026-05-12T05:51:33.588Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=35 direct-status=403 attempt=1
+[2026-05-12T05:51:40.005Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=35 ms=6417
+[2026-05-12T05:51:40.008Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=35 cards=35 fs-in-window=21 running-total=771
+[2026-05-12T05:51:40.157Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=36 returned 403 (attempt 1/3)
+[2026-05-12T05:51:41.299Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=36 returned 403 (attempt 2/3)
+[2026-05-12T05:51:43.478Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=36 returned 403 (attempt 3/3)
+[2026-05-12T05:51:43.478Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=36 direct-status=403 attempt=1
+[2026-05-12T05:51:47.161Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=36 ms=3682
+[2026-05-12T05:51:47.165Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=36 cards=35 fs-in-window=19 running-total=790
+[2026-05-12T05:51:47.285Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=37 returned 403 (attempt 1/3)
+[2026-05-12T05:51:48.465Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=37 returned 403 (attempt 2/3)
+[2026-05-12T05:51:50.646Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=37 returned 403 (attempt 3/3)
+[2026-05-12T05:51:50.646Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=37 direct-status=403 attempt=1
+[2026-05-12T05:51:55.041Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=37 ms=4395
+[2026-05-12T05:51:55.044Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=37 cards=35 fs-in-window=22 running-total=812
+[2026-05-12T05:51:55.166Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=38 returned 403 (attempt 1/3)
+[2026-05-12T05:51:56.313Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=38 returned 403 (attempt 2/3)
+[2026-05-12T05:51:58.454Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=38 returned 403 (attempt 3/3)
+[2026-05-12T05:51:58.454Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=38 direct-status=403 attempt=1
+[2026-05-12T05:52:02.822Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=38 ms=4368
+[2026-05-12T05:52:02.826Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=38 cards=35 fs-in-window=19 running-total=831
+[2026-05-12T05:52:02.998Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=39 returned 403 (attempt 1/3)
+[2026-05-12T05:52:04.148Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=39 returned 403 (attempt 2/3)
+[2026-05-12T05:52:06.345Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=39 returned 403 (attempt 3/3)
+[2026-05-12T05:52:06.345Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=39 direct-status=403 attempt=1
+[2026-05-12T05:52:11.152Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=39 ms=4807
+[2026-05-12T05:52:11.157Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=39 cards=35 fs-in-window=24 running-total=855
+[2026-05-12T05:52:11.320Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=40 returned 403 (attempt 1/3)
+[2026-05-12T05:52:12.481Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=40 returned 403 (attempt 2/3)
+[2026-05-12T05:52:14.636Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=40 returned 403 (attempt 3/3)
+[2026-05-12T05:52:14.637Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=40 direct-status=403 attempt=1
+[2026-05-12T05:52:19.101Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=40 ms=4464
+[2026-05-12T05:52:19.103Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=40 cards=35 fs-in-window=10 running-total=865
+[2026-05-12T05:52:19.257Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=41 returned 403 (attempt 1/3)
+[2026-05-12T05:52:20.458Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=41 returned 403 (attempt 2/3)
+[2026-05-12T05:52:22.580Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=23&page=41 returned 403 (attempt 3/3)
+[2026-05-12T05:52:22.580Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=23&page=41 direct-status=403 attempt=1
+[2026-05-12T05:52:27.743Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=23&page=41 ms=5163
+[2026-05-12T05:52:27.747Z] [INFO] booli-targeted-discovery: county=Västra Götalands län page=41 first-card-published=1777930923 < cutoff=1777959370 — stopping
+[2026-05-12T05:52:27.747Z] [INFO] booli-targeted-discovery: === walking county=Skåne län (areaId=64) ===
+[2026-05-12T05:52:27.912Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=1 returned 403 (attempt 1/3)
+[2026-05-12T05:52:29.063Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=1 returned 403 (attempt 2/3)
+[2026-05-12T05:52:31.255Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=1 returned 403 (attempt 3/3)
+[2026-05-12T05:52:31.255Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=1 direct-status=403 attempt=1
+[2026-05-12T05:52:37.440Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=1 ms=6185
+[2026-05-12T05:52:37.445Z] [INFO] booli-targeted-discovery: county=Skåne län page=1 cards=35 fs-in-window=22 running-total=22
+[2026-05-12T05:52:37.587Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=2 returned 403 (attempt 1/3)
+[2026-05-12T05:52:38.704Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=2 returned 403 (attempt 2/3)
+[2026-05-12T05:52:40.882Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=2 returned 403 (attempt 3/3)
+[2026-05-12T05:52:40.882Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=2 direct-status=403 attempt=1
+[2026-05-12T05:52:45.594Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=2 ms=4711
+[2026-05-12T05:52:45.612Z] [INFO] booli-targeted-discovery: county=Skåne län page=2 cards=35 fs-in-window=28 running-total=50
+[2026-05-12T05:52:45.783Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=3 returned 403 (attempt 1/3)
+[2026-05-12T05:52:46.915Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=3 returned 403 (attempt 2/3)
+[2026-05-12T05:52:49.062Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=3 returned 403 (attempt 3/3)
+[2026-05-12T05:52:49.062Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=3 direct-status=403 attempt=1
+[2026-05-12T05:52:53.183Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=3 ms=4121
+[2026-05-12T05:52:53.189Z] [INFO] booli-targeted-discovery: county=Skåne län page=3 cards=35 fs-in-window=18 running-total=68
+[2026-05-12T05:52:53.330Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=4 returned 403 (attempt 1/3)
+[2026-05-12T05:52:54.486Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=4 returned 403 (attempt 2/3)
+[2026-05-12T05:52:56.647Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=4 returned 403 (attempt 3/3)
+[2026-05-12T05:52:56.648Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=4 direct-status=403 attempt=1
+[2026-05-12T05:53:00.949Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=4 ms=4301
+[2026-05-12T05:53:00.955Z] [INFO] booli-targeted-discovery: county=Skåne län page=4 cards=35 fs-in-window=24 running-total=92
+[2026-05-12T05:53:01.112Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=5 returned 403 (attempt 1/3)
+[2026-05-12T05:53:02.288Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=5 returned 403 (attempt 2/3)
+[2026-05-12T05:53:04.447Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=5 returned 403 (attempt 3/3)
+[2026-05-12T05:53:04.447Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=5 direct-status=403 attempt=1
+[2026-05-12T05:53:09.612Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=5 ms=5165
+[2026-05-12T05:53:09.617Z] [INFO] booli-targeted-discovery: county=Skåne län page=5 cards=35 fs-in-window=26 running-total=118
+[2026-05-12T05:53:09.786Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=6 returned 403 (attempt 1/3)
+[2026-05-12T05:53:10.960Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=6 returned 403 (attempt 2/3)
+[2026-05-12T05:53:13.161Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=6 returned 403 (attempt 3/3)
+[2026-05-12T05:53:13.161Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=6 direct-status=403 attempt=1
+[2026-05-12T05:53:18.188Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=6 ms=5027
+[2026-05-12T05:53:18.198Z] [INFO] booli-targeted-discovery: county=Skåne län page=6 cards=35 fs-in-window=26 running-total=144
+[2026-05-12T05:53:18.340Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=7 returned 403 (attempt 1/3)
+[2026-05-12T05:53:19.449Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=7 returned 403 (attempt 2/3)
+[2026-05-12T05:53:21.614Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=7 returned 403 (attempt 3/3)
+[2026-05-12T05:53:21.614Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=7 direct-status=403 attempt=1
+[2026-05-12T05:53:26.247Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=7 ms=4633
+[2026-05-12T05:53:26.250Z] [INFO] booli-targeted-discovery: county=Skåne län page=7 cards=35 fs-in-window=27 running-total=171
+[2026-05-12T05:53:26.376Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=8 returned 403 (attempt 1/3)
+[2026-05-12T05:53:27.499Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=8 returned 403 (attempt 2/3)
+[2026-05-12T05:53:29.639Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=8 returned 403 (attempt 3/3)
+[2026-05-12T05:53:29.639Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=8 direct-status=403 attempt=1
+[2026-05-12T05:53:35.479Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=8 ms=5840
+[2026-05-12T05:53:35.482Z] [INFO] booli-targeted-discovery: county=Skåne län page=8 cards=35 fs-in-window=26 running-total=197
+[2026-05-12T05:53:35.618Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=9 returned 403 (attempt 1/3)
+[2026-05-12T05:53:36.795Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=9 returned 403 (attempt 2/3)
+[2026-05-12T05:53:38.911Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=9 returned 403 (attempt 3/3)
+[2026-05-12T05:53:38.911Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=9 direct-status=403 attempt=1
+[2026-05-12T05:53:48.643Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=9 ms=9732
+[2026-05-12T05:53:48.647Z] [INFO] booli-targeted-discovery: county=Skåne län page=9 cards=35 fs-in-window=21 running-total=218
+[2026-05-12T05:53:48.812Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=10 returned 403 (attempt 1/3)
+[2026-05-12T05:53:49.908Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=10 returned 403 (attempt 2/3)
+[2026-05-12T05:53:52.071Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=10 returned 403 (attempt 3/3)
+[2026-05-12T05:53:52.071Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=10 direct-status=403 attempt=1
+[2026-05-12T05:53:56.191Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=10 ms=4120
+[2026-05-12T05:53:56.193Z] [INFO] booli-targeted-discovery: county=Skåne län page=10 cards=35 fs-in-window=25 running-total=243
+[2026-05-12T05:53:56.400Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=11 returned 403 (attempt 1/3)
+[2026-05-12T05:53:57.561Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=11 returned 403 (attempt 2/3)
+[2026-05-12T05:53:59.705Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=11 returned 403 (attempt 3/3)
+[2026-05-12T05:53:59.705Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=11 direct-status=403 attempt=1
+[2026-05-12T05:54:04.959Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=11 ms=5254
+[2026-05-12T05:54:04.965Z] [INFO] booli-targeted-discovery: county=Skåne län page=11 cards=35 fs-in-window=24 running-total=267
+[2026-05-12T05:54:05.087Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=12 returned 403 (attempt 1/3)
+[2026-05-12T05:54:06.268Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=12 returned 403 (attempt 2/3)
+[2026-05-12T05:54:08.465Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=12 returned 403 (attempt 3/3)
+[2026-05-12T05:54:08.465Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=12 direct-status=403 attempt=1
+[2026-05-12T05:54:13.149Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=12 ms=4684
+[2026-05-12T05:54:13.151Z] [INFO] booli-targeted-discovery: county=Skåne län page=12 cards=35 fs-in-window=24 running-total=291
+[2026-05-12T05:54:13.296Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=13 returned 403 (attempt 1/3)
+[2026-05-12T05:54:14.546Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=13 returned 403 (attempt 2/3)
+[2026-05-12T05:54:16.690Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=13 returned 403 (attempt 3/3)
+[2026-05-12T05:54:16.691Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=13 direct-status=403 attempt=1
+[2026-05-12T05:54:19.856Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=13 ms=3165
+[2026-05-12T05:54:19.860Z] [INFO] booli-targeted-discovery: county=Skåne län page=13 cards=35 fs-in-window=20 running-total=311
+[2026-05-12T05:54:20.035Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=14 returned 403 (attempt 1/3)
+[2026-05-12T05:54:21.180Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=14 returned 403 (attempt 2/3)
+[2026-05-12T05:54:23.332Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=14 returned 403 (attempt 3/3)
+[2026-05-12T05:54:23.332Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=14 direct-status=403 attempt=1
+[2026-05-12T05:54:29.322Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=14 ms=5990
+[2026-05-12T05:54:29.325Z] [INFO] booli-targeted-discovery: county=Skåne län page=14 cards=35 fs-in-window=31 running-total=342
+[2026-05-12T05:54:29.476Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=15 returned 403 (attempt 1/3)
+[2026-05-12T05:54:30.626Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=15 returned 403 (attempt 2/3)
+[2026-05-12T05:54:32.783Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=15 returned 403 (attempt 3/3)
+[2026-05-12T05:54:32.783Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=15 direct-status=403 attempt=1
+[2026-05-12T05:54:36.599Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=15 ms=3816
+[2026-05-12T05:54:36.604Z] [INFO] booli-targeted-discovery: county=Skåne län page=15 cards=35 fs-in-window=21 running-total=363
+[2026-05-12T05:54:36.774Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=16 returned 403 (attempt 1/3)
+[2026-05-12T05:54:37.899Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=16 returned 403 (attempt 2/3)
+[2026-05-12T05:54:40.084Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=16 returned 403 (attempt 3/3)
+[2026-05-12T05:54:40.084Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=16 direct-status=403 attempt=1
+[2026-05-12T05:54:43.648Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=16 ms=3563
+[2026-05-12T05:54:43.650Z] [INFO] booli-targeted-discovery: county=Skåne län page=16 cards=35 fs-in-window=22 running-total=385
+[2026-05-12T05:54:43.797Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=17 returned 403 (attempt 1/3)
+[2026-05-12T05:54:44.938Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=17 returned 403 (attempt 2/3)
+[2026-05-12T05:54:47.073Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=17 returned 403 (attempt 3/3)
+[2026-05-12T05:54:47.073Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=17 direct-status=403 attempt=1
+[2026-05-12T05:54:51.111Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=17 ms=4038
+[2026-05-12T05:54:51.113Z] [INFO] booli-targeted-discovery: county=Skåne län page=17 cards=35 fs-in-window=23 running-total=408
+[2026-05-12T05:54:51.244Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=18 returned 403 (attempt 1/3)
+[2026-05-12T05:54:52.345Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=18 returned 403 (attempt 2/3)
+[2026-05-12T05:54:54.521Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=18 returned 403 (attempt 3/3)
+[2026-05-12T05:54:54.521Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=18 direct-status=403 attempt=1
+[2026-05-12T05:54:58.675Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=18 ms=4154
+[2026-05-12T05:54:58.681Z] [INFO] booli-targeted-discovery: county=Skåne län page=18 cards=35 fs-in-window=25 running-total=433
+[2026-05-12T05:54:58.829Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=19 returned 403 (attempt 1/3)
+[2026-05-12T05:54:59.972Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=19 returned 403 (attempt 2/3)
+[2026-05-12T05:55:02.125Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=19 returned 403 (attempt 3/3)
+[2026-05-12T05:55:02.125Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=19 direct-status=403 attempt=1
+[2026-05-12T05:55:07.033Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=19 ms=4908
+[2026-05-12T05:55:07.036Z] [INFO] booli-targeted-discovery: county=Skåne län page=19 cards=35 fs-in-window=24 running-total=457
+[2026-05-12T05:55:07.239Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=20 returned 403 (attempt 1/3)
+[2026-05-12T05:55:08.405Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=20 returned 403 (attempt 2/3)
+[2026-05-12T05:55:10.549Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=20 returned 403 (attempt 3/3)
+[2026-05-12T05:55:10.549Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=20 direct-status=403 attempt=1
+[2026-05-12T05:55:14.691Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=20 ms=4142
+[2026-05-12T05:55:14.700Z] [INFO] booli-targeted-discovery: county=Skåne län page=20 cards=35 fs-in-window=27 running-total=484
+[2026-05-12T05:55:14.863Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=21 returned 403 (attempt 1/3)
+[2026-05-12T05:55:16.026Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=21 returned 403 (attempt 2/3)
+[2026-05-12T05:55:18.176Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=21 returned 403 (attempt 3/3)
+[2026-05-12T05:55:18.177Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=21 direct-status=403 attempt=1
+[2026-05-12T05:55:23.364Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=21 ms=5187
+[2026-05-12T05:55:23.370Z] [INFO] booli-targeted-discovery: county=Skåne län page=21 cards=35 fs-in-window=21 running-total=505
+[2026-05-12T05:55:23.508Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=22 returned 403 (attempt 1/3)
+[2026-05-12T05:55:24.680Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=22 returned 403 (attempt 2/3)
+[2026-05-12T05:55:26.824Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=22 returned 403 (attempt 3/3)
+[2026-05-12T05:55:26.824Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=22 direct-status=403 attempt=1
+[2026-05-12T05:55:31.407Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=22 ms=4583
+[2026-05-12T05:55:31.412Z] [INFO] booli-targeted-discovery: county=Skåne län page=22 cards=35 fs-in-window=21 running-total=526
+[2026-05-12T05:55:31.561Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=23 returned 403 (attempt 1/3)
+[2026-05-12T05:55:32.689Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=23 returned 403 (attempt 2/3)
+[2026-05-12T05:55:34.869Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=23 returned 403 (attempt 3/3)
+[2026-05-12T05:55:34.869Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=23 direct-status=403 attempt=1
+[2026-05-12T05:55:39.450Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=23 ms=4581
+[2026-05-12T05:55:39.458Z] [INFO] booli-targeted-discovery: county=Skåne län page=23 cards=35 fs-in-window=21 running-total=547
+[2026-05-12T05:55:39.597Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=24 returned 403 (attempt 1/3)
+[2026-05-12T05:55:40.789Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=24 returned 403 (attempt 2/3)
+[2026-05-12T05:55:42.916Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=24 returned 403 (attempt 3/3)
+[2026-05-12T05:55:42.917Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=24 direct-status=403 attempt=1
+[2026-05-12T05:55:47.413Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=24 ms=4496
+[2026-05-12T05:55:47.417Z] [INFO] booli-targeted-discovery: county=Skåne län page=24 cards=35 fs-in-window=21 running-total=568
+[2026-05-12T05:55:47.563Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=25 returned 403 (attempt 1/3)
+[2026-05-12T05:55:48.687Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=25 returned 403 (attempt 2/3)
+[2026-05-12T05:55:50.839Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=25 returned 403 (attempt 3/3)
+[2026-05-12T05:55:50.839Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=25 direct-status=403 attempt=1
+[2026-05-12T05:55:53.858Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=25 ms=3019
+[2026-05-12T05:55:53.860Z] [INFO] booli-targeted-discovery: county=Skåne län page=25 cards=35 fs-in-window=24 running-total=592
+[2026-05-12T05:55:53.981Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=26 returned 403 (attempt 1/3)
+[2026-05-12T05:55:55.141Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=26 returned 403 (attempt 2/3)
+[2026-05-12T05:55:57.255Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=26 returned 403 (attempt 3/3)
+[2026-05-12T05:55:57.255Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=26 direct-status=403 attempt=1
+[2026-05-12T05:56:09.219Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=26 ms=11963
+[2026-05-12T05:56:09.222Z] [INFO] booli-targeted-discovery: county=Skåne län page=26 cards=35 fs-in-window=18 running-total=610
+[2026-05-12T05:56:09.379Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=27 returned 403 (attempt 1/3)
+[2026-05-12T05:56:10.524Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=27 returned 403 (attempt 2/3)
+[2026-05-12T05:56:12.702Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=27 returned 403 (attempt 3/3)
+[2026-05-12T05:56:12.702Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=27 direct-status=403 attempt=1
+[2026-05-12T05:56:20.226Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=27 ms=7524
+[2026-05-12T05:56:20.229Z] [INFO] booli-targeted-discovery: county=Skåne län page=27 cards=35 fs-in-window=17 running-total=627
+[2026-05-12T05:56:20.341Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=28 returned 403 (attempt 1/3)
+[2026-05-12T05:56:21.559Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=28 returned 403 (attempt 2/3)
+[2026-05-12T05:56:23.727Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=28 returned 403 (attempt 3/3)
+[2026-05-12T05:56:23.728Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=28 direct-status=403 attempt=1
+[2026-05-12T05:56:28.009Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=28 ms=4281
+[2026-05-12T05:56:28.013Z] [INFO] booli-targeted-discovery: county=Skåne län page=28 cards=35 fs-in-window=19 running-total=646
+[2026-05-12T05:56:28.165Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=29 returned 403 (attempt 1/3)
+[2026-05-12T05:56:29.331Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=29 returned 403 (attempt 2/3)
+[2026-05-12T05:56:31.494Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=29 returned 403 (attempt 3/3)
+[2026-05-12T05:56:31.494Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=29 direct-status=403 attempt=1
+[2026-05-12T05:56:38.435Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=29 ms=6941
+[2026-05-12T05:56:38.440Z] [INFO] booli-targeted-discovery: county=Skåne län page=29 cards=35 fs-in-window=18 running-total=664
+[2026-05-12T05:56:38.609Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=30 returned 403 (attempt 1/3)
+[2026-05-12T05:56:39.720Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=30 returned 403 (attempt 2/3)
+[2026-05-12T05:56:41.829Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=30 returned 403 (attempt 3/3)
+[2026-05-12T05:56:41.829Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=30 direct-status=403 attempt=1
+[2026-05-12T05:56:48.435Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=30 ms=6605
+[2026-05-12T05:56:48.439Z] [INFO] booli-targeted-discovery: county=Skåne län page=30 cards=35 fs-in-window=24 running-total=688
+[2026-05-12T05:56:48.620Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=31 returned 403 (attempt 1/3)
+[2026-05-12T05:56:49.781Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=31 returned 403 (attempt 2/3)
+[2026-05-12T05:56:51.935Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=31 returned 403 (attempt 3/3)
+[2026-05-12T05:56:51.935Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=31 direct-status=403 attempt=1
+[2026-05-12T05:56:59.318Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=31 ms=7383
+[2026-05-12T05:56:59.326Z] [INFO] booli-targeted-discovery: county=Skåne län page=31 cards=35 fs-in-window=21 running-total=709
+[2026-05-12T05:56:59.492Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=32 returned 403 (attempt 1/3)
+[2026-05-12T05:57:00.640Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=32 returned 403 (attempt 2/3)
+[2026-05-12T05:57:02.810Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=32 returned 403 (attempt 3/3)
+[2026-05-12T05:57:02.810Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=32 direct-status=403 attempt=1
+[2026-05-12T05:57:07.414Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=32 ms=4604
+[2026-05-12T05:57:07.418Z] [INFO] booli-targeted-discovery: county=Skåne län page=32 cards=35 fs-in-window=23 running-total=732
+[2026-05-12T05:57:07.583Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=33 returned 403 (attempt 1/3)
+[2026-05-12T05:57:08.734Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=33 returned 403 (attempt 2/3)
+[2026-05-12T05:57:10.890Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=33 returned 403 (attempt 3/3)
+[2026-05-12T05:57:10.890Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=33 direct-status=403 attempt=1
+[2026-05-12T05:57:15.877Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=33 ms=4987
+[2026-05-12T05:57:15.879Z] [INFO] booli-targeted-discovery: county=Skåne län page=33 cards=35 fs-in-window=23 running-total=755
+[2026-05-12T05:57:16.020Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=34 returned 403 (attempt 1/3)
+[2026-05-12T05:57:17.134Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=34 returned 403 (attempt 2/3)
+[2026-05-12T05:57:19.271Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=34 returned 403 (attempt 3/3)
+[2026-05-12T05:57:19.271Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=34 direct-status=403 attempt=1
+[2026-05-12T05:57:24.444Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=34 ms=5173
+[2026-05-12T05:57:24.448Z] [INFO] booli-targeted-discovery: county=Skåne län page=34 cards=35 fs-in-window=22 running-total=777
+[2026-05-12T05:57:24.605Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=35 returned 403 (attempt 1/3)
+[2026-05-12T05:57:25.752Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=35 returned 403 (attempt 2/3)
+[2026-05-12T05:57:27.907Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=35 returned 403 (attempt 3/3)
+[2026-05-12T05:57:27.907Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=35 direct-status=403 attempt=1
+[2026-05-12T05:57:36.095Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=35 ms=8188
+[2026-05-12T05:57:36.099Z] [INFO] booli-targeted-discovery: county=Skåne län page=35 cards=35 fs-in-window=18 running-total=795
+[2026-05-12T05:57:36.234Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=36 returned 403 (attempt 1/3)
+[2026-05-12T05:57:37.403Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=36 returned 403 (attempt 2/3)
+[2026-05-12T05:57:39.549Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=64&page=36 returned 403 (attempt 3/3)
+[2026-05-12T05:57:39.549Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=64&page=36 direct-status=403 attempt=1
+[2026-05-12T05:57:44.349Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=64&page=36 ms=4800
+[2026-05-12T05:57:44.353Z] [INFO] booli-targeted-discovery: county=Skåne län page=36 first-card-published=1777926240 < cutoff=1777959370 — stopping
+[2026-05-12T05:57:44.353Z] [INFO] booli-targeted-discovery: === walking county=Uppsala län (areaId=118) ===
+[2026-05-12T05:57:44.515Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=1 returned 403 (attempt 1/3)
+[2026-05-12T05:57:45.675Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=1 returned 403 (attempt 2/3)
+[2026-05-12T05:57:47.845Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=1 returned 403 (attempt 3/3)
+[2026-05-12T05:57:47.845Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=118&page=1 direct-status=403 attempt=1
+[2026-05-12T05:57:54.722Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=118&page=1 ms=6877
+[2026-05-12T05:57:54.725Z] [INFO] booli-targeted-discovery: county=Uppsala län page=1 cards=35 fs-in-window=29 running-total=29
+[2026-05-12T05:57:54.936Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=2 returned 403 (attempt 1/3)
+[2026-05-12T05:57:56.084Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=2 returned 403 (attempt 2/3)
+[2026-05-12T05:57:58.250Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=2 returned 403 (attempt 3/3)
+[2026-05-12T05:57:58.250Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=118&page=2 direct-status=403 attempt=1
+[2026-05-12T05:58:02.802Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=118&page=2 ms=4552
+[2026-05-12T05:58:02.808Z] [INFO] booli-targeted-discovery: county=Uppsala län page=2 cards=35 fs-in-window=16 running-total=45
+[2026-05-12T05:58:02.986Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=3 returned 403 (attempt 1/3)
+[2026-05-12T05:58:04.150Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=3 returned 403 (attempt 2/3)
+[2026-05-12T05:58:06.311Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=3 returned 403 (attempt 3/3)
+[2026-05-12T05:58:06.311Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=118&page=3 direct-status=403 attempt=1
+[2026-05-12T05:58:11.697Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=118&page=3 ms=5386
+[2026-05-12T05:58:11.701Z] [INFO] booli-targeted-discovery: county=Uppsala län page=3 cards=35 fs-in-window=26 running-total=71
+[2026-05-12T05:58:11.857Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=4 returned 403 (attempt 1/3)
+[2026-05-12T05:58:13.028Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=4 returned 403 (attempt 2/3)
+[2026-05-12T05:58:15.163Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=4 returned 403 (attempt 3/3)
+[2026-05-12T05:58:15.163Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=118&page=4 direct-status=403 attempt=1
+[2026-05-12T05:58:18.679Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=118&page=4 ms=3516
+[2026-05-12T05:58:18.683Z] [INFO] booli-targeted-discovery: county=Uppsala län page=4 cards=35 fs-in-window=25 running-total=96
+[2026-05-12T05:58:18.835Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=5 returned 403 (attempt 1/3)
+[2026-05-12T05:58:19.971Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=5 returned 403 (attempt 2/3)
+[2026-05-12T05:58:22.099Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=5 returned 403 (attempt 3/3)
+[2026-05-12T05:58:22.099Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=118&page=5 direct-status=403 attempt=1
+[2026-05-12T05:58:26.414Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=118&page=5 ms=4315
+[2026-05-12T05:58:26.416Z] [INFO] booli-targeted-discovery: county=Uppsala län page=5 cards=35 fs-in-window=24 running-total=120
+[2026-05-12T05:58:26.567Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=6 returned 403 (attempt 1/3)
+[2026-05-12T05:58:27.692Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=6 returned 403 (attempt 2/3)
+[2026-05-12T05:58:29.842Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=6 returned 403 (attempt 3/3)
+[2026-05-12T05:58:29.842Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=118&page=6 direct-status=403 attempt=1
+[2026-05-12T05:58:38.005Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=118&page=6 ms=8163
+[2026-05-12T05:58:38.008Z] [INFO] booli-targeted-discovery: county=Uppsala län page=6 cards=35 fs-in-window=24 running-total=144
+[2026-05-12T05:58:38.209Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=7 returned 403 (attempt 1/3)
+[2026-05-12T05:58:39.423Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=7 returned 403 (attempt 2/3)
+[2026-05-12T05:58:41.592Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=7 returned 403 (attempt 3/3)
+[2026-05-12T05:58:41.592Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=118&page=7 direct-status=403 attempt=1
+[2026-05-12T05:58:45.866Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=118&page=7 ms=4274
+[2026-05-12T05:58:45.871Z] [INFO] booli-targeted-discovery: county=Uppsala län page=7 cards=35 fs-in-window=21 running-total=165
+[2026-05-12T05:58:46.030Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=8 returned 403 (attempt 1/3)
+[2026-05-12T05:58:47.180Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=8 returned 403 (attempt 2/3)
+[2026-05-12T05:58:49.333Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=8 returned 403 (attempt 3/3)
+[2026-05-12T05:58:49.333Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=118&page=8 direct-status=403 attempt=1
+[2026-05-12T05:58:53.936Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=118&page=8 ms=4603
+[2026-05-12T05:58:53.940Z] [INFO] booli-targeted-discovery: county=Uppsala län page=8 cards=35 fs-in-window=20 running-total=185
+[2026-05-12T05:58:54.087Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=9 returned 403 (attempt 1/3)
+[2026-05-12T05:58:55.262Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=9 returned 403 (attempt 2/3)
+[2026-05-12T05:58:57.549Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=9 returned 403 (attempt 3/3)
+[2026-05-12T05:58:57.550Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=118&page=9 direct-status=403 attempt=1
+[2026-05-12T05:59:02.053Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=118&page=9 ms=4503
+[2026-05-12T05:59:02.058Z] [INFO] booli-targeted-discovery: county=Uppsala län page=9 cards=35 fs-in-window=16 running-total=201
+[2026-05-12T05:59:02.228Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=10 returned 403 (attempt 1/3)
+[2026-05-12T05:59:03.563Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=10 returned 403 (attempt 2/3)
+[2026-05-12T05:59:05.699Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=10 returned 403 (attempt 3/3)
+[2026-05-12T05:59:05.699Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=118&page=10 direct-status=403 attempt=1
+[2026-05-12T05:59:09.156Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=118&page=10 ms=3457
+[2026-05-12T05:59:09.160Z] [INFO] booli-targeted-discovery: county=Uppsala län page=10 cards=35 fs-in-window=23 running-total=224
+[2026-05-12T05:59:09.296Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=11 returned 403 (attempt 1/3)
+[2026-05-12T05:59:10.489Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=11 returned 403 (attempt 2/3)
+[2026-05-12T05:59:12.629Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=11 returned 403 (attempt 3/3)
+[2026-05-12T05:59:12.629Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=118&page=11 direct-status=403 attempt=1
+[2026-05-12T05:59:16.539Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=118&page=11 ms=3910
+[2026-05-12T05:59:16.545Z] [INFO] booli-targeted-discovery: county=Uppsala län page=11 cards=35 fs-in-window=26 running-total=250
+[2026-05-12T05:59:16.839Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=12 returned 403 (attempt 1/3)
+[2026-05-12T05:59:18.045Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=12 returned 403 (attempt 2/3)
+[2026-05-12T05:59:20.177Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=12 returned 403 (attempt 3/3)
+[2026-05-12T05:59:20.178Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=118&page=12 direct-status=403 attempt=1
+[2026-05-12T05:59:24.429Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=118&page=12 ms=4251
+[2026-05-12T05:59:24.437Z] [INFO] booli-targeted-discovery: county=Uppsala län page=12 cards=35 fs-in-window=2 running-total=252
+[2026-05-12T05:59:24.587Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=13 returned 403 (attempt 1/3)
+[2026-05-12T05:59:25.740Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=13 returned 403 (attempt 2/3)
+[2026-05-12T05:59:27.985Z] [WARN] booli-targeted-discovery: https://www.booli.se/sok/till-salu?areaIds=118&page=13 returned 403 (attempt 3/3)
+[2026-05-12T05:59:27.985Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/sok/till-salu?areaIds=118&page=13 direct-status=403 attempt=1
+[2026-05-12T05:59:33.212Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/sok/till-salu?areaIds=118&page=13 ms=5227
+[2026-05-12T05:59:33.216Z] [INFO] booli-targeted-discovery: county=Uppsala län page=13 first-card-published=1777901647 < cutoff=1777959370 — stopping
+[2026-05-12T05:59:33.217Z] [INFO] booli-targeted-discovery: total in-window candidates across counties: 3419
+[2026-05-12T05:59:33.620Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/787926 returned 403 (attempt 1/3)
+[2026-05-12T05:59:33.644Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6115739 returned 403 (attempt 1/3)
+[2026-05-12T05:59:34.872Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/787926 returned 403 (attempt 2/3)
+[2026-05-12T05:59:34.873Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6115739 returned 403 (attempt 2/3)
+[2026-05-12T05:59:37.026Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6115739 returned 403 (attempt 3/3)
+[2026-05-12T05:59:37.026Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/annons/6115739 direct-status=403 attempt=1
+[2026-05-12T05:59:37.043Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/787926 returned 403 (attempt 3/3)
+[2026-05-12T05:59:37.043Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/787926 direct-status=403 attempt=1
+[2026-05-12T05:59:42.883Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/annons/6115739 ms=5857
+[2026-05-12T05:59:42.887Z] [INFO] booli-targeted-discovery: parsed booli_id=6115739 "Astrakangatan 87" listed=2026-05-12 postcode=16552 municipality=Stockholm county=Stockholms län views=22 url=/annons/6115739
+[2026-05-12T05:59:43.156Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116911 returned 403 (attempt 1/3)
+[2026-05-12T05:59:43.572Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/787926 ms=6529
+[2026-05-12T05:59:43.574Z] [INFO] booli-targeted-discovery: parsed booli_id=5420613 "Vigelsjövägen 7B" listed=2026-05-12 postcode=76151 municipality=Norrtälje county=Stockholms län views=92 url=/bostad/787926
+[2026-05-12T05:59:43.923Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116909 returned 403 (attempt 1/3)
+[2026-05-12T05:59:44.317Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116911 returned 403 (attempt 2/3)
+[2026-05-12T05:59:45.056Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116909 returned 403 (attempt 2/3)
+[2026-05-12T05:59:46.483Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116911 returned 403 (attempt 3/3)
+[2026-05-12T05:59:46.483Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/annons/6116911 direct-status=403 attempt=1
+[2026-05-12T05:59:47.197Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116909 returned 403 (attempt 3/3)
+[2026-05-12T05:59:47.197Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/annons/6116909 direct-status=403 attempt=1
+[2026-05-12T05:59:52.747Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/annons/6116911 ms=6263
+[2026-05-12T05:59:52.747Z] [INFO] booli-targeted-discovery: parsed booli_id=6116911 "Mässvägen 2" listed=2026-05-12 postcode=18541 municipality=Vaxholm county=Stockholms län views=1 url=/annons/6116911
+[2026-05-12T05:59:53.116Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3641435 returned 403 (attempt 1/3)
+[2026-05-12T05:59:54.248Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3641435 returned 403 (attempt 2/3)
+[2026-05-12T05:59:54.442Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/annons/6116909 ms=7245
+[2026-05-12T05:59:54.442Z] [INFO] booli-targeted-discovery: parsed booli_id=6116909 "Bagarbyvägen 13F" listed=2026-05-12 postcode=19134 municipality=Sollentuna county=Stockholms län views=2 url=/annons/6116909
+[2026-05-12T05:59:54.842Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3649452 returned 403 (attempt 1/3)
+[2026-05-12T05:59:55.957Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3649452 returned 403 (attempt 2/3)
+[2026-05-12T05:59:56.371Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3641435 returned 403 (attempt 3/3)
+[2026-05-12T05:59:56.371Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/3641435 direct-status=403 attempt=1
+[2026-05-12T05:59:58.102Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3649452 returned 403 (attempt 3/3)
+[2026-05-12T05:59:58.102Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/3649452 direct-status=403 attempt=1
+[2026-05-12T05:59:59.577Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/3641435 ms=3206
+[2026-05-12T05:59:59.579Z] [INFO] booli-targeted-discovery: parsed booli_id=6085289 "Mariedalsvägen 36" listed=2026-05-11 postcode=14160 municipality=Huddinge county=Stockholms län views=2979 url=/bostad/3641435
+[2026-05-12T05:59:59.982Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6091130 returned 403 (attempt 1/3)
+[2026-05-12T06:00:01.132Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6091130 returned 403 (attempt 2/3)
+[2026-05-12T06:00:03.534Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6091130 returned 403 (attempt 3/3)
+[2026-05-12T06:00:03.534Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/annons/6091130 direct-status=403 attempt=1
+[2026-05-12T06:00:06.180Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/3649452 ms=8078
+[2026-05-12T06:00:06.181Z] [INFO] booli-targeted-discovery: parsed booli_id=5953762 "Blåklintsvägen 7" listed=2026-05-11 postcode=14263 municipality=Huddinge county=Stockholms län views=7518 url=/bostad/3649452
+[2026-05-12T06:00:06.491Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6100150 returned 403 (attempt 1/3)
+[2026-05-12T06:00:07.466Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/annons/6091130 ms=3932
+[2026-05-12T06:00:07.467Z] [INFO] booli-targeted-discovery: parsed booli_id=6091130 "Njupkärrsvägen 68" listed=2026-05-11 postcode=13546 municipality=Tyresö county=Stockholms län views=219 url=/annons/6091130
+[2026-05-12T06:00:07.617Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6100150 returned 403 (attempt 2/3)
+[2026-05-12T06:00:07.824Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/4516403 returned 403 (attempt 1/3)
+[2026-05-12T06:00:08.995Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/4516403 returned 403 (attempt 2/3)
+[2026-05-12T06:00:09.761Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6100150 returned 403 (attempt 3/3)
+[2026-05-12T06:00:09.761Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/annons/6100150 direct-status=403 attempt=1
+[2026-05-12T06:00:11.188Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/4516403 returned 403 (attempt 3/3)
+[2026-05-12T06:00:11.189Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/4516403 direct-status=403 attempt=1
+[2026-05-12T06:00:13.273Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/annons/6100150 ms=3512
+[2026-05-12T06:00:13.274Z] [INFO] booli-targeted-discovery: parsed booli_id=6100150 "Mosshagestigen 23" listed=2026-05-11 postcode=14451 municipality=Salem county=Stockholms län views=71 url=/annons/6100150
+[2026-05-12T06:00:13.607Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6084933 returned 403 (attempt 1/3)
+[2026-05-12T06:00:14.740Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6084933 returned 403 (attempt 2/3)
+[2026-05-12T06:00:16.847Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6084933 returned 403 (attempt 3/3)
+[2026-05-12T06:00:16.847Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/annons/6084933 direct-status=403 attempt=1
+[2026-05-12T06:00:20.201Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/annons/6084933 ms=3354
+[2026-05-12T06:00:20.202Z] [INFO] booli-targeted-discovery: parsed booli_id=6084933 "Tingsvägen 5" listed=2026-05-11 postcode=76040 municipality=Norrtälje county=Stockholms län views=1107 url=/annons/6084933
+[2026-05-12T06:00:20.644Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/2569138 returned 403 (attempt 1/3)
+[2026-05-12T06:00:21.759Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/2569138 returned 403 (attempt 2/3)
+[2026-05-12T06:00:22.803Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/4516403 ms=11614
+[2026-05-12T06:00:22.803Z] [INFO] booli-targeted-discovery: parsed booli_id=6116881 "Rindövägen 62G" listed=2026-05-11 postcode=18541 municipality=Vaxholm county=Stockholms län views=2 url=/bostad/4516403
+[2026-05-12T06:00:23.148Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116847 returned 403 (attempt 1/3)
+[2026-05-12T06:00:23.915Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/2569138 returned 403 (attempt 3/3)
+[2026-05-12T06:00:23.915Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/2569138 direct-status=403 attempt=1
+[2026-05-12T06:00:24.316Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116847 returned 403 (attempt 2/3)
+[2026-05-12T06:00:26.439Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116847 returned 403 (attempt 3/3)
+[2026-05-12T06:00:26.439Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/annons/6116847 direct-status=403 attempt=1
+[2026-05-12T06:00:30.456Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/2569138 ms=6541
+[2026-05-12T06:00:30.457Z] [INFO] booli-targeted-discovery: parsed booli_id=5392116 "Vidängsvägen 9" listed=2026-05-11 postcode=15251 municipality=Södertälje county=Stockholms län views=1592 url=/bostad/2569138
+[2026-05-12T06:00:30.634Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/annons/6116847 ms=4195
+[2026-05-12T06:00:30.635Z] [INFO] booli-targeted-discovery: parsed booli_id=6116847 "Gjutarplan 2" listed=2026-05-11 postcode=17671 municipality=Järfälla county=Stockholms län views=4 url=/annons/6116847
+[2026-05-12T06:00:30.850Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/1593875 returned 403 (attempt 1/3)
+[2026-05-12T06:00:31.007Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/4211393 returned 403 (attempt 1/3)
+[2026-05-12T06:00:32.021Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/1593875 returned 403 (attempt 2/3)
+[2026-05-12T06:00:32.121Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/4211393 returned 403 (attempt 2/3)
+[2026-05-12T06:00:34.154Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/1593875 returned 403 (attempt 3/3)
+[2026-05-12T06:00:34.154Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/1593875 direct-status=403 attempt=1
+[2026-05-12T06:00:34.268Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/4211393 returned 403 (attempt 3/3)
+[2026-05-12T06:00:34.268Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/4211393 direct-status=403 attempt=1
+[2026-05-12T06:00:38.823Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/1593875 ms=4669
+[2026-05-12T06:00:38.824Z] [INFO] booli-targeted-discovery: parsed booli_id=6096707 "Galärstigen 2" listed=2026-05-11 postcode=13691 municipality=Haninge county=Stockholms län views=336 url=/bostad/1593875
+[2026-05-12T06:00:39.169Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/2186905 returned 403 (attempt 1/3)
+[2026-05-12T06:00:39.529Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/4211393 ms=5261
+[2026-05-12T06:00:39.531Z] [INFO] booli-targeted-discovery: parsed booli_id=6108213 "Ringvägen 61" listed=2026-05-11 postcode=14770 municipality=Botkyrka county=Stockholms län views=142 url=/bostad/4211393
+[2026-05-12T06:00:39.824Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116829 returned 403 (attempt 1/3)
+[2026-05-12T06:00:40.328Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/2186905 returned 403 (attempt 2/3)
+[2026-05-12T06:00:40.946Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116829 returned 403 (attempt 2/3)
+[2026-05-12T06:00:42.562Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/2186905 returned 403 (attempt 3/3)
+[2026-05-12T06:00:42.562Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/2186905 direct-status=403 attempt=1
+[2026-05-12T06:00:43.097Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116829 returned 403 (attempt 3/3)
+[2026-05-12T06:00:43.097Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/annons/6116829 direct-status=403 attempt=1
+[2026-05-12T06:00:46.478Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/2186905 ms=3916
+[2026-05-12T06:00:46.479Z] [INFO] booli-targeted-discovery: parsed booli_id=6088227 "Röllingekroken 9" listed=2026-05-11 postcode=76015 municipality=Norrtälje county=Stockholms län views=1335 url=/bostad/2186905
+[2026-05-12T06:00:46.512Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/annons/6116829 ms=3415
+[2026-05-12T06:00:46.513Z] [INFO] booli-targeted-discovery: parsed booli_id=6116829 "Glimmergränd 9" listed=2026-05-11 postcode=17961 municipality=Ekerö county=Stockholms län views=9 url=/annons/6116829
+[2026-05-12T06:00:46.792Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/4495150 returned 403 (attempt 1/3)
+[2026-05-12T06:00:46.860Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6089254 returned 403 (attempt 1/3)
+[2026-05-12T06:00:47.932Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/4495150 returned 403 (attempt 2/3)
+[2026-05-12T06:00:47.991Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6089254 returned 403 (attempt 2/3)
+[2026-05-12T06:00:50.070Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/4495150 returned 403 (attempt 3/3)
+[2026-05-12T06:00:50.070Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/4495150 direct-status=403 attempt=1
+[2026-05-12T06:00:50.122Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6089254 returned 403 (attempt 3/3)
+[2026-05-12T06:00:50.122Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/annons/6089254 direct-status=403 attempt=1
+[2026-05-12T06:00:52.454Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/4495150 ms=2384
+[2026-05-12T06:00:52.455Z] [INFO] booli-targeted-discovery: parsed booli_id=6113551 "Sockerbruksgatan 9A" listed=2026-05-11 postcode=15257 municipality=Södertälje county=Stockholms län views=95 url=/bostad/4495150
+[2026-05-12T06:00:52.703Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6114136 returned 403 (attempt 1/3)
+[2026-05-12T06:00:53.878Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6114136 returned 403 (attempt 2/3)
+[2026-05-12T06:00:54.626Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/annons/6089254 ms=4504
+[2026-05-12T06:00:54.626Z] [INFO] booli-targeted-discovery: parsed booli_id=6089254 "Lobeliavägen 3" listed=2026-05-11 postcode=13835 municipality=Nacka county=Stockholms län views=182 url=/annons/6089254
+[2026-05-12T06:00:54.970Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3650258 returned 403 (attempt 1/3)
+[2026-05-12T06:00:56.057Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6114136 returned 403 (attempt 3/3)
+[2026-05-12T06:00:56.057Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/annons/6114136 direct-status=403 attempt=1
+[2026-05-12T06:00:56.101Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3650258 returned 403 (attempt 2/3)
+[2026-05-12T06:00:58.285Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3650258 returned 403 (attempt 3/3)
+[2026-05-12T06:00:58.285Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/3650258 direct-status=403 attempt=1
+[2026-05-12T06:00:59.879Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/annons/6114136 ms=3822
+[2026-05-12T06:00:59.879Z] [INFO] booli-targeted-discovery: parsed booli_id=6114136 "Björkuddsvägen 82B" listed=2026-05-11 postcode=17834 municipality=Ekerö county=Stockholms län views=231 url=/annons/6114136
+[2026-05-12T06:01:00.270Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6073801 returned 403 (attempt 1/3)
+[2026-05-12T06:01:01.421Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6073801 returned 403 (attempt 2/3)
+[2026-05-12T06:01:03.613Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6073801 returned 403 (attempt 3/3)
+[2026-05-12T06:01:03.613Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/annons/6073801 direct-status=403 attempt=1
+[2026-05-12T06:01:05.116Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/3650258 ms=6831
+[2026-05-12T06:01:05.117Z] [INFO] booli-targeted-discovery: parsed booli_id=6098343 "Mossvägen 65" listed=2026-05-11 postcode=14144 municipality=Huddinge county=Stockholms län views=1182 url=/bostad/3650258
+[2026-05-12T06:01:05.519Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/4010597 returned 403 (attempt 1/3)
+[2026-05-12T06:01:06.380Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/annons/6073801 ms=2767
+[2026-05-12T06:01:06.381Z] [INFO] booli-targeted-discovery: parsed booli_id=6073801 "Mittfältsgatan 5" listed=2026-05-11 postcode=16935 municipality=Solna county=Stockholms län views=1054 url=/annons/6073801
+[2026-05-12T06:01:06.662Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/4010597 returned 403 (attempt 2/3)
+[2026-05-12T06:01:06.815Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3628512 returned 403 (attempt 1/3)
+[2026-05-12T06:01:08.029Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3628512 returned 403 (attempt 2/3)
+[2026-05-12T06:01:08.883Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/4010597 returned 403 (attempt 3/3)
+[2026-05-12T06:01:08.884Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/4010597 direct-status=403 attempt=1
+[2026-05-12T06:01:10.171Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3628512 returned 403 (attempt 3/3)
+[2026-05-12T06:01:10.171Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/3628512 direct-status=403 attempt=1
+[2026-05-12T06:01:13.191Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/4010597 ms=4307
+[2026-05-12T06:01:13.192Z] [INFO] booli-targeted-discovery: parsed booli_id=5627421 "Vallagränd 10" listed=2026-05-11 postcode=13639 municipality=Haninge county=Stockholms län views=331 url=/bostad/4010597
+[2026-05-12T06:01:13.747Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3928678 returned 403 (attempt 1/3)
+[2026-05-12T06:01:14.988Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3928678 returned 403 (attempt 2/3)
+[2026-05-12T06:01:15.973Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/3628512 ms=5802
+[2026-05-12T06:01:15.974Z] [INFO] booli-targeted-discovery: parsed booli_id=6116784 "Knektuddsvägen 2" listed=2026-05-11 postcode=18495 municipality=Österåker county=Stockholms län views=48 url=/bostad/3628512
+[2026-05-12T06:01:16.423Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3949212 returned 403 (attempt 1/3)
+[2026-05-12T06:01:17.135Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3928678 returned 403 (attempt 3/3)
+[2026-05-12T06:01:17.136Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/3928678 direct-status=403 attempt=1
+[2026-05-12T06:01:17.558Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3949212 returned 403 (attempt 2/3)
+[2026-05-12T06:01:19.745Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3949212 returned 403 (attempt 3/3)
+[2026-05-12T06:01:19.745Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/3949212 direct-status=403 attempt=1
+[2026-05-12T06:01:21.443Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/3928678 ms=4307
+[2026-05-12T06:01:21.444Z] [INFO] booli-targeted-discovery: parsed booli_id=6116758 "Sara Lidmans gata 4" listed=2026-05-11 postcode=11251 municipality=Stockholm county=Stockholms län views=131 url=/bostad/3928678
+[2026-05-12T06:01:21.775Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/4400605 returned 403 (attempt 1/3)
+[2026-05-12T06:01:22.910Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/4400605 returned 403 (attempt 2/3)
+[2026-05-12T06:01:25.066Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/4400605 returned 403 (attempt 3/3)
+[2026-05-12T06:01:25.066Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/4400605 direct-status=403 attempt=1
+[2026-05-12T06:01:27.200Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/3949212 ms=7455
+[2026-05-12T06:01:27.200Z] [INFO] booli-targeted-discovery: parsed booli_id=6116747 "Havsbadsvägen 2A" listed=2026-05-11 postcode=18495 municipality=Österåker county=Stockholms län views=5 url=/bostad/3949212
+[2026-05-12T06:01:27.224Z] [INFO] booli-targeted-discovery: processed 25/3419 (inserted: 25, updated: 0, errors: 0)
+[2026-05-12T06:01:27.615Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3886865 returned 403 (attempt 1/3)
+[2026-05-12T06:01:28.391Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/4400605 ms=3325
+[2026-05-12T06:01:28.392Z] [INFO] booli-targeted-discovery: parsed booli_id=5656607 "Aspviks Alléväg 2B" listed=2026-05-11 postcode=13438 municipality=Värmdö county=Stockholms län views=6529 url=/bostad/4400605
+[2026-05-12T06:01:28.772Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3886865 returned 403 (attempt 2/3)
+[2026-05-12T06:01:28.855Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/746722 returned 403 (attempt 1/3)
+[2026-05-12T06:01:30.023Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/746722 returned 403 (attempt 2/3)
+[2026-05-12T06:01:30.881Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3886865 returned 403 (attempt 3/3)
+[2026-05-12T06:01:30.881Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/3886865 direct-status=403 attempt=1
+[2026-05-12T06:01:32.137Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/746722 returned 403 (attempt 3/3)
+[2026-05-12T06:01:32.137Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/746722 direct-status=403 attempt=1
+[2026-05-12T06:01:35.341Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/3886865 ms=4460
+[2026-05-12T06:01:35.342Z] [INFO] booli-targeted-discovery: parsed booli_id=6116726 "Framnäsbacken 5" listed=2026-05-11 postcode=17166 municipality=Solna county=Stockholms län views=50 url=/bostad/3886865
+[2026-05-12T06:01:35.701Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3730772 returned 403 (attempt 1/3)
+[2026-05-12T06:01:36.847Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3730772 returned 403 (attempt 2/3)
+[2026-05-12T06:01:37.518Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/746722 ms=5381
+[2026-05-12T06:01:37.519Z] [INFO] booli-targeted-discovery: parsed booli_id=6094400 "Stamgatan 79" listed=2026-05-11 postcode=12574 municipality=Stockholm county=Stockholms län views=165 url=/bostad/746722
+[2026-05-12T06:01:37.956Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/1635803 returned 403 (attempt 1/3)
+[2026-05-12T06:01:39.002Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/3730772 returned 403 (attempt 3/3)
+[2026-05-12T06:01:39.003Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/3730772 direct-status=403 attempt=1
+[2026-05-12T06:01:39.106Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/1635803 returned 403 (attempt 2/3)
+[2026-05-12T06:01:41.268Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/1635803 returned 403 (attempt 3/3)
+[2026-05-12T06:01:41.269Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/1635803 direct-status=403 attempt=1
+[2026-05-12T06:01:43.732Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/3730772 ms=4729
+[2026-05-12T06:01:43.733Z] [INFO] booli-targeted-discovery: parsed booli_id=6116722 "Bullandövägen 6" listed=2026-05-11 postcode=13956 municipality=Värmdö county=Stockholms län views=110 url=/bostad/3730772
+[2026-05-12T06:01:44.206Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116705 returned 403 (attempt 1/3)
+[2026-05-12T06:01:45.405Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116705 returned 403 (attempt 2/3)
+[2026-05-12T06:01:47.555Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116705 returned 403 (attempt 3/3)
+[2026-05-12T06:01:47.555Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/annons/6116705 direct-status=403 attempt=1
+[2026-05-12T06:01:47.674Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/1635803 ms=6405
+[2026-05-12T06:01:47.674Z] [INFO] booli-targeted-discovery: parsed booli_id=6116714 "Hasselvägen 15" listed=2026-05-11 postcode=14897 municipality=Nynäshamn county=Stockholms län views=22 url=/bostad/1635803
+[2026-05-12T06:01:47.951Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/1838245 returned 403 (attempt 1/3)
+[2026-05-12T06:01:49.100Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/1838245 returned 403 (attempt 2/3)
+[2026-05-12T06:01:51.269Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/1838245 returned 403 (attempt 3/3)
+[2026-05-12T06:01:51.269Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/1838245 direct-status=403 attempt=1
+[2026-05-12T06:01:51.693Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/annons/6116705 ms=4138
+[2026-05-12T06:01:51.694Z] [INFO] booli-targeted-discovery: parsed booli_id=6116705 "Trädgårdsvägen 19" listed=2026-05-11 postcode=19446 municipality=Upplands Väsby county=Stockholms län views=5 url=/annons/6116705
+[2026-05-12T06:01:52.123Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/1578366 returned 403 (attempt 1/3)
+[2026-05-12T06:01:53.289Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/1578366 returned 403 (attempt 2/3)
+[2026-05-12T06:01:55.418Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/1578366 returned 403 (attempt 3/3)
+[2026-05-12T06:01:55.418Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/1578366 direct-status=403 attempt=1
+[2026-05-12T06:01:58.426Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/1578366 ms=3008
+[2026-05-12T06:01:58.427Z] [INFO] booli-targeted-discovery: parsed booli_id=5886520 "Forellstigen 15" listed=2026-05-11 postcode=13941 municipality=Värmdö county=Stockholms län views=1755 url=/bostad/1578366
+[2026-05-12T06:01:58.728Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/1838245 ms=7459
+[2026-05-12T06:01:58.729Z] [INFO] booli-targeted-discovery: parsed booli_id=6116689 "Ringvägen 16" listed=2026-05-11 postcode=18534 municipality=Vaxholm county=Stockholms län views=163 url=/bostad/1838245
+[2026-05-12T06:01:58.871Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/319131 returned 403 (attempt 1/3)
+[2026-05-12T06:01:59.171Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/685703 returned 403 (attempt 1/3)
+[2026-05-12T06:02:00.041Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/319131 returned 403 (attempt 2/3)
+[2026-05-12T06:02:00.311Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/685703 returned 403 (attempt 2/3)
+[2026-05-12T06:02:02.183Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/319131 returned 403 (attempt 3/3)
+[2026-05-12T06:02:02.183Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/319131 direct-status=403 attempt=1
+[2026-05-12T06:02:02.491Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/685703 returned 403 (attempt 3/3)
+[2026-05-12T06:02:02.491Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/685703 direct-status=403 attempt=1
+[2026-05-12T06:02:05.544Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/685703 ms=3053
+[2026-05-12T06:02:05.544Z] [INFO] booli-targeted-discovery: parsed booli_id=6116653 "Vidargatan 1" listed=2026-05-11 postcode=11327 municipality=Stockholm county=Stockholms län views=523 url=/bostad/685703
+[2026-05-12T06:02:05.745Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/319131 ms=3562
+[2026-05-12T06:02:05.745Z] [INFO] booli-targeted-discovery: parsed booli_id=6070857 "Hamngatan 26" listed=2026-05-11 postcode=17266 municipality=Sundbyberg county=Stockholms län views=215 url=/bostad/319131
+[2026-05-12T06:02:05.910Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/203458 returned 403 (attempt 1/3)
+[2026-05-12T06:02:06.148Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/5435257 returned 403 (attempt 1/3)
+[2026-05-12T06:02:07.065Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/203458 returned 403 (attempt 2/3)
+[2026-05-12T06:02:07.285Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/5435257 returned 403 (attempt 2/3)
+[2026-05-12T06:02:09.209Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/203458 returned 403 (attempt 3/3)
+[2026-05-12T06:02:09.209Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/203458 direct-status=403 attempt=1
+[2026-05-12T06:02:09.417Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/5435257 returned 403 (attempt 3/3)
+[2026-05-12T06:02:09.417Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/annons/5435257 direct-status=403 attempt=1
+[2026-05-12T06:02:12.448Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/annons/5435257 ms=3031
+[2026-05-12T06:02:12.449Z] [INFO] booli-targeted-discovery: parsed booli_id=5435257 "Karlbergsvägen 32A" listed=2026-05-11 postcode=11327 municipality=Stockholm county=Stockholms län views=8262 url=/annons/5435257
+[2026-05-12T06:02:12.803Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/203458 ms=3594
+[2026-05-12T06:02:12.804Z] [INFO] booli-targeted-discovery: parsed booli_id=6087160 "Ektorpsvägen 9A" listed=2026-05-11 postcode=13145 municipality=Nacka county=Stockholms län views=274 url=/bostad/203458
+[2026-05-12T06:02:12.886Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116636 returned 403 (attempt 1/3)
+[2026-05-12T06:02:13.052Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/784344 returned 403 (attempt 1/3)
+[2026-05-12T06:02:14.044Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116636 returned 403 (attempt 2/3)
+[2026-05-12T06:02:14.204Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/784344 returned 403 (attempt 2/3)
+[2026-05-12T06:02:16.199Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116636 returned 403 (attempt 3/3)
+[2026-05-12T06:02:16.200Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/annons/6116636 direct-status=403 attempt=1
+[2026-05-12T06:02:16.336Z] [WARN] booli-targeted-discovery: https://www.booli.se/bostad/784344 returned 403 (attempt 3/3)
+[2026-05-12T06:02:16.336Z] [INFO] booli-targeted-discovery: oxylabs-fallback url=https://www.booli.se/bostad/784344 direct-status=403 attempt=1
+[2026-05-12T06:02:19.919Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/bostad/784344 ms=3583
+[2026-05-12T06:02:19.920Z] [INFO] booli-targeted-discovery: parsed booli_id=6116632 "Vasavägen 83" listed=2026-05-11 postcode=17732 municipality=Järfälla county=Stockholms län views=5 url=/bostad/784344
+[2026-05-12T06:02:20.062Z] [INFO] booli-targeted-discovery: oxylabs-fallback-success url=https://www.booli.se/annons/6116636 ms=3862
+[2026-05-12T06:02:20.063Z] [INFO] booli-targeted-discovery: parsed booli_id=6116636 "Ulriksborgsgatan 7" listed=2026-05-11 postcode=11218 municipality=Stockholm county=Stockholms län views=112 url=/annons/6116636
+[2026-05-12T06:02:20.404Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6082242 returned 403 (attempt 1/3)
+[2026-05-12T06:02:20.419Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116621 returned 403 (attempt 1/3)
+[2026-05-12T06:02:21.592Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6082242 returned 403 (attempt 2/3)
+[2026-05-12T06:02:21.609Z] [WARN] booli-targeted-discovery: https://www.booli.se/annons/6116621 returned 403 (attempt 2/3)
+EXIT=1
