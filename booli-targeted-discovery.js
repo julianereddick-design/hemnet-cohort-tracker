@@ -51,6 +51,17 @@ const SEVEN_DAYS_SEC = 7 * 86400;
 // `while (true)` pre-Phase-8.5.
 const MAX_PAGES_BOOLI = 100;
 
+// Phase 9 / SC-1: hard wall-clock budget for the per-detail-fetch worker pool.
+// VERF-B2 wet-run (verf-b2-logs/wet-run.log) totalled ~26 min before dying with
+// EXIT=1, but only ~2m20s of detail-fetch activity preceded death — the failure
+// mode is NOT progressive resource exhaustion (see scripts/diagnose-verf-b2.md
+// Hypotheses #1 and #2). JOB_BUDGET_MS is defense-in-depth: a run that takes
+// >35 min on the steady-state queue is degraded (e.g. ~100% Oxylabs fallback
+// at ~4s/req with concurrency=2 → 3419 * 4 / 2 / 60 = ~114 min, vs. direct-curl
+// at ~0.5s/req for ~14 min steady state). 35 min is the "summarize-and-bail
+// rather than hang into a SIGKILL" line.
+const JOB_BUDGET_MS = 35 * 60 * 1000; // 35 minutes
+
 // ---------------------------------------------------------------
 // getCohortWeek — copied verbatim from cohort-create.js:17-44.
 // Do NOT extract into a shared util in this phase (D-06 / D-29 invariant).
@@ -440,6 +451,8 @@ async function main(client, log) {
     oxylabsFallbackRate: 0,
     perCounty: {},
     paginationExhaustedAny: false,  // LIBC-03 / D-09 (Phase 8.5)
+    budgetExceeded: false,    // SC-1: true if JOB_BUDGET_MS hit before queue drained
+    workerErrors: 0,          // SC-1: count of worker-level rejections caught
     durationMs: 0,
     dryRun: !!dryRun,
     weekStart,
@@ -463,16 +476,45 @@ async function main(client, log) {
   let processedCount = 0;
   async function worker() {
     while (queue.length) {
+      // SC-1: wall-clock budget check. If exceeded, drain remaining queue
+      // into the budgetExceeded count and let the worker exit cleanly so
+      // main() can write the Final: summary.
+      if ((Date.now() - startMs) >= JOB_BUDGET_MS) {
+        summary.budgetExceeded = true;
+        log('WARN', `job-budget-exceeded ms=${Date.now() - startMs} remaining-queue=${queue.length} — draining`);
+        queue.length = 0;
+        break;
+      }
       const card = queue.shift();
       if (card == null) break;
-      await sleep(jitter());
-      await processDetailFetch(card, card.__countyName, client, log, dryRun, summary);
-      processedCount++;
-      if (processedCount % 25 === 0) {
-        log('INFO',
-          `processed ${processedCount}/${summary.inWindowCandidates} ` +
-          `(inserted: ${summary.inserted}, updated: ${summary.updated}, ` +
-          `errors: ${summary.fetchErrors + summary.parseErrors})`,
+      try {
+        await sleep(jitter());
+        await processDetailFetch(card, card.__countyName, client, log, dryRun, summary);
+        processedCount++;
+        if (processedCount % 25 === 0) {
+          log('INFO',
+            `processed ${processedCount}/${summary.inWindowCandidates} ` +
+            `(inserted: ${summary.inserted}, updated: ${summary.updated}, ` +
+            `errors: ${summary.fetchErrors + summary.parseErrors})`,
+          );
+        }
+      } catch (workerErr) {
+        // SC-1: defense in depth. processDetailFetch already try/catches
+        // every step internally — this is the safety net for ANYTHING that
+        // escapes (sync throws from sleep/jitter, pool-shared client.query
+        // rejections that bubble past inner handlers, or — per BLOCKER 3 /
+        // hypothesis #1 — a synchronous throw inside lib/booli-fetch.js's
+        // /annons/ handling path). Count it, log the FULL stack trace if
+        // available so the operator can identify the failure mode on first
+        // incident, continue. Do NOT re-throw.
+        const detail = String(
+          (workerErr && workerErr.stack) ||
+          (workerErr && workerErr.message) ||
+          JSON.stringify(workerErr),
+        );
+        summary.workerErrors++;
+        log('ERROR',
+          `worker-uncaught url=${card && card.url} err=${detail}`,
         );
       }
     }
@@ -515,6 +557,12 @@ function validate(summary) {
   if (summary.dryRun === false && summary.detailFetched > 0 &&
       (summary.inserted + summary.updated) < summary.detailFetched * 0.9) {
     return `write rate suspiciously low: ${summary.inserted + summary.updated}/${summary.detailFetched}`;
+  }
+  if (summary.budgetExceeded === true) {
+    return `job budget exceeded (${JOB_BUDGET_MS}ms); ${summary.inserted + summary.updated} writes before drain`;
+  }
+  if (summary.workerErrors > 0) {
+    return `worker-level errors caught: ${summary.workerErrors} (would have caused EXIT=1 pre-Phase-9; inspect 'worker-uncaught url=' log lines for stack)`;
   }
   return null;
 }
