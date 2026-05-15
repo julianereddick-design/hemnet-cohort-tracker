@@ -305,32 +305,51 @@ async function upsertBooliRow(client, l) {
   // listings where the pageviews InfoPoint wasn't on the page, e.g. very new
   // listings; lib/booli-fetch.js logs a WARN when this happens).
   const timesViewed = l.timesViewed != null ? l.timesViewed : 0;
+  // Phase 9 follow-up (post-Django-decommission): pass-through nullable fields
+  // for Hemnet match-strategy + Metabase. Parser produces null on any miss.
+  const price       = l.price       != null ? l.price       : null;
+  const rooms       = l.rooms       != null ? l.rooms       : null;
+  const livingArea  = l.livingArea  != null ? l.livingArea  : null;
+  const objectType  = l.objectType  != null ? l.objectType  : null;
+  const agentId     = l.agentId     != null ? l.agentId     : null;
   const r = await client.query(
     `INSERT INTO booli_listing
        (id, url, booli_id, is_active, listed, crawled, title, street_address,
         county, municipality, district, postcode, currency, days_listed,
-        is_pre_market, images, times_viewed)
+        is_pre_market, images, times_viewed,
+        price, rooms, living_area, object_type, agent_id)
      VALUES
        (nextval('booli_listing_id_seq'), $1, $2, true, $3::date, NOW(), $4, $5,
         $6, $7, '', $8, 'SEK', (CURRENT_DATE - $3::date)::int,
-        false, 0, $9)
+        false, 0, $9,
+        $10, $11, $12, $13, $14)
      ON CONFLICT (url) DO UPDATE SET
        times_viewed  = EXCLUDED.times_viewed,
        is_active     = true,
        crawled       = NOW(),
        days_listed   = (CURRENT_DATE - booli_listing.listed)::int,
-       is_pre_market = false
+       is_pre_market = false,
+       price         = COALESCE(EXCLUDED.price,       booli_listing.price),
+       rooms         = COALESCE(EXCLUDED.rooms,       booli_listing.rooms),
+       living_area   = COALESCE(EXCLUDED.living_area, booli_listing.living_area),
+       object_type   = COALESCE(EXCLUDED.object_type, booli_listing.object_type),
+       agent_id      = COALESCE(EXCLUDED.agent_id,    booli_listing.agent_id)
      RETURNING (xmax = 0) AS inserted`,
     [
-      l.url,               // $1 url
-      l.booli_id,          // $2 booli_id
-      listedDateStr,       // $3 listed (used twice — listed + days_listed)
-      l.streetAddress,     // $4 title (reuse street_address per D-10)
-      l.streetAddress,     // $5 street_address
-      l.county,            // $6 county (LONG form 'Stockholms län')
-      l.municipality,      // $7 municipality (SHORT form 'Järfälla')
-      l.postcode,          // $8 postcode (int or null)
-      timesViewed,         // $9 times_viewed
+      l.url,               // $1  url
+      l.booli_id,          // $2  booli_id
+      listedDateStr,       // $3  listed (used twice — listed + days_listed)
+      l.streetAddress,     // $4  title (reuse street_address per D-10)
+      l.streetAddress,     // $5  street_address
+      l.county,             // $6  county (LONG form 'Stockholms län')
+      l.municipality,       // $7  municipality (SHORT form 'Järfälla')
+      l.postcode,           // $8  postcode (int or null)
+      timesViewed,          // $9  times_viewed
+      price,                // $10 price (int SEK or null)
+      rooms,                // $11 rooms (numeric or null — Booli may have 2.5)
+      livingArea,           // $12 living_area (numeric m² or null)
+      objectType,           // $13 object_type (Swedish e.g. 'Lägenhet' or null)
+      agentId,              // $14 agent_id (broker chain id from Source.id, or null)
     ],
   );
   return r.rows[0].inserted ? 'inserted' : 'updated';

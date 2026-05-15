@@ -75,12 +75,17 @@ function jitter() { return 100 + Math.random() * 200; }
 // ---------------------------------------------------------------
 // Field mapping (Booli parsed listing -> two refresh-targeted columns)
 // ---------------------------------------------------------------
-// Unlike Job A's shapeListingForDb, Job D writes ONLY the two refresh-time
-// columns: times_viewed and the published Unix-seconds timestamp used by the
-// defensive INSERT's listed/days_listed calc. Discovery-time columns (title,
-// street_address, county, municipality, postcode) are owned by Job C's
-// UPSERT and would race the every-cycle refresh if Job D touched them.
-
+// Unlike Job A's shapeListingForDb, Job D writes ONLY the refresh-time
+// columns. Discovery-time columns (title, street_address, county,
+// municipality, postcode) are owned by Job C's UPSERT and would race the
+// every-cycle refresh if Job D touched them.
+//
+// Phase 9 follow-up (post-Django-decommission): Job D also refreshes the
+// matching-strategy fields (price, rooms, living_area, object_type, agent_id)
+// on every cycle. Coalesced UPDATE: only overwrite a non-null parsed value
+// over the existing column to avoid silently nulling fields if Booli's Apollo
+// state is briefly malformed. Backfills the 2026-05-15 broken-Django rows
+// within 1-2 cron cycles.
 function shapeBooliForUpdate(listing) {
   const l = listing || {};
   return {
@@ -88,6 +93,11 @@ function shapeBooliForUpdate(listing) {
       l.timesViewed != null ? l.timesViewed : null,
     published_at_seconds:
       l.published != null ? l.published : null,
+    price:      l.price      != null ? l.price      : null,
+    rooms:      l.rooms      != null ? l.rooms      : null,
+    livingArea: l.livingArea != null ? l.livingArea : null,
+    objectType: l.objectType != null ? l.objectType : null,
+    agentId:    l.agentId    != null ? l.agentId    : null,
   };
 }
 
@@ -136,10 +146,23 @@ async function processOne(pair, client, log, dryRun, summary) {
             SET times_viewed = $1,
                 is_active    = true,
                 crawled      = NOW(),
-                days_listed  = (CURRENT_DATE - listed)::int
+                days_listed  = (CURRENT_DATE - listed)::int,
+                price        = COALESCE($3, price),
+                rooms        = COALESCE($4, rooms),
+                living_area  = COALESCE($5, living_area),
+                object_type  = COALESCE($6, object_type),
+                agent_id     = COALESCE($7, agent_id)
           WHERE booli_id = $2
          RETURNING booli_id`,
-        [shaped.times_viewed, booli_id],
+        [
+          shaped.times_viewed,    // $1
+          booli_id,                // $2
+          shaped.price,            // $3
+          shaped.rooms,            // $4
+          shaped.livingArea,       // $5
+          shaped.objectType,       // $6
+          shaped.agentId,          // $7
+        ],
       );
       if (upd.rowCount > 0) {
         summary.rowsUpdated += upd.rowCount;
@@ -152,14 +175,26 @@ async function processOne(pair, client, log, dryRun, summary) {
             `INSERT INTO booli_listing
                (id, url, booli_id, is_active, listed, crawled, times_viewed,
                 title, street_address, county, municipality, district,
-                postcode, currency, days_listed, is_pre_market)
+                postcode, currency, days_listed, is_pre_market,
+                price, rooms, living_area, object_type, agent_id)
              VALUES
                (nextval('booli_listing_id_seq'), $1, $2, true,
                 to_timestamp($3)::date, NOW(), $4,
                 '', '', '', '', '', NULL, 'SEK',
-                GREATEST(0, (CURRENT_DATE - to_timestamp($3)::date)::int), false)
+                GREATEST(0, (CURRENT_DATE - to_timestamp($3)::date)::int), false,
+                $5, $6, $7, $8, $9)
              ON CONFLICT (url) DO NOTHING`,
-            [url, booli_id, shaped.published_at_seconds, shaped.times_viewed],
+            [
+              url,                          // $1
+              booli_id,                     // $2
+              shaped.published_at_seconds,  // $3
+              shaped.times_viewed,          // $4
+              shaped.price,                 // $5
+              shaped.rooms,                 // $6
+              shaped.livingArea,            // $7
+              shaped.objectType,            // $8
+              shaped.agentId,               // $9
+            ],
           );
           summary.rowsInserted++;
         } catch (insErr) {
@@ -370,6 +405,26 @@ if (process.argv.includes('--smoke')) {
     const got = shapeBooliForUpdate({ timesViewed: 5, published: 2 });
     assert.strictEqual(got.times_viewed, 5);
     assert.strictEqual(got.published_at_seconds, 2);
+  });
+  // Phase 9 follow-up — new Hemnet-matching fields pass through
+  check('shape: price/rooms/livingArea/objectType/agentId populated', () => {
+    const got = shapeBooliForUpdate({
+      timesViewed: 10, published: 1,
+      price: 4250000, rooms: 2.5, livingArea: 65, objectType: 'Lägenhet', agentId: 64,
+    });
+    assert.strictEqual(got.price, 4250000);
+    assert.strictEqual(got.rooms, 2.5);
+    assert.strictEqual(got.livingArea, 65);
+    assert.strictEqual(got.objectType, 'Lägenhet');
+    assert.strictEqual(got.agentId, 64);
+  });
+  check('shape: missing matching fields → null (not crash)', () => {
+    const got = shapeBooliForUpdate({ timesViewed: 10, published: 1 });
+    assert.strictEqual(got.price, null);
+    assert.strictEqual(got.rooms, null);
+    assert.strictEqual(got.livingArea, null);
+    assert.strictEqual(got.objectType, null);
+    assert.strictEqual(got.agentId, null);
   });
 
   // --- parseArgs ---
