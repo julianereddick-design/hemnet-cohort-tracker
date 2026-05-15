@@ -1,13 +1,23 @@
-// hemnet-targeted-refresh.js — Job A. Daily refresh of times_viewed + is_active
+// hemnet-targeted-refresh.js — Job A. Every-cycle refresh of times_viewed + is_active
 // for every active cohort hemnet_id (last 8 weeks, not dropped).
 // 2026-05-15: lookback narrowed 12 → 8 weeks to align with the per-pair tracking
 // horizon in cohort-track.js (also 56 days). Eliminates the Days 31-84 dead zone.
 //
+// Plan 09-02 (D-16) retrofit (2026-05-15): brought to symmetric hardening with Job D
+// (booli-targeted-refresh.js). Adds JOB_BUDGET_MS = 240 * 60 * 1000 wall-clock budget,
+// bumps concurrency 2 → 8 (D-15 sizing), wraps worker iteration in try/catch capturing
+// err.stack (logs `worker-uncaught hemnet_id=...`), counts into summary.workerErrors,
+// and adds two new validate() branches (budgetExceeded + workerErrors). Pre-staged for
+// the Hemnet-flips-to-Oxylabs contingency (today Hemnet allows direct curl so workers
+// will be ~80% idle — harmless). D-17 amends D-06 to run Job A in parallel with Job D
+// at `0 14 */2 * *` (Plan 09-03 owns the crontab edit).
+//
 // Wrapped by cron-wrapper.runJob — failures hit Slack and cron_job_log.
-// Concurrency 2 + 100-300ms jitter. Target ~33-51 min wall time on full set.
+// Concurrency 8 + 100-300ms jitter. Target ~10-20 min direct-curl steady state today;
+// ~155 min wall-clock if Hemnet flips to Oxylabs (fits the 240-min budget).
 //
 // Behavior locked by .planning/phases/07-daily-targeted-refresh-job-a/07-01-PLAN.md
-// and 07-CONTEXT.md. Critical correctness items:
+// and 07-CONTEXT.md (original) + 09-02-PLAN.md D-16 (retrofit). Critical correctness:
 //   - UPDATE all matching rows (no LIMIT 1) — fixes hemnet_listingv2 duplicate-row issue
 //   - county column stores SHORT form ('Stockholms', not 'Stockholms län')
 //   - municipality column stores SHORT form ('Järfälla', not 'Järfälla kommun')
@@ -21,6 +31,13 @@ const {
   getOxylabsStats,
   resetOxylabsStats,
 } = require('./lib/hemnet-fetch');
+
+// Phase 9 / D-16 retrofit: hard wall-clock budget for the per-detail-fetch worker pool.
+// Mirrors booli-targeted-refresh.js (Job D) and booli-targeted-discovery.js (Plan 09-01).
+// Sized for the Oxylabs-only steady-state contingency (D-15). Today Hemnet allows direct
+// curl so the budget is mostly unused; tomorrow if Hemnet flips to Oxylabs, ~8k pairs at
+// conc 8 → ~155 min wall-clock fits the 240-min budget. Pre-staged.
+const JOB_BUDGET_MS = 240 * 60 * 1000; // 240 minutes
 
 // ---------------------------------------------------------------
 // CLI parsing
@@ -232,29 +249,61 @@ async function main(client, log) {
     perCounty: {},
     dryRun: !!dryRun,
     limited: limit != null ? limit : null,
+    // Plan 09-02 D-16 retrofit — symmetric to Job D's hardening:
+    budgetExceeded: false,
+    workerErrors: 0,
   };
 
-  // 3. Hand-rolled worker pool, concurrency 2, 100-300ms jitter per dispatch.
+  // 3. Hand-rolled worker pool, concurrency 8 (D-15 sizing, D-16 retrofit),
+  //    100-300ms jitter per dispatch. Plan 09-01 hardened pattern: budget
+  //    check at top of each iteration, per-iteration try/catch capturing
+  //    err.stack so any rejection is logged, counted in summary.workerErrors,
+  //    and continues instead of crashing the run.
   const queue = ids.slice();
   let processedCount = 0;
 
   async function worker() {
     while (queue.length) {
+      // Plan 09-01 wall-clock budget check (D-16 retrofit, D-15 sizing — 240 min).
+      if ((Date.now() - startMs) >= JOB_BUDGET_MS) {
+        summary.budgetExceeded = true;
+        log('WARN', `job-budget-exceeded ms=${Date.now() - startMs} remaining-queue=${queue.length} — draining`);
+        queue.length = 0;
+        break;
+      }
       const id = queue.shift();
       if (id == null) break;
-      await sleep(jitter());
-      await processOne(id, client, log, dryRun, summary);
-      processedCount++;
-      if (processedCount % 50 === 0) {
-        log(
-          'INFO',
-          `processed ${processedCount}/${ids.length} (active: ${summary.activeCount}, inactive: ${summary.inactiveCount + summary.removed404}, errors: ${summary.errors})`,
+      try {
+        await sleep(jitter());
+        await processOne(id, client, log, dryRun, summary);
+        processedCount++;
+        if (processedCount % 50 === 0) {
+          log(
+            'INFO',
+            `processed ${processedCount}/${ids.length} (active: ${summary.activeCount}, inactive: ${summary.inactiveCount + summary.removed404}, errors: ${summary.errors})`,
+          );
+        }
+      } catch (workerErr) {
+        // Plan 09-01 defense in depth (D-16 retrofit). processOne already
+        // try/catches internally — this is the safety net for ANYTHING that
+        // escapes (sync throws from sleep/jitter, pool-shared client.query
+        // rejections that bubble past inner handlers, parser sync throws).
+        // Count it, log the FULL stack trace, continue. Do NOT re-throw.
+        const detail = String(
+          (workerErr && workerErr.stack) ||
+          (workerErr && workerErr.message) ||
+          JSON.stringify(workerErr),
+        );
+        summary.workerErrors++;
+        log('ERROR',
+          `worker-uncaught hemnet_id=${id} err=${detail}`,
         );
       }
     }
   }
 
-  await Promise.all([worker(), worker()]);
+  // D-15: 8-worker idiom (NOT Promise.all([worker(), worker()])).
+  await Promise.all(Array.from({ length: 8 }, () => worker()));
 
   summary.durationMs = Date.now() - startMs;
 
@@ -292,6 +341,13 @@ function validate(summary) {
       summary.oxylabsFailureCount / summary.oxylabsCallCount > 0.10) {
     const pct = ((summary.oxylabsFailureCount / summary.oxylabsCallCount) * 100).toFixed(1);
     return `Oxylabs failures: ${summary.oxylabsFailureCount}/${summary.oxylabsCallCount} (${pct}%) — check API status or credit balance`;
+  }
+  // Plan 09-02 D-16 retrofit — symmetric to Job D's validate() (Plan 09-01 hardening):
+  if (summary.budgetExceeded === true) {
+    return `job budget exceeded (${JOB_BUDGET_MS}ms); ${summary.rowsUpdated + summary.rowsInserted} writes before drain`;
+  }
+  if (summary.workerErrors > 0) {
+    return `worker-level errors caught: ${summary.workerErrors} (inspect 'worker-uncaught hemnet_id=' log lines for stack)`;
   }
   return null;
 }
