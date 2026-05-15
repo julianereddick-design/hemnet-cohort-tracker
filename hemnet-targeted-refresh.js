@@ -1,5 +1,7 @@
 // hemnet-targeted-refresh.js — Job A. Daily refresh of times_viewed + is_active
-// for every active cohort hemnet_id (last 12 weeks, not dropped).
+// for every active cohort hemnet_id (last 8 weeks, not dropped).
+// 2026-05-15: lookback narrowed 12 → 8 weeks to align with the per-pair tracking
+// horizon in cohort-track.js (also 56 days). Eliminates the Days 31-84 dead zone.
 //
 // Wrapped by cron-wrapper.runJob — failures hit Slack and cron_job_log.
 // Concurrency 2 + 100-300ms jitter. Target ~33-51 min wall time on full set.
@@ -200,12 +202,13 @@ async function main(client, log) {
   // Phase 7.1: reset per-run Oxylabs counters before any fetch.
   resetOxylabsStats();
 
-  // 1. Locked cohort-id SELECT (REFR-01).
+  // 1. Locked cohort-id SELECT (REFR-01; lookback revised to 8 weeks 2026-05-15
+  // per the cohort-window alignment — see header comment + 09-CONTEXT.md D-05).
   const idsRes = await client.query(`
     SELECT DISTINCT cp.hemnet_id
     FROM cohort_pairs cp
     JOIN cohorts c ON c.cohort_id = cp.cohort_id
-    WHERE c.week_start >= CURRENT_DATE - INTERVAL '12 weeks'
+    WHERE c.week_start >= CURRENT_DATE - INTERVAL '8 weeks'
       AND cp.dropped_hemnet_on IS NULL
     ORDER BY cp.hemnet_id
   `);

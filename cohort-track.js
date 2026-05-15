@@ -9,9 +9,11 @@ function daysBetween(dateStrA, dateStrB) {
 async function main(client, log) {
   const today = new Date().toISOString().slice(0, 10);
 
+  // 2026-05-15: aligned all cohort windows at 8 weeks. Outer sweep = 56 (8-week
+  // tracking horizon) + 7 (week-span) = 63 days. Was 44 days (= 30 + 14 buffer).
   const cohorts = await client.query(`
     SELECT cohort_id, week_start FROM cohorts
-    WHERE week_start >= CURRENT_DATE - INTERVAL '44 days'
+    WHERE week_start >= CURRENT_DATE - INTERVAL '63 days'
     ORDER BY week_start
   `);
 
@@ -67,8 +69,12 @@ async function main(client, log) {
     let nullHemnet = 0;
 
     for (const pair of pairs.rows) {
+      // 2026-05-15: per-pair tracking horizon widened 30 → 56 days (8 weeks)
+      // to match the refresh window in Jobs A/D. Eliminates the Days 31-84
+      // "refresh-but-don't-track" dead zone that wasted Oxylabs calls on
+      // pairs whose time-series was no longer being written.
       const dayNum = daysBetween(pair.booli_listed, today);
-      if (dayNum < 0 || dayNum > 30) {
+      if (dayNum < 0 || dayNum > 56) {
         skipped++;
         continue;
       }

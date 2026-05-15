@@ -13,7 +13,7 @@ Phase 9 closes a gap that the original plan list (09-01/02/03) did NOT cover: `b
 The phase delivers: (1) a new Job D `booli-targeted-refresh.js` — a direct mirror of Job A but on the Booli side, (2) a cadence shift for the view-refresh cycle (Job D + Job A + cohort-track) from "daily Hemnet only" to "every 2 days, same day, sequential" for both, (3) crontab wiring + Slack alerting + cron_job_log observability for all four cron-wrapped scripts, and (4) a runbook + green observation week.
 
 **Scope clarifications surfaced during discuss:**
-- Pair-only refresh: Job D refreshes ONLY the matched-pair Booli URLs (joined to `cohort_pairs`, last 12 weeks, `dropped_booli_on IS NULL`). Unmatched `booli_listing` rows are ignored — those are leftover discovery rows and don't need view tracking.
+- Pair-only refresh: Job D refreshes ONLY the matched-pair Booli URLs (joined to `cohort_pairs`, last 8 weeks, `dropped_booli_on IS NULL`). Unmatched `booli_listing` rows are ignored — those are leftover discovery rows and don't need view tracking.
 - Both Booli and Hemnet external scrapers are ALREADY decommissioned. No quiescence step, no parallel-run observation week against an external source.
 - Existing Plan 09-01 (Booli discovery hardening) is unchanged and already half-executed (Tasks 1+2 committed in worktree `worktree-agent-a92bdb70060716238`; VERF-09-1 wet-run deferred until the new Job D plan ships, then both can be wet-run together).
 
@@ -32,7 +32,7 @@ The phase delivers: (1) a new Job D `booli-targeted-refresh.js` — a direct mir
   FROM cohort_pairs cp
   JOIN cohorts c ON c.cohort_id = cp.cohort_id
   JOIN booli_listing bl ON bl.booli_id = cp.booli_id
-  WHERE c.week_start >= CURRENT_DATE - INTERVAL '12 weeks'
+  WHERE c.week_start >= CURRENT_DATE - INTERVAL '8 weeks'
     AND cp.dropped_booli_on IS NULL
   ORDER BY cp.booli_id
   ```
@@ -49,7 +49,7 @@ The phase delivers: (1) a new Job D `booli-targeted-refresh.js` — a direct mir
 
 - **D-04:** Defensive INSERT fallback IS included (full mirror, not the "drop dead code" variant). Mirrors `hemnet-targeted-refresh.js:147-164` — INSERT into `booli_listing` if no row exists for `booli_id`. Even though `cohort_pairs.booli_id` should always have a backing row in `booli_listing` (cohort-create.js guarantees this), the safety net costs ~15 lines and matches Job A symmetry. Drop logic and recovery semantics live in `cohort-track.js` (streak/drop, see [[cohort-track-streak-impact]] below).
 
-- **D-05:** Lookback = **12 weeks** (same as Job A). No evidence Booli's view-count refresh cycle differs from Hemnet's, and keeping A and D aligned simplifies operator mental model.
+- **D-05 (REVISED 2026-05-15):** Lookback = **8 weeks** (was 12 weeks). User intent: 8 weekly cohorts active in parallel, with all three cohort windows aligned at 8 weeks: per-pair tracking horizon (`cohort-track.js:71`), refresh window (this — Jobs A and D), and outer cohort load sweep (`cohort-track.js:14` set to 63 days = 56 + 7-day week-span buffer). Eliminates the Days 31-84 refresh-but-don't-track dead zone. Job A's SQL has been patched in parallel (`hemnet-targeted-refresh.js:208`).
 
 ### Crontab slot times (D-06 .. D-09)
 
@@ -155,7 +155,7 @@ The phase delivers: (1) a new Job D `booli-targeted-refresh.js` — a direct mir
 
 - **Pattern 1 (cron-wrapped scripts) per `.planning/codebase/CONVENTIONS.md`** — Job D MUST follow: `const { runJob } = require('./cron-wrapper');` + `async function main(client, log) {...}` + `runJob({scriptName, main, validate})`.
 
-- **Pair-only refresh gate** — both Job A and Job D filter on `cohort_pairs.dropped_X_on IS NULL` and `cohorts.week_start >= NOW() - 12 weeks`. Drop-recovery logic lives in `cohort-track.js`, not in the refresh scripts themselves. Job D MUST NOT include recovery branching — that would duplicate cohort-track's state machine.
+- **Pair-only refresh gate** — both Job A and Job D filter on `cohort_pairs.dropped_X_on IS NULL` and `cohorts.week_start >= NOW() - 8 weeks` (revised 2026-05-15 from 12 weeks per D-05). Drop-recovery logic lives in `cohort-track.js`, not in the refresh scripts themselves. Job D MUST NOT include recovery branching — that would duplicate cohort-track's state machine.
 
 - **Defensive single-INSERT-after-UPDATE pattern** — Job A inserts a fresh `hemnet_listingv2` row if the UPDATE found 0 matches (`:147-164`). Job D mirrors this for symmetry, even though `cohort_pairs.booli_id` should always have a backing `booli_listing` row.
 

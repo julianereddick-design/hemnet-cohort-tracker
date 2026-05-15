@@ -151,7 +151,7 @@ async function run() {
       FROM cohort_daily_views dv
       JOIN cohort_pairs cp ON cp.id = dv.pair_id
       JOIN cohorts c ON c.cohort_id = cp.cohort_id
-      WHERE c.week_start >= CURRENT_DATE - INTERVAL '44 days'
+      WHERE c.week_start >= CURRENT_DATE - INTERVAL '63 days'
         AND dv.booli_views IS NOT NULL
         AND dv.hemnet_views IS NOT NULL
     )
@@ -187,7 +187,7 @@ async function run() {
     FROM cohort_daily_views dv
     JOIN cohort_pairs cp ON cp.id = dv.pair_id
     JOIN cohorts c ON c.cohort_id = cp.cohort_id
-    WHERE c.week_start >= CURRENT_DATE - INTERVAL '44 days'
+    WHERE c.week_start >= CURRENT_DATE - INTERVAL '63 days'
       AND dv.date = (SELECT MAX(date) FROM cohort_daily_views)
     GROUP BY cp.cohort_id
     ORDER BY cp.cohort_id
