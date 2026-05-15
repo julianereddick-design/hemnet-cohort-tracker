@@ -37,14 +37,27 @@ function logger(level, msg) {
 // Pick up to `n` candidate (booli_id, url) pairs from active cohorts.
 // Mirrors Job D's main() SELECT shape but with random ordering for variety.
 async function pickProbePairs(client, n) {
+  // DISTINCT ON dedupes by booli_id (a listing can recur across cohort weeks);
+  // inner ORDER BY keeps the newest-week row per booli_id; outer randomizes for
+  // variety. Two-stage form is required because SELECT DISTINCT + ORDER BY
+  // random() rejects non-SELECT-list expressions in Postgres.
   const r = await client.query(
-    `SELECT DISTINCT cp.booli_id, bl.url, bl.times_viewed AS db_views, bl.is_active AS db_active
-     FROM cohort_pairs cp
-     JOIN cohorts c ON c.cohort_id = cp.cohort_id
-     JOIN booli_listing bl ON bl.booli_id = cp.booli_id
-     WHERE c.week_start >= CURRENT_DATE - INTERVAL '8 weeks'
-       AND cp.dropped_booli_on IS NULL
-     ORDER BY c.week_start DESC, random()
+    `SELECT booli_id, url, db_views, db_active
+     FROM (
+       SELECT DISTINCT ON (cp.booli_id)
+         cp.booli_id,
+         bl.url,
+         bl.times_viewed AS db_views,
+         bl.is_active AS db_active,
+         c.week_start
+       FROM cohort_pairs cp
+       JOIN cohorts c ON c.cohort_id = cp.cohort_id
+       JOIN booli_listing bl ON bl.booli_id = cp.booli_id
+       WHERE c.week_start >= CURRENT_DATE - INTERVAL '8 weeks'
+         AND cp.dropped_booli_on IS NULL
+       ORDER BY cp.booli_id, c.week_start DESC
+     ) sub
+     ORDER BY random()
      LIMIT $1`,
     [n],
   );
