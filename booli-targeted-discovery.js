@@ -52,15 +52,24 @@ const SEVEN_DAYS_SEC = 7 * 86400;
 const MAX_PAGES_BOOLI = 100;
 
 // Phase 9 / SC-1: hard wall-clock budget for the per-detail-fetch worker pool.
-// VERF-B2 wet-run (verf-b2-logs/wet-run.log) totalled ~26 min before dying with
-// EXIT=1, but only ~2m20s of detail-fetch activity preceded death — the failure
-// mode is NOT progressive resource exhaustion (see scripts/diagnose-verf-b2.md
-// Hypotheses #1 and #2). JOB_BUDGET_MS is defense-in-depth: a run that takes
-// >35 min on the steady-state queue is degraded (e.g. ~100% Oxylabs fallback
-// at ~4s/req with concurrency=2 → 3419 * 4 / 2 / 60 = ~114 min, vs. direct-curl
-// at ~0.5s/req for ~14 min steady state). 35 min is the "summarize-and-bail
-// rather than hang into a SIGKILL" line.
-const JOB_BUDGET_MS = 35 * 60 * 1000; // 35 minutes
+//
+// REVISED 2026-05-15 (Plan 09-1.5 wet-run attempt 1): bumped 35 → 180 min.
+// Original 35-min sizing was based on the direct-curl-fast-path assumption
+// (Booli's verf-b2-logs/wet-run.log totalled ~26 min in that world). The
+// VERF-09-1.5 attempt-1 wet-run revealed the production reality is 100%
+// Oxylabs fallback (direct curl 403's every Booli URL from this droplet's
+// egress) — so each call costs ~5 sec at Oxylabs API latency, not ~0.5 sec
+// direct. With 3,405 in-window candidates × ~5s ÷ concurrency 2 = ~142 min
+// expected wall-clock. The 35-min cap drained the queue after only 100/3,405
+// detail-fetches. 180 min = ~142 min expected + ~38 min defensive buffer.
+//
+// Cron-fit check: Job C runs Sun 22:00 UTC; Job B runs Mon 03:00 UTC. Gap is
+// 300 min, so a 180-min budget leaves 120 min slack before Job B starts.
+//
+// Concurrency stays at 2 per Plan 09-01 hardening contract. Oxylabs Advanced
+// allows 50 jobs/sec submission rate; at C=2 we use ~0.12 req/sec = 0.24% of
+// cap. Headroom to bump concurrency later if needed (Phase 10).
+const JOB_BUDGET_MS = 180 * 60 * 1000; // 180 minutes (was 35; see comment)
 
 // ---------------------------------------------------------------
 // Phase 9 / Task 4: pg + process-level error hardening.
