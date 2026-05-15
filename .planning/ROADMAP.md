@@ -110,7 +110,7 @@ Plans:
 
 Plans:
 - [x] 09-01-PLAN.md — Booli discovery hardening: catch worker-level rejections, add 35-min wall-clock budget, resolve VERF-B2 EXIT=1
-- [ ] 09-1.5-PLAN.md — Oxylabs detail-page fallback + multi-county walk triage (from 09-01-SUMMARY carry-forward issues #1 + #2) — must close before 09-02
+- [x] 09-1.5-PLAN.md — Oxylabs detail-page fallback + multi-county walk triage: D-13 confirmed (paid creds alone fixed both); JOB_BUDGET_MS 35→180 min; 8-week cohort window alignment shipped alongside
 - [ ] 09-02-PLAN.md — Job D booli-targeted-refresh: pair-only Booli view refresh, hardened worker-pool, VERF-09-2 wet-run
 - [ ] 09-03-PLAN.md — Cron integration with every-2-days cadence: Jobs A/B/C/D + cohort-track on odd days (14/18/22 UTC), remove daily cohort-track slots, SLACK_WEBHOOK_URL
 - [ ] 09-04-PLAN.md — Cutover + runbook: halve cohort-track streak threshold to 5, green-week observation, no parallel-run
