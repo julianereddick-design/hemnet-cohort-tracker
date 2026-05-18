@@ -2,21 +2,21 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Self-hosted scraper
-status: Plan 09-2.5 code-complete (7/9 tasks shipped); Tasks 8 (deploy) + 9 (Sun/Mon cron verification) are operator-action; Plan 09-02 closed out as partial (wet-run skipped)
-last_updated: "2026-05-15T10:50:00.000Z"
+status: Plan 09-2.6 complete — Hemnet match cohort acceleration shipped (conc 8 + delta filter + budget + worker try/catch), W20 cohort rebuilt 441 → 1,535 pairs at 47.7% match rate; Plan 09-2.5 shipped + deployed; next scheduled cron is Mon 2026-05-25 03:00 UTC
+last_updated: "2026-05-19T00:00:00.000Z"
 current_phase: 09-production-cutover-self-hosted-scraper-launch
-current_plan: 09-2.5
-last_completed_plan: 09-1.5
+current_plan: 09-2.6
+last_completed_plan: 09-2.6
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 6
-  completed_plans: 2
-  percent: 33
+  total_plans: 7
+  completed_plans: 4
+  percent: 57
 session_continuity:
-  last_session: "2026-05-15"
-  stopped_at: "Plan 09-2.5 Tasks 1-7 shipped (commits 618c896 + dfe9fb0); Task 8 deploy is operator-action via git pull on droplet; Task 9 is natural-cron checkpoint Sun 22:00 UTC + Mon 03:00/06:00 UTC"
-  resume_command: "Operator: run deploy commands on droplet, then monitor Sun/Mon crons, then return with success/partial/failed resume signal per Plan 09-2.5 Task 9 <resume-signal>"
+  last_session: "2026-05-18"
+  stopped_at: "Plan 09-2.6 complete — code shipped (92aedb1), deployed, W20 cohort rebuilt 441 → 1,535 pairs after a SIGHUP-induced first-attempt failure surfaced the cron-wrapper signal-handler gap (carry-forward 09-2.6 #1). Next-natural cron firing is Mon 2026-05-25 03:00 UTC."
+  resume_command: "If Mon 2026-05-25 03:00 UTC Hemnet match cohort cron completes in 40-90 min with status=success/warning AND budgetExceeded=false AND summary.booliCount >= 1500 → Plan 09-2.6 verification gate cleared; close out. Otherwise diagnose per the failure modes listed in 09-2.6-PLAN.md <verification>."
 carry_forward:
   - "09-02 #1: Wet-run gate (Task 5, D-19) SKIPPED at operator direction. Job D + Job A conc-8 worker pool unexercised at scale. First real test is Tue 2026-05-19 14:00 UTC cron — recovery path is Slack-alert → diagnose → patch → next cycle. Residual risk acknowledged in 09-02-SUMMARY.md."
   - "09-02 #2: Job A retrofit (D-16) shipped — hemnet-targeted-refresh.js symmetric to Job D (conc 8, budget 240, validate budgetExceeded + workerErrors branches). Today's Hemnet stays direct-curl-fast; workers run ~80% idle until Hemnet flips."
@@ -30,21 +30,22 @@ carry_forward:
   - "09-2.5 #8 (NEW, 2026-05-16 noise-reduction follow-up — DEFERRED): Job B's match log line at hemnet-targeted-match.js:486 constructs the Booli URL as 'https://www.booli.se/bostad/${booli_id}' — wrong for two reasons: (a) /bostad/ takes residenceId not listingId, (b) active FS listings use /annons/ not /bostad/. The correct URL is stored in booli_listing.url (already fetched in the SELECT). Same wrong-url pattern likely exists in Job C/Job D logs. Fix: log booli.url instead of constructing. Cosmetic — only affects log readability; doesn't change matching behavior. Phase 10 cleanup."
   - "09-2.5 #6 (NEW, 2026-05-15 enrichment finding — DEPLOY BLOCKER): The 2026-05-15 enrichment surfaced 139 worker errors (~9% of 1531 fetched), ALL the same FK constraint violation: 'booli_listing_agent_id_9a6480c3_fk_booli_agent_id'. The Booli Source.id we capture as agent_id (D-22 broker chain id) is not a value that exists in booli_agent — Django populated booli_agent with different values historically. Job C's INSERT (booli-targeted-discovery.js:316/320/352) and Job D's UPDATE both write agent_id and will throw this FK error in production. cron-wrapper's per-row try/catch swallows it (workerErrors++) and validate() escalates to Slack as 'warning' status. Sun 22:00 UTC Job C and Tue 14:00 UTC Job D will leak ~9% workerErrors and trigger Slack alerts. THREE FIX OPTIONS: (a) ALTER TABLE booli_listing DROP/relax the agent_id FK constraint, (b) drop agent_id from Job C/D writes (revert D-22 capture), (c) two-phase write: INSERT into booli_agent first then UPDATE booli_listing. Pre-deploy decision required."
   - "09-2.5 #10 (NEW, 2026-05-18 enrichment-script bug): scripts/enrich-booli-week.js UPDATE statement is missing 'crawled = NOW()'. Result: rows touched by Friday's manual enrichment (2045 W20 rows) still show old crawled timestamps as if untouched, polluting downstream 'last-touched' analysis. Production scripts (Job C ON CONFLICT UPDATE at booli-targeted-discovery.js:329, Job D UPDATE at booli-targeted-refresh.js:148) correctly bump crawled; only my probe script forgot. ONE-LINE FIX: add 'crawled = NOW(),' to the SET clause of enrich-booli-week.js. Phase 10 cleanup; not deploy-blocking."
-  - "09-2.5 #11 (NEW, 2026-05-18 throughput observation — Phase 10 fix candidate): hemnet-targeted-match.js SELECT (line 609-620) processes EVERY active Booli row whose 'listed' date falls in the cohort week, with no delta filter. Sunday's Booli fetch cohort discovered ~2,400 fresh W20 rows but Hemnet match cohort's scope was 5,563 (the full W20 inventory accumulated over time + Django residue). The 'extra' ~3,100 rows are re-matched every week even though their hemnet_listingv2 match already exists. Adding 'WHERE NOT EXISTS in hemnet_listingv2 OR booli_listing.crawled > <last-successful-Hemnet-match-cohort-start>' would shrink weekly scope from 5,563 → ~2,400 and let the cron finish in ~70 min instead of the 120+ hours it would take at current pace. 2026-05-18 Mon 03:00 UTC run will not finish before Cohort create at 06:00 UTC because of this — confirmed real, not theoretical. Phase 10 fix: add the delta filter; ~10-20 lines of code. Operator should consider this priority alongside the Hemnet view data / Booli view data IP-block issue (droplet appears to be 100% blocked from both Hemnet and Booli direct paths, forcing all-Oxylabs at ~5s/call = 40× slower than local mixed-path)."
+  - "09-2.5 #11 (CLOSED by Plan 09-2.6 D-33, 2026-05-19): Delta filter shipped — `bl.crawled > MAX(cron_job_log.started_at)` clause at hemnet-targeted-match.js:638-642. EXPLAIN ANALYZE 93ms. Original observation kept for context: hemnet-targeted-match.js SELECT processed EVERY active Booli row in scope (5,563 incl. Django residue) with no delta filter; W20 scope shrunk to 1,553 after the filter shipped. Fuller delta (with NOT EXISTS) deferred to 09-2.6 #2 pending functional index."
+  - "09-2.6 #1 (NEW, 2026-05-18 root-cause from W20 recovery — Phase 10 hardening): cron-wrapper.js missing signal handlers (SIGHUP, SIGTERM, SIGINT). cron-wrapper.js:79-80 only registers `uncaughtException` + `unhandledRejection`. Discovered live: operator kicked off `node hemnet-targeted-match.js` via DigitalOcean web console without nohup/tmux; SIGHUP on console disconnect killed node; cron_job_log row 418 stayed on `status='running'` forever. Required manual UPDATE (scripts/unstick-cron-row-418.js) to unstick. Same gap fires on ANY operator-kill of a running cron. Phase 10 fix: ~5 lines adding `process.on('SIGHUP', handleFatal)`, `process.on('SIGTERM', handleFatal)`, `process.on('SIGINT', handleFatal)` alongside the existing two; handleFatal should resolve cron_job_log.status to `'killed'` for signals vs `'failure'` for genuine exceptions. Runbook implication: always launch manual crons in tmux or via `nohup ... & disown`, never naked in an interactive console — captured in Plan 09-2.6 SUMMARY for Plan 09-04 runbook absorption."
+  - "09-2.6 #2 (NEW, 2026-05-18 EXPLAIN finding — Phase 10 perf): hemnet_listingv2 lacks a functional index on `LOWER(TRIM(street_address))`. Plan 09-2.6 Task 2 measured the full delta filter (`bl.crawled > X OR NOT EXISTS hemnet_listingv2 ...`) at 104s EXPLAIN ANALYZE — over the 120s statement_timeout. Cause: the NOT EXISTS subquery did a seqscan of hemnet_listingv2 (~129k rows) 2,591 times. Fell back to crawled-only filter (93ms). Phase 10 fix: `CREATE INDEX CONCURRENTLY hemnet_listingv2_norm_street_idx ON hemnet_listingv2 (LOWER(TRIM(street_address)))`. Unlocks the fuller delta filter and the cohort_unmatched bucket-level diagnostic deferred at 09-2.5 #4. Two carry-forwards (this one + 09-2.5 #4) close with one index."
   - "09-2.5 #9 (NEW, 2026-05-16 write-surface mapping — Phase 10 hardening candidate): Job A (hemnet-targeted-refresh.js:140-160) and Job D (booli-targeted-refresh.js:144-166) write substantially MORE than view counts on every cycle. Job A active-path UPDATEs to hemnet_listingv2 UNCONDITIONALLY overwrite times_viewed, is_active, is_pre_market, street_address, postcode, municipality, county, listed (NO COALESCE). Job D active-path UPDATEs to booli_listing UNCONDITIONALLY overwrite times_viewed, is_active, crawled, days_listed AND COALESCE-preserve price/rooms/living_area/object_type/agent_id (the D-24 hardening). Inactive paths for both only flip is_active=false (preserve everything else). Defensive INSERT fallbacks fire only when UPDATE returns 0 rows (shouldn't happen for cohort_pairs rows). Neither job touches cohort_pairs / cohort_daily_views / cohorts / cohort_unmatched — those are owned by cohort-create + cohort-track. ASYMMETRY worth noting: Job A's discovery-metadata fields (address/postcode/municipality/county/listed) lack the COALESCE-preserve hardening Job D got in D-24, so a transient Hemnet parse glitch *could* silently regress validated address data. In practice the parser fails atomically (throws → per-row catch → row untouched), so risk is low. Phase 10: mirror D-24 pattern on hemnet-targeted-refresh.js:140-150 (~5 lines SQL change) for symmetry. Not a bug fix; consistency improvement."
   - "09-1.5 #1: 180-min JOB_BUDGET_MS for Job C may not fit full 3.4k-detail queue at 13/min rate — first production Sunday cron is verifier; bump to 300 min or raise conc if budget-exceeded recurs. By analogy with 09-02 raising Job D's conc 2→8, Job C may want similar treatment in Phase 10."
   - "09-01 #3: Final: status field vs cron-wrapper status mismatch — cosmetic; Phase 10."
 recent_commits:
-  - "49970b8 docs(09): formalize Plan 09-2.5 + close out 09-02 (wet-run skipped)"
-  - "618c896 feat(booli): capture price/rooms/living_area/object_type/agent_id from Apollo"
-  - "eb3975e fix(09-02): probe-booli-refresh SQL — SELECT DISTINCT + ORDER BY rule"
-  - "41a0664 feat(09-02): scripts/probe-oxylabs-hemnet.js — Hemnet-via-Oxylabs probe (D-18)"
-  - "fd8ac88 refactor(09-02): Job A retrofit — symmetric 09-01 hardening + conc 8 + budget 240 (D-16)"
-  - "a939767 feat(09-02): VERF-09-2 dry-run probe scripts/probe-booli-refresh.js"
-  - "b3884e8 feat(09-02): Job D booli-targeted-refresh.js — conc 8, budget 240 (D-15)"
-  - "aa25ef8 docs(09-02): replan — D-15..D-19 baked in"
+  - "TBD (this commit) docs(09-2.6): Plan 09-2.6 complete — Hemnet match cohort accelerated, W20 rebuilt"
+  - "92aedb1 feat(09-2.6): Hemnet match cohort acceleration — conc 8 + delta filter + budget + worker try/catch"
+  - "3fae4b7 docs(09-2.6): plan Hemnet match cohort acceleration + W20 recovery"
+  - "8780aab ops(09-2.5): droplet deploy script for Task 8"
+  - "24f8d6a docs(09-2.5): carry-forward #9 — Job A/D write-surface map"
+  - "3a10dc3 docs(09-2.5): pre-deploy dry-run results + carry-forwards #5..#8"
+  - "22d76d9 feat(09-2.5): drop agent_id FK + W20 enrichment + dry-run reporter"
+  - "dfe9fb0 feat(09-2.5): Job B targeted-search rewrite — price/rooms/object_type URL filters (D-26..D-29)"
 deadlines:
-  - "Mon 2026-05-18 03:00 UTC — Job B cron slot. Plan 09-2.5 Task 7 (Job B rewrite) MUST ship and deploy before this for W21 cohort to benefit. Acceptable degradation: slip → W22 absorbs."
-  - "Mon 2026-05-18 06:00 UTC — cohort-create cron run. First W21 cohort built against new Booli fields + (ideally) new Job B narrowed-search output."
-  - "Sun 2026-05-17 22:00 UTC — Job C cron run. First wet exercise of Plan 09-2.5 field-capture code (commit 618c896) at scale."
+  - "Mon 2026-05-25 03:00 UTC — next Hemnet match cohort cron. First production firing of Plan 09-2.6 code (conc 8 + delta filter + budget + worker try/catch). Verification gate: status=success/warning AND duration < 90 min AND budgetExceeded=false AND summary.booliCount >= 1500 AND summary.workerErrors == 0. Completion validates Plan 09-2.6 end-to-end; failure modes documented in 09-2.6-PLAN.md <verification>."
+  - "Mon 2026-05-25 06:00 UTC — Cohort create cron for W21. Should produce 1,200-1,800 pairs without operator intervention if the 03:00 UTC run cleared the gate above."
 ---
