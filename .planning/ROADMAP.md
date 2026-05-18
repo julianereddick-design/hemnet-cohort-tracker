@@ -113,6 +113,7 @@ Plans:
 - [x] 09-1.5-PLAN.md — Oxylabs detail-page fallback + multi-county walk triage: D-13 confirmed (paid creds alone fixed both); JOB_BUDGET_MS 35→180 min; 8-week cohort window alignment shipped alongside
 - [~] 09-02-PLAN.md — Job D booli-targeted-refresh + Job A retrofit + probes: code-complete (4/5 tasks shipped); Task 5 wet-run gate explicitly SKIPPED at operator direction — see 09-02-SUMMARY.md
 - [~] 09-2.5-PLAN.md — Booli field capture + Job B narrowed-search matching fix: triggered by Django scraper decommission (2026-05-15) + 26.7% aggregate match rate; field capture (price/rooms/living_area/object_type/agent_id) shipped in commit 618c896; Job B rewrite pending; hard deadline Mon 2026-05-18 06:00 UTC for cohort-create
+- [ ] 09-2.6-PLAN.md — Hemnet match cohort acceleration + W20 recovery: triggered by 2026-05-18 wet cron failure (Hemnet match cohort still running 5+ hours in, only ~700 of 5,563 rows processed, W20 cohort built at 441 pairs vs ~1,500 typical). Ships conc 2→8 + delta filter + JOB_BUDGET_MS = 120 min. Targets ~50 min weekly runtime + W20 cohort_pairs recovery to ~1,500.
 - [ ] 09-03-PLAN.md — Cron integration with every-2-days cadence: Jobs A/B/C/D + cohort-track on odd days (14:00 parallel D+A per D-17, 22:00 cohort-track UTC), remove daily cohort-track slots, SLACK_WEBHOOK_URL
 - [ ] 09-04-PLAN.md — Cutover + runbook: halve cohort-track streak threshold 10→5 for every-2-days cadence (cohort-track.js:120), green-week observation, no parallel-run
 
