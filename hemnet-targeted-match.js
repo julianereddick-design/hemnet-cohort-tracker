@@ -1,9 +1,10 @@
-// hemnet-targeted-match.js — Job B. Weekly seeding of hemnet_listingv2 from
-// each new Booli FS row in the upcoming Mon cohort, so cohort-create.js (Mon
+// hemnet-targeted-match.js — Hemnet match cohort. Weekly seeding of hemnet_listingv2
+// from each new Booli FS row in the upcoming Mon cohort, so cohort-create.js (Mon
 // 06:00 UTC) finds matches on (postcode, street_address, ±7 days).
 //
 // Wrapped by cron-wrapper.runJob — failures hit Slack and cron_job_log.
-// Concurrency 2 + 100-300ms jitter. Within-run search cache + in-flight dedup.
+// Concurrency 8 + 100-300ms jitter. Within-run search cache + in-flight dedup.
+// Plan 09-2.6 D-32: concurrency 2→8 (mirrors Plan 09-02 D-15 for Booli view data).
 //
 // Behavior locked by .planning/phases/08-weekly-targeted-match-job-b/08-01-PLAN.md
 // and 08-CONTEXT.md. Critical correctness items:
@@ -45,6 +46,10 @@ const BOOLI_COUNTIES = [
 // single-page; it should never need 15.
 const MAX_PAGES = 15;
 const SEVEN_DAYS_SEC = 7 * 86400;
+// Plan 09-2.6 D-34: wall-clock budget. Expected runtime post-D-32/D-33 is ~50 min
+// (~2,400 rows / ~48 rows/min via Oxylabs at conc 8). 120 min gives ~70 min margin.
+// Mon 03:00 UTC start → completes by Mon 05:00 UTC → 60 min before Cohort create 06:00.
+const JOB_BUDGET_MS = 120 * 60 * 1000;
 // Price tolerance band for the narrowed Hemnet search (D-27). ±5% gives
 // slack for Booli/Hemnet to lag on price-reduction updates without admitting
 // too many wrong-listing candidates. Revisit if first wet-run shows the band
@@ -602,19 +607,40 @@ async function main(client, log) {
   //    Plan 09-2.5 (Task 7 / D-26..D-29): SELECT extended to also pull
   //    price, rooms, object_type so buildHemnetSearchUrl can narrow each
   //    per-Booli-row Hemnet search via discriminator filters (D-21 fields
-  //    Job C / Job D now populate post-Django-decommission). NULL-safe at
-  //    the URL-build layer: any of price/rooms/object_type may be null on
-  //    legacy rows or transient parse misses; buildHemnetSearchUrl drops
-  //    the corresponding filter rather than passing null through to Hemnet.
+  //    Booli fetch cohort / Booli view data now populate post-Django-decommission).
+  //    NULL-safe at the URL-build layer: any of price/rooms/object_type may be null
+  //    on legacy rows or transient parse misses; buildHemnetSearchUrl drops the
+  //    corresponding filter rather than passing null through to Hemnet.
+  //
+  //    Plan 09-2.6 D-33: delta filter added — skip rows not touched since the last
+  //    successful Hemnet match cohort run. Closes STATE.md carry-forward 09-2.5 #11.
+  //
+  //    Delta filter shape: bl.crawled > last-success-started_at.
+  //    EXPLAIN result (2026-05-18, W20 data, 5,576 base rows): 93ms — well within
+  //    the 60s gate (2× margin vs cron-wrapper.js:87's 120s statement_timeout).
+  //
+  //    Full delta (crawled OR NOT EXISTS hemnet_listingv2) was evaluated but
+  //    measured 104s on EXPLAIN ANALYZE — the NOT EXISTS subquery did a seqscan
+  //    of hemnet_listingv2 (~129k rows) 2,591 times with no functional index on
+  //    LOWER(TRIM(street_address)). Fell back to crawled-only per plan Task 2
+  //    fallback rule. Coverage note: rows where the prior run failed to write a
+  //    hemnet_listingv2 row but bl.crawled predates the last run will be skipped;
+  //    they'll be re-matched next week when Booli fetch cohort re-touches them.
   const booliRes = await client.query(
     `SELECT booli_id, title, street_address, postcode, municipality, county,
             listed, times_viewed, price, rooms, object_type
-       FROM booli_listing
+       FROM booli_listing bl
       WHERE is_active = true
         AND is_pre_market = false
         AND listed >= $1::date
         AND listed <= $2::date
         AND county = ANY($3)
+        AND bl.crawled > (
+          SELECT COALESCE(MAX(started_at), '2000-01-01'::timestamptz)
+            FROM cron_job_log
+           WHERE script_name = 'hemnet-targeted-match'
+             AND status IN ('success', 'warning')
+        )
       ORDER BY booli_id`,
     [weekStart, weekEnd, BOOLI_COUNTIES],
   );
@@ -629,6 +655,7 @@ async function main(client, log) {
   // 2. Pre-allocate summary so every key is present at allocation time.
   //    LIBC-02 / LIBC-03 (Phase 8.5): nullTitleSkipped, perMuni, and
   //    paginationExhaustedAny are new fields added for Phase 9 observability.
+  //    Plan 09-2.6 D-34: budgetExceeded + workerErrors added (mirrors Booli view data pattern).
   const summary = {
     booliCount: booliRows.length,
     searched: 0,
@@ -644,6 +671,8 @@ async function main(client, log) {
     perCounty: {},
     perMuni: {},                    // LIBC-03 / D-07
     paginationExhaustedAny: false,  // LIBC-03 / D-09
+    budgetExceeded: false,          // Plan 09-2.6 D-34
+    workerErrors: 0,                // Plan 09-2.6 D-34 — outer try/catch counter
     durationMs: 0,
     dryRun: !!dryRun,
     weekStart,
@@ -656,28 +685,52 @@ async function main(client, log) {
   const searchCache = new Map();
   const searchInFlight = new Map();
 
-  // 4. Hand-rolled worker pool, concurrency 2 + 100-300ms jitter per dispatch.
+  // 4. Hand-rolled worker pool, concurrency 8 + 100-300ms jitter per dispatch.
+  //    Plan 09-2.6 D-32: bumped 2→8 (mirrors Plan 09-02 D-15 pattern for Booli view data).
+  //    Plan 09-2.6 D-34: budget check at top of each iteration; outer try/catch so a
+  //    per-row throw at conc 8 logs + counts in summary.workerErrors instead of silently
+  //    killing a worker (mirrors booli-targeted-refresh.js:287-321).
   const queue = booliRows.slice();
   let processedCount = 0;
 
   async function worker() {
     while (queue.length) {
+      // Plan 09-2.6 D-34 wall-clock budget check (120 min).
+      if ((Date.now() - startMs) >= JOB_BUDGET_MS) {
+        summary.budgetExceeded = true;
+        log('WARN', `job-budget-exceeded ms=${Date.now() - startMs} remaining-queue=${queue.length} — draining`);
+        queue.length = 0;
+        break;
+      }
       const row = queue.shift();
       if (row == null) break;
-      await sleep(jitter());
-      await processOne(row, client, log, dryRun, summary, searchCache, searchInFlight);
-      processedCount++;
-      if (processedCount % 25 === 0) {
-        log(
-          'INFO',
-          `processed ${processedCount}/${booliRows.length} ` +
-          `(matched: ${summary.matchedFromSearch}, errors: ${summary.fetchErrors + summary.parseErrors})`,
+      try {
+        await sleep(jitter());
+        await processOne(row, client, log, dryRun, summary, searchCache, searchInFlight);
+        processedCount++;
+        if (processedCount % 25 === 0) {
+          log(
+            'INFO',
+            `processed ${processedCount}/${booliRows.length} ` +
+            `(matched: ${summary.matchedFromSearch}, errors: ${summary.fetchErrors + summary.parseErrors})`,
+          );
+        }
+      } catch (workerErr) {
+        const detail = String(
+          (workerErr && workerErr.stack) ||
+          (workerErr && workerErr.message) ||
+          JSON.stringify(workerErr),
+        );
+        summary.workerErrors++;
+        log('ERROR',
+          `worker-uncaught booli_id=${row && row.booli_id} err=${detail}`,
         );
       }
     }
   }
 
-  await Promise.all([worker(), worker()]);
+  // Plan 09-2.6 D-32: 8-worker idiom (mirrors booli-targeted-refresh.js:323).
+  await Promise.all(Array.from({ length: 8 }, () => worker()));
 
   // LIBC-03 (Phase 8.5 / D-09): root-level paginationExhaustedAny derived from
   // perMuni. Computed BEFORE the final JSON.stringify(summary) log so the
@@ -698,6 +751,13 @@ async function main(client, log) {
 function validate(summary) {
   if (summary.booliCount === 0) {
     return 'no Booli FS candidates in target counties for this week — query may be wrong or week is empty';
+  }
+  // Plan 09-2.6 D-34: budget + worker-error branches (mirrors booli-targeted-refresh.js:361-362).
+  if (summary.budgetExceeded === true) {
+    return `job budget exceeded (${JOB_BUDGET_MS}ms); ${summary.matchedFromSearch} matches before drain`;
+  }
+  if (summary.workerErrors > 0) {
+    return `worker-level errors caught: ${summary.workerErrors} (inspect 'worker-uncaught booli_id=' log lines)`;
   }
   if (!summary.dryRun && summary.booliCount > 0 && (summary.inserted / summary.booliCount) < 0.5) {
     const pct = ((summary.inserted / summary.booliCount) * 100).toFixed(1);
