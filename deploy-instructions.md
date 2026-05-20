@@ -35,7 +35,7 @@ echo 'SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../...' >> /opt/
 ## Crontab
 
 All times are UTC. Schedule respects:
-- Every-2-days view-refresh cycle (D-06): odd days at 14:00 → 18:00 → 22:00 UTC — Job D, then Job A, then cohort-track. Four-hour gaps cover worst-case runtimes.
+- Every-2-days view-refresh cycle (D-06 + D-17): odd days at 14:00 UTC (Job D and Job A in PARALLEL per 09-02 D-17) → 22:00 UTC cohort-track. Combined Oxylabs load at parallel start is ~4% of the 50/sec cap (09-02 analysis); each job opens its own pg.Client so no DB pool contention. Eight-hour gap to cohort-track covers worst-case runtimes (Job D ~30-60 min, Job A ~33-51 min with Oxylabs fallback headroom).
 - Weekly cohort kickoff: Job C Sun 22:00 UTC, Job B Mon 03:00 UTC, cohort-create Mon 06:00 UTC.
 - Daily SFPL ratio: sfpl-region-snapshot 08:00 UTC.
 - Removed (D-07): cohort-track 23:30 UTC daily and 02:00 UTC daily — cohort-track now runs only on the every-2-days cycle.
@@ -54,12 +54,14 @@ All times are UTC. Schedule respects:
 # Hemnet detail pages, inserts hemnet_listingv2. 3h buffer before cohort-create.
 0 3 * * 1   cd /opt/hemnet-cohort-tracker && node hemnet-targeted-match.js      >> /var/log/hemnet/job-b.log 2>&1
 
-# === Phase 9 every-2-days view-refresh cycle (D-06; D-07 removed daily cohort-track) ===
-# Odd days of month: 14:00 Job D → 18:00 Job A → 22:00 cohort-track. 4h gaps.
+# === Phase 9 every-2-days view-refresh cycle (D-06 + D-17 parallel; D-07 removed daily cohort-track) ===
+# Odd days of month: 14:00 Job D + Job A PARALLEL (D-17 amends D-06) → 22:00 cohort-track.
+# Combined parallel load is ~4% of Oxylabs 50/sec cap (09-02 analysis); each job opens
+# its own pg.Client so no DB pool contention. 8h gap to cohort-track covers worst case.
 # On 31-day months, the last fire (day 31) is followed by day 1 next month —
 # a 1-day gap instead of 2. Acceptable for view tracking (D-09).
 0 14 */2 * * cd /opt/hemnet-cohort-tracker && node booli-targeted-refresh.js    >> /var/log/hemnet/job-d.log 2>&1
-0 18 */2 * * cd /opt/hemnet-cohort-tracker && node hemnet-targeted-refresh.js   >> /var/log/hemnet/job-a.log 2>&1
+0 14 */2 * * cd /opt/hemnet-cohort-tracker && node hemnet-targeted-refresh.js   >> /var/log/hemnet/job-a.log 2>&1
 0 22 */2 * * cd /opt/hemnet-cohort-tracker && node cohort-track.js              >> /var/log/hemnet/cohort-track.log 2>&1
 ```
 
