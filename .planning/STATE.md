@@ -2,21 +2,21 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Self-hosted scraper
-status: Plan 09-03 deployed 2026-05-21 — every-2-days view-refresh crontab live on droplet (Booli view data + Hemnet view data at 14:00 UTC parallel; Cohort track at 22:00 UTC); SLACK_WEBHOOK_URL confirmed working end-to-end via Task 2 dry-run warning. First production fire 2026-05-21 14:00 UTC. Plan 09-04 (cohort-track streak threshold halve + runbook + green-week) unblocked.
-last_updated: "2026-05-20T23:35:00.000Z"
+status: Plan 09-04 code-complete 2026-05-21 — cohort-track drop-streak threshold halved 10→5 at cohort-track.js:123 (Booli) + :180 (Hemnet) per D-11; deploy-instructions.md ## Runbook + ## Green-week gate sections appended; .planning/.../09-04-GREEN-WEEK.md stub pre-staged for the Mon 2026-05-25 06:00 UTC cohort-create W21 observation gate (±5% row count vs prior 4-week median). Task 3 calendar-deferred — Phase 9 closes `cutover-complete` on GO Mon 2026-05-25 or files a follow-up phase on NO-GO (rollback procedure documented in deploy-instructions.md ## Rollback using /tmp/crontab-backup-1779318677.txt). Operator next-action: push + droplet `git pull` before 14:00 UTC first production fire.
+last_updated: "2026-05-21T00:15:00.000Z"
 current_phase: 09-production-cutover-self-hosted-scraper-launch
 current_plan: 09-04
-last_completed_plan: 09-03
+last_completed_plan: 09-04
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 7
-  completed_plans: 5
-  percent: 71
+  completed_plans: 6
+  percent: 86
 session_continuity:
   last_session: "2026-05-21"
-  stopped_at: "Plan 09-03 deployed end-to-end: deploy-instructions.md rewritten (2fadeb2 + 39d3865), droplet crontab cut over from 12 lines to 13 (3 `*/2` lines added, 2 daily cohort-track lines removed), scripts/verify-cron-job-log.js shipped and green on the droplet, Slack alerting verified by the natural warning fired in Task 2's `booli-targeted-refresh --dry-run --limit 5` (row id=427 in cron_job_log, status=warning, exit 0). 09-04 is the next plan."
-  resume_command: "Run /gsd-execute-phase 09-04. The two-line cohort-track streak threshold edit (10→5 at cohort-track.js:114 and :168 per D-11) plus the deploy-instructions.md runbook append are wave 4. Should land in the same git push so the operator can `git pull` once on the droplet and have both 09-03 + 09-04 active before 2026-05-21 14:00 UTC first production fire."
+  stopped_at: "Plan 09-04 code-complete: cohort-track threshold halve (1460857), runbook + green-week gate + rollback appended to deploy-instructions.md (198344c), 09-04-SUMMARY + 09-04-GREEN-WEEK stub committed (514d69b). 4 unpushed commits on master (2fadeb2, 39d3865, 367ee3b — already pushed for 09-03; then 1460857, 198344c, 514d69b for 09-04). Phase 9 is code-complete; only the green-week observation gate remains before Phase 9 can close cutover-complete."
+  resume_command: "(Operator next-actions before 14:00 UTC) 1) git push origin master, 2) SSH droplet → cd /opt/hemnet-cohort-tracker && git pull, 3) optionally `git tag phase-9-pre-cutover && git push --tags` as rollback anchor, 4) watch Hemnet Status Slack from 14:00 UTC (Booli/Hemnet view-data parallel fire) through 22:00 UTC (cohort-track first */2 fire) on 2026-05-21. (Calendar gate) Mon 2026-05-25 ~07:00 UTC: open .planning/phases/09-production-cutover-self-hosted-scraper-launch/09-04-GREEN-WEEK.md, fill in W21 cohort_daily_views row count + prior 4-week median, decide GO/NO-GO. GO → close Phase 9 cutover-complete (mark 09-04 [x] in ROADMAP). NO-GO → file follow-up phase + roll back via `crontab /tmp/crontab-backup-1779318677.txt` on droplet."
 carry_forward:
   - "09-02 #1: Wet-run gate (Task 5, D-19) SKIPPED at operator direction. Job D + Job A conc-8 worker pool unexercised at scale. First real test is now Tue 2026-05-21 14:00 UTC cron (first */2 fire of Plan 09-03) — recovery path is Slack-alert → diagnose → patch → next cycle. Residual risk acknowledged in 09-02-SUMMARY.md."
   - "09-02 #2: Job A retrofit (D-16) shipped — hemnet-targeted-refresh.js symmetric to Job D (conc 8, budget 240, validate budgetExceeded + workerErrors branches). Today's Hemnet stays direct-curl-fast; workers run ~80% idle until Hemnet flips."
@@ -25,6 +25,9 @@ carry_forward:
   - "09-03 #3 (NEW, 2026-05-21 — feeds 09-04 runbook): booli-targeted-refresh.js validate() warning `high Oxylabs fallback rate: 100.0% — direct path degraded; investigate` is now permanent noise — 100% Oxylabs is the post-09-1.5 steady-state normal for Booli. Every Job D run will warn. Worth either removing the threshold or re-targeting (warn only if fallback rate suddenly DROPS, indicating Booli un-blocked the direct path). Captured in memory project_booli_refresh_oxylabs_fallback_threshold_stale. Hemnet-side (Job A) symmetric rule is currently accurate (Hemnet is still direct-curl-fast) — only re-target Booli."
   - "09-03 #4 (NEW, 2026-05-21 — feeds 09-04 verification): Cohort track has been logging status=warning daily since 2026-05-17 with `2026-W13/W14/W15: 54-58% null Booli`. Those warnings WERE firing to Slack the whole time; operator wasn't watching. After 2026-05-21 14:00 UTC first */2 fire of Booli view data, the active-listing freshness should recover and the warning should self-clear over 2-3 cohort-track cycles (next cycles: 2026-05-21 22:00 UTC, then 2026-05-23, 25, ...). 09-04 green-week observation should confirm self-clearance; if NOT cleared by Mon 2026-05-25, escalate."
   - "09-03 #5 (NEW, 2026-05-21 — Phase 10): Three orphan `running` rows in cron_job_log for booli-targeted-discovery (ids 359, 406, 407 — 2026-05-15 + 2026-05-18) and one `killed` row for hemnet-targeted-match (id 418). Same root cause as 09-2.6 #1 (cron-wrapper.js missing SIGHUP/SIGTERM/SIGINT handlers). Phase 10 cleanup: bundle a scripts/unstick-cron-row.js general-purpose unsticker + the signal-handler fix in cron-wrapper.js."
+  - "09-04 #1 (NEW, 2026-05-21 — Phase 9 close-state): Plan 09-04 is code-complete but the green-week gate is calendar-deferred. Gate fires Mon 2026-05-25 06:00 UTC when cohort-create.js produces W21 cohort_id. Resume artifact: .planning/phases/09-production-cutover-self-hosted-scraper-launch/09-04-GREEN-WEEK.md (pre-staged stub, 134 lines, 4-check GO/NO-GO matrix). On GO: mark 09-04 [x] in ROADMAP, set Phase 9 status to cutover-complete, archive Phase 9 via /gsd-complete-milestone. On NO-GO: roll back via `crontab /tmp/crontab-backup-1779318677.txt` on droplet + file follow-up phase."
+  - "09-04 #2 (NEW, 2026-05-21 — Phase 9 verification dependency): Plan 09-04 green-week gate depends on three weekly cron jobs all firing cleanly between 2026-05-21 deploy and 2026-05-25 06:00 UTC: (a) 2026-05-21 14:00 UTC Job A + Job D first */2 fire, (b) 2026-05-21 22:00 UTC cohort-track first */2 fire, (c) 2026-05-24 22:00 UTC Job C Sun fire (cohort_create's input — booli_listing freshness), (d) 2026-05-25 03:00 UTC Job B Mon fire (also validates Plan 09-2.6 acceleration gate per existing 09-2.6 deadline)."
+  - "09-04 #3 (NEW, 2026-05-21 — operator-action checklist absorbed from 09-2.6 #1): Runbook in deploy-instructions.md now covers the SIGHUP-on-DigitalOcean-console-disconnect lesson. Manual cron launches MUST use tmux or `nohup ... & disown`; naked interactive console invocations are forbidden in the runbook. Until cron-wrapper.js gets the signal-handler fix (Phase 10), this is the only defense against orphan `running` rows."
   - "09-2.5 #1 (NEW): Django scraper decommission discovered mid-session (2026-05-15: writes dropped from ~75% pop to 1/610). Booli enrichment fields (price/rooms/living_area/object_type/agent_id) now captured by Job C + Job D directly from Apollo state. Schema migration ran live."
   - "09-2.5 #2 (NEW): 26.7% aggregate match rate over 8 weeks (5484/15036) — substantially worse than the 42.4% VERF-05 snapshot. Job B targeted-search rewrite is the path back; uses price ±5% + exact rooms + 8-entry Booli→Hemnet item_type mapping."
   - "09-2.5 #3 (NEW): agent_id SEMANTIC DIVERGENCE flagged for Metabase consumers — Booli's Source.id (broker chain) differs from Django's old agent_id values. Operator action item: Metabase reports keyed on Django agent_id values may need rebuilding."
@@ -41,17 +44,18 @@ carry_forward:
   - "09-1.5 #1: 180-min JOB_BUDGET_MS for Job C may not fit full 3.4k-detail queue at 13/min rate — first production Sunday cron is verifier; bump to 300 min or raise conc if budget-exceeded recurs. By analogy with 09-02 raising Job D's conc 2→8, Job C may want similar treatment in Phase 10."
   - "09-01 #3: Final: status field vs cron-wrapper status mismatch — cosmetic; Phase 10."
 recent_commits:
-  - "TBD (this commit) docs(09-03): Plan 09-03 deployed — every-2-days crontab live, Slack verified, SUMMARY shipped"
+  - "TBD (this commit) docs(09-04): Plan 09-04 code-complete — STATE + ROADMAP bookkeeping"
+  - "514d69b docs(09-04): Plan 09-04 code-complete — SUMMARY + green-week observation stub"
+  - "198344c docs(09-04): replace runbook stub with full runbook + green-week gate + rollback"
+  - "1460857 feat(09-04): halve cohort-track drop-streak threshold 10 -> 5 per D-11"
+  - "367ee3b docs(09-03): Plan 09-03 complete — every-2-days crontab live + Slack verified"
   - "39d3865 docs(09-03): reconcile deploy-instructions.md to D-17 parallel 14:00"
   - "2fadeb2 docs(09-03): every-2-days crontab + verify-cron-job-log with Job D"
   - "6c29531 docs(09-2.6): Plan 09-2.6 complete — Hemnet match cohort accelerated, W20 rebuilt"
-  - "92aedb1 feat(09-2.6): Hemnet match cohort acceleration — conc 8 + delta filter + budget + worker try/catch"
-  - "3fae4b7 docs(09-2.6): plan Hemnet match cohort acceleration + W20 recovery"
-  - "8780aab ops(09-2.5): droplet deploy script for Task 8"
-  - "24f8d6a docs(09-2.5): carry-forward #9 — Job A/D write-surface map"
 deadlines:
   - "Tue 2026-05-21 14:00 UTC — FIRST PRODUCTION FIRE of Plan 09-03 every-2-days cycle. Booli view data + Hemnet view data fire in parallel. Verify: both produce a `Final: { ... }` line in /var/log/hemnet/job-d.log and /var/log/hemnet/job-a.log AND both write a status=success/warning row to cron_job_log AND no SLACK [FAILURE] alerts. Recovery path: Slack-alert → diagnose → patch → next cycle (2026-05-23 14:00 UTC)."
   - "Tue 2026-05-21 22:00 UTC — First fire of Cohort track on new */2 cadence. Should produce a single status=success row in cron_job_log (warning if Booli null pct still > 50%, which would be evidence the 14:00 Job D didn't unstick the freshness)."
   - "Mon 2026-05-25 03:00 UTC — Hemnet match cohort cron. Validates Plan 09-2.6 verification gate: status=success/warning AND duration < 90 min AND budgetExceeded=false AND summary.booliCount >= 1500 AND summary.workerErrors == 0."
   - "Mon 2026-05-25 06:00 UTC — Cohort create cron for W21. Should produce 1,200-1,800 pairs without operator intervention if the 03:00 UTC run cleared the 09-2.6 gate above. This row count is also the start of Plan 09-04's single green-week observation gate."
+  - "Mon 2026-05-25 ~07:00 UTC — Plan 09-04 green-week GO/NO-GO decision. Open 09-04-GREEN-WEEK.md; fill in W21 cohort_daily_views row count (after the 22:00 UTC cohort-track fire that night) and the prior 4-week median. GO if within ±5% AND no [FAILURE] alerts during the prior week AND cohort_pairs count is in the 1,200-1,800 band. On GO: mark 09-04 [x] in ROADMAP, close Phase 9 cutover-complete. On NO-GO: rollback per deploy-instructions.md ## Rollback section + file follow-up phase."
 ---
