@@ -36,8 +36,10 @@ async function run() {
   // Parse CLI args
   const args = process.argv.slice(2);
   let cohortId = null;
+  let includeLatest = false;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--cohort' && args[i + 1]) cohortId = args[i + 1];
+    if (args[i] === '--include-latest') includeLatest = true;
   }
 
   if (!cohortId) {
@@ -71,10 +73,11 @@ async function run() {
     viewMap.set(`${v.pair_id}_${v.date}`, v);
   }
 
-  // Build date list (sorted, exclude latest as it may be incomplete)
+  // Build date list (sorted, exclude latest as it may be incomplete — unless --include-latest)
   const allDates = [...new Set(viewsRes.rows.map(r => r.date))].sort();
-  const dates = allDates.slice(0, -1);
-  console.log(`Dates: ${dates[0]} to ${dates[dates.length - 1]} (${dates.length} dates, latest excluded)`);
+  const dates = includeLatest ? allDates : allDates.slice(0, -1);
+  const excludeNote = includeLatest ? 'latest included (--include-latest)' : 'latest excluded';
+  console.log(`Dates: ${dates[0]} to ${dates[dates.length - 1]} (${dates.length} dates, ${excludeNote})`);
 
   // =====================
   // COLUMN LAYOUT

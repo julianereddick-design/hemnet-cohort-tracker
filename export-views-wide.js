@@ -82,8 +82,10 @@ async function run() {
   // Parse args
   const args = process.argv.slice(2);
   let cohortId = null;
+  let includeLatest = false;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--cohort' && args[i + 1]) cohortId = args[i + 1];
+    if (args[i] === '--include-latest') includeLatest = true;
   }
 
   // Default to latest cohort
@@ -106,10 +108,14 @@ async function run() {
 
   if (allDates.length === 0) { console.error(`No data for cohort ${cohortId}`); process.exit(1); }
 
-  // Exclude the most recent date (tracker may not have finished running)
-  const dates = allDates.slice(0, -1);
+  // Exclude the most recent date (tracker may not have finished running) — unless --include-latest
+  const dates = includeLatest ? allDates : allDates.slice(0, -1);
   if (dates.length === 0) { console.error(`Only 1 date for cohort ${cohortId}, nothing to export after excluding latest`); process.exit(1); }
-  console.log(`Excluding latest date ${allDates[allDates.length - 1]} (may be incomplete)`);
+  if (includeLatest) {
+    console.log(`Including latest date ${allDates[allDates.length - 1]} (--include-latest)`);
+  } else {
+    console.log(`Excluding latest date ${allDates[allDates.length - 1]} (may be incomplete)`);
+  }
 
   // Get all pairs
   const pairsRes = await client.query(`
