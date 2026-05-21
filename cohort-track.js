@@ -117,7 +117,10 @@ async function main(client, log) {
         } else {
           // Listing inactive — increment streak
           const newStreak = pair.drop_streak_booli + 1;
-          if (newStreak >= 10) {
+          // D-11: threshold halved from 10 to 5 to compensate for cohort-track
+          // moving from twice-daily to every-2-days (Plan 09-03 / D-07). Time-to-drop
+          // stays at ~10 calendar days (5 runs * ~2 days/run).
+          if (newStreak >= 5) {
             // Threshold reached — mark as dropped
             await client.query(
               'UPDATE cohort_pairs SET dropped_booli_on = $1, drop_streak_booli = 0 WHERE id = $2',
@@ -171,7 +174,10 @@ async function main(client, log) {
         } else {
           // Listing inactive — increment streak
           const newStreak = pair.drop_streak_hemnet + 1;
-          if (newStreak >= 10) {
+          // D-11: threshold halved from 10 to 5 to compensate for cohort-track
+          // moving from twice-daily to every-2-days (Plan 09-03 / D-07). Time-to-drop
+          // stays at ~10 calendar days (5 runs * ~2 days/run).
+          if (newStreak >= 5) {
             // Threshold reached — mark as dropped
             await client.query(
               'UPDATE cohort_pairs SET dropped_hemnet_on = $1, drop_streak_hemnet = 0 WHERE id = $2',
