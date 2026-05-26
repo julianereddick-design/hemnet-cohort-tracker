@@ -137,15 +137,24 @@ async function processOne(id, client, log, dryRun, summary) {
       const shaped = shapeListingForDb(listing);
       // UPDATE every row that matches this hemnet_id — duplicate-row fix.
       const upd = await client.query(
+        // Plan 10-02 (g) 2026-05-26: COALESCE-preserve the 5 discovery-metadata
+        // fields (street_address / postcode / municipality / county / listed),
+        // mirroring Plan 09-2.5 D-24 on Booli view data (booli-targeted-refresh.js:150-154).
+        // Defense in depth: in practice the parser short-circuits at line 121
+        // (errors++) when fetch fails, so this is rarely hit — but a transient
+        // partial-parse glitch returning null on a metadata field would otherwise
+        // blank out validated address data.
+        // times_viewed + is_pre_market unchanged — those are meaningful state
+        // updates, not parse-derived fields.
         `UPDATE hemnet_listingv2
             SET times_viewed   = $1,
                 is_active      = true,
                 is_pre_market  = $2,
-                street_address = $3,
-                postcode       = $4,
-                municipality   = $5,
-                county         = $6,
-                listed         = to_timestamp($7)::date
+                street_address = COALESCE($3, street_address),
+                postcode       = COALESCE($4, postcode),
+                municipality   = COALESCE($5, municipality),
+                county         = COALESCE($6, county),
+                listed         = COALESCE(to_timestamp($7)::date, listed)
           WHERE hemnet_id = $8
          RETURNING hemnet_id`,
         [
