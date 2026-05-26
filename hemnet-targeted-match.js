@@ -620,17 +620,22 @@ async function main(client, log) {
   //    Plan 09-2.6 D-33: delta filter added — skip rows not touched since the last
   //    successful Hemnet match cohort run. Closes STATE.md carry-forward 09-2.5 #11.
   //
-  //    Delta filter shape: bl.crawled > last-success-started_at.
-  //    EXPLAIN result (2026-05-18, W20 data, 5,576 base rows): 93ms — well within
-  //    the 60s gate (2× margin vs cron-wrapper.js:87's 120s statement_timeout).
+  //    Plan 10-02 (i) 2026-05-26: fuller delta filter (crawled OR NOT EXISTS
+  //    hemnet_listingv2 lookup) re-enabled. The 09-2.6 fallback to crawled-only
+  //    was forced by a missing functional index — EXPLAIN ANALYZE then was 104s
+  //    due to 2,591 seqscans of hemnet_listingv2 (~129k rows). After creating
+  //    `hemnet_listingv2_norm_street_idx ON LOWER(TRIM(street_address))` the
+  //    same query measures 932ms (W21 prod data, 110× speedup). The NOT EXISTS
+  //    branch now uses an index scan averaging 0.010ms per loop.
   //
-  //    Full delta (crawled OR NOT EXISTS hemnet_listingv2) was evaluated but
-  //    measured 104s on EXPLAIN ANALYZE — the NOT EXISTS subquery did a seqscan
-  //    of hemnet_listingv2 (~129k rows) 2,591 times with no functional index on
-  //    LOWER(TRIM(street_address)). Fell back to crawled-only per plan Task 2
-  //    fallback rule. Coverage note: rows where the prior run failed to write a
-  //    hemnet_listingv2 row but bl.crawled predates the last run will be skipped;
-  //    they'll be re-matched next week when Booli fetch cohort re-touches them.
+  //    Coverage value: catches Booli rows where the prior matching attempt
+  //    failed to write a hemnet_listingv2 row AND bl.crawled is stale — these
+  //    were skipped under the crawled-only filter. Worth retrying because
+  //    Plan 09-2.5 enriched the discriminators (price/rooms/object_type) so
+  //    previously-failed matches may now succeed.
+  //
+  //    Closes STATE.md carry-forwards 09-2.6 #2 (functional index) + 09-2.5 #4
+  //    (cohort_unmatched NOT EXISTS diagnostic — same index unblocks both).
   const booliRes = await client.query(
     `SELECT booli_id, title, url, street_address, postcode, municipality, county,
             listed, times_viewed, price, rooms, object_type
@@ -640,11 +645,21 @@ async function main(client, log) {
         AND listed >= $1::date
         AND listed <= $2::date
         AND county = ANY($3)
-        AND bl.crawled > (
-          SELECT COALESCE(MAX(started_at), '2000-01-01'::timestamptz)
-            FROM cron_job_log
-           WHERE script_name = 'hemnet-targeted-match'
-             AND status IN ('success', 'warning')
+        AND (
+          bl.crawled > (
+            SELECT COALESCE(MAX(started_at), '2000-01-01'::timestamptz)
+              FROM cron_job_log
+             WHERE script_name = 'hemnet-targeted-match'
+               AND status IN ('success', 'warning')
+          )
+          OR NOT EXISTS (
+            SELECT 1 FROM hemnet_listingv2 h
+             WHERE h.is_active = true
+               AND h.postcode = bl.postcode
+               AND LOWER(TRIM(h.street_address)) = LOWER(TRIM(bl.title))
+               AND h.listed BETWEEN bl.listed - INTERVAL '7 days'
+                                AND bl.listed + INTERVAL '7 days'
+          )
         )
       ORDER BY booli_id`,
     [weekStart, weekEnd, BOOLI_COUNTIES],
