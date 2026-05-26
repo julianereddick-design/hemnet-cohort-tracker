@@ -249,6 +249,27 @@ async function main(client, log) {
     (totalRecoveredBooli || totalRecoveredHemnet ? `, Recovered: ${totalRecoveredBooli} Booli / ${totalRecoveredHemnet} Hemnet` : '') +
     `, NullViews: ${totalNullBooli} Booli / ${totalNullHemnet} Hemnet`);
 
+  // 10-03: fetch the previous completed cohort-track run's perCohortNull so validate()
+  // can do a week-over-week delta check. Current row is status='running' so filtering
+  // on success|warning selects the prior completed run. Best-effort — on lookup failure
+  // we fall back to absolute-threshold-only alerting.
+  let priorPerCohortNull = [];
+  try {
+    const prior = await client.query(
+      `SELECT result_summary FROM cron_job_log
+        WHERE script_name = 'cohort-track' AND status IN ('success', 'warning')
+        ORDER BY id DESC LIMIT 1`
+    );
+    if (prior.rows[0] && prior.rows[0].result_summary) {
+      const rs = typeof prior.rows[0].result_summary === 'string'
+        ? JSON.parse(prior.rows[0].result_summary)
+        : prior.rows[0].result_summary;
+      priorPerCohortNull = Array.isArray(rs.perCohortNull) ? rs.perCohortNull : [];
+    }
+  } catch (err) {
+    log('WARN', `Prior cohort-track lookup failed (delta check disabled this run): ${err.message}`);
+  }
+
   return {
     cohortsTracked: cohorts.rows.length,
     totalTracked,
@@ -263,27 +284,76 @@ async function main(client, log) {
     totalNullHemnet,
     newestCohortNullPct,
     perCohortNull,
+    priorPerCohortNull,
   };
 }
 
-runJob({
-  scriptName: 'cohort-track',
-  main,
-  validate: (summary) => {
-    if (summary.totalTracked === 0 && summary.cohortsTracked > 0) {
-      return `0 pairs tracked across ${summary.cohortsTracked} active cohort(s) — expected hundreds`;
-    }
-    const warnings = [];
-    // Check each cohort individually — catches outages that only affect older cohorts
-    if (summary.perCohortNull) {
-      for (const c of summary.perCohortNull) {
-        const bPct = Math.round((c.nullBooli / c.tracked) * 100);
-        const hPct = Math.round((c.nullHemnet / c.tracked) * 100);
-        if (bPct > 50) warnings.push(`${c.cohortId}: ${bPct}% null Booli (${c.nullBooli}/${c.tracked})`);
-        if (hPct > 50) warnings.push(`${c.cohortId}: ${hPct}% null Hemnet (${c.nullHemnet}/${c.tracked})`);
+// 10-03 retarget: scope cohort-level null-view alerting to the most recent 4 cohorts
+// (rolling window) AND cohortId >= MIN_COHORT_ID. Older cohorts naturally accumulate
+// null Booli/Hemnet views as listings drop off the active feeds — that decay is
+// structural, not a refresh outage. Cohorts before W20 were also caught in the
+// pre-cutover broken-scraper period and have permanently-bad baselines, so they
+// stay silent regardless of where the rolling window lands. Once W22+ ships,
+// MIN_COHORT_ID becomes naturally moot (the rolling window excludes pre-W20).
+// Within scope, fire on EITHER:
+//   - absolute null rate > 50% (preserved from prior contract — catches a broken
+//     fresh cohort even on its first run where there's no prior delta), OR
+//   - jump > 10pp vs the previous cohort-track run for the same cohort (catches
+//     genuine breakage that doesn't push past 50% — e.g. 25% → 40%).
+const ALERT_WEEKS_WINDOW = 4;
+const ALERT_MIN_COHORT_ID = '2026-W20';
+const ABSOLUTE_NULL_THRESHOLD = 0.50;
+const DELTA_NULL_THRESHOLD = 0.10;
+
+function validateCohortTrack(summary) {
+  if (summary.totalTracked === 0 && summary.cohortsTracked > 0) {
+    return `0 pairs tracked across ${summary.cohortsTracked} active cohort(s) — expected hundreds`;
+  }
+  if (!Array.isArray(summary.perCohortNull) || summary.perCohortNull.length === 0) {
+    return null;
+  }
+
+  // perCohortNull is appended in cohorts-query order (ORDER BY week_start ASC),
+  // so the tail of the array is the newest cohorts.
+  const inWindow = summary.perCohortNull.slice(-ALERT_WEEKS_WINDOW);
+  const scoped = inWindow.filter(c => c.cohortId >= ALERT_MIN_COHORT_ID);
+  if (scoped.length === 0) return null;
+
+  const priorByCohort = new Map(
+    (Array.isArray(summary.priorPerCohortNull) ? summary.priorPerCohortNull : [])
+      .map(c => [c.cohortId, c])
+  );
+
+  const warnings = [];
+  for (const c of scoped) {
+    for (const [metricKey, label] of [['nullBooli', 'Booli'], ['nullHemnet', 'Hemnet']]) {
+      if (c.tracked === 0) continue;
+      const currRate = c[metricKey] / c.tracked;
+      if (currRate > ABSOLUTE_NULL_THRESHOLD) {
+        warnings.push(`${c.cohortId}: ${Math.round(currRate * 100)}% null ${label} (${c[metricKey]}/${c.tracked})`);
+        continue;
+      }
+      const prior = priorByCohort.get(c.cohortId);
+      if (prior && prior.tracked > 0) {
+        const priorRate = prior[metricKey] / prior.tracked;
+        const delta = currRate - priorRate;
+        if (delta > DELTA_NULL_THRESHOLD) {
+          warnings.push(`${c.cohortId}: null ${label} jumped +${Math.round(delta * 100)}pp (${Math.round(priorRate * 100)}% → ${Math.round(currRate * 100)}%)`);
+        }
       }
     }
-    if (warnings.length > 0) return warnings.join('; ');
-    return null;
-  },
-});
+  }
+
+  if (warnings.length > 0) return warnings.join('; ');
+  return null;
+}
+
+module.exports = { validateCohortTrack };
+
+if (require.main === module) {
+  runJob({
+    scriptName: 'cohort-track',
+    main,
+    validate: validateCohortTrack,
+  });
+}
