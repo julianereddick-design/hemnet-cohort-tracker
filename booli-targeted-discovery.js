@@ -331,7 +331,15 @@ async function upsertBooliRow(client, l) {
   const rooms       = l.rooms       != null ? l.rooms       : null;
   const livingArea  = l.livingArea  != null ? l.livingArea  : null;
   const objectType  = l.objectType  != null ? l.objectType  : null;
-  const agentId     = l.agentId     != null ? l.agentId     : null;
+  // Plan 10-02 (e) 2026-05-26: stop writing Booli's Source.id as agent_id.
+  // Plan 09-2.5 D-22 started capturing it, but the values don't match
+  // booli_agent.id (Django populated booli_agent with a different ID space),
+  // and the FK rejected ~9% of writes per cycle as workerErrors. Nothing
+  // downstream consumes the broker-chain data. Existing Django-era agent_id
+  // values on already-written rows are preserved via the ON CONFLICT UPDATE
+  // COALESCE at line 356 below — null in EXCLUDED.agent_id leaves the existing
+  // value untouched. New INSERTs get null. Closes STATE carry-forward 09-2.5 #6.
+  const agentId     = null;
   const r = await client.query(
     `INSERT INTO booli_listing
        (id, url, booli_id, is_active, listed, crawled, title, street_address,

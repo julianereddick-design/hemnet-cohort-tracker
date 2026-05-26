@@ -81,11 +81,16 @@ function jitter() { return 100 + Math.random() * 200; }
 // every-cycle refresh if Job D touched them.
 //
 // Phase 9 follow-up (post-Django-decommission): Job D also refreshes the
-// matching-strategy fields (price, rooms, living_area, object_type, agent_id)
-// on every cycle. Coalesced UPDATE: only overwrite a non-null parsed value
-// over the existing column to avoid silently nulling fields if Booli's Apollo
-// state is briefly malformed. Backfills the 2026-05-15 broken-Django rows
-// within 1-2 cron cycles.
+// matching-strategy fields (price, rooms, living_area, object_type) on every
+// cycle. Coalesced UPDATE: only overwrite a non-null parsed value over the
+// existing column to avoid silently nulling fields if Booli's Apollo state is
+// briefly malformed. Backfills the 2026-05-15 broken-Django rows within
+// 1-2 cron cycles.
+//
+// Plan 10-02 (e) 2026-05-26: agent_id is no longer written (see SQL call sites
+// at line 164 + 196 — both pass literal null). The shape function below still
+// reads Booli's agentId for honesty / documentation, but production SQL
+// discards it. Closes 09-2.5 #6.
 function shapeBooliForUpdate(listing) {
   const l = listing || {};
   return {
@@ -161,7 +166,7 @@ async function processOne(pair, client, log, dryRun, summary) {
           shaped.rooms,            // $4
           shaped.livingArea,       // $5
           shaped.objectType,       // $6
-          shaped.agentId,          // $7
+          null,                    // $7 — Plan 10-02 (e): agent_id no longer written
         ],
       );
       if (upd.rowCount > 0) {
@@ -193,7 +198,7 @@ async function processOne(pair, client, log, dryRun, summary) {
               shaped.rooms,                 // $6
               shaped.livingArea,            // $7
               shaped.objectType,            // $8
-              shaped.agentId,               // $9
+              null,                         // $9 — Plan 10-02 (e): agent_id no longer written
             ],
           );
           summary.rowsInserted++;
