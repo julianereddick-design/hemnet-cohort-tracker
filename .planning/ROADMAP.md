@@ -3,7 +3,8 @@
 ## Milestones
 
 - ✅ **v1.0 Cohort tracker MVP** — Phases 1–5 (shipped, in production on Droplet)
-- 🚧 **v2.0 Self-hosted scraper** — Phases 6–9 (Phases 6–8 complete; Phase 9 = production cutover)
+- ✅ **v2.0 Self-hosted scraper** — Phases 6–9 (shipped 2026-05-26; cutover-complete tag `phase-9-cutover-complete`)
+- 🚧 **v2.1 Self-hosted scraper hardening** — Phase 10 (cleanup of observation-week carry-forwards; production-stable, no launch deadlines)
 
 ## Phases
 
@@ -119,9 +120,35 @@ Plans:
 
 **Out of scope for Phase 9**: Investigating the 42.4% Hemnet match rate from VERF-05 (deferred — accepted with warning override). If the cutover surfaces this as a launch blocker, file a follow-up phase. Updating downstream reports for every-2-days `cohort_daily_views` granularity (deferred to Phase 10 per CONTEXT [[downstream-reports-deferred]]). The `Final:`-JSON-`status:success` vs cron-wrapper-`status:warning` cosmetic mismatch (09-01-SUMMARY carry-forward issue #3) is also deferred to Phase 10.
 
+### 🚧 v2.1 Self-hosted scraper hardening (In Progress)
+
+**Milestone Goal:** Absorb the Phase 9 + observation-week carry-forwards into a stable, low-noise production posture. No launch deadline — production is stable on the v2.0 every-2-days cadence; this milestone reduces operational noise (Slack alert fatigue, orphan cron rows, stale validate-thresholds) and closes small consistency gaps.
+
+#### Phase 10: Self-hosted scraper hardening
+**Goal**: cron-wrapper survives operator-kill cleanly; validate() warnings only fire on real anomalies; one-off scripts archived; export tooling adapted to every-2-days cadence.
+**Depends on**: Phase 9 (cutover-complete tag `phase-9-cutover-complete`)
+**Requirements**: derived from STATE carry-forwards (see `.planning/STATE.md` → carry_forward)
+**Success Criteria**:
+  1. Operator-killed crons no longer leave `status=running` orphans in `cron_job_log` — SIGHUP/SIGTERM/SIGINT handlers resolve the row to `status=killed` with a meaningful `error_message`
+  2. The three cosmetic validate() warnings firing every cycle (Job B match-rate 40-55%, Job C/D 100% Oxylabs fallback) are either retargeted (warn on real anomalies only) or demoted to reporting fields — Slack channel goes quiet on cosmetic noise
+  3. cohort-track null-Booli warning is age-bounded or delta-based (not a flat >50% threshold that fires forever on old cohorts)
+  4. Job C Sunday cron resolves to the current week (W-1), not W-2
+  5. `agent_id` FK constraint no longer drops ~9% of Job C/D writes — resolved via one of the three options in carry-forward 09-2.5 #6
+  6. `export-views-wide.js` and any other consumers of 1-day deltas work correctly under the every-2-days cadence
+  7. scripts/ directory cleaned of spent one-offs; verf09-2-5-logs/ + verf09-2-logs/ archived or removed; .planning/codebase/ intel files refreshed
+**Plans**: 4 plans (proposed; refine when planning each)
+
+Plans:
+- [ ] 10-01-PLAN.md — cron-wrapper signal handlers + general unsticker: add `SIGHUP`/`SIGTERM`/`SIGINT` handlers to `cron-wrapper.js` (closes 09-2.6 #1, re-confirmed in green-week by id=435); ship `scripts/unstick-cron-row.js` general-purpose unsticker; clean up the 4 known orphan rows (booli-targeted-discovery ids 359, 406, 407 + hemnet-targeted-refresh id 435). Smallest, highest-confidence Phase 10 win.
+- [ ] 10-02-PLAN.md — cosmetic-warning retargets + small consistency fixes: (a) retarget Job D 100% Oxylabs warning to fire only if rate suddenly DROPS (09-03 #3); (b) symmetric Job C retarget; (c) raise/remove Job B match-rate 50% threshold (project_job_b_match_rate_threshold_stale); (d) fix Job C Sunday off-by-one (project_job_c_sunday_off_by_one + observed id=438); (e) resolve `agent_id` FK constraint per 09-2.5 #6; (f) bump Job C `JOB_BUDGET_MS` 180→300 min (09-1.5 #1, observed budgetExceeded=true on id=438); (g) mirror D-24 COALESCE-preserve hardening onto Job A (09-2.5 #9); (h) fix Job B match-log URL (09-2.5 #8); (i) add `LOWER(TRIM(street_address))` functional index (09-2.6 #2). Stretch item: 09-2.5 #7 postcode-mismatch loosening (could lift Job B writes 41→55%).
+- [ ] 10-03-PLAN.md — cohort-track null-Booli threshold retarget: dedicated plan because the right fix needs thought. Three options: (a) age-bounded (warn only cohorts ≤ N weeks old), (b) week-over-week delta threshold, (c) demote from warning to reporting field. Closes 09-04 #4 (new green-week finding) + supersedes the closed-but-stale 09-03 #4 hypothesis.
+- [ ] 10-04-PLAN.md — export tooling + scripts cleanup + intel refresh: (a) fix `export-views-wide.js` 1-day delta math under every-2-days cadence (09-04 #5); (b) sweep one-off scripts + spike outputs per `project_todo_cleanup_claude_outputs` decision matrix; (c) refresh `.planning/codebase/` intel files (CONCERNS/STACK/INTEGRATIONS) to reflect actual Slack/Droplet state per 09-03 #2; (d) fix Final-JSON-status vs cron-wrapper-status cosmetic mismatch (09-01 #3); (e) one-line fix to `scripts/enrich-booli-week.js` (missing `crawled = NOW(),` — 09-2.5 #10).
+
+**Out of scope for Phase 10**: anything that materially changes the cohort pipeline behavior (cutover is stable, leave it alone). The 42.4% VERF-05 Hemnet match rate (already accepted with override) stays out unless 10-02 (h)/(i) raise it as a side effect.
+
 ## Progress
 
-**Execution Order:** Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 7.1 → 8 → 9
+**Execution Order:** Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 7.1 → 8 → 9 → 10
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -134,6 +161,7 @@ Plans:
 | 7. Hemnet daily refresh (Job A) + Oxylabs fallback | v2.0 | 2/2 | Complete | 2026-04 |
 | 8. Hemnet weekly seeding + Booli discovery | v2.0 | 4/4 | Complete (with overrides) | 2026-05-12 |
 | 9. Production cutover — self-hosted scraper launch | v2.0 | 5/5 | Complete (cutover-complete) | 2026-05-26 |
+| 10. Self-hosted scraper hardening | v2.1 | 0/4 | In Progress | - |
 
 ---
 
