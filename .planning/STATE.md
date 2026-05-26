@@ -1,22 +1,22 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: Self-hosted scraper
-status: Phase 9 cutover-complete 2026-05-26 — v2.0 milestone SHIPPED. Green-week gate cleared with all 4 cron-status checks PASS (Job B=warning/cosmetic, Job C=warning/cosmetic, Job D=warning/cosmetic, cohort-create W21 success=1,303 day-0 pairs). Check 4 (cohort_daily_views row count ±5% of prior 4-week median) PASS via operator-judgment override — strict ±5% mooted by W17/W18 broken-cohort noise in the median window; W21=1,303 vs healthy-week baseline (W20=1,535, W16=1,486) is ~−14%, within meaningful range for a functioning cohort. See .planning/phases/09-production-cutover-self-hosted-scraper-launch/09-04-GREEN-WEEK.md for the full 4-check write-up + anomalies + Phase 10 carry-overs. Self-hosted scraper (Jobs A/B/C/D + cohort-create + cohort-track on every-2-days */2 cadence + Sun/Mon weekly slots) is now in steady-state production. Phase 10 hardening queued — see carry-forwards below.
-last_updated: "2026-05-26T05:30:00.000Z"
-current_phase: 10-hardening
-current_plan: TBD
-last_completed_plan: 09-04
+milestone: v2.1
+milestone_name: Self-hosted scraper hardening
+status: Phase 10 IN PROGRESS 2026-05-26 — Plans 10-01 + 10-02 SHIPPED + deployed; 10-03 + 10-04 remain with detailed plans pre-written. (v2.0 / Phase 9 shipped earlier same day, tag phase-9-cutover-complete.) 10-01 = cron-wrapper SIGHUP/SIGTERM/SIGINT handlers + scripts/unstick-cron-row.js + 8 orphan rows cleaned. 10-02 = all 9 sub-items: dropped cosmetic Oxylabs warnings (A/C/D), lowered Job B match-rate threshold 50→30%, fixed Booli fetch cohort Sun off-by-one, stopped writing agent_id (option b), bumped Booli fetch cohort conc 2→8, COALESCE-preserve Hemnet view metadata, fixed Hemnet match log URL, added LOWER(TRIM(street_address)) functional index + fuller delta filter. NEXT: 10-03 (cohort-track null-Booli retarget — NEEDS OPERATOR DECISION, plan at .planning/phases/10-self-hosted-scraper-hardening/10-03-PLAN.md) and 10-04 (export fix + scripts cleanup + intel refresh, plan at .../10-04-PLAN.md).
+last_updated: "2026-05-26T07:30:00.000Z"
+current_phase: 10-self-hosted-scraper-hardening
+current_plan: 10-03
+last_completed_plan: 10-02
 progress:
-  total_phases: 4
-  completed_phases: 1
-  total_plans: 7
-  completed_plans: 7
-  percent: 100
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 4
+  completed_plans: 2
+  percent: 50
 session_continuity:
   last_session: "2026-05-26"
-  stopped_at: "Phase 9 closed cutover-complete 2026-05-26. Green-week observation log filled in (09-04-GREEN-WEEK.md) using actual cron_job_log + cohort_pairs / cohort_daily_views data pulled live from the droplet DB. All 4 gate checks pass (Check 4 via operator-judgment per Julian — strict ±5% threshold un-applicable due to W17/W18 broken-cohort noise in prior-4 median window). ROADMAP Phase 9 marked Complete 2026-05-26 with 5/5 plans done. v2.0 milestone shipped. The W20 hb-ratio xlsx + W20 views-wide CSVs were generated as a confidence-check on the view-tracking pipeline (data is varying per pair and consistent with healthy historical patterns). Phase 10 hardening backlog absorbed all observation-week findings (SIGHUP/SIGTERM re-occurrence, Job C Sun off-by-one fired in the wild, agent_id FK leakage, cohort-track null-Booli threshold needs retargeting, export-views-wide 1-day delta math now stale under every-2-days cadence)."
-  resume_command: "Next session: kick off Phase 10 hardening planning. Use /gsd-new-milestone? or /gsd-phase to insert Phase 10 in ROADMAP. The Phase 10 scope is well-stocked from the carry-forwards below — recommend bundling into ~4 plans: (10-01) cron-wrapper signal handlers + general unsticker (closes 09-2.6 #1, 09-03 #5); (10-02) Job B/C/D cosmetic-warning retarget + Job C Sun off-by-one + agent_id FK constraint (closes 09-2.5 #6, 09-03 #3, project_job_b_match_rate_threshold_stale, project_job_c_sunday_off_by_one); (10-03) cohort-track null-Booli threshold retarget (new finding from green-week observation); (10-04) export-views-wide gap-aware delta + scripts/ cleanup (closes project_todo_cleanup_claude_outputs, new finding from green-week observation). Phase 9 carry-forwards #2/#4/#7/#8/#9/#10/#11 + 09-1.5 #1 + 09-01 #3 also fold into these 4 plans. To physically tag the close: `git tag phase-9-cutover-complete` after committing this state."
+  stopped_at: "Phase 10: Plans 10-01 + 10-02 fully shipped + deployed to droplet in a single 2026-05-26 session (commits 4890a67 / 902e89a / 1b0a156 / f7b22bc / f564682 / ff44f91 / c748507 + bookkeeping). Plan 10-02 = 9/9 sub-items. All carry-forwards through 09-2.6 #1/#2, 09-03 #3/#5, 09-2.5 #4/#6/#8/#9, 09-1.5 #1 are now CLOSED (see carry_forward list below). Detailed, read-cold PLAN.md files written for the two remaining plans: 10-03-PLAN.md (cohort-track null-Booli retarget — NEEDS OPERATOR DECISION between age-bounded / delta / demote) and 10-04-PLAN.md (export gap-aware delta + scripts cleanup + intel refresh — has full keep/delete inventory)."
+  resume_command: "Next session (fresh /clear): pick up Phase 10 at 10-03 or 10-04. BOTH have self-contained plans in .planning/phases/10-self-hosted-scraper-hardening/. For 10-03: read 10-03-PLAN.md, then ASK THE OPERATOR which retarget option (a/b/c) before coding — the plan frames the decision; exact code is cohort-track.js:272-288. For 10-04: read 10-04-PLAN.md, start with (a) export-views-wide.js gap-aware delta (only functional item), then (c)/(d) quick doc/cosmetic fixes, then batch the (b)/(e) scripts cleanup with operator sign-off on the keep/delete list. After 10-04 ships, Phase 10 (v2.1) is complete → consider /gsd-complete-milestone. Standing deploy reminder: git push, then on droplet `cd /opt/hemnet-cohort-tracker && git pull`. In-prod verifiers still pending from this session: Wed 2026-05-27 14:00 UTC (quiet Slack on A/D + Booli view workerErrors→0), Sun 2026-05-31 22:00 UTC (Booli fetch cohort cohortId=W22 confirms Sun off-by-one fix + budgetExceeded=false confirms conc-8), Mon 2026-06-01 03:00 UTC (Hemnet match log URLs + fuller delta filter scope)."
 carry_forward:
   - "09-2.5 #7 (still open, observation-week DEFERRED): Postcode-mismatch gate over-rejecting valid matches (27/200 = 13.5% of W20 dry-run rows). Could lift Job B writes from 41% → ~55% if loosened. Operator-judged accept the conservative loss; Phase 10 candidate — fold into 10-02 above as a stretch item, not a launch blocker."
   - "09-2.5 #8 (CLOSED by Plan 10-02 (h), 2026-05-26): hemnet-targeted-match.js log line now references `${booli.url}` instead of constructing wrong `/bostad/${booli_id}`. `url` added to SELECT projection. Pure log cosmetic. Commit f7b22bc."
