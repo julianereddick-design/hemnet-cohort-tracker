@@ -332,11 +332,11 @@ function validate(summary) {
     const pct = ((summary.errors / summary.totalIds) * 100).toFixed(1);
     return `high error rate: ${summary.errors}/${summary.totalIds} (${pct}%)`;
   }
-  // Phase 7.1: surface degraded direct-curl health early.
-  if (summary.oxylabsFallbackRate > 0.30) {
-    const pct = (summary.oxylabsFallbackRate * 100).toFixed(1);
-    return `high Oxylabs fallback rate: ${pct}% — direct curl path degraded; investigate Cloudflare changes`;
-  }
+  // Plan 10-02 (a, symmetry): removed the Phase-7.1 `oxylabsFallbackRate > 0.30`
+  // warning. Hemnet flipped to 100% Oxylabs over 2026-05-08→2026-05-21 (per memory
+  // project_hemnet_flipped_to_oxylabs); the threshold now fires every */2 cycle as
+  // cosmetic noise. Rate is still in summary as a reporting field. Real Oxylabs API
+  // health is covered by the failure-rate branch below.
   if (summary.oxylabsCallCount > 0 &&
       summary.oxylabsFailureCount / summary.oxylabsCallCount > 0.10) {
     const pct = ((summary.oxylabsFailureCount / summary.oxylabsCallCount) * 100).toFixed(1);

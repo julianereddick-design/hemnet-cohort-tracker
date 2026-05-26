@@ -759,9 +759,13 @@ function validate(summary) {
   if (summary.workerErrors > 0) {
     return `worker-level errors caught: ${summary.workerErrors} (inspect 'worker-uncaught booli_id=' log lines)`;
   }
-  if (!summary.dryRun && summary.booliCount > 0 && (summary.inserted / summary.booliCount) < 0.5) {
+  // Plan 10-02 (c): lowered match-rate warning threshold from 0.5 → 0.3. Post-09-2.5
+  // healthy range is 40-55% (e.g., W21 id=439 hit 45.3%); the prior 50% threshold fired
+  // every Monday as cosmetic noise. A true regression below 30% indicates real upstream
+  // breakage worth waking someone up for.
+  if (!summary.dryRun && summary.booliCount > 0 && (summary.inserted / summary.booliCount) < 0.3) {
     const pct = ((summary.inserted / summary.booliCount) * 100).toFixed(1);
-    return `low match rate: ${summary.inserted}/${summary.booliCount} (${pct}%) — investigate before deploying`;
+    return `low match rate: ${summary.inserted}/${summary.booliCount} (${pct}%) — well below 40-55% healthy range; investigate`;
   }
   if (summary.booliCount > 0 && (summary.fetchErrors / summary.booliCount) > 0.05) {
     const pct = ((summary.fetchErrors / summary.booliCount) * 100).toFixed(1);

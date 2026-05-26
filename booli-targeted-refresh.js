@@ -348,10 +348,11 @@ function validate(summary) {
     const pct = ((summary.errors / summary.totalIds) * 100).toFixed(1);
     return `high error rate: ${summary.errors}/${summary.totalIds} (${pct}%)`;
   }
-  if (summary.oxylabsFallbackRate > 0.30) {
-    const pct = (summary.oxylabsFallbackRate * 100).toFixed(1);
-    return `high Oxylabs fallback rate: ${pct}% — direct path degraded; investigate`;
-  }
+  // Plan 10-02 (a): removed the `oxylabsFallbackRate > 0.30` warning. Post-09-1.5
+  // steady state is 100% Oxylabs fallback for Booli; this threshold fired every cycle
+  // as cosmetic noise. The rate is still recorded in summary as a reporting field —
+  // dashboards/queries can surface it. Genuine API health is still covered by the
+  // `oxylabsFailureCount / oxylabsCallCount > 0.10` branch below.
   if (summary.oxylabsCallCount > 0 &&
       summary.oxylabsFailureCount / summary.oxylabsCallCount > 0.10) {
     const pct = ((summary.oxylabsFailureCount / summary.oxylabsCallCount) * 100).toFixed(1);

@@ -195,14 +195,30 @@ function getCohortWeek(dateStr) {
   return { cohortId, weekStart: fmt(monday), weekEnd: fmt(sunday) };
 }
 
-// Default --week behavior mirrors cohort-create.js:51-58 (last full Mon-Sun).
+// Default --week behavior. Returns the Monday of the cohort week that
+// cohort-create.js will materialize on the next Mon 06:00 UTC fire.
+//
+// Plan 10-02 (d) — Sun off-by-one fix. Job C's production cron is Sun 22:00 UTC
+// (the night before cohort-create on Mon 06:00). On Sunday, "this week's Mon"
+// is the correct target — that's the Mon-Sun period cohort-create will turn into
+// W{N+1} the next morning. The pre-10-02 implementation mirrored cohort-create's
+// "last full Mon-Sun" logic and subtracted an extra 7 on Sundays, causing Job C
+// to discover the WRONG week (observed in wild Sun 2026-05-24: id=438 ran for
+// W20 instead of W21). For Mon-Sat (manual rerun fallback), keep the
+// "last full Mon-Sun" semantics so an operator running ad-hoc gets the
+// completed week.
 function defaultWeekDate() {
   const today = new Date();
-  const day = today.getDay();
-  const diffToLastMon = day === 0 ? 6 : day - 1;
-  const lastMon = new Date(today);
-  lastMon.setDate(today.getDate() - diffToLastMon - 7);
-  return lastMon.toISOString().slice(0, 10);
+  const day = today.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  let diffToTargetMon;
+  if (day === 0) {
+    diffToTargetMon = 6;          // Sun → this week's Mon (Job C cron day)
+  } else {
+    diffToTargetMon = day - 1 + 7; // Mon-Sat → last full week's Mon (manual rerun)
+  }
+  const targetMon = new Date(today);
+  targetMon.setDate(today.getDate() - diffToTargetMon);
+  return targetMon.toISOString().slice(0, 10);
 }
 
 // ---------------------------------------------------------------
@@ -699,10 +715,9 @@ function validate(summary) {
     const pct = ((summary.fetchErrors / summary.cardsSeen) * 100).toFixed(1);
     return `high fetch error rate: ${summary.fetchErrors}/${summary.cardsSeen} (${pct}%)`;
   }
-  if (summary.oxylabsFallbackRate > 0.30) {
-    const pct = (summary.oxylabsFallbackRate * 100).toFixed(1);
-    return `high Oxylabs fallback rate: ${pct}% — direct path degraded; investigate`;
-  }
+  // Plan 10-02 (b): removed the `oxylabsFallbackRate > 0.30` warning. Post-09-1.5
+  // steady state is 100% Oxylabs fallback for Booli; this threshold fired every Sunday
+  // as cosmetic noise. The rate is still in summary as a reporting field.
   if (summary.dryRun === false && summary.detailFetched > 0 &&
       (summary.inserted + summary.updated) < summary.detailFetched * 0.9) {
     return `write rate suspiciously low: ${summary.inserted + summary.updated}/${summary.detailFetched}`;
@@ -814,9 +829,9 @@ if (process.argv.includes('--smoke')) {
     const r = validate({ dryRun: false, inWindowCandidates: 100, cardsSeen: 100, fetchErrors: 20, oxylabsFallbackRate: 0, detailFetched: 80, inserted: 80, updated: 0 });
     assert.ok(r && r.includes('high fetch error rate'));
   });
-  check('validate: oxylabsFallbackRate=0.35 → warning', () => {
-    const r = validate({ dryRun: false, inWindowCandidates: 100, cardsSeen: 100, fetchErrors: 0, oxylabsFallbackRate: 0.35, detailFetched: 100, inserted: 100, updated: 0 });
-    assert.ok(r && r.includes('Oxylabs fallback rate'));
+  check('validate: oxylabsFallbackRate=1.0 → null (Plan 10-02: post-09-1.5 steady state, warning removed)', () => {
+    const r = validate({ dryRun: false, inWindowCandidates: 100, cardsSeen: 100, fetchErrors: 0, oxylabsFallbackRate: 1.0, detailFetched: 100, inserted: 100, updated: 0 });
+    assert.strictEqual(r, null);
   });
   check('validate: low write rate → warning', () => {
     const r = validate({ dryRun: false, inWindowCandidates: 100, cardsSeen: 100, fetchErrors: 0, oxylabsFallbackRate: 0, detailFetched: 100, inserted: 50, updated: 0 });
