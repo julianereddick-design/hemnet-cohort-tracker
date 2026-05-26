@@ -66,9 +66,13 @@ const MAX_PAGES_BOOLI = 100;
 // Cron-fit check: Job C runs Sun 22:00 UTC; Job B runs Mon 03:00 UTC. Gap is
 // 300 min, so a 180-min budget leaves 120 min slack before Job B starts.
 //
-// Concurrency stays at 2 per Plan 09-01 hardening contract. Oxylabs Advanced
-// allows 50 jobs/sec submission rate; at C=2 we use ~0.12 req/sec = 0.24% of
-// cap. Headroom to bump concurrency later if needed (Phase 10).
+// Plan 10-02 (f) (2026-05-26): bumped concurrency 2 → 8 to drain budgetExceeded
+// on Sun 2026-05-24 22:00 (id=438). At C=8 burst is ~0.48 req/sec = ~1% of
+// the 50 jobs/sec Oxylabs Advanced cap. Mirrors the conc-8 idiom already running
+// in production on the three sibling scrape jobs (booli-targeted-refresh.js:323
+// since 09-02 D-15; hemnet-targeted-refresh.js:306 since 09-02 D-16; hemnet-
+// targeted-match.js:733 since 09-2.6 D-32). Budget left at 180 min — expect
+// wall-clock to drop ~4× to ~45 min, well inside budget.
 const JOB_BUDGET_MS = 180 * 60 * 1000; // 180 minutes (was 35; see comment)
 
 // ---------------------------------------------------------------
@@ -632,7 +636,10 @@ async function main(client, log) {
   summary.inWindowCandidates = queue.length;
   log('INFO', `total in-window candidates across counties: ${queue.length}`);
 
-  // Hand-rolled worker pool, concurrency 2 + 100-300ms jitter (D-27).
+  // Hand-rolled worker pool, concurrency 8 + 100-300ms jitter.
+  // Plan 10-02 (f) (2026-05-26): bumped 2 → 8 (mirrors booli-targeted-refresh.js:323).
+  // Original D-27 conc-2 hardening lock relaxed once the three sibling scrape jobs
+  // proved conc 8 stable in production on the same Oxylabs Advanced account.
   let processedCount = 0;
   async function worker() {
     while (queue.length) {
@@ -679,7 +686,7 @@ async function main(client, log) {
       }
     }
   }
-  await Promise.all([worker(), worker()]);
+  await Promise.all(Array.from({ length: 8 }, () => worker()));
 
   // Pull Oxylabs stats from shared scrape-http module state.
   const oxStats = getOxylabsStats();
