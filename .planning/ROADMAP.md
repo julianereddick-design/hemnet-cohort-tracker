@@ -139,7 +139,7 @@ Plans:
 **Plans**: 4 plans (proposed; refine when planning each)
 
 Plans:
-- [ ] 10-01-PLAN.md — cron-wrapper signal handlers + general unsticker: add `SIGHUP`/`SIGTERM`/`SIGINT` handlers to `cron-wrapper.js` (closes 09-2.6 #1, re-confirmed in green-week by id=435); ship `scripts/unstick-cron-row.js` general-purpose unsticker; clean up the 4 known orphan rows (booli-targeted-discovery ids 359, 406, 407 + hemnet-targeted-refresh id 435). Smallest, highest-confidence Phase 10 win.
+- [x] 10-01: cron-wrapper signal handlers + general unsticker — shipped 2026-05-26. `cron-wrapper.js` now resolves orphan rows to `status='killed'` on SIGHUP/SIGTERM/SIGINT via a fresh recovery client (avoids in-flight-query collision on main client). `scripts/unstick-cron-row.js` general-purpose unsticker (--id, --all-orphans, --list, --reason). Cleaned 8 known orphans (memory tracked only 4 — discovered 4 more older ones from 2026-05-12 to 2026-05-15). Closes 09-2.6 #1 + 09-03 #5. See `.planning/phases/10-self-hosted-scraper-hardening/10-01-SUMMARY.md`.
 - [ ] 10-02-PLAN.md — cosmetic-warning retargets + small consistency fixes: (a) retarget Job D 100% Oxylabs warning to fire only if rate suddenly DROPS (09-03 #3); (b) symmetric Job C retarget; (c) raise/remove Job B match-rate 50% threshold (project_job_b_match_rate_threshold_stale); (d) fix Job C Sunday off-by-one (project_job_c_sunday_off_by_one + observed id=438); (e) resolve `agent_id` FK constraint per 09-2.5 #6; (f) bump Job C `JOB_BUDGET_MS` 180→300 min (09-1.5 #1, observed budgetExceeded=true on id=438); (g) mirror D-24 COALESCE-preserve hardening onto Job A (09-2.5 #9); (h) fix Job B match-log URL (09-2.5 #8); (i) add `LOWER(TRIM(street_address))` functional index (09-2.6 #2). Stretch item: 09-2.5 #7 postcode-mismatch loosening (could lift Job B writes 41→55%).
 - [ ] 10-03-PLAN.md — cohort-track null-Booli threshold retarget: dedicated plan because the right fix needs thought. Three options: (a) age-bounded (warn only cohorts ≤ N weeks old), (b) week-over-week delta threshold, (c) demote from warning to reporting field. Closes 09-04 #4 (new green-week finding) + supersedes the closed-but-stale 09-03 #4 hypothesis.
 - [ ] 10-04-PLAN.md — export tooling + scripts cleanup + intel refresh: (a) fix `export-views-wide.js` 1-day delta math under every-2-days cadence (09-04 #5); (b) sweep one-off scripts + spike outputs per `project_todo_cleanup_claude_outputs` decision matrix; (c) refresh `.planning/codebase/` intel files (CONCERNS/STACK/INTEGRATIONS) to reflect actual Slack/Droplet state per 09-03 #2; (d) fix Final-JSON-status vs cron-wrapper-status cosmetic mismatch (09-01 #3); (e) one-line fix to `scripts/enrich-booli-week.js` (missing `crawled = NOW(),` — 09-2.5 #10).
@@ -161,7 +161,7 @@ Plans:
 | 7. Hemnet daily refresh (Job A) + Oxylabs fallback | v2.0 | 2/2 | Complete | 2026-04 |
 | 8. Hemnet weekly seeding + Booli discovery | v2.0 | 4/4 | Complete (with overrides) | 2026-05-12 |
 | 9. Production cutover — self-hosted scraper launch | v2.0 | 5/5 | Complete (cutover-complete) | 2026-05-26 |
-| 10. Self-hosted scraper hardening | v2.1 | 0/4 | In Progress | - |
+| 10. Self-hosted scraper hardening | v2.1 | 1/4 | In Progress | - |
 
 ---
 

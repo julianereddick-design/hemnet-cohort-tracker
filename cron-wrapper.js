@@ -62,22 +62,51 @@ async function runJob({ scriptName, main, validate }) {
   let status = 'success';
   let errorMessage = null;
   let resultSummary = null;
+  let shuttingDown = false;
+
+  // Best-effort UPDATE on cron_job_log when the process is going down unexpectedly.
+  // Uses a fresh client because the main `client` may be mid-query (concurrent queries
+  // on one node-pg client throw "another query is already in progress").
+  async function recoverRow(rowStatus, rowError) {
+    if (!logId) return;
+    const recoveryClient = createClient();
+    try {
+      await recoveryClient.connect();
+      await recoveryClient.query(
+        `UPDATE cron_job_log SET finished_at = NOW(), duration_ms = $1, status = $2, error_message = $3 WHERE id = $4 AND status = 'running'`,
+        [Date.now() - startTime, rowStatus, rowError, logId]
+      );
+    } catch (e) {
+      log('ERROR', `Recovery UPDATE failed: ${e.message}`);
+    } finally {
+      try { await recoveryClient.end(); } catch (_) { /* best effort */ }
+    }
+  }
 
   // Process-level safety
-  const handleFatal = async (err) => {
-    log('ERROR', `Uncaught: ${err.message || err}`);
-    try {
-      if (client && logId) {
-        await client.query(
-          `UPDATE cron_job_log SET finished_at = NOW(), duration_ms = $1, status = 'failure', error_message = $2 WHERE id = $3`,
-          [Date.now() - startTime, String(err.message || err), logId]
-        );
-      }
-    } catch (_) { /* best effort */ }
-    process.exit(1);
+  const handleFatal = (err) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    log('ERROR', `Uncaught: ${err && (err.message || err)}`);
+    (async () => {
+      await recoverRow('failure', String((err && (err.message || err)) || 'unknown'));
+      process.exit(1);
+    })();
+  };
+  const handleSignal = (sig) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    log('WARN', `Received ${sig} — marking cron_job_log row killed`);
+    (async () => {
+      await recoverRow('killed', `killed by ${sig}`);
+      process.exit(1);
+    })();
   };
   process.on('uncaughtException', handleFatal);
   process.on('unhandledRejection', handleFatal);
+  process.on('SIGHUP', () => handleSignal('SIGHUP'));
+  process.on('SIGTERM', () => handleSignal('SIGTERM'));
+  process.on('SIGINT', () => handleSignal('SIGINT'));
 
   try {
     client = createClient();
