@@ -487,8 +487,13 @@ async function processOne(booli, client, log, dryRun, summary, searchCache, sear
       booli.listed instanceof Date
         ? booli.listed.toISOString().slice(0, 10)
         : String(booli.listed);
+    // Plan 10-02 (h) 2026-05-26: log booli.url (the canonical URL scraped by
+    // Booli fetch cohort) instead of constructing /bostad/${booli_id} — the old
+    // path was wrong on two counts: /bostad/ takes a residenceId not a listingId,
+    // and active for-sale listings use /annons/ not /bostad/. booli.url is the
+    // ground truth from Booli's own response.
     log('INFO',
-      `match booli_id=${booli.booli_id} "${booli.title}" listed=${listedDateStr} postcode=${bp} https://www.booli.se/bostad/${booli.booli_id}\n` +
+      `match booli_id=${booli.booli_id} "${booli.title}" listed=${listedDateStr} postcode=${bp} ${booli.url}\n` +
       `   -> hemnet_id=${listing.id} published=${chosen.publishedAt} postCode=${postcodeMarker} https://www.hemnet.se/bostad/${listing.id}`,
     );
 
@@ -627,7 +632,7 @@ async function main(client, log) {
   //    hemnet_listingv2 row but bl.crawled predates the last run will be skipped;
   //    they'll be re-matched next week when Booli fetch cohort re-touches them.
   const booliRes = await client.query(
-    `SELECT booli_id, title, street_address, postcode, municipality, county,
+    `SELECT booli_id, title, url, street_address, postcode, municipality, county,
             listed, times_viewed, price, rooms, object_type
        FROM booli_listing bl
       WHERE is_active = true
