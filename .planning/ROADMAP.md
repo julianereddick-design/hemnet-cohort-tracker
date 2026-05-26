@@ -115,7 +115,7 @@ Plans:
 - [~] 09-2.5-PLAN.md — Booli field capture + Job B narrowed-search matching fix: triggered by Django scraper decommission (2026-05-15) + 26.7% aggregate match rate; field capture (price/rooms/living_area/object_type/agent_id) shipped in commit 618c896; Job B rewrite pending; hard deadline Mon 2026-05-18 06:00 UTC for cohort-create
 - [ ] 09-2.6-PLAN.md — Hemnet match cohort acceleration + W20 recovery: triggered by 2026-05-18 wet cron failure (Hemnet match cohort still running 5+ hours in, only ~700 of 5,563 rows processed, W20 cohort built at 441 pairs vs ~1,500 typical). Ships conc 2→8 + delta filter + JOB_BUDGET_MS = 120 min. Targets ~50 min weekly runtime + W20 cohort_pairs recovery to ~1,500.
 - [x] 09-03-PLAN.md — Cron integration with every-2-days cadence: Jobs A/B/C/D + cohort-track on odd days (14:00 parallel D+A per D-17, 22:00 cohort-track UTC), remove daily cohort-track slots, SLACK_WEBHOOK_URL — deployed 2026-05-21; first production fire 2026-05-21 14:00 UTC
-- [~] 09-04-PLAN.md — Cutover + runbook: halve cohort-track streak threshold 10→5 for every-2-days cadence (cohort-track.js:123 + :180), green-week observation, no parallel-run — code-complete 2026-05-21 (Tasks 1+2 shipped: 1460857 streak halve, 198344c runbook); Task 3 green-week observation calendar-deferred to Mon 2026-05-25 06:00 UTC cohort-create W21 fire (gate: row count ±5% of prior 4-week median)
+- [x] 09-04-PLAN.md — Cutover + runbook: halve cohort-track streak threshold 10→5 for every-2-days cadence (cohort-track.js:123 + :180), green-week observation, no parallel-run — code-complete 2026-05-21 (Tasks 1+2 shipped: 1460857 streak halve, 198344c runbook); green-week gate cleared 2026-05-26 (W21=1,303 day-0 pairs, all 4 cron-status checks PASS, Check 4 PASS via operator-judgment per .planning/phases/09-production-cutover-self-hosted-scraper-launch/09-04-GREEN-WEEK.md — strict ±5% threshold mooted by W17/W18 broken-cohort noise in prior-4 window)
 
 **Out of scope for Phase 9**: Investigating the 42.4% Hemnet match rate from VERF-05 (deferred — accepted with warning override). If the cutover surfaces this as a launch blocker, file a follow-up phase. Updating downstream reports for every-2-days `cohort_daily_views` granularity (deferred to Phase 10 per CONTEXT [[downstream-reports-deferred]]). The `Final:`-JSON-`status:success` vs cron-wrapper-`status:warning` cosmetic mismatch (09-01-SUMMARY carry-forward issue #3) is also deferred to Phase 10.
 
@@ -133,7 +133,7 @@ Plans:
 | 6. Hemnet fetcher foundation | v2.0 | 1/1 | Complete | 2026-03 |
 | 7. Hemnet daily refresh (Job A) + Oxylabs fallback | v2.0 | 2/2 | Complete | 2026-04 |
 | 8. Hemnet weekly seeding + Booli discovery | v2.0 | 4/4 | Complete (with overrides) | 2026-05-12 |
-| 9. Production cutover — self-hosted scraper launch | v2.0 | 1/5 | In Progress | - |
+| 9. Production cutover — self-hosted scraper launch | v2.0 | 5/5 | Complete (cutover-complete) | 2026-05-26 |
 
 ---
 
