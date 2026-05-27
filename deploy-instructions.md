@@ -75,6 +75,14 @@ All times are UTC. Schedule respects:
 # in seconds), clear of every-2-days view-refresh (14:00/18:00/22:00 odd days), clear of
 # Mon-morning fan-out (09:00-09:30).
 30 8 * * *  cd /opt/hemnet-cohort-tracker && node market-totals-daily.js       >> /var/log/hemnet/market-totals.log 2>&1
+
+# Phase 11 (v2.2) — Weekly market-supply Slack pulse (Mondays 09:35 UTC).
+# market-totals-weekly-report.js reads market_totals for (today, today-7) × {hemnet, booli}
+# × segment='till_salu', renders the locked Slack format, and posts to SLACK_WEBHOOK_URL.
+# Slot rationale: 5 minutes AFTER weekly-view-report.js (09:30 UTC). weekly-view-report
+# runs in well under 5 min (DB-only, no scrape), so 09:35 is a clean sequential slot.
+# First valid run is >= 7 days post-deploy; earlier runs render "?" in delta cells.
+35 9 * * 1  cd /opt/hemnet-cohort-tracker && node market-totals-weekly-report.js >> /var/log/hemnet/market-totals-weekly.log 2>&1
 ```
 
 Deploy: per `[[project-deploy-process]]`, push the repo change and then `cd /opt/hemnet-cohort-tracker && git pull` on the droplet, then add the crontab line via `crontab -e` (back up first per the procedure documented in lines 86-93 of this file).
