@@ -166,7 +166,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [x] 11-01-PLAN.md — ROADMAP scope edits + `market-totals-daily.js` (inline DDL + 3-fetch + inline JSON-path smoke probe + 4-row upsert + sync validate) + crontab registry (08:30 UTC daily) + operator wet-run gate. CODE SHIPPED 2026-05-27; **wet-run GREEN 2026-05-27** (4 rows, status=success in 13.4s — hemnet 51209/6256, booli 60834/31615, all via Oxylabs fallback after expected direct-curl 403s; ratios match [[project-booli-hemnet-totals-asymmetry]]). Remaining before milestone close: operator activates the two crontab lines (08:30 daily + Mon 09:35 weekly) + SC-5 7-day green soak.
+- [x] 11-01-PLAN.md — ROADMAP scope edits + `market-totals-daily.js` (inline DDL + 3-fetch + inline JSON-path smoke probe + 4-row upsert + sync validate) + crontab registry (08:30 UTC daily) + operator wet-run gate. CODE SHIPPED 2026-05-27; **wet-run GREEN 2026-05-27** (4 rows, status=success in 13.4s — hemnet 51209/6256, booli 60834/31615, all via Oxylabs fallback after expected direct-curl 403s; ratios match [[project-booli-hemnet-totals-asymmetry]]). Crontab LIVE 2026-05-28 (both lines confirmed via crontab -l; /var/log/hemnet present). Remaining: SC-5 7-day green soak only (running).
 - [x] 11-02-PLAN.md — Offline regression test for the inline JSON-path probe (`scripts/test-market-totals-probe.js`) + operator diagnosis paragraph in `deploy-instructions.md` for the JSON-path-break Slack alert
 - [x] 11-03-PLAN.md — Weekly Slack consumer (new file `market-totals-weekly-report.js`) + locked Till-salu WoW format + `?` missing-data semantics + crontab registry (Mon 09:35 UTC)
 
@@ -188,7 +188,7 @@ Plans:
 | 8. Hemnet weekly seeding + Booli discovery | v2.0 | 4/4 | Complete (with overrides) | 2026-05-12 |
 | 9. Production cutover — self-hosted scraper launch | v2.0 | 5/5 | Complete (cutover-complete) | 2026-05-26 |
 | 10. Self-hosted scraper hardening | v2.1 | 3/5 | In Progress | - |
-| 11. Daily market-totals capture + minimal report | v2.2 | 3/3 shipped | Wet-run green 2026-05-27; cron activation + 7-day soak pending | - |
+| 11. Daily market-totals capture + minimal report | v2.2 | 3/3 shipped | Live since 2026-05-28; 7-day soak running | - |
 
 ---
 
