@@ -159,7 +159,7 @@ Plans:
 **Depends on**: Phase 9 (cron-wrapper.runJob infrastructure; Oxylabs creds; Slack alerting)
 **Success Criteria**:
   1. `market_totals` table created with `(day, site, segment, total, fetched_at, source_url)` schema; PK on `(day, site, segment)` for idempotent reruns
-  2. `market-totals-daily.js` runs daily under `cron-wrapper.runJob`; writes 6 rows/day (Hemnet × 3 segments + Booli × 3 segments) on success; warns to Slack on JSON-path-break, fetch failure, or unexpected delta
+  2. `market-totals-daily.js` runs daily under `cron-wrapper.runJob`; writes 4 rows/day (Hemnet × 2 segments + Booli × 2 segments) on success — Till salu + Kommande only; Sold dropped during discuss; warns to Slack on JSON-path-break or fetch failure
   3. A pre-flight smoke-probe verifies the `__NEXT_DATA__` JSON paths still resolve before each capture run (defends against silent Hemnet/Booli site breakage — both sites are Next.js and could rename Apollo keys without notice)
   4. At least one consumer surfaces the values — e.g. a tile in `weekly-view-report.js` with 7-day WoW deltas, or a daily Slack one-liner
   5. 7 consecutive days run green with no Slack alerts and no missing days in `market_totals`
@@ -170,7 +170,7 @@ Plans:
 - [ ] 11-02-PLAN.md — Offline regression test for the inline JSON-path probe (`scripts/test-market-totals-probe.js`) + operator diagnosis paragraph in `deploy-instructions.md` for the JSON-path-break Slack alert
 - [ ] 11-03-PLAN.md — Weekly Slack consumer (new file `market-totals-weekly-report.js`) + locked Till-salu WoW format + `?` missing-data semantics + crontab registry (Mon 09:35 UTC)
 
-**Out of scope for Phase 11**: Per-municipality or per-county totals (the top-level pages only expose nationwide; per-area totals would require N×Oxylabs fan-out and belong in a future milestone). Long-horizon backfill — start fresh; historic sold totals are level-only, not deltas. Cross-platform reconciliation beyond raw deltas — see [[project-booli-hemnet-totals-asymmetry]] memory; that's an analyst-side framing question, not a pipeline concern.
+**Out of scope for Phase 11**: Per-municipality or per-county totals (the top-level pages only expose nationwide; per-area totals would require N×Oxylabs fan-out and belong in a future milestone). Long-horizon backfill — start fresh; historic sold totals are level-only, not deltas. Cross-platform reconciliation beyond raw deltas — see [[project-booli-hemnet-totals-asymmetry]] memory; that's an analyst-side framing question, not a pipeline concern. Sold totals — operator-deferred during Phase 11 discuss; JSON paths known but reserved for a future plan.
 
 ## Progress
 
