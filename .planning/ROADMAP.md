@@ -5,6 +5,7 @@
 - ✅ **v1.0 Cohort tracker MVP** — Phases 1–5 (shipped, in production on Droplet)
 - ✅ **v2.0 Self-hosted scraper** — Phases 6–9 (shipped 2026-05-26; cutover-complete tag `phase-9-cutover-complete`)
 - 🚧 **v2.1 Self-hosted scraper hardening** — Phase 10 (cleanup of observation-week carry-forwards; production-stable, no launch deadlines)
+- 🚧 **v2.2 Market supply pulse** — Phase 11 (new data product: daily nationwide listing totals; runs in parallel to v2.1)
 
 ## Phases
 
@@ -147,9 +148,33 @@ Plans:
 
 **Out of scope for Phase 10**: anything that materially changes the cohort pipeline behavior (cutover is stable, leave it alone). The 42.4% VERF-05 Hemnet match rate (already accepted with override) stays out unless 10-02 (h)/(i) raise it as a side effect.
 
+### 🚧 v2.2 Market supply pulse (In Progress)
+
+**Milestone Goal:** Capture and surface daily nationwide properties-for-sale totals (Hemnet + Booli, Till salu + Kommande + historic sold) as a market-supply signal that complements the per-listing cohort view-data pipeline. Runs in parallel to v2.1 — fully orthogonal to scraper-hardening work.
+
+**Background:** Probe on 2026-05-27 (`scripts/probe-total-listings.js`) confirmed both Hemnet and Booli expose nationwide listing totals via `__NEXT_DATA__` in a single top-level search-page fetch each. Cost is 2 Oxylabs requests/day total. See memories [[project-market-supply-pulse-feasibility]] and [[project-booli-hemnet-totals-asymmetry]] for endpoint paths and a same-minute cross-platform snapshot showing Booli's Kommande pool is ~5× Hemnet's.
+
+#### Phase 11: Daily market-totals capture + minimal report
+**Goal**: A new daily cron job captures Hemnet + Booli nationwide listing totals (Till salu, Kommande, historic sold) into a new `market_totals` table; a minimal report exposes the daily values + WoW deltas.
+**Depends on**: Phase 9 (cron-wrapper.runJob infrastructure; Oxylabs creds; Slack alerting)
+**Success Criteria**:
+  1. `market_totals` table created with `(day, site, segment, total, fetched_at, source_url)` schema; PK on `(day, site, segment)` for idempotent reruns
+  2. `market-totals-daily.js` runs daily under `cron-wrapper.runJob`; writes 6 rows/day (Hemnet × 3 segments + Booli × 3 segments) on success; warns to Slack on JSON-path-break, fetch failure, or unexpected delta
+  3. A pre-flight smoke-probe verifies the `__NEXT_DATA__` JSON paths still resolve before each capture run (defends against silent Hemnet/Booli site breakage — both sites are Next.js and could rename Apollo keys without notice)
+  4. At least one consumer surfaces the values — e.g. a tile in `weekly-view-report.js` with 7-day WoW deltas, or a daily Slack one-liner
+  5. 7 consecutive days run green with no Slack alerts and no missing days in `market_totals`
+**Plans**: 3 plans (proposed; refine when planning)
+
+Plans:
+- [ ] 11-01: schema migration for `market_totals` + `market-totals-daily.js` job + cron-wrapper integration + 1 wet-run
+- [ ] 11-02: pre-flight `__NEXT_DATA__` JSON-path smoke probe + Slack alerting on schema drift / fetch failure / unexpected delta
+- [ ] 11-03: reporting consumer (tile in `weekly-view-report.js` or daily Slack one-liner) + WoW delta math
+
+**Out of scope for Phase 11**: Per-municipality or per-county totals (the top-level pages only expose nationwide; per-area totals would require N×Oxylabs fan-out and belong in a future milestone). Long-horizon backfill — start fresh; historic sold totals are level-only, not deltas. Cross-platform reconciliation beyond raw deltas — see [[project-booli-hemnet-totals-asymmetry]] memory; that's an analyst-side framing question, not a pipeline concern.
+
 ## Progress
 
-**Execution Order:** Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 7.1 → 8 → 9 → 10
+**Execution Order:** Phases 1–10 executed in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 7.1 → 8 → 9 → 10. Phase 11 (v2.2) runs in parallel to Phase 10 (v2.1) — the two milestones are orthogonal.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -163,6 +188,7 @@ Plans:
 | 8. Hemnet weekly seeding + Booli discovery | v2.0 | 4/4 | Complete (with overrides) | 2026-05-12 |
 | 9. Production cutover — self-hosted scraper launch | v2.0 | 5/5 | Complete (cutover-complete) | 2026-05-26 |
 | 10. Self-hosted scraper hardening | v2.1 | 3/5 | In Progress | - |
+| 11. Daily market-totals capture + minimal report | v2.2 | 0/3 | Not started (defining) | - |
 
 ---
 
