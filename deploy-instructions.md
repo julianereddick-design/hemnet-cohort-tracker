@@ -65,6 +65,20 @@ All times are UTC. Schedule respects:
 0 22 */2 * * cd /opt/hemnet-cohort-tracker && node cohort-track.js              >> /var/log/hemnet/cohort-track.log 2>&1
 ```
 
+```cron
+# === Phase 11 (v2.2) — Daily market-totals capture (08:30 UTC) ===
+# market-totals-daily.js fetches Hemnet (1 req — both segments via one __NEXT_DATA__) +
+# Booli (2 reqs — one per segment, filtered ?upcomingSale=0|1). 3 Oxylabs reqs/day total.
+# Writes 4 rows/day into market_totals. Cron-wrapped: Slack alerts on failure/warning;
+# silent on success by design (weekly-report consumer surfaces values on Mondays).
+# Slot rationale: 30-min buffer after sfpl-region-snapshot (08:00 UTC, DB-only, finishes
+# in seconds), clear of every-2-days view-refresh (14:00/18:00/22:00 odd days), clear of
+# Mon-morning fan-out (09:00-09:30).
+30 8 * * *  cd /opt/hemnet-cohort-tracker && node market-totals-daily.js       >> /var/log/hemnet/market-totals.log 2>&1
+```
+
+Deploy: per `[[project-deploy-process]]`, push the repo change and then `cd /opt/hemnet-cohort-tracker && git pull` on the droplet, then add the crontab line via `crontab -e` (back up first per the procedure documented in lines 86-93 of this file).
+
 ### Preserved supplementary cron lines (already live on the droplet — Phase 9 leaves these untouched)
 
 The live droplet crontab also contains the following operational and reporting jobs added in earlier phases. Plan 09-03 does NOT modify any of these:
