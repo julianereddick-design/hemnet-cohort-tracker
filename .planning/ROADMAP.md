@@ -166,9 +166,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 11-01-PLAN.md — ROADMAP scope edits + `market-totals-daily.js` (inline DDL + 3-fetch + inline JSON-path smoke probe + 4-row upsert + sync validate) + crontab registry (08:30 UTC daily) + operator wet-run gate
-- [ ] 11-02-PLAN.md — Offline regression test for the inline JSON-path probe (`scripts/test-market-totals-probe.js`) + operator diagnosis paragraph in `deploy-instructions.md` for the JSON-path-break Slack alert
-- [ ] 11-03-PLAN.md — Weekly Slack consumer (new file `market-totals-weekly-report.js`) + locked Till-salu WoW format + `?` missing-data semantics + crontab registry (Mon 09:35 UTC)
+- [~] 11-01-PLAN.md — ROADMAP scope edits + `market-totals-daily.js` (inline DDL + 3-fetch + inline JSON-path smoke probe + 4-row upsert + sync validate) + crontab registry (08:30 UTC daily) + operator wet-run gate. CODE SHIPPED 2026-05-27; **wet-run on production droplet pending operator action** (deploy via `git pull` + manual `node market-totals-daily.js` + verify 4 rows in `market_totals` for today + `cron_job_log` row green).
+- [x] 11-02-PLAN.md — Offline regression test for the inline JSON-path probe (`scripts/test-market-totals-probe.js`) + operator diagnosis paragraph in `deploy-instructions.md` for the JSON-path-break Slack alert
+- [x] 11-03-PLAN.md — Weekly Slack consumer (new file `market-totals-weekly-report.js`) + locked Till-salu WoW format + `?` missing-data semantics + crontab registry (Mon 09:35 UTC)
 
 **Out of scope for Phase 11**: Per-municipality or per-county totals (the top-level pages only expose nationwide; per-area totals would require N×Oxylabs fan-out and belong in a future milestone). Long-horizon backfill — start fresh; historic sold totals are level-only, not deltas. Cross-platform reconciliation beyond raw deltas — see [[project-booli-hemnet-totals-asymmetry]] memory; that's an analyst-side framing question, not a pipeline concern. Sold totals — operator-deferred during Phase 11 discuss; JSON paths known but reserved for a future plan.
 
@@ -188,7 +188,7 @@ Plans:
 | 8. Hemnet weekly seeding + Booli discovery | v2.0 | 4/4 | Complete (with overrides) | 2026-05-12 |
 | 9. Production cutover — self-hosted scraper launch | v2.0 | 5/5 | Complete (cutover-complete) | 2026-05-26 |
 | 10. Self-hosted scraper hardening | v2.1 | 3/5 | In Progress | - |
-| 11. Daily market-totals capture + minimal report | v2.2 | 0/3 | Not started (defining) | - |
+| 11. Daily market-totals capture + minimal report | v2.2 | 2/3 + code-shipped | Code complete; wet-run pending | - |
 
 ---
 
