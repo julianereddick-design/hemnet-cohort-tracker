@@ -279,4 +279,19 @@ Phase 9 closes with status `cutover-complete`. v2.0 milestone ships.
 
 Self-hosted code stays deployed (no `git revert` needed) — it just stops running from cron. This keeps the diagnostic trail intact (cron_job_log + /var/log/hemnet/*.log) for the follow-up investigation.
 
+### Diagnosing `market-totals-daily` Slack alerts
+
+`market-totals-daily.js` is silent on success. The two non-silent paths:
+
+1. **`JSON path missing for <label>: expected positive number, got …`** — the inline smoke probe (D-02) caught one of the four expected Apollo paths returning undefined/null/NaN/non-positive. Likely causes, in priority order:
+   - **Hemnet or Booli renamed an Apollo `ROOT_QUERY` call signature** (e.g. `searchForSaleListings` → `searchListings`). Re-run `scripts/probe-total-listings.js` against the live site, compare keys against `market-totals-daily.js` `pickByPrefix` prefixes, update the prefix string + ship a fix. The fix is a one-line edit in `market-totals-daily.js`.
+   - **`extractNextData` returned a different shape** (e.g. `pageProps` moved). Inspect `verf-totals/<site>-next-data.json` after re-running the probe; update the `extractApolloRoot` walk if the shape moved.
+   - **Cloudflare started returning an HTML interstitial instead of the rendered page** — `extractNextData` would throw "no __NEXT_DATA__"; the alert text would differ from the one above. Confirm by running `node -e "const { getWithRetry } = require('./lib/scrape-http'); getWithRetry('https://www.hemnet.se/bostader', { logger: console.log }).then(r => console.log(r.html.length, r.html.slice(0,200)))"` on the droplet. Fix is `lib/scrape-http.js` (out of scope for this script).
+   - **A real market crash drove a segment to 0.** Phase 11 deliberately rejects this case (D-02 — `n <= 0` throws). Acceptable for now; if it becomes a real-world false positive, lift the floor to 0 with sign-off.
+   Verify the fix using the offline regression test: `node scripts/test-market-totals-probe.js` (PASS: 16/16). Then deploy + re-run the daily job manually before letting the next cron fire be the validator.
+
+2. **`Expected 4 rows upserted, got <N>`** — `validate()` warned because fewer than 4 rows landed. Possibilities: a fetch silently returned a `null` total (Apollo serialization drift — same fix path as above), or an UPSERT race (extremely unlikely given the PK). Check `cron_job_log.result_summary.perRow` for the missing site/segment.
+
+**What this alert is NOT:** an unexpected-delta alarm. Phase 11 deliberately does NOT alert on WoW/DoD deltas (D-03). If a daily total swings dramatically week-to-week, you see it in the weekly market-supply-pulse Slack on Monday, not as an alert.
+
 Note on the streak-threshold change (D-11): cohort-track.js's drop threshold was halved from `>= 10` to `>= 5` in Plan 09-04 to compensate for the every-2-days cadence (Plan 09-03 / D-07 removed cohort-track 23:30+02:00 daily). Time-to-drop stays at ~10 calendar days under the new cadence. If a rollback restores the daily cohort-track schedule, the halved threshold means drops fire at ~5 calendar days instead of ~10 — operator should consider reverting cohort-track.js to the pre-D-11 `>= 10` threshold at the same time as the crontab rollback for symmetry.
