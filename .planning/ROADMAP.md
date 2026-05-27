@@ -163,12 +163,12 @@ Plans:
   3. A pre-flight smoke-probe verifies the `__NEXT_DATA__` JSON paths still resolve before each capture run (defends against silent Hemnet/Booli site breakage — both sites are Next.js and could rename Apollo keys without notice)
   4. At least one consumer surfaces the values — e.g. a tile in `weekly-view-report.js` with 7-day WoW deltas, or a daily Slack one-liner
   5. 7 consecutive days run green with no Slack alerts and no missing days in `market_totals`
-**Plans**: 3 plans (proposed; refine when planning)
+**Plans**: 3 plans
 
 Plans:
-- [ ] 11-01: schema migration for `market_totals` + `market-totals-daily.js` job + cron-wrapper integration + 1 wet-run
-- [ ] 11-02: pre-flight `__NEXT_DATA__` JSON-path smoke probe + Slack alerting on schema drift / fetch failure / unexpected delta
-- [ ] 11-03: reporting consumer (tile in `weekly-view-report.js` or daily Slack one-liner) + WoW delta math
+- [ ] 11-01-PLAN.md — ROADMAP scope edits + `market-totals-daily.js` (inline DDL + 3-fetch + inline JSON-path smoke probe + 4-row upsert + sync validate) + crontab registry (08:30 UTC daily) + operator wet-run gate
+- [ ] 11-02-PLAN.md — Offline regression test for the inline JSON-path probe (`scripts/test-market-totals-probe.js`) + operator diagnosis paragraph in `deploy-instructions.md` for the JSON-path-break Slack alert
+- [ ] 11-03-PLAN.md — Weekly Slack consumer (new file `market-totals-weekly-report.js`) + locked Till-salu WoW format + `?` missing-data semantics + crontab registry (Mon 09:35 UTC)
 
 **Out of scope for Phase 11**: Per-municipality or per-county totals (the top-level pages only expose nationwide; per-area totals would require N×Oxylabs fan-out and belong in a future milestone). Long-horizon backfill — start fresh; historic sold totals are level-only, not deltas. Cross-platform reconciliation beyond raw deltas — see [[project-booli-hemnet-totals-asymmetry]] memory; that's an analyst-side framing question, not a pipeline concern.
 
