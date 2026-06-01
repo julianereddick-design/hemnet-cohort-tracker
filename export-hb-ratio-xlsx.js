@@ -220,13 +220,14 @@ async function run() {
       const hColSec3 = SEC3_START + d * 2;
       const bColSec3 = SEC3_START + d * 2 + 1;
 
-      if (d < 2) {
-        // No 2-day lookback available for first 2 dates
+      if (d < 1) {
+        // No prior tracked sample for the first date
         row.getCell(hColSec3).value = 0;
         row.getCell(bColSec3).value = 0;
       } else {
-        const hCol2back = colLetter(SEC2_START + (d - 2) * 2);     // H 2 dates back
-        const bCol2back = colLetter(SEC2_START + (d - 2) * 2 + 1); // B 2 dates back
+        // Prior tracked sample (d-1) is 2 calendar days back under the every-2-days cadence
+        const hCol2back = colLetter(SEC2_START + (d - 1) * 2);     // H 1 date back
+        const bCol2back = colLetter(SEC2_START + (d - 1) * 2 + 1); // B 1 date back
         row.getCell(hColSec3).value = { formula: `IF(AND(${hColSec2}${r}>0,${hCol2back}${r}>0),1,0)` };
         row.getCell(bColSec3).value = { formula: `IF(AND(${bColSec2}${r}>0,${bCol2back}${r}>0),1,0)` };
       }
@@ -237,15 +238,15 @@ async function run() {
       const hColSec4 = SEC4_START + d * 2;
       const bColSec4 = SEC4_START + d * 2 + 1;
 
-      if (d < 2) {
-        // No 2-day lookback available
+      if (d < 1) {
+        // No prior tracked sample for the first date
         row.getCell(hColSec4).value = 0;
         row.getCell(bColSec4).value = 0;
       } else {
         const hCurr = colLetter(SEC2_START + d * 2);
         const bCurr = colLetter(SEC2_START + d * 2 + 1);
-        const h2back = colLetter(SEC2_START + (d - 2) * 2);
-        const b2back = colLetter(SEC2_START + (d - 2) * 2 + 1);
+        const h2back = colLetter(SEC2_START + (d - 1) * 2);
+        const b2back = colLetter(SEC2_START + (d - 1) * 2 + 1);
         const hFlag = colLetter(SEC3_START + d * 2);
         const bFlag = colLetter(SEC3_START + d * 2 + 1);
 
@@ -488,9 +489,9 @@ async function run() {
   for (const pair of pairs) {
     const region = countyToRegion(pair.county);
 
-    for (let d = 2; d < dates.length; d++) {
+    for (let d = 1; d < dates.length; d++) {
       const curr = viewMap.get(`${pair.id}_${dates[d]}`);
-      const back = viewMap.get(`${pair.id}_${dates[d - 2]}`);
+      const back = viewMap.get(`${pair.id}_${dates[d - 1]}`);
       if (!curr || !back) continue;
       if (curr.hemnet_views == null || curr.booli_views == null) continue;
       if (back.hemnet_views == null || back.booli_views == null) continue;
@@ -526,13 +527,13 @@ async function run() {
     Skane: 'Skane', Olland: 'Olland (350k pop County)',
   };
 
-  // Date labels for x-axis (only dates with possible data, i.e. d >= 2)
-  const chartDates = dates.slice(2);
+  // Date labels for x-axis (only dates with possible data, i.e. d >= 1)
+  const chartDates = dates.slice(1);
   const chartLabels = chartDates.map(d => d.slice(5)); // MM-DD
 
   function buildSeries(regionKey, valueExtractor, minSample = 3) {
     return chartDates.map((_, i) => {
-      const di = i + 2; // index into dates array
+      const di = i + 1; // index into dates array
       const data = regionDateData[regionKey][di];
       if (!data) return null;
       const vals = valueExtractor(data);
@@ -572,7 +573,7 @@ async function run() {
   for (const r of chartRegions) {
     ratioSeries[r] = buildSeries(r, d => d.ratioVals);
     hPctSeries[r] = chartDates.map((_, i) => {
-      const di = i + 2;
+      const di = i + 1;
       const dd = regionDateData[r][di];
       if (!dd) return null;
       const pctVals = [];
@@ -591,7 +592,7 @@ async function run() {
   const hPctTotalSeries = {};
   for (const r of chartRegions) {
     hPctTotalSeries[r] = chartDates.map((_, i) => {
-      const di = i + 2;
+      const di = i + 1;
       const dd = regionDateData[r][di];
       if (!dd || dd.hVals.length < 3) return null;
       const sumH = dd.hVals.reduce((a, b) => a + b, 0);
