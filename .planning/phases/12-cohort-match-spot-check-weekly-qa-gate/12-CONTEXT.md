@@ -39,8 +39,10 @@ escalation — built on the **already-existing** spot-check tools (do not rebuil
 - Run under `cron-wrapper.js` so it logs to `cron_job_log` like the other scheduled jobs.
 
 ### Sampling (Layer 1) — already implemented in `cohort-spotcheck.js`
-- 5–10% sample **stratified by county**, deterministic via seeded md5 ordering (same seed → same
-  sample; seed defaults to `cohort_id`). Default **8%**, min **2 per county**.
+- Sample **stratified by county**, deterministic via seeded md5 ordering (same seed → same
+  sample; seed defaults to `cohort_id`). Weekly default **20%** (decided 2026-06-10 — see
+  Sampling rate decision below), min **2 per county**. The underlying tool supports any rate
+  via `--rate`.
 
 ### Field test (Layer 2) — already implemented in `lib/spotcheck-evidence.js` + `cohort-spotcheck.js`
 - Re-fetch each Hemnet listing **live** (`lib/hemnet-fetch.js fetchDetail`) for current asking
@@ -74,8 +76,20 @@ escalation — built on the **already-existing** spot-check tools (do not rebuil
 - Log the run to `cron_job_log` via `cron-wrapper.js`; retain the per-cohort artifact directory.
 
 ### Locked parameters
-- Sample rate **8%**; county stratification on; price-agreement tolerance **≤ 5%**; area
-  boarea-tolerance **~7–12%**; escalation threshold **> 5%** confirmed false-match rate.
+- Sample rate **20%** (weekly); county stratification on; price-agreement tolerance **≤ 5%**;
+  area boarea-tolerance **~7–12%**; escalation threshold **> 5%** confirmed false-match rate.
+
+### Sampling rate decision (2026-06-10)
+Chose **20% weekly** (≈285 of ~1,400 pairs) over the original 8%. Rationale: at 8% the 95% Wilson
+CI on the observed ~1.8% rate runs 0.5–6.3% — its upper bound sits *above* the 5% escalation
+threshold, so the gate cannot certify "under 5%". 20% pulls the CI upper bound below 5%, making
+the gate statistically meaningful. **Cost is not a constraint:** live Oxylabs usage (queried
+2026-06-10) is ~52k Web Scraper calls/week against a ~264k/month plan (~76–85% utilized, ~55k
+spare/month); the gate at 20% adds ~3.1k calls/month ≈ **+1.2% of plan** (vs ~0.5% at 8% — a
+sub-1pp difference). Weekly cadence is a firm requirement (a monthly deep-sample does not help —
+each new cohort must be checked the week it is created). Weekly **census rejected** (~+6% plan,
+~29% of spare headroom, sqrt-law diminishing returns). Rate stays overridable via `--rate`; the
+first wet-run's self-reported `oxylabs.callCount` will replace the ~2.5-calls/pair estimate.
 
 ### Reuse (do not rebuild)
 - `cohort-spotcheck.js`, `lib/spotcheck-evidence.js` (`--smoke` 30 tests), `spotcheck-photos.js`,
