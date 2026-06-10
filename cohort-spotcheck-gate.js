@@ -5,7 +5,7 @@
 //   1. Resolve latest cohort
 //   2. Run cohort-spotcheck.js (field evidence) as a child process
 //   3. Run spotcheck-photos.js (photo galleries) as a child process
-//   4. Adjudicate pairs (Mode A — deterministic, no Anthropic API)
+//   4. Adjudicate pairs (Mode A — deterministic, or Mode B — Claude vision)
 //   5. Compute summary + Wilson 95% CI
 //   6. Write VERDICTS-<cohort>.json + SUMMARY-<cohort>.md
 //   7. Return result_summary to cron-wrapper (logged to cron_job_log)
@@ -14,7 +14,10 @@
 // threshold (default 5%) OR fetchFailures > 0. cron-wrapper fires SLACK_WEBHOOK_URL
 // automatically — NO custom Slack sender needed here.
 //
-// Mode B (Claude vision) is stubbed as --mode-b; Plan 12-03 implements it.
+// Mode B (Claude vision): enabled via --mode-b AND ANTHROPIC_API_KEY set.
+//   - Vision is called ONLY for suspect/low-signal pairs (cost gate).
+//   - When --mode-b is absent OR ANTHROPIC_API_KEY is unset, falls back to Mode A.
+//   - lib/spotcheck-vision.js provides adjudicateWithVision.
 //
 // Usage:
 //   node cohort-spotcheck-gate.js [--cohort <id>] [--rate <f>] [--threshold <f>]
@@ -38,7 +41,7 @@ const { computeSummary, renderSlackAlert, renderSummaryMd } = require('./lib/spo
 // --threshold <f>    — escalation threshold; default 0.05 (5%)
 // --conc <n>         — concurrency for child tools; default 5
 // --max <n>          — gallery photo cap per pair; default 6
-// --mode-b           — (stub, Plan 12-03) enable Claude vision adjudication
+// --mode-b           — enable Claude vision adjudication (requires ANTHROPIC_API_KEY)
 // ---------------------------------------------------------------
 function parseArgs(argv) {
   const a = { rate: 0.20, threshold: 0.05, conc: 5, max: 6, modeB: false };
@@ -49,7 +52,7 @@ function parseArgs(argv) {
     else if (t === '--threshold') a.threshold = parseFloat(argv[++i]);
     else if (t === '--conc') a.conc = Math.max(1, parseInt(argv[++i], 10) || 5);
     else if (t === '--max') a.max = Math.max(1, parseInt(argv[++i], 10) || 6);
-    else if (t === '--mode-b') a.modeB = true;
+    else if (t === '--mode-b') a.modeB = true;  // enables Claude vision (requires ANTHROPIC_API_KEY)
   }
   if (!Number.isFinite(a.rate) || a.rate <= 0 || a.rate > 1) a.rate = 0.20;
   if (!Number.isFinite(a.threshold) || a.threshold <= 0 || a.threshold > 1) a.threshold = 0.05;
@@ -157,9 +160,33 @@ async function main(client, log) {
   }
   log('INFO', `Fetch failures: ${fetchFailures}`);
 
-  // 7. Adjudicate pairs — Mode A (no vision results).
-  const verdicts = adjudicatePairs(artifact.pairs || [], {});
-  log('INFO', `Adjudicated ${verdicts.length} pairs`);
+  // 7. Adjudicate pairs — Mode A (deterministic) or Mode B (Claude vision).
+  //    Mode B is engaged ONLY when --mode-b is passed AND ANTHROPIC_API_KEY is set.
+  //    Without either, the gate runs Mode A unchanged (graceful fallback).
+  //
+  //    COST GATE (T-12-11): vision is called only for pairs the deterministic triage
+  //    flagged as needing it (provisional === 'suspect' or 'low-signal').
+  //    likely-match pairs with price+photos already resolved are NEVER sent to the API.
+  let visionResults = undefined;
+  let adjudicationMode = 'mode-a-human';
+  if (args.modeB && process.env.ANTHROPIC_API_KEY) {
+    const { adjudicateWithVision } = require('./lib/spotcheck-vision');
+    adjudicationMode = 'mode-b-vision';
+    visionResults = {};
+    // COST GATE: only pairs the deterministic triage flagged need the model.
+    const needVision = (artifact.pairs || []).filter(
+      (p) => p.provisional === 'suspect' || p.provisional === 'low-signal'
+    );
+    log('INFO', `mode-b: ${needVision.length} pair(s) need vision (of ${(artifact.pairs || []).length})`);
+    for (const p of needVision) {
+      const vr = await adjudicateWithVision(p, { artifactDir });
+      if (vr) visionResults[p.pair_id] = vr;
+    }
+  } else if (args.modeB) {
+    log('WARN', 'mode-b requested but ANTHROPIC_API_KEY not set — falling back to Mode A');
+  }
+  const verdicts = adjudicatePairs(artifact.pairs || [], { visionResults });
+  log('INFO', `Adjudicated ${verdicts.length} pairs (${adjudicationMode})`);
 
   // 8. Compute summary (rate + Wilson CI + by-county + mismatch list).
   const summary = computeSummary(verdicts);
@@ -174,7 +201,7 @@ async function main(client, log) {
     JSON.stringify(
       {
         cohortId,
-        adjudicationMode: 'mode-a-human',
+        adjudicationMode,
         generated_at: generatedAt,
         summary,
         pairs: verdicts,
@@ -204,7 +231,7 @@ async function main(client, log) {
     wilsonHi: summary.wilsonHi,
     fetchFailures,
     artifactDir,
-    adjudicationMode: 'mode-a-human',
+    adjudicationMode,
     threshold: ESCALATION_THRESHOLD,
     slackMsg,
     skipped: false,
