@@ -190,6 +190,18 @@ Plans:
 | 10. Self-hosted scraper hardening | v2.1 | 3/5 | In Progress | - |
 | 11. Daily market-totals capture + minimal report | v2.2 | 3/3 shipped | Live since 2026-05-28; 7-day soak running | - |
 
+### Phase 12: Cohort match spot-check weekly QA gate
+
+**Goal:** Turn the validated manual cohort match spot-check into a weekly automated quality gate that runs after `cohort-create` succeeds: sample each new cohort, adjudicate sampled Booli↔Hemnet pairs to a verdict (CONFIRMED MATCH / CONFIRMED MISMATCH / UNCERTAIN), compute the confirmed false-match rate with a Wilson CI by county, log to `cron_job_log`, and escalate via Slack on a high rate (>5%) or fetch failure. Orchestrates the already-built spot-check tools; the matcher fix (PRD §9) is deferred.
+**Requirements**: derived from `.planning/phases/12-.../12-CONTEXT.md` decisions + COHORT-SPOTCHECK.md §7 success criteria (no REQUIREMENTS.md)
+**Depends on:** Phase 11
+**Plans:** 3 plans (Wave 1: pure adjudicate+summary libs · Wave 2: cron-wrapped orchestrator, Mode A · Wave 3: Mode B Claude-vision adjudicator)
+
+Plans:
+- [ ] 12-01-PLAN.md — `lib/spotcheck-adjudicate.js` (mode-agnostic verdict logic) + `lib/spotcheck-summary.js` (Wilson CI + by-county + mismatch list + Slack/MD render); both pure, --smoke green
+- [ ] 12-02-PLAN.md — `cohort-spotcheck-gate.js` orchestrator under `cron-wrapper.runJob` (resolves latest cohort, drives cohort-spotcheck.js + spotcheck-photos.js, adjudicates Mode A, writes VERDICTS + SUMMARY, escalates via validate()) + crontab/runbook entry
+- [ ] 12-03-PLAN.md — Mode B: `lib/spotcheck-vision.js` Claude-vision adjudicator (gated behind triage) + `@anthropic-ai/sdk` install + `ANTHROPIC_API_KEY` + `--mode-b` gate wiring with Mode A fallback
+
 ---
 
 *Backfilled from commit history on 2026-05-14. Phases 1–5 collapsed to summary; Phases 6–8 reconstructed from commit subjects. No PLAN.md files exist in `.planning/phases/` for backfilled phases — only the implementations + verf logs remain. Future phases (9+) follow the full GSD workflow.*
