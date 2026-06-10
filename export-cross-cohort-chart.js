@@ -5,6 +5,11 @@ const glob = require('glob');
 
 const SEC2_START = 8; // Column where cumulative views begin (col H)
 const SKIP_COHORTS = ['2026-W09', '2026-W10', '2026-W11']; // low data quality
+// Earliest cohort to chart. Cohorts before this are excluded because the
+// scraper break corrupted their view data. Cohort IDs are zero-padded
+// (2026-W20 < 2026-W21), so a string compare sorts them correctly.
+// Override per-run with --min-cohort YYYY-Www.
+const MIN_COHORT = '2026-W20';
 
 const REGIONS = ['Total', 'Stockholm', 'Gotenberg', 'Skane', 'Olland'];
 const REGION_LABELS = {
@@ -222,8 +227,10 @@ async function run() {
   // Determine export date directory
   const args = process.argv.slice(2);
   let exportDate = new Date().toISOString().slice(0, 10);
+  let minCohort = MIN_COHORT;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--date' && args[i + 1]) exportDate = args[i + 1];
+    if (args[i] === '--min-cohort' && args[i + 1]) minCohort = args[i + 1];
   }
 
   const baseDir = path.join(__dirname, 'view-data', exportDate);
@@ -237,7 +244,7 @@ async function run() {
   const pattern = path.join(baseDir, '*', 'hb-ratio-*.xlsx').replace(/\\/g, '/');
   const files = glob.sync(pattern).sort().filter(f => {
     const match = path.basename(f).match(/hb-ratio-([\w-]+)\.xlsx/);
-    return match && !SKIP_COHORTS.includes(match[1]);
+    return match && !SKIP_COHORTS.includes(match[1]) && match[1] >= minCohort;
   });
 
   if (files.length === 0) {
