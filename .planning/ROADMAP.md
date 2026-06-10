@@ -196,14 +196,14 @@ Plans:
 **Requirements**: derived from `.planning/phases/12-.../12-CONTEXT.md` decisions + COHORT-SPOTCHECK.md §7 success criteria (no REQUIREMENTS.md)
 **Depends on:** Phase 11
 **Plans:** 3 plans (Wave 1: pure adjudicate+summary libs · Wave 2: cron-wrapped orchestrator, Mode A · Wave 3: Mode B Claude-vision adjudicator)
-**Progress:** 1/3 plans complete (Wave 1 done 2026-06-10)
+**Progress:** 2/3 plans complete (Wave 1 + Wave 2 done 2026-06-10)
 
 Plans:
 **Wave 1**
 - [x] 12-01-PLAN.md — `lib/spotcheck-adjudicate.js` (mode-agnostic verdict logic) + `lib/spotcheck-summary.js` (Wilson CI + by-county + mismatch list + Slack/MD render); both pure, --smoke green (2026-06-10)
 
-**Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 12-02-PLAN.md — `cohort-spotcheck-gate.js` orchestrator under `cron-wrapper.runJob` (resolves latest cohort, drives cohort-spotcheck.js + spotcheck-photos.js, adjudicates Mode A, writes VERDICTS + SUMMARY, escalates via validate()) + crontab/runbook entry
+**Wave 2**
+- [x] 12-02-PLAN.md — `cohort-spotcheck-gate.js` orchestrator under `cron-wrapper.runJob` (resolves latest cohort, drives cohort-spotcheck.js + spotcheck-photos.js as child processes, adjudicates Mode A, writes VERDICTS + SUMMARY, escalates via validate()) + crontab Mon 06:30 UTC + runbook entry (2026-06-10)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 12-03-PLAN.md — Mode B: `lib/spotcheck-vision.js` Claude-vision adjudicator (gated behind triage) + `@anthropic-ai/sdk` install + `ANTHROPIC_API_KEY` + `--mode-b` gate wiring with Mode A fallback
