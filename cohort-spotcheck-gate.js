@@ -15,7 +15,7 @@
 // automatically — NO custom Slack sender needed here.
 //
 // Mode B (Claude vision): enabled via --mode-b AND ANTHROPIC_API_KEY set.
-//   - Vision is called ONLY for suspect/low-signal pairs (cost gate).
+//   - Vision is called ONLY for `suspect` pairs (cost gate; see WR-01 note in main).
 //   - When --mode-b is absent OR ANTHROPIC_API_KEY is unset, falls back to Mode A.
 //   - lib/spotcheck-vision.js provides adjudicateWithVision.
 //
@@ -55,7 +55,8 @@ function parseArgs(argv) {
     else if (t === '--mode-b') a.modeB = true;  // enables Claude vision (requires ANTHROPIC_API_KEY)
   }
   if (!Number.isFinite(a.rate) || a.rate <= 0 || a.rate > 1) a.rate = 0.20;
-  if (!Number.isFinite(a.threshold) || a.threshold <= 0 || a.threshold > 1) a.threshold = 0.05;
+  // WR-03: allow --threshold 0 ("always escalate", a valid test value); only reject < 0 or > 1.
+  if (!Number.isFinite(a.threshold) || a.threshold < 0 || a.threshold > 1) a.threshold = 0.05;
   return a;
 }
 
@@ -145,7 +146,17 @@ async function main(client, log) {
     throw new Error(`No spotcheck-*.json found in ${artifactDir}`);
   }
   const jsonPath = path.join(artifactDir, jsonFiles[0]);
-  const artifact = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+  // WR-04: a write-interrupted/corrupt artifact would otherwise throw a context-free
+  // SyntaxError. Wrap with the file path and validate the pairs shape we rely on.
+  let artifact;
+  try {
+    artifact = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+  } catch (err) {
+    throw new Error(`Failed to parse spot-check artifact ${jsonPath}: ${err.message}`);
+  }
+  if (!Array.isArray(artifact.pairs)) {
+    throw new Error(`Spot-check artifact ${jsonPath} has no pairs[] array`);
+  }
 
   // 6. Count fetch failures: pairs where Hemnet re-fetch failed.
   //    The meta.hemnet.error counter is the authoritative source; fall back to
@@ -164,20 +175,26 @@ async function main(client, log) {
   //    Mode B is engaged ONLY when --mode-b is passed AND ANTHROPIC_API_KEY is set.
   //    Without either, the gate runs Mode A unchanged (graceful fallback).
   //
-  //    COST GATE (T-12-11): vision is called only for pairs the deterministic triage
-  //    flagged as needing it (provisional === 'suspect' or 'low-signal').
-  //    likely-match pairs with price+photos already resolved are NEVER sent to the API.
+  //    COST GATE (T-12-11 / WR-01): vision is called only for `suspect` pairs.
+  //    likely-match pairs are already resolved; low-signal pairs can only ever be
+  //    UNCERTAIN (Booli fields null → price never agrees) — neither is sent to the API.
   let visionResults = undefined;
   let adjudicationMode = 'mode-a-human';
   if (args.modeB && process.env.ANTHROPIC_API_KEY) {
     const { adjudicateWithVision } = require('./lib/spotcheck-vision');
     adjudicationMode = 'mode-b-vision';
     visionResults = {};
-    // COST GATE: only pairs the deterministic triage flagged need the model.
+    // WR-02: log the resolved model so a future deprecation is visible in cron logs
+    // (a deprecated id makes vision return null → silent Mode-A degradation otherwise).
+    log('INFO', `mode-b model: ${process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6 (default)'}`);
+    // COST GATE (WR-01): only `suspect` pairs can change verdict via vision.
+    // `low-signal` means Booli fields are null → priceAgrees is always false →
+    // adjudicatePair can only ever return UNCERTAIN for them even with a shared
+    // photo, so sending them to the API burns tokens for no actionable result.
     const needVision = (artifact.pairs || []).filter(
-      (p) => p.provisional === 'suspect' || p.provisional === 'low-signal'
+      (p) => p.provisional === 'suspect'
     );
-    log('INFO', `mode-b: ${needVision.length} pair(s) need vision (of ${(artifact.pairs || []).length})`);
+    log('INFO', `mode-b: ${needVision.length} suspect pair(s) need vision (of ${(artifact.pairs || []).length})`);
     for (const p of needVision) {
       const vr = await adjudicateWithVision(p, { artifactDir });
       if (vr) visionResults[p.pair_id] = vr;
