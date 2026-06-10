@@ -43,6 +43,14 @@ All times are UTC. Schedule respects:
 ```cron
 # === v1.0 preserved jobs (D-08) — invocation pattern corrected per the runJob-direct-require contract above ===
 0 6 * * 1   cd /opt/hemnet-cohort-tracker && node cohort-create.js              >> /var/log/hemnet/cohort-create.log 2>&1
+
+# === Phase 12 — Weekly cohort spot-check QA gate (Mon 06:30 UTC, immediately after cohort-create) ===
+# Runs 30 min after cohort-create to let cohort-create finish. Samples the new cohort, adjudicates
+# Booli↔Hemnet pair quality (Mode A — deterministic, no Anthropic API), computes the confirmed
+# false-match rate + Wilson 95% CI by county, writes VERDICTS + SUMMARY artifacts, and logs to
+# cron_job_log. Escalates to Slack if rate > 5% OR if any Hemnet fetch failed.
+30 6 * * 1  cd /opt/hemnet-cohort-tracker && node cohort-spotcheck-gate.js     >> /var/log/hemnet/spotcheck-gate.log 2>&1
+
 0 8 * * *   cd /opt/hemnet-cohort-tracker && node sfpl-region-snapshot.js       >> /var/log/hemnet/sfpl.log 2>&1
 
 # === Phase 9 weekly slots (D-08) ===
@@ -181,6 +189,31 @@ Job-specific failure modes:
 - **cohort-track.js (Cohort track) status=warning '>50% null Booli/Hemnet'** — one or more cohorts have >50% null view counts. This is the canary for upstream feed health. If the newest cohort is affected, Booli view data or Hemnet view data likely failed within the last 2-day cycle — check the `### Detect` section above. With the D-11 streak threshold halved to 5, sustained inactivity will mark pairs as dropped after ~10 calendar days (5 runs × every-2-days). Backlogged warnings from 2026-05-17+ should self-clear over 2-3 cycles after the first 14:00 UTC */2 Booli view-data fire (09-03 #4 carry-forward).
 
 - **cohort-create.js, sfpl-region-snapshot.js** — predate Phase 9; runbook for these lives in their v1.0 docs.
+
+- **cohort-spotcheck-gate.js (Phase 12 spot-check QA gate) status=warning 'confirmed false-match rate X.X% ...'** — `validate()` fired because the confirmed false-match rate exceeded the 5% threshold OR Hemnet fetch failures were detected. The gate samples the latest cohort (default 20%), adjudicates every sampled Booli↔Hemnet pair using the deterministic Mode A rule (price agrees + photos + likely-match → CONFIRMED_MATCH; no Anthropic API required), and computes the confirmed false-match rate with 95% Wilson CI broken down by county. Current adjudication mode is **Mode A (deterministic)**; Mode B (Claude vision for uncertain pairs) is added in Plan 12-03 via `--mode-b`.
+
+  **Detect:** Slack channel `Hemnet Status` — `[WARNING] cohort-spotcheck-gate: confirmed false-match rate X.X% ...` or `[WARNING] cohort-spotcheck-gate: N fetch failure(s)...`. Also visible in `cron_job_log` (`node scripts/verify-cron-job-log.js`) and `/var/log/hemnet/spotcheck-gate.log`.
+
+  **Artifacts:** `verf-spotcheck-<cohort>-<ts>/VERDICTS-<cohort>.json` (adjudication output with per-pair verdicts + summary stats) and `verf-spotcheck-<cohort>-<ts>/SUMMARY-<cohort>.md` (markdown with rate table, by-county breakdown, mismatch list). The artifact dir is created by the `cohort-spotcheck.js` child process and reused — the gate does NOT create a new dir.
+
+  **Re-run manually:**
+  ```bash
+  # Re-run for the latest cohort (same as cron):
+  node cohort-spotcheck-gate.js
+
+  # Re-run for a specific cohort (e.g. after a failed run):
+  node cohort-spotcheck-gate.js --cohort 2026-W23
+
+  # Re-run with a lower sample rate (faster, fewer Oxylabs calls):
+  node cohort-spotcheck-gate.js --cohort 2026-W23 --rate 0.10
+
+  # Re-run with a custom escalation threshold (e.g. 10%):
+  node cohort-spotcheck-gate.js --cohort 2026-W23 --threshold 0.10
+  ```
+
+  **Triage fetch failures:** Grep the artifact JSON: `cat verf-spotcheck-<cohort>-<ts>/spotcheck-<cohort>.json | node -e "const a=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')); console.log(a.meta.hemnet);"`. If `error > 0`, Oxylabs or direct Hemnet fetch is degraded — check `lib/scrape-http.js` + Oxylabs creds.
+
+  **Triage high false-match rate:** Open `VERDICTS-<cohort>.json` and review the `pairs` array. Mismatches have `verdict: 'CONFIRMED_MISMATCH'`. Check `deltas.price_pct_diff` and `deltas.area_pct_diff` — a cluster of mismatches in one county suggests a matching-logic drift (multi-unit address aliasing, address normalisation change). Reference `COHORT-SPOTCHECK.md §4` for root-cause framework.
 
 ### Re-run
 
