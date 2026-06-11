@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Self-hosted scraper hardening
-status: Milestone complete
-stopped_at: Phase 13 Plan 06 complete — go-live confirmed on droplet (migration ran, both crons installed, SLACK_ALLOWED_REACTORS=U01KC1QT2BB, Slack full loop verified)
-last_updated: "2026-06-11T05:58:45.917Z"
+status: Ready to execute
+stopped_at: "Re-plan 2026-06-11 — spot-check stream re-cut into Phases 13.1 / 13.2 / 14 in ROADMAP.md from the 7 pending todos (operator decisions: spot-check stream before Phase 10 remainder; UNCERTAIN pairs as individual Slack messages; D-11 reversed to soft-delete; Phase 14 vision routing sized by N=200+ probe first; EXECUTION ORDER SWAPPED to 14 → 13.1 → 13.2 — verdict trust before loop actionability)"
+last_updated: "2026-06-11T11:20:56.832Z"
 progress:
   total_phases: 5
   completed_phases: 0
@@ -31,8 +31,8 @@ progress:
 
 ### Last Session
 
-Stopped at: Phase 13 Plan 06 complete — go-live confirmed on droplet (migration ran, both crons installed, SLACK_ALLOWED_REACTORS=U01KC1QT2BB, Slack full loop verified)
-Resume: Phase 13 complete — awaiting phase verification
+Stopped at: Re-plan 2026-06-11 — spot-check stream re-cut into Phases 13.1 / 13.2 / 14 in ROADMAP.md from the 7 pending todos (operator decisions: spot-check stream before Phase 10 remainder; UNCERTAIN pairs as individual Slack messages; D-11 reversed to soft-delete; Phase 14 vision routing sized by N=200+ probe first; EXECUTION ORDER SWAPPED to 14 → 13.1 → 13.2 — verdict trust before loop actionability)
+Resume: Plan Phase 14 (gsd-plan-phase) — first plan is the N=200+ sizing/trust probe; interim Slack rule (no digest reactions, no ✅-removal trust) stands until 13.1
 
 ### Decisions (Phase 13)
 
