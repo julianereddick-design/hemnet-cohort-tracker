@@ -3,13 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Self-hosted scraper hardening
 status: Phase 12 complete (3/3 plans)
-last_updated: "2026-06-10T07:37:00.000Z"
+stopped_at: Phase 12, Plan 03 complete (2026-06-10)
+last_updated: "2026-06-11T00:45:19.483Z"
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 9
-  completed_plans: 9
-  percent: 100
+  completed_plans: 7
+  percent: 78
 ---
 
 ## Accumulated Context
