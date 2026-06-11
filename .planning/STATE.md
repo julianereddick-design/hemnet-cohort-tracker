@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Self-hosted scraper hardening
 status: In progress
-stopped_at: Phase 13, Plan 03 complete
+stopped_at: Phase 13, Plan 04 complete
 last_updated: "2026-06-11T12:00:00.000Z"
 progress:
   total_phases: 5
@@ -31,8 +31,8 @@ progress:
 
 ### Last Session
 
-Stopped at: Phase 13 Plan 03 complete — Slack bot-token I/O lib + operator runbook (lib/spotcheck-slack-bot.js + SLACK-REVIEW-SETUP.md)
-Resume: Phase 13, Plan 04
+Stopped at: Phase 13 Plan 04 complete — gate extended with dHash step + advisory vision logging + D-13 ISO-week guard + Slack review-queue post (cohort-spotcheck-gate.js)
+Resume: Phase 13, Plan 05
 
 ### Decisions (Phase 13)
 
@@ -46,3 +46,7 @@ Resume: Phase 13, Plan 04
 - 13-03: parseReactions extracted as pure helper for offline smoke — all 3 exports return null without throwing when SLACK_BOT_TOKEN absent (T-13-08)
 - 13-03: Booli URLs use /annons/<booli_id> per COHORT-SPOTCHECK.md §4; SLACK_WEBHOOK_URL not referenced in new module (strict separation from Phase 12 alert path)
 - 13-03: SLACK-REVIEW-SETUP.md runbook authored autonomously; Slack app creation deferred to operator at deploy time (Plan 06)
+- 13-04: D-13 guard only on auto-resolved cohortId; --cohort operator override bypasses it
+- 13-04: dHash threshold 6 not raised; only UNCERTAIN promoted to CONFIRMED_MATCH; CONFIRMED_MISMATCH never overridden (asymmetric rule)
+- 13-04: vision advisory log placed before adjudicatePairs so p.vision is available for Slack post visionVerdict mapping
+- 13-04: Slack review post non-fatal — null from postDigest/postReview skips upsert; VERDICTS still written on Slack outage
