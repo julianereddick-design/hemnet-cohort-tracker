@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Self-hosted scraper hardening
 status: In progress
-stopped_at: Phase 13, Plan 04 complete
-last_updated: "2026-06-11T12:00:00.000Z"
+stopped_at: Phase 13, Plan 05 complete
+last_updated: "2026-06-11T04:30:00.000Z"
 progress:
   total_phases: 5
   completed_phases: 0
@@ -31,8 +31,8 @@ progress:
 
 ### Last Session
 
-Stopped at: Phase 13 Plan 04 complete — gate extended with dHash step + advisory vision logging + D-13 ISO-week guard + Slack review-queue post (cohort-spotcheck-gate.js)
-Resume: Phase 13, Plan 05
+Stopped at: Phase 13 Plan 05 complete — spotcheck-reaction-poller.js built (pure resolveReaction + authorization gate + daily runJob poller)
+Resume: Phase 13, Plan 06
 
 ### Decisions (Phase 13)
 
@@ -50,3 +50,7 @@ Resume: Phase 13, Plan 05
 - 13-04: dHash threshold 6 not raised; only UNCERTAIN promoted to CONFIRMED_MATCH; CONFIRMED_MISMATCH never overridden (asymmetric rule)
 - 13-04: vision advisory log placed before adjudicatePairs so p.vision is available for Slack post visionVerdict mapping
 - 13-04: Slack review post non-fatal — null from postDigest/postReview skips upsert; VERDICTS still written on Slack outage
+- 13-05: resolveReaction is pure (no I/O) — security-critical verdict logic isolated from network for offline unit testing
+- 13-05: SLACK_ALLOWED_REACTORS empty/undefined → all reactors allowed (documented fallback; operator runbook instructs setting it before trusting auto-removal)
+- 13-05: Contested message (allowed ✅ AND ❌) → action:none+conflict:true — never auto-delete on disagreement (T-13-12 tie-break)
+- 13-05: runJob guarded behind !--smoke so the offline smoke path never connects to DB
