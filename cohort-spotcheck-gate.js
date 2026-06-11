@@ -254,6 +254,17 @@ async function main(client, log) {
   } else if (args.modeB) {
     log('WARN', 'mode-b requested but ANTHROPIC_API_KEY not set — falling back to Mode A');
   }
+
+  // D-06: log vision's advisory verdict per pair so vision-vs-human agreement is measurable
+  // over 4-6 weeks before we ever let vision auto-apply. Vision NEVER deletes a pair here.
+  for (const p of (artifact.pairs || [])) {
+    const vr = visionResults && visionResults[p.pair_id];
+    if (vr) {
+      p.vision = { sharedPhoto: vr.sharedPhoto, confidence: vr.confidence, reasoning: vr.reasoning };
+      log('INFO', `vision (advisory) pair ${p.pair_id}: sharedPhoto=${vr.sharedPhoto} conf=${vr.confidence}`);
+    }
+  }
+
   const verdicts = adjudicatePairs(artifact.pairs || [], { visionResults });
 
   // D-02: a dHash shared-image hit confirms a MATCH. Promote UNCERTAIN -> CONFIRMED_MATCH only.
@@ -296,6 +307,39 @@ async function main(client, log) {
   fs.writeFileSync(summaryMdPath, renderSummaryMd(summary, cohortId));
 
   log('INFO', `Wrote:\n  ${verdictsPath}\n  ${summaryMdPath}`);
+
+  // 9b. Slack review queue (D-07): weekly digest of UNCERTAIN pairs + one message per CONFIRMED_MISMATCH.
+  //     Each posted message ref is persisted (channel, ts, pair_id, cohort, vision verdict) so the
+  //     daily poller (spotcheck-reaction-poller.js) can read reactions and apply human verdicts.
+  const botToken = process.env.SLACK_BOT_TOKEN;
+  const reviewChannel = process.env.SLACK_REVIEW_CHANNEL;
+  if (botToken && reviewChannel) {
+    const uncertainPairs = verdicts.filter(v => v.verdict === 'UNCERTAIN');
+    const mismatchPairs  = verdicts.filter(v => v.verdict === 'CONFIRMED_MISMATCH');
+
+    if (uncertainPairs.length > 0) {
+      const res = await postDigestMessage(reviewChannel, uncertainPairs);
+      if (res && res.ts) {
+        for (const p of uncertainPairs) {
+          await upsertReviewMessage(client, {
+            pairId: p.pair_id, cohortId, channel: reviewChannel, ts: res.ts,
+            visionVerdict: p.vision ? (p.vision.sharedPhoto === false ? 'MISMATCH' : p.vision.sharedPhoto === true ? 'MATCH' : null) : null,
+          });
+        }
+      }
+    }
+    for (const p of mismatchPairs) {
+      const res = await postReviewMessage(reviewChannel, p);
+      if (res && res.ts) {
+        await upsertReviewMessage(client, {
+          pairId: p.pair_id, cohortId, channel: reviewChannel, ts: res.ts, visionVerdict: 'MISMATCH',
+        });
+      }
+    }
+    log('INFO', `review queue: ${uncertainPairs.length} UNCERTAIN (digest) + ${mismatchPairs.length} MISMATCH (individual) posted`);
+  } else {
+    log('INFO', 'review queue: SLACK_BOT_TOKEN/SLACK_REVIEW_CHANNEL not set — skipping Slack post (verdicts still written)');
+  }
 
   // 10. Build escalation message (passed through validate() → cron-wrapper Slack path).
   const slackMsg = renderSlackAlert(summary, cohortId);
