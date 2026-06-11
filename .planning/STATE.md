@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Self-hosted scraper hardening
-status: Ready to execute
-stopped_at: Phase 13 context gathered
-last_updated: "2026-06-11T03:31:16.534Z"
+status: In progress
+stopped_at: Phase 13, Plan 01 complete
+last_updated: "2026-06-11T04:01:00.000Z"
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 9
-  completed_plans: 7
-  percent: 78
+  completed_plans: 8
+  percent: 89
 ---
 
 ## Accumulated Context
@@ -31,5 +31,12 @@ progress:
 
 ### Last Session
 
-Stopped at: Phase 13 context gathered
-Resume: None — Phase 12 fully complete (all 3 plans shipped)
+Stopped at: Phase 13 Plan 01 complete — persistence layer (migrate-spotcheck-phase13.js + lib/spotcheck-review-store.js)
+Resume: Phase 13, Plan 02
+
+### Decisions (Phase 13)
+
+- 13-01: No FK from spotcheck_removed_pairs.pair_id to cohort_pairs.id — source row is deleted, plain INTEGER keeps the audit unblocked
+- 13-01: UNIQUE(pair_id, cohort_id) on spotcheck_review implements D-12 dedup via ON CONFLICT DO NOTHING in upsertReviewMessage
+- 13-01: Review-store exports take caller's pg client as first arg — no module-level DB connection opened (gate + poller pass their runJob client)
+- 13-01: All SQL uses $1,$2,... parameterised placeholders — no string interpolation (T-13-02 SQL injection mitigation confirmed by grep gate)

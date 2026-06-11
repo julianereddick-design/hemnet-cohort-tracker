@@ -218,7 +218,7 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 13-01-PLAN.md — migration (spotcheck_review + spotcheck_removed_pairs) + lib/spotcheck-review-store.js (audited transactional hard-delete) [D-11, D-12]
+- [x] 13-01-PLAN.md — migration (spotcheck_review + spotcheck_removed_pairs) + lib/spotcheck-review-store.js (audited transactional hard-delete) [D-11, D-12] (2026-06-11)
 - [ ] 13-02-PLAN.md — lib/spotcheck-dhash.js (jimp shared-image cross-compare) + mismatch-rule price-guard fix in lib/spotcheck-adjudicate.js [D-02, D-03, D-04]
 - [ ] 13-03-PLAN.md — lib/spotcheck-slack-bot.js (bot-token post + reactions read) + SLACK-REVIEW-SETUP.md runbook [D-07, D-08, D-09]
 
