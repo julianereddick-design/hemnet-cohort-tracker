@@ -227,4 +227,4 @@ Plans:
 - [x] 13-05-PLAN.md — spotcheck-reaction-poller.js daily runJob: read reactions → ✅ audit+remove / ❌ keep / ❓ leave, authorization-gated + dedup [D-08, D-10, D-11, D-12] (2026-06-11)
 
 **Wave 3**
-- [ ] 13-06-PLAN.md — go-live: migration + weekly gate + daily poller crons + env vars + operator runbook in deploy-instructions.md [D-14]
+- [x] 13-06-PLAN.md — go-live: migration + weekly gate + daily poller crons + env vars + operator runbook in deploy-instructions.md [D-14] (2026-06-11)

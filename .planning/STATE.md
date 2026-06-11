@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Self-hosted scraper hardening
 status: In progress
-stopped_at: Phase 13, Plan 05 complete
-last_updated: "2026-06-11T04:30:00.000Z"
+stopped_at: Phase 13 Plan 06 complete — Phase 13 go-live confirmed on droplet (migration ran, both crons installed, Slack loop verified)
+last_updated: "2026-06-11T06:30:00.000Z"
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 9
-  completed_plans: 9
-  percent: 100
+  completed_plans: 8
+  percent: 89
 ---
 
 ## Accumulated Context
@@ -31,8 +31,8 @@ progress:
 
 ### Last Session
 
-Stopped at: Phase 13 Plan 05 complete — spotcheck-reaction-poller.js built (pure resolveReaction + authorization gate + daily runJob poller)
-Resume: Phase 13, Plan 06
+Stopped at: Phase 13 Plan 06 complete — go-live confirmed on droplet (migration ran, both crons installed, SLACK_ALLOWED_REACTORS=U01KC1QT2BB, Slack full loop verified)
+Resume: Phase 13 complete — awaiting phase verification
 
 ### Decisions (Phase 13)
 
@@ -54,3 +54,6 @@ Resume: Phase 13, Plan 06
 - 13-05: SLACK_ALLOWED_REACTORS empty/undefined → all reactors allowed (documented fallback; operator runbook instructs setting it before trusting auto-removal)
 - 13-05: Contested message (allowed ✅ AND ❌) → action:none+conflict:true — never auto-delete on disagreement (T-13-12 tie-break)
 - 13-05: runJob guarded behind !--smoke so the offline smoke path never connects to DB
+- 13-06: Phase 12 weekly gate cron first-installed during this deploy (was documented in Phase 12 but never actually active on droplet until D-14 go-live)
+- 13-06: SLACK_ALLOWED_REACTORS=U01KC1QT2BB set at go-live; poller all-reactors fallback documented as first-run only (T-13-20 mitigated)
+- 13-06: SLACK_WEBHOOK_URL (Phase 12 threshold alerts) kept strictly separate from SLACK_BOT_TOKEN (review queue bot) — two distinct Slack paths, never conflated
