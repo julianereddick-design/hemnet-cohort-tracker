@@ -18,3 +18,6 @@ A `miss` today conflates two very different situations and risks turning review 
 **Where:** the fetch layer in `cohort-spotcheck.js` (the part that sets hemnet/booli status) needs to emit a richer status enum, and `cohort-spotcheck-gate.js` review-posting + dHash gating must branch on it. Pairs surviving as transient-error should roll forward to the next run rather than silently resolving.
 
 Companion to [[review-queue-require-both-listings-exist]] — that one filters the queue; this one makes sure filtering doesn't hide real misses.
+
+---
+**PARTIALLY RESOLVED 2026-06-12 (Phase 14.1):** the richer status enum now exists — `spotcheck-photos.js` stamps `page_status = { hemnet, booli }` with 'active' | 'delisted' (probe-calibrated classifiers in `lib/spotcheck-photos.js`) | 'error' (transport throw), and the gate diverts ONLY 'delisted' pairs from the review queue; 'error' pairs stay reviewable (never silently dropped). **Still open:** transient-error retry/short-backoff and roll-forward to the next run, plus a persistent-fetch-failure visibility count. Until then a transient-error pair is reviewable noise rather than a silent miss — safe but unrefined.

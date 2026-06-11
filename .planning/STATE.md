@@ -45,6 +45,13 @@ Resume: Phase 13.1 next (soft-delete removal + individual UNCERTAIN messages —
 - 14: stale-cohort guard fixed — expects the just-ended listing week (cohort ids label the LISTING week); old guard would have false-alarmed every scheduled Monday
 - 14: hemnet_url cross-link on Booli does NOT exist (spike 0/3) — Hemnet-match-cohort optimization path #1 dead
 
+### Decisions (Phase 14.1 follow-up, 2026-06-12)
+
+- 14.1: Delisted-page classification — removed listings return HTTP 200 tombstones; classify by Apollo listing-node typename FIRST (Hemnet: ≠ActivePropertyListing → delisted; Booli: no Listing: node → delisted), og:image/text only as fallback, so a live ad mentioning "borttagen" can't false-positive. page_status = {hemnet, booli} ∈ active|delisted|error stamped per pair at fetch time
+- 14.1: Review-queue partition — UNCERTAIN with either side delisted is unreviewable: ONE digest summary line, NO spotcheck_review rows; 'error' (transient) and legacy no-page_status records STAY reviewable (noise over silent miss); unreviewable count in result_summary
+- 14.1: Slack renderer bug found+fixed — bot read pair.dhash_min_dist/pair.vision_verdict which NEVER existed (gate stores pair.dhash.minDist/pair.vision.sharedPhoto); every Phase-13 message rendered "n/a". Now nested-first with flat fallbacks + verdict_reason line ("why is this pair in front of me")
+- 14.1: Manual spot-check pack (scripts/make-manual-spotcheck.js) — operator eyeball pack from VERDICTS json, 28 pairs across all 7 funnel stages of W23; deltas.*_pct_diff are FRACTIONS (0.25=25%) despite the name
+
 ### Decisions (Phase 13)
 
 - 13-01: No FK from spotcheck_removed_pairs.pair_id to cohort_pairs.id — source row is deleted, plain INTEGER keeps the audit unblocked
