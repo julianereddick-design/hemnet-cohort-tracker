@@ -212,9 +212,19 @@ Plans:
 
 **Goal:** Make the Phase 12 spot-check gate actually catch false matches by (a) adding a deterministic shared-image check (dHash) so pairs that share a photo are auto-confirmed for free, (b) running Claude vision on `suspect` pairs, (c) fixing the adjudication mismatch rule to require price/area divergence (a confirmed-mismatch must not fire on a price-agreeing pair), and (d) routing every remaining UNCERTAIN pair to Slack with both the Hemnet and Booli ad links so a human can adjudicate, then feeding that verdict back into the system — including correcting the cohort dataset when a false pair is confirmed. Also add a current-ISO-week guard so the gate never silently re-checks a stale cohort.
 
-**Requirements**: TBD (see `13-FINDINGS.md` — captures the dHash/vision experiment, the mismatch-rule bug, and the open design forks for discuss-phase)
+**Requirements**: derived from 13-CONTEXT.md decisions D-01..D-14 + COHORT-SPOTCHECK.md §3/§4/§7 (no REQUIREMENTS.md)
 **Depends on:** Phase 12
-**Plans:** 0 plans
+**Plans:** 6 plans (Wave 1: persistence + dHash/adjudicate-fix + Slack-bot libs · Wave 2: gate extension + reaction poller · Wave 3: go-live)
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 13 to break down)
+**Wave 1**
+- [ ] 13-01-PLAN.md — migration (spotcheck_review + spotcheck_removed_pairs) + lib/spotcheck-review-store.js (audited transactional hard-delete) [D-11, D-12]
+- [ ] 13-02-PLAN.md — lib/spotcheck-dhash.js (jimp shared-image cross-compare) + mismatch-rule price-guard fix in lib/spotcheck-adjudicate.js [D-02, D-03, D-04]
+- [ ] 13-03-PLAN.md — lib/spotcheck-slack-bot.js (bot-token post + reactions read) + SLACK-REVIEW-SETUP.md runbook [D-07, D-08, D-09]
+
+**Wave 2**
+- [ ] 13-04-PLAN.md — extend cohort-spotcheck-gate.js: dHash step (≤6 auto-confirm + distance logging) + advisory vision logging + ISO-week guard + Slack review-queue post [D-01, D-02, D-05, D-06, D-07, D-13]
+- [ ] 13-05-PLAN.md — spotcheck-reaction-poller.js daily runJob: read reactions → ✅ audit+remove / ❌ keep / ❓ leave, authorization-gated + dedup [D-08, D-10, D-11, D-12]
+
+**Wave 3**
+- [ ] 13-06-PLAN.md — go-live: migration + weekly gate + daily poller crons + env vars + operator runbook in deploy-instructions.md [D-14]
