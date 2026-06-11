@@ -126,15 +126,19 @@ async function main(client, log) {
     cohortId = r.rows[0].cohort_id;
   }
 
-  // D-13: current-ISO-week guard. cohort-create runs Mon 06:00 UTC, the gate Mon 06:30 UTC; if
-  // this week's cohort isn't created yet, do NOT silently re-check last week's cohort — skip+alert.
+  // D-13: stale-cohort guard. cohort-create runs Mon 06:00 UTC and labels the
+  // cohort with the LISTING week that just ended (week_start = last Monday), so
+  // the freshest cohort's id is ALWAYS the PREVIOUS ISO week — e.g. the gate
+  // running Mon 2026-06-15 (W25) checks the cohort labeled 2026-W24. (Phase 14
+  // fix: the original guard compared against the CURRENT ISO week and would
+  // have false-alarmed + skipped on every scheduled Monday run.)
   // Only guard AUTO-resolution — an explicit --cohort is an operator override and must run.
   if (!args.cohort) {
-    const currentIsoWeek = isoWeekId(new Date());
-    if (cohortId !== currentIsoWeek) {
-      const reason = `resolved cohort ${cohortId} != current ISO week ${currentIsoWeek} — this week's cohort not created yet?`;
+    const expectedIsoWeek = isoWeekId(new Date(Date.now() - 7 * 86400000));
+    if (cohortId !== expectedIsoWeek) {
+      const reason = `resolved cohort ${cohortId} != expected ${expectedIsoWeek} (the listing week that just ended) — this week's cohort-create run missing?`;
       log('WARN', `cohort-spotcheck-gate: ${reason} — skipping`);
-      return { skipped: true, staleCohort: true, reason, cohortId, currentIsoWeek,
+      return { skipped: true, staleCohort: true, reason, cohortId, expectedIsoWeek,
                slackMsg: `[WARNING] cohort-spotcheck-gate skipped: ${reason}` };
     }
   }
