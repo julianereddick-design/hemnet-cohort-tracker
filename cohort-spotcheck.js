@@ -160,6 +160,7 @@ async function main() {
                                    ORDER BY md5(cp.id::text || $2)) AS rn
          FROM cohort_pairs cp
          WHERE cp.cohort_id = $1
+           AND cp.removed_at IS NULL
        )
        SELECT * FROM ranked
        WHERE rn <= GREATEST(2, CEIL(county_total * $3::float8))

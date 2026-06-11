@@ -236,6 +236,7 @@ async function main(client, log) {
     JOIN cohorts c ON c.cohort_id = cp.cohort_id
     WHERE c.week_start >= CURRENT_DATE - INTERVAL '8 weeks'
       AND cp.dropped_hemnet_on IS NULL
+      AND cp.removed_at IS NULL
     ORDER BY cp.hemnet_id
   `);
   let ids = idsRes.rows.map((r) => r.hemnet_id);

@@ -102,6 +102,7 @@ async function run() {
     FROM cohort_daily_views dv
     JOIN cohort_pairs cp ON cp.id = dv.pair_id
     WHERE cp.cohort_id = $1
+      AND cp.removed_at IS NULL
     ORDER BY date
   `, [cohortId]);
   const allDates = datesRes.rows.map(r => r.date);
@@ -122,6 +123,7 @@ async function run() {
     SELECT id, booli_id, hemnet_id, street_address, municipality, county
     FROM cohort_pairs
     WHERE cohort_id = $1
+      AND removed_at IS NULL
     ORDER BY county, municipality, id
   `, [cohortId]);
   const pairs = pairsRes.rows;
@@ -132,6 +134,7 @@ async function run() {
     FROM cohort_daily_views dv
     JOIN cohort_pairs cp ON cp.id = dv.pair_id
     WHERE cp.cohort_id = $1
+      AND cp.removed_at IS NULL
   `, [cohortId]);
 
   // Build viewMap

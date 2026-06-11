@@ -55,6 +55,7 @@ async function main(client, log) {
              cp.booli_listed::text AS booli_listed
       FROM cohort_pairs cp
       WHERE cp.cohort_id = $1
+        AND cp.removed_at IS NULL
     `, [cohort.cohort_id]);
 
     let tracked = 0;

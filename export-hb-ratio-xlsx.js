@@ -54,6 +54,7 @@ async function run() {
            booli_listed::text AS booli_listed
     FROM cohort_pairs
     WHERE cohort_id = $1
+      AND removed_at IS NULL
     ORDER BY county, municipality, id
   `, [cohortId]);
   const pairs = pairsRes.rows;
@@ -65,6 +66,7 @@ async function run() {
     FROM cohort_daily_views dv
     JOIN cohort_pairs cp ON cp.id = dv.pair_id
     WHERE cp.cohort_id = $1
+      AND cp.removed_at IS NULL
   `, [cohortId]);
 
   // Build view lookup: pair_id -> date -> {hemnet_views, booli_views}

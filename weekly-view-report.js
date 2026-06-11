@@ -43,6 +43,7 @@ async function run() {
            COUNT(*) FILTER (WHERE cp.dropped_booli_on IS NULL OR cp.dropped_hemnet_on IS NULL) AS active_pairs
     FROM cohort_pairs cp
     JOIN cohort_daily_views cdv ON cdv.pair_id = cp.id
+    WHERE cp.removed_at IS NULL
     GROUP BY cp.cohort_id
     HAVING COUNT(DISTINCT cdv.date) >= $1
     ORDER BY cp.cohort_id

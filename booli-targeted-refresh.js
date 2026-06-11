@@ -254,6 +254,7 @@ async function main(client, log) {
     JOIN booli_listing bl ON bl.booli_id = cp.booli_id
     WHERE c.week_start >= CURRENT_DATE - INTERVAL '8 weeks'
       AND cp.dropped_booli_on IS NULL
+      AND cp.removed_at IS NULL
     ORDER BY cp.booli_id
   `);
   let pairs = pairsRes.rows;

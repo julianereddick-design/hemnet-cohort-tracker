@@ -3,9 +3,13 @@
 // Daily cron-wrapper.runJob poller that reads emoji reactions on open Slack review
 // messages and applies the human verdict to the spot-check dataset:
 //
-//   ✅ (white_check_mark) → CONFIRMED_MISMATCH: audit + hard-remove pair from cohort_pairs (D-11)
+//   ✅ (white_check_mark) → CONFIRMED_MISMATCH: audit + SOFT-remove pair (cohort_pairs.removed_at; D-11 reversed in 13.1)
 //   ❌ (x)                → OVERRIDE_MATCH:     keep pair + record override
 //   ❓ (question)         → UNCERTAIN:          leave pair, mark adjudicated
+//
+// Phase 13.1/13.2 additions: legacy shared-ts (digest-era) review rows are never
+// acted on (partitionSharedTs guard); open rows unanswered >STALE_REVIEW_DAYS
+// (default 7) escalate to Slack via validate().
 //
 // Implements D-08 (emoji → verdict), D-10 (daily poller as its own runJob),
 // D-11 (audit-first hard-remove on ✅), D-12 (dedup via review store).
@@ -46,6 +50,31 @@ function reactorAllowed(user, allowedReactors) {
 function firstAllowed(reaction, allowedReactors) {
   if (!reaction) return null;
   return (reaction.users || []).find(u => reactorAllowed(u, allowedReactors)) || null;
+}
+
+// partitionSharedTs(rows) — Phase 13.1 guard: any spotcheck_review rows that
+// SHARE one (channel, ts) come from the retired multi-pair digest, where a
+// single reaction would be applied to every pair on that message. Those rows
+// are never acted on automatically — they stay open for manual SQL disposition.
+function partitionSharedTs(rows) {
+  const counts = new Map();
+  for (const r of rows || []) {
+    const k = `${r.channel}|${r.ts}`;
+    counts.set(k, (counts.get(k) || 0) + 1);
+  }
+  const safe = [], shared = [];
+  for (const r of rows || []) {
+    (counts.get(`${r.channel}|${r.ts}`) > 1 ? shared : safe).push(r);
+  }
+  return { safe, shared };
+}
+
+// staleOpenRows(rows, nowMs, days) — Phase 13.2 aging: open review rows older
+// than `days` with still no human verdict. Delisted pairs never get review rows
+// (diverted by the gate since Phase 14.1), so everything here is human-answerable.
+function staleOpenRows(rows, nowMs, days) {
+  const cutoff = nowMs - days * 24 * 60 * 60 * 1000;
+  return (rows || []).filter(r => r.created_at && new Date(r.created_at).getTime() < cutoff);
 }
 
 // resolveReaction(reactions, allowedReactors) — maps emoji reactions to a verdict action.
@@ -199,6 +228,42 @@ if (require.main === module && process.argv.includes('--smoke')) {
     assert.strictEqual(r.action, 'none');
   });
 
+  // 14. partitionSharedTs: digest-era rows (same channel+ts) split out, per-pair rows kept
+  check('partitionSharedTs: shared-ts rows ignored, unique-ts rows safe', () => {
+    const rows = [
+      { pair_id: 1, channel: 'C1', ts: '111.1' },   // digest era —
+      { pair_id: 2, channel: 'C1', ts: '111.1' },   //   same ts → both shared
+      { pair_id: 3, channel: 'C1', ts: '222.2' },   // per-pair → safe
+      { pair_id: 4, channel: 'C2', ts: '111.1' },   // same ts, DIFFERENT channel → safe
+    ];
+    const { safe, shared } = partitionSharedTs(rows);
+    assert.deepStrictEqual(shared.map(r => r.pair_id), [1, 2]);
+    assert.deepStrictEqual(safe.map(r => r.pair_id), [3, 4]);
+  });
+
+  check('partitionSharedTs: empty/null input → empty partitions', () => {
+    assert.deepStrictEqual(partitionSharedTs([]), { safe: [], shared: [] });
+    assert.deepStrictEqual(partitionSharedTs(null), { safe: [], shared: [] });
+  });
+
+  // 15. staleOpenRows: only rows older than the cutoff are stale
+  check('staleOpenRows: >7d old rows flagged, fresh rows not', () => {
+    const now = Date.parse('2026-06-12T12:00:00Z');
+    const rows = [
+      { pair_id: 1, created_at: '2026-06-01T00:00:00Z' },  // 11.5d old → stale
+      { pair_id: 2, created_at: '2026-06-10T00:00:00Z' },  // 2.5d old → fresh
+      { pair_id: 3, created_at: null },                     // no created_at → never stale
+    ];
+    const stale = staleOpenRows(rows, now, 7);
+    assert.deepStrictEqual(stale.map(r => r.pair_id), [1]);
+  });
+
+  check('staleOpenRows: exactly-at-cutoff row is not stale (strict <)', () => {
+    const now = Date.parse('2026-06-12T12:00:00Z');
+    const rows = [{ pair_id: 1, created_at: '2026-06-05T12:00:00Z' }]; // exactly 7d
+    assert.deepStrictEqual(staleOpenRows(rows, now, 7), []);
+  });
+
   console.log(`smoke: ${pass} pass, ${fail} fail`);
   process.exit(fail === 0 ? 0 : 1);
 }
@@ -222,9 +287,19 @@ async function main(client, log) {
   const allowedReactors = (process.env.SLACK_ALLOWED_REACTORS || '')
     .split(',').map(s => s.trim()).filter(Boolean); // empty = allow all (documented fallback)
 
-  const open = await getOpenReviewMessages(client);
+  const allOpen = await getOpenReviewMessages(client);
+
+  // Phase 13.1 guard: rows sharing one (channel, ts) are legacy multi-pair digest
+  // rows — a reaction there is ambiguous (it would hit every pair). Never act on
+  // them; surface the count so the operator can dispose of them via SQL.
+  const { safe: open, shared } = partitionSharedTs(allOpen);
+  if (shared.length > 0) {
+    log('WARN', `reaction-poller: ${shared.length} legacy shared-ts review row(s) ignored (multi-pair digest era) — pairs ${shared.map(m => m.pair_id).join(', ')}`);
+  }
+
   log('INFO', `reaction-poller: ${open.length} open review message(s)`);
   let applied = 0, removed = 0, kept = 0, left = 0, conflicts = 0;
+  const adjudicatedNow = new Set(); // pair_ids resolved this cycle — excluded from the stale count
 
   for (const msg of open) {
     // D-12 dedup: skip if already adjudicated (human_verdict IS NOT NULL)
@@ -239,6 +314,8 @@ async function main(client, log) {
 
     const r = resolveReaction(reactions, allowedReactors);
 
+    if (r.action !== 'none') adjudicatedNow.add(msg.pair_id);
+
     if (r.conflict) {
       conflicts++;
       log('WARN', `pair ${msg.pair_id}: contested (✅ and ❌) — leaving open`);
@@ -248,21 +325,23 @@ async function main(client, log) {
     if (r.action === 'none') continue;
 
     if (r.action === 'remove') {
-      // T-13-15: resolve audit fields BEFORE deletion; never issue raw DELETE
-      const row = await client.query('SELECT booli_id, hemnet_id FROM cohort_pairs WHERE id = $1', [msg.pair_id]);
-      if (row.rows.length === 0) {
-        // T-13-18 idempotency: pair already absent — mark adjudicated rather than erroring
+      // T-13-15: resolve audit fields BEFORE removal; never issue raw DELETE
+      const row = await client.query('SELECT booli_id, hemnet_id, removed_at FROM cohort_pairs WHERE id = $1', [msg.pair_id]);
+      if (row.rows.length === 0 || row.rows[0].removed_at != null) {
+        // T-13-18 idempotency: pair already gone (hard-deleted pre-13.1 or already
+        // soft-removed) — mark adjudicated rather than erroring
         await markAdjudicated(client, {
           pairId: msg.pair_id, cohortId: msg.cohort_id,
           humanVerdict: 'CONFIRMED_MISMATCH', reactor: r.reactor,
-          reason: 'pair already absent',
+          reason: row.rows.length === 0 ? 'pair already absent' : 'pair already soft-removed',
         });
-        log('INFO', `pair ${msg.pair_id}: already absent — marked adjudicated`);
+        log('INFO', `pair ${msg.pair_id}: already removed/absent — marked adjudicated`);
         applied++;
         continue;
       }
       const { booli_id, hemnet_id } = row.rows[0];
-      // D-11: audit-first transactional hard-remove
+      // D-11 (reversed in 13.1): audit-first transactional SOFT-remove —
+      // UPDATE cohort_pairs.removed_at, view history preserved, recoverable.
       await removeConfirmedMismatchPair(client, {
         pairId: msg.pair_id, cohortId: msg.cohort_id,
         booliId: booli_id, hemnetId: hemnet_id,
@@ -278,7 +357,7 @@ async function main(client, log) {
       });
       removed++;
       applied++;
-      log('INFO', `pair ${msg.pair_id}: ✅ confirmed mismatch — audited + removed (reactor ${r.reactor})`);
+      log('INFO', `pair ${msg.pair_id}: ✅ confirmed mismatch — audited + soft-removed (reactor ${r.reactor})`);
 
     } else if (r.action === 'keep') {
       await markAdjudicated(client, {
@@ -302,7 +381,19 @@ async function main(client, log) {
     }
   }
 
-  return { skipped: false, checked: open.length, applied, removed, kept, left, conflicts };
+  // Phase 13.2: stale-review aging — open rows still unanswered after N days
+  // (default 7, STALE_REVIEW_DAYS overrides). Escalated via validate() → Slack.
+  const staleDays = parseInt(process.env.STALE_REVIEW_DAYS, 10) || 7;
+  const stale = staleOpenRows(open.filter(m => !adjudicatedNow.has(m.pair_id)), Date.now(), staleDays);
+  if (stale.length > 0) {
+    log('WARN', `reaction-poller: ${stale.length} review item(s) unanswered for >${staleDays} days — pairs ${stale.map(m => m.pair_id).join(', ')}`);
+  }
+
+  return {
+    skipped: false, checked: open.length, applied, removed, kept, left, conflicts,
+    sharedTsIgnored: shared.length,
+    staleDays, staleCount: stale.length, stalePairIds: stale.map(m => m.pair_id),
+  };
 }
 
 // Guard the runJob registration so --smoke does NOT trigger a real DB connection.
@@ -313,7 +404,11 @@ if (!process.argv.includes('--smoke')) {
     main,
     validate: (summary) => {
       if (!summary || summary.skipped) return null;
-      // Poller outcomes logged to cron_job_log; no Slack escalation needed for normal runs
+      // Phase 13.2: stale-review aging alert — unanswered review items rot into
+      // silent misses; escalate through cron-wrapper's existing Slack path.
+      if (summary.staleCount > 0) {
+        return `${summary.staleCount} spot-check review item(s) unanswered for >${summary.staleDays} days: pairs ${summary.stalePairIds.join(', ')} — react ✅/❌/❓ in the review channel`;
+      }
       return null;
     },
   });
