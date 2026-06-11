@@ -1,8 +1,9 @@
 # Phase 14: Spot-check verdict quality — Context
 
 **Gathered:** 2026-06-11
+**Revised:** 2026-06-11 (evening session — cross-link spike findings + identity-model redesign + operator constraints; decisions D-07..D-13 added, D-05 amended)
 **Status:** Ready for planning
-**Source:** Session decisions 2026-06-11 (re-plan conversation with operator; supersedes a discuss-phase round) + pending todos + Phase 13 live-test analysis
+**Source:** Session decisions 2026-06-11 (re-plan conversation with operator; supersedes a discuss-phase round) + pending todos + Phase 13 live-test analysis + `scripts/probe-booli-crosslink.js` spike
 
 <domain>
 ## Phase Boundary
@@ -49,12 +50,40 @@ Because D-02 makes dHash load-bearing, these guards are not optional extras:
 ### Dependency posture (D-06) — LOCKED
 - Do not block on Phase 13.2. If the probe needs the delisted-vs-transient-error distinction to interpret `miss` pairs, pull a minimal version of that classification forward into the probe itself.
 
+### No production scraper/matcher changes (D-07) — LOCKED (operator, 2026-06-11 evening)
+- The six production jobs (Booli fetch cohort, Hemnet match cohort, both view-data refreshers, Cohort create, Cohort track), their schemas, and cron cadence are untouchable ("too painful"). ALL Phase 14 work lives in the spot-check QA layer (cohort-spotcheck.js, spotcheck-photos.js, lib/spotcheck-*, cohort-spotcheck-gate.js, probe scripts).
+- Consequence: the 100%-coverage "structured pass" option must be implemented (if at all) as a spot-check-layer sample-rate choice, NOT as source-table capture.
+
+### Unit-level identity invariants (D-08) — LOCKED (spike-verified 2026-06-11, scripts/probe-booli-crosslink.js)
+- Both platforms expose unit-level fields in detail pages the spot-check ALREADY fetches: Hemnet `fee.amount` (exact kr) + `formattedFloor` (field-evidence page); Booli `rent.raw` (exact kr) + `floor.raw` + `apartmentNumber` + `isNewConstruction` (gallery-fetch page). Capture them at QA-fetch time — zero additional fetches at sampled scale.
+- The Booli→Hemnet cross-link (`hemnet_url`) does NOT exist (0/3 full-payload scan) — dead end, do not revisit.
+- Exact-fee agreement/contradiction is the strongest within-building unit discriminator — it directly kills the same-address/same-price/different-unit false-match case.
+
+### Identity-model verdict (D-09) — LOCKED in shape, parameterized by probe
+- Default verdict is UNCERTAIN; confirmation must be earned: CONFIRMED_MATCH = two independent unit-level agreements (e.g. exact fee + price, fee + area, label-filtered shared photo + price). CONFIRMED_MISMATCH = any unit-level contradiction (fee differs materially, floor differs, area+price both diverge, family mismatch). Everything else escalates: structured → photos (dHash) → vision → human.
+- Whether fee is primary (fee-first, photos fallback) or secondary (photo-first, fee as flag) depends on the probe's fee-coverage measurement (rough bar: ≥~80-90% of apartment pairs with fee on both sides → fee-first).
+- Multi-unit addresses need at least one genuinely unit-level signal (fee/floor/photo — price does NOT count there); this supersedes the blanket "never auto-confirm at multi-unit" in D-05 where fee/floor evidence exists.
+
+### Label-based floorplan exclusion on BOTH platforms (D-10) — LOCKED (amends D-05)
+- Hemnet DOES label images in its detail-page Apollo state (`ListingImage.labels` incl. `FLOOR_PLAN`) — the "Hemnet has no labels" research claim was an extractor artifact. Floorplan/render exclusion is label-based on both sides; the jimp whiteness heuristic is DROPPED from scope.
+
+### Probe additionally tests the 6-photo gallery cap (D-11) — LOCKED (operator request)
+- Run dHash per pair at cap-6 (today's behavior) AND on full galleries; count pairs that flip from no-shared-photo to shared-photo, and record the gallery-order position of the best match. Image downloads are CDN-direct (free) — the cap test costs bandwidth/compute only.
+
+### Coverage economics measured by probe (D-12)
+- Probe prices both strategies: today's 20%-sample-everything vs 100%-structured (both detail pages per pair ≈ 2,800 Oxylabs calls ≈ ~$14/week, less if houses skip the Booli call) + photos/vision on residue only. Implementation default stays 20% unless the operator approves the spend; the gate code may gain the capability behind a flag.
+
+### Overnight delegation (D-13) — operator, 2026-06-11 night
+- Operator delegated the post-probe design choice (routing split, threshold, cap, fee-primacy) to Claude: run the probe, choose the best design from its data, implement, deploy, and live-test overnight; full download report in the morning. The D-01/D-03 "operator routing gate" is satisfied by this explicit delegation. Live-test Slack posts to the review channel are authorized; reactions/removals are NOT (operator reviews first).
+
 ### Claude's Discretion
 - dHash threshold value (currently 6) — recalibrate from probe data if warranted; D-04 flag threshold choice.
-- HOW to detect floorplans/renders: image labels/categories from Hemnet/Booli galleries where available, aspect-ratio/color heuristics, or a small classifier — pick the cheapest reliable mechanism and validate it on probe data.
+- ~~HOW to detect floorplans/renders~~ — RESOLVED by D-10: label-based on both platforms; heuristic dropped.
 - HOW to detect multi-unit addresses: e.g. >1 cohort/booli candidate at same street_address+postcode, or apartment housing-form — choose and document.
 - Probe artifact format and location (follow existing `verf-spotcheck-*/` conventions).
 - Whether the ≥2-shared-photos rule needs a relaxation for pairs with tiny galleries — propose, don't assume.
+- Fee comparison tolerance (exact int equality vs small rounding window) and what "fee differs materially" means — calibrate from probe data.
+- Post-probe design choice per D-13 delegation: routing split, fee-primacy, cap, threshold — choose from probe data, document rationale in the morning report + a DECISION section in 14-01-SUMMARY.md.
 
 </decisions>
 
