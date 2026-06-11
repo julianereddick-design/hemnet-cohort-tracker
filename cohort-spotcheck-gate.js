@@ -31,6 +31,23 @@ const fs = require('fs');
 const path = require('path');
 const { adjudicatePairs } = require('./lib/spotcheck-adjudicate');
 const { computeSummary, renderSlackAlert, renderSummaryMd } = require('./lib/spotcheck-summary');
+const { minDHashDistance }    = require('./lib/spotcheck-dhash');
+const { postReviewMessage, postDigestMessage } = require('./lib/spotcheck-slack-bot');
+const { upsertReviewMessage } = require('./lib/spotcheck-review-store');
+
+// ---------------------------------------------------------------
+// isoWeekId(date) — ISO-8601 week identifier (Thursday-anchored).
+// Returns the same format as cohorts.cohort_id, e.g. '2026-W24'.
+// D-13: used to guard against silently re-running on a stale cohort.
+// ---------------------------------------------------------------
+function isoWeekId(date) {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = d.getUTCDay() || 7;          // Mon=1..Sun=7
+  d.setUTCDate(d.getUTCDate() + 4 - day);  // shift to Thursday of this ISO week
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
 
 // ---------------------------------------------------------------
 // CLI argument parsing (mirrors cohort-spotcheck.js parseArgs)
@@ -101,6 +118,20 @@ async function main(client, log) {
     }
     cohortId = r.rows[0].cohort_id;
   }
+
+  // D-13: current-ISO-week guard. cohort-create runs Mon 06:00 UTC, the gate Mon 06:30 UTC; if
+  // this week's cohort isn't created yet, do NOT silently re-check last week's cohort — skip+alert.
+  // Only guard AUTO-resolution — an explicit --cohort is an operator override and must run.
+  if (!args.cohort) {
+    const currentIsoWeek = isoWeekId(new Date());
+    if (cohortId !== currentIsoWeek) {
+      const reason = `resolved cohort ${cohortId} != current ISO week ${currentIsoWeek} — this week's cohort not created yet?`;
+      log('WARN', `cohort-spotcheck-gate: ${reason} — skipping`);
+      return { skipped: true, staleCohort: true, reason, cohortId, currentIsoWeek,
+               slackMsg: `[WARNING] cohort-spotcheck-gate skipped: ${reason}` };
+    }
+  }
+
   log('INFO', `cohort-spotcheck-gate: cohortId=${cohortId} rate=${args.rate} threshold=${args.threshold} modeB=${args.modeB}`);
 
   // 2. Run field-evidence tool (cohort-spotcheck.js) as child process.
@@ -267,7 +298,8 @@ runJob({
   scriptName: 'cohort-spotcheck-gate',
   main,
   validate: (summary) => {
-    if (!summary || summary.skipped) return null;
+    if (!summary) return null;
+    if (summary.skipped) return summary.staleCohort ? summary.slackMsg : null;
     if (summary.fetchFailures > 0) {
       return `${summary.fetchFailures} fetch failure(s) during spot-check gate (cohort ${summary.cohortId})`;
     }
