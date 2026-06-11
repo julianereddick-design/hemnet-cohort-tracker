@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Self-hosted scraper hardening
 status: Ready to execute
-stopped_at: "Re-plan 2026-06-11 — spot-check stream re-cut into Phases 13.1 / 13.2 / 14 in ROADMAP.md from the 7 pending todos (operator decisions: spot-check stream before Phase 10 remainder; UNCERTAIN pairs as individual Slack messages; D-11 reversed to soft-delete; Phase 14 vision routing sized by N=200+ probe first; EXECUTION ORDER SWAPPED to 14 → 13.1 → 13.2 — verdict trust before loop actionability)"
-last_updated: "2026-06-11T11:20:56.832Z"
+stopped_at: "Spot-check stream COMPLETE 2026-06-12 — Phases 14 (overnight), 14.1, 13.1, 13.2 all shipped + deployed; interim Slack rule lifted; Mon 2026-06-15 06:30 UTC first unattended gate fire is the live validation; v2.1 remainder (10-04/10-05) is the next coding work"
+last_updated: "2026-06-12"
 progress:
   total_phases: 5
   completed_phases: 0
@@ -31,8 +31,8 @@ progress:
 
 ### Last Session
 
-Stopped at: Phase 14 SHIPPED LIVE overnight 2026-06-11→12 under operator delegation D-13 (SSH to droplet enabled): probe (W23 288 pairs, fee 91.3%/95.2% exact, cap-6 lost 119 shared-photo pairs) → identity-model adjudicator + gate rework → deployed → live test green (cron_job_log 586 success, rate 1.55%, 30 UNCERTAIN, 4 MISMATCH posted to Slack)
-Resume: Phase 13.1 next (soft-delete removal + individual UNCERTAIN messages — the 30-pair digest from the live test still has the shared-ts problem); open operator decisions: 20%-vs-100% coverage ($4.32 vs $18.35/wk), Mon 2026-06-15 06:30 first unattended gate fire to watch
+Stopped at: Phases 13.1 + 13.2 SHIPPED 2026-06-12 (same day as the 14.1 follow-up): soft-delete removal path (migration + audit+UPDATE + removed_at IS NULL filters across 11 files), per-pair UNCERTAIN Slack messages (digest retired, info-only delisted summary), poller shared-ts guard + 7-day stale-review aging alert. Interim Slack rule LIFTED — full ✅/❌/❓ loop is live and reversible. Spot-check stream (12 → 13 → 14 → 14.1 → 13.1 → 13.2) is COMPLETE.
+Resume: watch Mon 2026-06-15 06:30 UTC first unattended gate fire (validates 14 + 14.1 + 13.1 live: per-pair messages, delisted diversion, fixed dHash/vision rendering) + daily poller cycles after first reactions; open operator decisions: 20%-vs-100% coverage ($4.32 vs $18.35/wk); next phases: 10-04/10-05 (v2.1 hardening remainder)
 
 ### Decisions (Phase 14, 2026-06-12 overnight)
 
@@ -51,6 +51,15 @@ Resume: Phase 13.1 next (soft-delete removal + individual UNCERTAIN messages —
 - 14.1: Review-queue partition — UNCERTAIN with either side delisted is unreviewable: ONE digest summary line, NO spotcheck_review rows; 'error' (transient) and legacy no-page_status records STAY reviewable (noise over silent miss); unreviewable count in result_summary
 - 14.1: Slack renderer bug found+fixed — bot read pair.dhash_min_dist/pair.vision_verdict which NEVER existed (gate stores pair.dhash.minDist/pair.vision.sharedPhoto); every Phase-13 message rendered "n/a". Now nested-first with flat fallbacks + verdict_reason line ("why is this pair in front of me")
 - 14.1: Manual spot-check pack (scripts/make-manual-spotcheck.js) — operator eyeball pack from VERDICTS json, 28 pairs across all 7 funnel stages of W23; deltas.*_pct_diff are FRACTIONS (0.25=25%) despite the name
+
+### Decisions (Phases 13.1 + 13.2, 2026-06-12)
+
+- 13.1: D-11 REVERSED — removal is soft-delete (cohort_pairs.removed_at/removed_reason/removed_by via migrate-cohort-pairs-soft-delete.js); removeConfirmedMismatchPair = audit INSERT + UPDATE guarded `AND removed_at IS NULL`, NEVER DELETE (smoke asserts no DELETE); recovery = SET removed_at=NULL (runbook updated — old re-INSERT recipe was not executable)
+- 13.1: removed_at IS NULL filters on tracking/refresh/sampling/reporting/export (cohort-track, booli/hemnet-targeted-refresh, cohort-spotcheck, weekly-view-report, cron-health-slack, export-views-wide, export-hb-ratio-xlsx, chart-hb-ratio, lib/hemnet-locations); NOT filtered: gate multi-unit address stamp (removed pair still signals multi-unit risk), poller by-id lookup (idempotency), repair-data (recovery must see all)
+- 13.1: every reviewable pair gets its OWN Slack message (UNCERTAIN + MISMATCH, verdict-labelled header, own ts) — operator chose individual messages over threads 2026-06-11; postDigestMessage demoted to legacy/manual-only; unreviewable delisted pairs → one postInfoMessage, no review rows
+- 13.1: poller partitionSharedTs guard — review rows sharing (channel, ts) are digest-era, never acted on, surfaced as sharedTsIgnored (protects against the 12 reviewable W23 rows sharing one ts)
+- 13.2: stale-review aging — open rows unanswered > STALE_REVIEW_DAYS (default 7) escalate via poller validate() → Slack; rows adjudicated same-cycle excluded; delisted pairs never enter spotcheck_review so the nag is always answerable
+- 13.2: transient-error retry/roll-forward DEFERRED with rationale — error pairs stay in the human queue (never dropped) + gate escalates fetchFailures>0 + stale alert prevents rot; retry infra needs cross-run pair-carry for a weekly cohort-scoped gate, marginal value low (W23: 0 error pairs)
 
 ### Decisions (Phase 13)
 

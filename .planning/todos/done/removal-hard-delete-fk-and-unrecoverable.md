@@ -19,3 +19,6 @@ The ✅-confirm-mismatch removal path doesn't reliably work on real data, and it
 - If a hard purge is ever wanted, do it as a separate, deliberate, snapshot-everything-first operation.
 
 **Interim safety:** the live daily poller is installed. Do NOT rely on ✅-removal until fixed; ❌/❓ on individual mismatch messages are safe (UPDATE only). See [[project_spotcheck_false_negative_taxonomy]], [[project_phase13_review_loop_golive]].
+
+---
+**RESOLVED 2026-06-12 (Phase 13.1):** soft-delete shipped exactly as recommended. `migrate-cohort-pairs-soft-delete.js` adds `removed_at/removed_reason/removed_by`; `removeConfirmedMismatchPair` is now audit INSERT + UPDATE (guarded `AND removed_at IS NULL`, never a DELETE — smoke asserts no DELETE is issued); `removed_at IS NULL` filters added across tracking (cohort-track), refresh (booli/hemnet-targeted-refresh), sampling (cohort-spotcheck), reporting (weekly-view-report, cron-health-slack), exports (export-views-wide, export-hb-ratio-xlsx, chart-hb-ratio), and lib/hemnet-locations. Recovery = `UPDATE ... SET removed_at=NULL` (runbook in deploy-instructions.md updated — the old re-INSERT recipe was not executable).

@@ -16,3 +16,6 @@ An UNCERTAIN pair that nobody ever reacts to sits in the queue forever — a Typ
 - Distinguish genuinely-unanswerable items (the delisted/`miss` pairs from [[review-queue-require-both-listings-exist]]) so they aren't counted as "ignored by a human" — they need a different disposition, not a nag.
 
 **Where:** `spotcheck-reaction-poller.js` (it already reads open review rows via `getOpenReviewMessages`); add an aging check + Slack summary. Pairs with both listings missing should be excluded from the nag and routed per the fetch-outcome classification ([[classify-fetch-outcomes-delisted-vs-error]]).
+
+---
+**RESOLVED 2026-06-12 (Phase 13.2):** the daily poller now flags open review rows with no reaction after `STALE_REVIEW_DAYS` (default 7) and escalates through `validate()` → cron-wrapper Slack ("N review items unanswered >7 days: pairs ..."). Rows adjudicated in the same cycle are excluded; delisted pairs never enter `spotcheck_review` (Phase 14.1 diversion) so the nag is always human-answerable; legacy shared-ts digest rows are excluded by the 13.1 guard and surfaced separately as `sharedTsIgnored`.

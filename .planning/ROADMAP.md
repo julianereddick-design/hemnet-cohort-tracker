@@ -231,23 +231,23 @@ Plans:
 
 **Known carry-forward (2026-06-11 live test):** detection + Slack posting work; the actionable half is broken — ✅-removal blocked by the `cohort_daily_views` FK (and audit can't restore), and the UNCERTAIN digest shares one `ts` across all pairs so one reaction hits all of them. Interim operating rule: do NOT react on the digest; only ❌/❓ on individual MISMATCH messages are safe. Phases 13.1/13.2/14 below close these gaps.
 
-**Execution order (operator decision 2026-06-11): Phase 14 FIRST, then 13.1, then 13.2.** Rationale: the live loop is useless while the verdicts behind it aren't trusted/understood — fix verdict quality before making reactions actionable. The interim operating rule stays in force across upcoming gate runs (incl. Mon 2026-06-15) until 13.1 ships.
+**Execution order (operator decision 2026-06-11): Phase 14 FIRST, then 13.1, then 13.2.** Rationale: the live loop is useless while the verdicts behind it aren't trusted/understood — fix verdict quality before making reactions actionable. ~~The interim operating rule stays in force across upcoming gate runs (incl. Mon 2026-06-15) until 13.1 ships.~~ **ALL THREE SHIPPED as of 2026-06-12** (14 overnight 06-11→12; 14.1 + 13.1 + 13.2 on 06-12). Interim rule lifted: per-pair reactions incl. ✅ soft-removal are live; legacy W23 digest reactions are ignored by the poller's shared-ts guard.
 
 ### Phase 13.1: Spot-check review loop gap closure — make the live loop trustworthy
 
 **Goal:** A human reaction in Slack does exactly what it says, per pair, reversibly. (a) Replace the broken hard-DELETE removal path with soft-delete: `removed_at`/`removed_reason`/`removed_by` columns on `cohort_pairs` via migration; "removal" = UPDATE, FK never involved, `cohort_daily_views` history preserved, recovery = nulling `removed_at`; all cohort reporting/tracking queries exclude `removed_at IS NOT NULL`. (b) Post every UNCERTAIN pair as its own individual Slack message (operator decision 2026-06-11 — individual messages, not threads), each with its own `ts`, so reactions are per-pair; retire the actionable digest. (c) Poller guard: ignore any `spotcheck_review` rows whose `ts` is shared by >1 pair (protects against the W23-era rows already in the table).
 
-**Requirements:** `.planning/todos/pending/removal-hard-delete-fk-and-unrecoverable.md` + `.planning/todos/pending/uncertain-digest-no-per-pair-loop.md`
-**Depends on:** Phase 14 (sequencing, not technical — verdict quality first per operator decision 2026-06-11; original Mon 2026-06-15 pre-gate target dropped, interim operating rule stands until this ships)
-**Plans:** TBD (plan via gsd-plan-phase)
+**Requirements:** `.planning/todos/done/removal-hard-delete-fk-and-unrecoverable.md` + `.planning/todos/done/uncertain-digest-no-per-pair-loop.md` (both RESOLVED 2026-06-12)
+**Depends on:** Phase 14 (sequencing, not technical — verdict quality first per operator decision 2026-06-11)
+**Progress:** **SHIPPED 2026-06-12** (single session, direct execution — no separate PLAN.md): (a) `migrate-cohort-pairs-soft-delete.js` + `removeConfirmedMismatchPair` → audit + UPDATE (never DELETE) + `removed_at IS NULL` filters across tracking/refresh/sampling/reporting/export queries; (b) gate posts one verdict-labelled message per reviewable pair (UNCERTAIN + MISMATCH alike, own ts each), unreviewable delisted pairs → one info-only post, digest retired; (c) poller `partitionSharedTs` guard ignores legacy digest-era rows (`sharedTsIgnored` in result_summary). Live validation = Mon 2026-06-15 06:30 UTC gate fire + subsequent poller cycles. **Interim Slack rule LIFTED** for new messages once deployed: per-pair ✅/❌/❓ now safe including ✅-removal (soft, recoverable); legacy W23 digest reactions are simply ignored.
 
 ### Phase 13.2: Spot-check review-queue hygiene — only reviewable pairs reach a human
 
 **Goal:** The eyeball queue contains only pairs a human can actually adjudicate, and nothing rots in it. (a) Classify each side's fetch outcome into delisted / transient-error / live-but-no-photos: delisted → own "listing delisted" bucket (summary line, not the review queue); transient-error → retry/roll-forward to next run, never silently dropped, persistent-failure count surfaced; live-but-no-photos → stays in adjudication, diverted only from image review. (b) Eyeball queue requires BOTH listings to exist (both galleries non-empty). (c) Stale-review aging alert: surface open review rows with no reaction after ~7 days in the poller's Slack output, excluding unanswerable (delisted) pairs.
 
-**Requirements:** `.planning/todos/pending/classify-fetch-outcomes-delisted-vs-error.md` + `.planning/todos/pending/review-queue-require-both-listings-exist.md` + `.planning/todos/pending/stale-review-aging-alert.md`
+**Requirements:** `.planning/todos/pending/classify-fetch-outcomes-delisted-vs-error.md` (partial) + `.planning/todos/done/review-queue-require-both-listings-exist.md` (RESOLVED 2026-06-12) + `.planning/todos/done/stale-review-aging-alert.md` (RESOLVED 2026-06-12)
 **Depends on:** Phase 13.1 (the per-pair message volume from 13.1 is only sustainable once this filtering lands)
-**Plans:** TBD
+**Progress:** **COMPLETE 2026-06-12** (a+b shipped as Phase 14.1 follow-up the same morning, c with 13.1): (a) delisted/error/active classification + delisted diversion shipped; transient-error retry/roll-forward explicitly DEFERRED — error pairs stay in the human queue (never silently dropped) and the gate already escalates fetchFailures, so the safety property holds without retry infra (see todo disposition note); (b) delisted pairs diverted to one summary line, no review rows; (c) stale-review aging alert in the poller (`STALE_REVIEW_DAYS` default 7, validate() → Slack).
 
 ### Phase 14: Spot-check verdict quality — photos must correspond, not merely exist
 

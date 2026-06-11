@@ -154,6 +154,13 @@ Created table: spotcheck_removed_pairs
 
 If the tables already exist the script exits cleanly (IF NOT EXISTS DDL — safe to re-run).
 
+Phase 13.1 adds a second one-time migration (soft-delete columns on `cohort_pairs` —
+ran 2026-06-12; idempotent, safe to re-run):
+
+```bash
+cd /opt/hemnet-cohort-tracker && node migrate-cohort-pairs-soft-delete.js
+```
+
 **4. Smoke the Slack path**
 
 Follow step 7 in `SLACK-REVIEW-SETUP.md` (post the setup-test digest). Confirm the message
@@ -308,20 +315,29 @@ Job-specific failure modes:
 - **spotcheck-reaction-poller.js (daily reaction poller) — Phase 13**
 
   **What it does:** reads emoji reactions (✅ / ❌ / ❓) posted by authorised reactors on open
-  review messages in `SLACK_REVIEW_CHANNEL`, applies the verdict, and (on ✅) hard-removes the
-  pair from `cohort_pairs` after writing an audit record to `spotcheck_removed_pairs`.
+  review messages in `SLACK_REVIEW_CHANNEL`, applies the verdict, and (on ✅) SOFT-removes the
+  pair — `UPDATE cohort_pairs SET removed_at=NOW(), removed_reason, removed_by` — after writing
+  an audit record to `spotcheck_removed_pairs`. (Phase 13.1 reversed the original hard-DELETE:
+  the `cohort_daily_views` FK blocked it on any tracked pair, and the view history must survive.)
+  Soft-removed pairs are excluded from all tracking, refresh, reporting, export, and spot-check
+  sampling queries (`removed_at IS NULL` filters).
   The `cron_job_log` `result_summary` for each poller run contains:
-  `removed` / `kept` / `leftUncertain` / `conflicts` counts.
+  `removed` / `kept` / `left` / `conflicts` / `sharedTsIgnored` / `staleCount` counts.
 
   **Detect:** `/var/log/hemnet/spotcheck-poller.log` or `cron_job_log` for `script_name =
   'spotcheck-reaction-poller'`. A `conflicts` count > 0 means one or more messages had both ✅
   and ❌ from authorised reactors — those pairs are left open for human triage (not auto-removed).
+  `sharedTsIgnored` > 0 means legacy digest-era review rows exist (multiple pairs sharing one
+  Slack message ts, from before Phase 13.1) — the poller never acts on those; dispose of them
+  manually via SQL if they linger. A Slack alert fires when open review items sit unanswered
+  for more than `STALE_REVIEW_DAYS` (default 7).
 
   **Review the queue manually:**
-  - Open `SLACK_REVIEW_CHANNEL` in Slack. The gate posts a weekly digest (all pairs needing
-    review) plus one individual message per vision-flagged CONFIRMED_MISMATCH so high-stakes
-    pairs stand out.
-  - React with: **✅** = confirm mismatch (pair audited + removed from `cohort_pairs`) · **❌** =
+  - Open `SLACK_REVIEW_CHANNEL` in Slack. The gate posts ONE message PER pair needing review —
+    `[REVIEW] UNCERTAIN pair …` and `[REVIEW] MISMATCH pair …` — each with its own ts, so a
+    reaction applies to exactly that pair. Unreviewable (delisted) pairs arrive as one
+    informational `[SPOT-CHECK]` summary with no reaction handling.
+  - React with: **✅** = confirm mismatch (pair audited + soft-removed) · **❌** =
     override, valid match (pair kept + override recorded) · **❓** = unsure (left UNCERTAIN, not
     re-surfaced on the same week's messages).
   - Only reactions from a `SLACK_ALLOWED_REACTORS` user count (set in `.env`). If
@@ -329,9 +345,9 @@ Job-specific failure modes:
     is a documented first-run fallback only; set your own Slack user id before relying on
     auto-removal.
 
-  **Recovering a wrongly-removed pair:** Every removal writes an audit record to
-  `spotcheck_removed_pairs` (pair_id, booli_id, hemnet_id, cohort_id, verdicts, reactor, reason,
-  removed_at). To find and restore it:
+  **Recovering a wrongly-removed pair:** the row never left `cohort_pairs` — removal is the
+  `removed_at` timestamp. Restore by nulling it (the audit trail in `spotcheck_removed_pairs`
+  stays):
 
   ```bash
   cd /opt/hemnet-cohort-tracker && node -e "
@@ -339,24 +355,18 @@ Job-specific failure modes:
     const { createClient } = require('./db');
     (async () => {
       const c = createClient(); await c.connect();
-      // Find the audit record for the pair you want to restore:
-      const audit = await c.query(
-        'SELECT * FROM spotcheck_removed_pairs WHERE pair_id = \$1 ORDER BY removed_at DESC LIMIT 1',
-        [<PAIR_ID>]
-      );
-      console.log(JSON.stringify(audit.rows[0], null, 2));
-      // Re-insert into cohort_pairs (adjust columns to match your schema):
-      // await c.query(
-      //   'INSERT INTO cohort_pairs (id, booli_id, hemnet_id, cohort_id, ...) VALUES (\$1,\$2,\$3,\$4,...)',
-      //   [audit.rows[0].pair_id, audit.rows[0].booli_id, audit.rows[0].hemnet_id, audit.rows[0].cohort_id, ...]
-      // );
+      const before = await c.query('SELECT id, removed_at, removed_reason, removed_by FROM cohort_pairs WHERE id = \$1', [<PAIR_ID>]);
+      console.log('before:', JSON.stringify(before.rows[0]));
+      await c.query('UPDATE cohort_pairs SET removed_at=NULL, removed_reason=NULL, removed_by=NULL WHERE id = \$1', [<PAIR_ID>]);
+      const after = await c.query('SELECT id, removed_at FROM cohort_pairs WHERE id = \$1', [<PAIR_ID>]);
+      console.log('after:', JSON.stringify(after.rows[0]));
       await c.end();
     })();
   "
   ```
 
-  Replace `<PAIR_ID>` with the pair id from the audit record (visible in the Slack message or in
-  `spotcheck_removed_pairs`). Confirm the pair is back with a SELECT before and after.
+  Replace `<PAIR_ID>` with the pair id (visible in the Slack message or in
+  `spotcheck_removed_pairs`). The pair re-enters tracking/reporting on the next run of each job.
 
   **dHash calibration:** The gate logs `dHash pair <id>: minDist=<n>` for every sampled pair.
   After 4–6 weeks, inspect the distribution:

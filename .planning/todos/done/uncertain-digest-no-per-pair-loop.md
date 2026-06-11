@@ -19,3 +19,6 @@ The UNCERTAIN review path is fundamentally broken: a single Slack reaction on th
 4. Make the digest **informational only** (don't persist its pairs as actionable rows) and route pairs that truly need a verdict to per-pair messages.
 
 **Interim safety:** until fixed, do NOT react on the digest message — only the individual MISMATCH messages are per-pair safe. Consider having the poller ignore review rows whose `ts` is shared by >1 pair as a guard. Related: [[review-queue-require-both-listings-exist]] (many digest entries are un-reviewable anyway).
+
+---
+**RESOLVED 2026-06-12 (Phase 13.1):** fix option 2 (individual messages — operator decision 2026-06-11). The gate now posts ONE message per reviewable pair, UNCERTAIN and MISMATCH alike, each with its own ts (`postReviewMessage` is verdict-aware: "[REVIEW] UNCERTAIN pair ..."); `spotcheck_review` rows are per-message. The actionable digest is retired (`postDigestMessage` kept as legacy/manual-only); unreviewable delisted pairs arrive as one informational `[SPOT-CHECK]` post with NO review rows. Plus the suggested guard: the poller partitions out any review rows sharing one (channel, ts) — legacy W23 digest rows are never acted on (surfaced as `sharedTsIgnored`). Message volume is kept sane by the Phase 14.1 delisted diversion (W23: 30 → 12 reviewable).
