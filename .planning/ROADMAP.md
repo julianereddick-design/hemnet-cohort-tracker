@@ -214,7 +214,7 @@ Plans:
 
 **Requirements**: derived from 13-CONTEXT.md decisions D-01..D-14 + COHORT-SPOTCHECK.md §3/§4/§7 (no REQUIREMENTS.md)
 **Depends on:** Phase 12
-**Plans:** 6 plans (Wave 1: persistence + dHash/adjudicate-fix + Slack-bot libs · Wave 2: gate extension + reaction poller · Wave 3: go-live)
+**Plans:** 6/6 plans complete
 
 Plans:
 **Wave 1**

@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Self-hosted scraper hardening
-status: In progress
-stopped_at: Phase 13 Plan 06 complete — Phase 13 go-live confirmed on droplet (migration ran, both crons installed, Slack loop verified)
-last_updated: "2026-06-11T06:30:00.000Z"
+status: Milestone complete
+stopped_at: Phase 13 Plan 06 complete — go-live confirmed on droplet (migration ran, both crons installed, SLACK_ALLOWED_REACTORS=U01KC1QT2BB, Slack full loop verified)
+last_updated: "2026-06-11T05:58:45.917Z"
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 9
-  completed_plans: 8
-  percent: 89
+  completed_plans: 7
+  percent: 78
 ---
 
 ## Accumulated Context
