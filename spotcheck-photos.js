@@ -30,6 +30,7 @@ require('dotenv').config();
 const { getWithRetry, extractNextData } = require('./lib/scrape-http');
 const {
   hemnetHeroUrl, booliHeroUrl, hemnetGalleryUrls, booliGalleryUrls, downloadImage,
+  hemnetUnitFields, hemnetGalleryFromApollo, booliUnitFields,
 } = require('./lib/spotcheck-photos');
 
 function log(level, msg) {
@@ -121,6 +122,9 @@ async function main() {
       try {
         const hp = await fetchPage(p.hemnet_url);
         if (hp.status === 'active') {
+          // Phase 14: unit-level identity fields (fee/floor/rooms/energy) from the
+          // Apollo state of the page we already fetched — zero extra cost.
+          p.hemnet_unit = hemnetUnitFields(hp.apollo);
           photos.hemnet_hero_url = hemnetHeroUrl(hp.html);
           if (photos.hemnet_hero_url) {
             const dest = path.join(pairSub, args.gallery ? 'hemnet_00_hero.jpg' : `pair${p.pair_id}_hemnet.jpg`);
@@ -129,8 +133,14 @@ async function main() {
             else { photos.notes.push(`hemnet-dl-fail:${dl.status || dl.error}`); counters.hemnetMiss++; }
           } else { photos.notes.push('hemnet-no-og-image'); counters.hemnetMiss++; }
           if (args.gallery) {
-            const urls = hemnetGalleryUrls(hp.html, { max: args.max });
-            photos.hemnet_gallery = await dlGallery(urls.map((u) => ({ url: u })), pairSub, 'hemnet', dir);
+            // Prefer the Apollo gallery (carries per-image labels incl. FLOOR_PLAN);
+            // fall back to the HTML regex (label-less) when Apollo is unparseable.
+            let entries = hemnetGalleryFromApollo(hp.apollo, { max: args.max });
+            if (entries.length === 0) {
+              entries = hemnetGalleryUrls(hp.html, { max: args.max }).map((u) => ({ url: u }));
+              if (entries.length) photos.notes.push('hemnet-gallery-regex-fallback');
+            }
+            photos.hemnet_gallery = await dlGallery(entries, pairSub, 'hemnet', dir);
           }
         } else { photos.notes.push(`hemnet-${hp.reason}`); counters.hemnetMiss++; }
       } catch (e) { photos.notes.push(`hemnet-err:${e.message}`); counters.hemnetMiss++; }
@@ -149,6 +159,9 @@ async function main() {
           bp = await fetchPage(p.booli_url);
         }
         if (bp.status === 'active') {
+          // Phase 14: unit-level identity fields (rent/floor/apartmentNumber) from
+          // the Apollo state of the page we already fetched — zero extra cost.
+          p.booli_unit = booliUnitFields(bp.apollo);
           photos.booli_hero_url = booliHeroUrl(bp.html, bp.apollo);
           if (photos.booli_hero_url) {
             const dest = path.join(pairSub, args.gallery ? 'booli_00_hero.jpg' : `pair${p.pair_id}_booli.jpg`);
@@ -165,7 +178,8 @@ async function main() {
 
       p.photos = photos;
       const galInfo = args.gallery ? ` gallery[h=${photos.hemnet_gallery.length} b=${photos.booli_gallery.length}]` : '';
-      log('INFO', `pair ${p.pair_id} [${p.provisional}] hemnet=${photos.hemnet_file ? 'ok' : 'miss'} booli=${photos.booli_file ? 'ok' : 'miss'}${galInfo}${photos.notes.length ? ' (' + photos.notes.join(',') + ')' : ''}`);
+      const feeInfo = ` fee[h=${(p.hemnet_unit && p.hemnet_unit.fee) ?? '—'} b=${(p.booli_unit && p.booli_unit.rent) ?? '—'}]`;
+      log('INFO', `pair ${p.pair_id} [${p.provisional}] hemnet=${photos.hemnet_file ? 'ok' : 'miss'} booli=${photos.booli_file ? 'ok' : 'miss'}${galInfo}${feeInfo}${photos.notes.length ? ' (' + photos.notes.join(',') + ')' : ''}`);
     }
   }
 
