@@ -26,6 +26,12 @@ Required vars (job will fail without them):
 Optional vars:
 - `SLACK_WEBHOOK_URL` — when set, cron-wrapper.js fires an alert on any run with status='warning' or status='failure'. Without it, runs are silent. **Phase 9 requires this to be set.**
 
+Phase 13 vars (required for the image-confirmation + review-loop go-live):
+- `SLACK_BOT_TOKEN=xoxb-…` — Slack bot OAuth token for posting review-queue messages and reading reactions (`chat:write` + `reactions:read` scopes). Obtained by following `SLACK-REVIEW-SETUP.md`. **Separate from `SLACK_WEBHOOK_URL`** — the webhook stays for Phase 12 threshold/fetch-failure alerts; the bot token is used only by `cohort-spotcheck-gate.js` and `spotcheck-reaction-poller.js`.
+- `SLACK_REVIEW_CHANNEL=C0……` — Slack channel id (not name) for the review queue. The bot must be invited to this channel (`/invite @<bot-name>`).
+- `SLACK_ALLOWED_REACTORS=U0……` — comma-separated Slack user id(s) authorised to confirm removals via emoji reaction. **REQUIRED before trusting auto-removal.** Without it, the poller falls back to accepting reactions from ALL users (documented first-run fallback only). Set to the operator's own Slack user id at go-live.
+- `DHASH_THRESHOLD=6` — (default: 6) dHash distance threshold for auto-confirming a shared-image match. Do not raise without reviewing the per-pair minDist distribution from several gate runs (see Phase 13 runbook below).
+
 To set the Slack webhook:
 ```bash
 ssh root@<droplet>
@@ -91,6 +97,90 @@ All times are UTC. Schedule respects:
 # runs in well under 5 min (DB-only, no scrape), so 09:35 is a clean sequential slot.
 # First valid run is >= 7 days post-deploy; earlier runs render "?" in delta cells.
 35 9 * * 1  cd /opt/hemnet-cohort-tracker && node market-totals-weekly-report.js >> /var/log/hemnet/market-totals-weekly.log 2>&1
+```
+
+```cron
+# === Phase 13 — Image confirmation + review loop (go-live with Phase 13, implements D-14) ===
+# The Phase 12 weekly gate line (Mon 06:30 UTC above) now does useful work: dHash shared-image
+# check + advisory Claude vision on suspect pairs + Slack review-queue post. D-13 guard skips
+# + alerts to Slack if this week's cohort (ISO week) is not yet available.
+#
+# ADD the daily reaction poller (D-10). Reads ✅/❌/❓ reactions on open review messages,
+# applies verdicts, audits confirmed mismatches, and hard-removes them from cohort_pairs.
+0 12 * * *  cd /opt/hemnet-cohort-tracker && node spotcheck-reaction-poller.js     >> /var/log/hemnet/spotcheck-poller.log 2>&1
+```
+
+### Phase 13 go-live — step-by-step (operator checklist)
+
+Run in order on the droplet after `git pull`:
+
+**1. Stand up the Slack app (one-time)**
+
+Follow `SLACK-REVIEW-SETUP.md` (committed to the repo). It covers: creating the Slack app,
+adding the required OAuth scopes (`chat:write` + `reactions:read`), installing to workspace,
+inviting the bot to the review channel, and smoke-testing the connection.
+
+**2. Set env vars in `/opt/hemnet-cohort-tracker/.env` (never commit)**
+
+```bash
+# Required for Phase 13 review queue (Slack bot — separate from SLACK_WEBHOOK_URL):
+SLACK_BOT_TOKEN=xoxb-…          # bot OAuth token from SLACK-REVIEW-SETUP.md step 4
+SLACK_REVIEW_CHANNEL=C0……       # the Slack channel id for the review queue
+
+# REQUIRED before trusting auto-removal. Without it, the poller falls back to allowing
+# ALL reactors — document-only first-run fallback; set to your own Slack user id immediately.
+SLACK_ALLOWED_REACTORS=U0……     # comma-separated Slack user id(s) authorised to confirm removals
+
+# Optional (default is 6 — conservative near-identical threshold; do not raise until you
+# have reviewed the per-pair minDist distribution from several weeks of gate logs):
+# DHASH_THRESHOLD=6
+
+# KEEP — Phase 12 threshold/fetch-failure alerts use this separate webhook path.
+# SLACK_WEBHOOK_URL stays; do not remove or replace it with SLACK_BOT_TOKEN.
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/…  # already set; leave as-is
+```
+
+**3. Run the migration (one-time, idempotent)**
+
+```bash
+cd /opt/hemnet-cohort-tracker && node migrate-spotcheck-phase13.js
+```
+
+Expected output:
+```
+Created table: spotcheck_review
+Created table: spotcheck_removed_pairs
+```
+
+If the tables already exist the script exits cleanly (IF NOT EXISTS DDL — safe to re-run).
+
+**4. Smoke the Slack path**
+
+Follow step 7 in `SLACK-REVIEW-SETUP.md` (post the setup-test digest). Confirm the message
+appears in the review channel and that you can add an emoji reaction.
+
+**5. Install the daily poller crontab line**
+
+The Phase 12 weekly gate line (Mon 06:30 UTC) is already live. ADD the new line:
+
+```bash
+crontab -l > /tmp/crontab-backup-$(date +%s).txt   # back up first
+crontab -e
+# Add:
+# 0 12 * * *  cd /opt/hemnet-cohort-tracker && node spotcheck-reaction-poller.js  >> /var/log/hemnet/spotcheck-poller.log 2>&1
+crontab -l   # verify both lines appear:
+#   30 6 * * 1  ... cohort-spotcheck-gate.js ...
+#   0 12 * * *  ... spotcheck-reaction-poller.js ...
+```
+
+**6. Optional dry run**
+
+```bash
+# Gate with explicit cohort (bypasses the D-13 ISO-week guard):
+node cohort-spotcheck-gate.js --cohort $(date +%G-W%V)
+
+# Reaction poller (reads any reactions already on open review messages):
+node spotcheck-reaction-poller.js
 ```
 
 Deploy: per `[[project-deploy-process]]`, push the repo change and then `cd /opt/hemnet-cohort-tracker && git pull` on the droplet, then add the crontab line via `crontab -e` (back up first per the procedure documented in lines 86-93 of this file).
@@ -214,6 +304,77 @@ Job-specific failure modes:
   **Triage fetch failures:** Grep the artifact JSON: `cat verf-spotcheck-<cohort>-<ts>/spotcheck-<cohort>.json | node -e "const a=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')); console.log(a.meta.hemnet);"`. If `error > 0`, Oxylabs or direct Hemnet fetch is degraded — check `lib/scrape-http.js` + Oxylabs creds.
 
   **Triage high false-match rate:** Open `VERDICTS-<cohort>.json` and review the `pairs` array. Mismatches have `verdict: 'CONFIRMED_MISMATCH'`. Check `deltas.price_pct_diff` and `deltas.area_pct_diff` — a cluster of mismatches in one county suggests a matching-logic drift (multi-unit address aliasing, address normalisation change). Reference `COHORT-SPOTCHECK.md §4` for root-cause framework.
+
+- **spotcheck-reaction-poller.js (daily reaction poller) — Phase 13**
+
+  **What it does:** reads emoji reactions (✅ / ❌ / ❓) posted by authorised reactors on open
+  review messages in `SLACK_REVIEW_CHANNEL`, applies the verdict, and (on ✅) hard-removes the
+  pair from `cohort_pairs` after writing an audit record to `spotcheck_removed_pairs`.
+  The `cron_job_log` `result_summary` for each poller run contains:
+  `removed` / `kept` / `leftUncertain` / `conflicts` counts.
+
+  **Detect:** `/var/log/hemnet/spotcheck-poller.log` or `cron_job_log` for `script_name =
+  'spotcheck-reaction-poller'`. A `conflicts` count > 0 means one or more messages had both ✅
+  and ❌ from authorised reactors — those pairs are left open for human triage (not auto-removed).
+
+  **Review the queue manually:**
+  - Open `SLACK_REVIEW_CHANNEL` in Slack. The gate posts a weekly digest (all pairs needing
+    review) plus one individual message per vision-flagged CONFIRMED_MISMATCH so high-stakes
+    pairs stand out.
+  - React with: **✅** = confirm mismatch (pair audited + removed from `cohort_pairs`) · **❌** =
+    override, valid match (pair kept + override recorded) · **❓** = unsure (left UNCERTAIN, not
+    re-surfaced on the same week's messages).
+  - Only reactions from a `SLACK_ALLOWED_REACTORS` user count (set in `.env`). If
+    `SLACK_ALLOWED_REACTORS` is not set, the poller falls back to accepting ALL reactors — this
+    is a documented first-run fallback only; set your own Slack user id before relying on
+    auto-removal.
+
+  **Recovering a wrongly-removed pair:** Every removal writes an audit record to
+  `spotcheck_removed_pairs` (pair_id, booli_id, hemnet_id, cohort_id, verdicts, reactor, reason,
+  removed_at). To find and restore it:
+
+  ```bash
+  cd /opt/hemnet-cohort-tracker && node -e "
+    require('dotenv').config();
+    const { createClient } = require('./db');
+    (async () => {
+      const c = createClient(); await c.connect();
+      // Find the audit record for the pair you want to restore:
+      const audit = await c.query(
+        'SELECT * FROM spotcheck_removed_pairs WHERE pair_id = \$1 ORDER BY removed_at DESC LIMIT 1',
+        [<PAIR_ID>]
+      );
+      console.log(JSON.stringify(audit.rows[0], null, 2));
+      // Re-insert into cohort_pairs (adjust columns to match your schema):
+      // await c.query(
+      //   'INSERT INTO cohort_pairs (id, booli_id, hemnet_id, cohort_id, ...) VALUES (\$1,\$2,\$3,\$4,...)',
+      //   [audit.rows[0].pair_id, audit.rows[0].booli_id, audit.rows[0].hemnet_id, audit.rows[0].cohort_id, ...]
+      // );
+      await c.end();
+    })();
+  "
+  ```
+
+  Replace `<PAIR_ID>` with the pair id from the audit record (visible in the Slack message or in
+  `spotcheck_removed_pairs`). Confirm the pair is back with a SELECT before and after.
+
+  **dHash calibration:** The gate logs `dHash pair <id>: minDist=<n>` for every sampled pair.
+  After 4–6 weeks, inspect the distribution:
+  ```bash
+  grep "dHash pair" /var/log/hemnet/spotcheck-gate.log | awk -F'minDist=' '{print $2}' | sort -n | uniq -c
+  ```
+  The threshold is `DHASH_THRESHOLD` in `.env` (default 6 = near-identical only). Do not raise
+  it until you have a clear view of the minDist distribution — raising it prematurely increases
+  false auto-confirms.
+
+  **Stale-cohort skip (D-13 guard):** If `cohort-create.js` hasn't produced this week's cohort
+  by the time the gate fires (Mon 06:30 UTC), the gate skips and fires a Slack alert:
+  `[WARNING] cohort-spotcheck-gate skipped: cohort <week> not yet available`. This is expected
+  if cohort-create is delayed. Re-run the gate manually once cohort-create completes:
+  ```bash
+  node cohort-spotcheck-gate.js --cohort $(date +%G-W%V)
+  ```
+  (`--cohort` bypasses the D-13 guard and runs against the specified week.)
 
 ### Re-run
 
