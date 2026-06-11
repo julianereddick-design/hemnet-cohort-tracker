@@ -29,9 +29,9 @@ const { runJob } = require('./cron-wrapper');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { adjudicatePairs } = require('./lib/spotcheck-adjudicate');
+const { adjudicatePairs, adjudicatePair } = require('./lib/spotcheck-adjudicate');
 const { computeSummary, renderSlackAlert, renderSummaryMd } = require('./lib/spotcheck-summary');
-const { minDHashDistance }    = require('./lib/spotcheck-dhash');
+const { sharedPhotoPairs, filterDiscriminating } = require('./lib/spotcheck-dhash');
 const { postReviewMessage, postDigestMessage } = require('./lib/spotcheck-slack-bot');
 const { upsertReviewMessage } = require('./lib/spotcheck-review-store');
 
@@ -57,11 +57,17 @@ function isoWeekId(date) {
 //                      is statistically meaningful on ~110+ pairs.
 // --threshold <f>    — escalation threshold; default 0.05 (5%)
 // --conc <n>         — concurrency for child tools; default 5
-// --max <n>          — gallery photo cap per pair; default 6
-// --mode-b           — enable Claude vision adjudication (requires ANTHROPIC_API_KEY)
+// --max <n>          — gallery photo cap per pair; default 20 (Phase 14 probe:
+//                      119 of 246 shared-photo pairs had their best match BEYOND
+//                      the old cap of 6; 25 sat at position 18+. Images are
+//                      CDN-direct (no Oxylabs cost) — only hash time.)
+// --mode-b / --mode-a — vision adjudication on residue pairs. Phase 14 (D-13):
+//                      DEFAULT ON when ANTHROPIC_API_KEY is set (the prod cron
+//                      line carries no flags, so the default governs); --mode-a
+//                      forces deterministic-only.
 // ---------------------------------------------------------------
 function parseArgs(argv) {
-  const a = { rate: 0.20, threshold: 0.05, conc: 5, max: 6, modeB: false };
+  const a = { rate: 0.20, threshold: 0.05, conc: 5, max: 20, modeB: true };
   for (let i = 2; i < argv.length; i++) {
     const t = argv[i];
     if (t === '--cohort') a.cohort = argv[++i];
@@ -69,7 +75,8 @@ function parseArgs(argv) {
     else if (t === '--threshold') a.threshold = parseFloat(argv[++i]);
     else if (t === '--conc') a.conc = Math.max(1, parseInt(argv[++i], 10) || 5);
     else if (t === '--max') a.max = Math.max(1, parseInt(argv[++i], 10) || 6);
-    else if (t === '--mode-b') a.modeB = true;  // enables Claude vision (requires ANTHROPIC_API_KEY)
+    else if (t === '--mode-b') a.modeB = true;
+    else if (t === '--mode-a') a.modeB = false;  // deterministic-only override
   }
   if (!Number.isFinite(a.rate) || a.rate <= 0 || a.rate > 1) a.rate = 0.20;
   // WR-03: allow --threshold 0 ("always escalate", a valid test value); only reject < 0 or > 1.
@@ -202,25 +209,56 @@ async function main(client, log) {
   }
   log('INFO', `Fetch failures: ${fetchFailures}`);
 
-  // 6b. dHash shared-image check (D-02). For each pair with both galleries, compute the closest
-  //     Booli<->Hemnet image distance. Auto-confirm CONFIRMED_MATCH when minDist <= DHASH_THRESHOLD
-  //     (default 6 — conservative, near-identical only). LOG every min-distance + outcome so the
-  //     threshold can be calibrated (likely → ≤10) from real data after a few weeks.
+  // 6a-bis. Multi-unit address set (Phase 14 D-05/D-09): one cheap read-only query
+  //     over the FULL cohort — any (street, postcode) with >1 pair this week is a
+  //     multi-unit risk. Stamped onto each sampled pair for the adjudicator/report.
+  const muRes = await client.query(
+    `SELECT LOWER(TRIM(street_address)) AS addr, postcode
+     FROM cohort_pairs WHERE cohort_id = $1
+     GROUP BY LOWER(TRIM(street_address)), postcode HAVING COUNT(*) > 1`,
+    [cohortId]
+  );
+  const multiUnitAddrs = new Set(muRes.rows.map((r) => `${r.addr}|${r.postcode}`));
+  for (const p of (artifact.pairs || [])) {
+    p.isMultiUnit = multiUnitAddrs.has(`${String(p.street_address || '').toLowerCase().trim()}|${p.postcode}`);
+  }
+  log('INFO', `multi-unit addresses in cohort: ${multiUnitAddrs.size}; flagged sampled pairs: ${(artifact.pairs || []).filter((p) => p.isMultiUnit).length}`);
+
+  // 6b. dHash photo-correspondence (Phase 14 D-02/D-05/D-10). For each pair with both
+  //     galleries: exclude non-discriminating images (floorplan/render/map labels on
+  //     either platform), then find ALL shared scenes within DHASH_THRESHOLD with a
+  //     distinct-scene dedup. confirmed = >=2 distinct shared scenes (>=1 when either
+  //     filtered side has <=2 images — tiny-gallery relaxation). The result is an
+  //     INPUT to adjudicatePair — there is no post-verdict promotion loop any more.
   const DHASH_THRESHOLD = parseInt(process.env.DHASH_THRESHOLD || '6', 10);
   const dhashResults = {};
   for (const p of (artifact.pairs || [])) {
     const photos = p.photos || {};
-    const booliFiles  = (photos.booli_gallery  || []).map(g => path.join(artifactDir, g.file));
-    const hemnetFiles = (photos.hemnet_gallery || []).map(g => path.join(artifactDir, g.file));
-    if (booliFiles.length === 0 || hemnetFiles.length === 0) {
+    const bAll = (photos.booli_gallery  || []);
+    const hAll = (photos.hemnet_gallery || []);
+    if (bAll.length === 0 || hAll.length === 0) {
       log('INFO', `dHash pair ${p.pair_id}: skipped (no gallery on one side)`);
       continue;
     }
-    const { minDist, bFile, hFile } = await minDHashDistance(booliFiles, hemnetFiles);
-    const confirmed = minDist <= DHASH_THRESHOLD;
-    dhashResults[p.pair_id] = { minDist, confirmed, bFile, hFile };
-    p.dhash = { minDist, confirmed, threshold: DHASH_THRESHOLD };  // persisted into VERDICTS json
-    log('INFO', `dHash pair ${p.pair_id}: minDist=${minDist} threshold=${DHASH_THRESHOLD} ${confirmed ? 'AUTO-CONFIRM' : 'escalate'}`);
+    const bUse = filterDiscriminating(bAll);
+    const hUse = filterDiscriminating(hAll);
+    const excluded = (bAll.length - bUse.length) + (hAll.length - hUse.length);
+    if (bUse.length === 0 || hUse.length === 0) {
+      dhashResults[p.pair_id] = { minDist: 64, confirmed: false, sharedCount: 0, threshold: DHASH_THRESHOLD, excluded };
+      p.dhash = dhashResults[p.pair_id];
+      log('INFO', `dHash pair ${p.pair_id}: only non-discriminating images on one side (excluded=${excluded}) — no photo signal`);
+      continue;
+    }
+    const r = await sharedPhotoPairs(
+      bUse.map((g) => path.join(artifactDir, g.file)),
+      hUse.map((g) => path.join(artifactDir, g.file)),
+      DHASH_THRESHOLD
+    );
+    const needed = (bUse.length <= 2 || hUse.length <= 2) ? 1 : 2;
+    const confirmed = r.sharedCount >= needed;
+    dhashResults[p.pair_id] = { minDist: r.minDist, confirmed, sharedCount: r.sharedCount, needed, threshold: DHASH_THRESHOLD, excluded };
+    p.dhash = dhashResults[p.pair_id];  // persisted into VERDICTS json
+    log('INFO', `dHash pair ${p.pair_id}: minDist=${r.minDist} sharedScenes=${r.sharedCount}/${needed} excludedImgs=${excluded} ${confirmed ? 'PHOTO-CONFIRMED' : 'no-photo-signal'}`);
   }
 
   // 7. Adjudicate pairs — Mode A (deterministic) or Mode B (Claude vision).
@@ -230,51 +268,58 @@ async function main(client, log) {
   //    COST GATE (T-12-11 / WR-01): vision is called only for `suspect` pairs.
   //    likely-match pairs are already resolved; low-signal pairs can only ever be
   //    UNCERTAIN (Booli fields null → price never agrees) — neither is sent to the API.
+  // 7. Adjudicate (Phase 14 identity model). FIRST PASS without vision finds the
+  //    residue; vision then runs only on residue pairs per the routing rule; the
+  //    FINAL pass feeds fee/floor fields + dHash + vision into adjudicatePair.
+  //
+  //    ROUTING (D-13, sized by the 14-01 probe): vision is spent on first-pass
+  //    UNCERTAIN pairs that (a) have usable galleries on both sides and (b) have
+  //    an agreeing price — exactly the old Branch-2 population that no longer
+  //    free-confirms. Cap via VISION_MAX_CALLS (cost ceiling per run).
+  const VISION_MAX_CALLS = parseInt(process.env.VISION_MAX_CALLS || '60', 10);
   let visionResults = undefined;
-  let adjudicationMode = 'mode-a-human';
+  let adjudicationMode = 'mode-a-deterministic';
+  const firstPass = {};
+  for (const p of (artifact.pairs || [])) {
+    firstPass[p.pair_id] = adjudicatePair(p, { dhashResult: dhashResults[p.pair_id] });
+  }
   if (args.modeB && process.env.ANTHROPIC_API_KEY) {
     const { adjudicateWithVision } = require('./lib/spotcheck-vision');
     adjudicationMode = 'mode-b-vision';
     visionResults = {};
-    // WR-02: log the resolved model so a future deprecation is visible in cron logs
-    // (a deprecated id makes vision return null → silent Mode-A degradation otherwise).
+    // WR-02: log the resolved model so a future deprecation is visible in cron logs.
     log('INFO', `mode-b model: ${process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6 (default)'}`);
-    // COST GATE (WR-01): only `suspect` pairs can change verdict via vision.
-    // `low-signal` means Booli fields are null → priceAgrees is always false →
-    // adjudicatePair can only ever return UNCERTAIN for them even with a shared
-    // photo, so sending them to the API burns tokens for no actionable result.
-    const needVision = (artifact.pairs || []).filter(
-      (p) => p.provisional === 'suspect'
-    );
-    log('INFO', `mode-b: ${needVision.length} suspect pair(s) need vision (of ${(artifact.pairs || []).length})`);
+    const candidates = (artifact.pairs || []).filter((p) => {
+      const fp = firstPass[p.pair_id];
+      if (!fp || fp.verdict !== 'UNCERTAIN') return false;
+      const priceAgrees = p.deltas && p.deltas.price_pct_diff != null && p.deltas.price_pct_diff <= 0.05;
+      const hasGalleries = (p.photos?.hemnet_gallery?.length > 0) && (p.photos?.booli_gallery?.length > 0);
+      return priceAgrees && hasGalleries;
+    });
+    const needVision = candidates.slice(0, VISION_MAX_CALLS);
+    if (candidates.length > needVision.length) {
+      log('WARN', `mode-b: ${candidates.length} vision candidates capped at VISION_MAX_CALLS=${VISION_MAX_CALLS} — ${candidates.length - needVision.length} stay UNCERTAIN this run`);
+    }
+    log('INFO', `mode-b: ${needVision.length} residue pair(s) routed to vision (of ${(artifact.pairs || []).length} sampled)`);
     for (const p of needVision) {
       const vr = await adjudicateWithVision(p, { artifactDir });
-      if (vr) visionResults[p.pair_id] = vr;
+      if (vr) {
+        visionResults[p.pair_id] = vr;
+        p.vision = { sharedPhoto: vr.sharedPhoto, confidence: vr.confidence, reasoning: vr.reasoning };
+        log('INFO', `vision pair ${p.pair_id}: sharedPhoto=${vr.sharedPhoto} conf=${vr.confidence}`);
+      }
     }
   } else if (args.modeB) {
-    log('WARN', 'mode-b requested but ANTHROPIC_API_KEY not set — falling back to Mode A');
+    log('INFO', 'vision unavailable (ANTHROPIC_API_KEY not set) — deterministic only');
   }
 
-  // D-06: log vision's advisory verdict per pair so vision-vs-human agreement is measurable
-  // over 4-6 weeks before we ever let vision auto-apply. Vision NEVER deletes a pair here.
-  for (const p of (artifact.pairs || [])) {
-    const vr = visionResults && visionResults[p.pair_id];
-    if (vr) {
-      p.vision = { sharedPhoto: vr.sharedPhoto, confidence: vr.confidence, reasoning: vr.reasoning };
-      log('INFO', `vision (advisory) pair ${p.pair_id}: sharedPhoto=${vr.sharedPhoto} conf=${vr.confidence}`);
-    }
-  }
+  const verdicts = adjudicatePairs(artifact.pairs || [], { visionResults, dhashResults });
 
-  const verdicts = adjudicatePairs(artifact.pairs || [], { visionResults });
-
-  // D-02: a dHash shared-image hit confirms a MATCH. Promote UNCERTAIN -> CONFIRMED_MATCH only.
-  // Never overrides a CONFIRMED_MISMATCH (asymmetric rule, COHORT-SPOTCHECK.md §3).
+  // D-04: photo evidence disagreeing with a field-confirmed MATCH is surfaced,
+  // never silently discarded.
   for (const v of verdicts) {
-    const dr = dhashResults[v.pair_id];
-    if (dr && dr.confirmed && v.verdict === 'UNCERTAIN') {
-      v.verdict = 'CONFIRMED_MATCH';
-      v.verdict_source = 'dhash';
-      v.verdict_reason = `dHash shared image (minDist=${dr.minDist} <= ${DHASH_THRESHOLD})`;
+    if (v.verdict_challenge) {
+      log('WARN', `pair ${v.pair_id}: CONFIRMED_MATCH challenged by photos — ${v.verdict_challenge} (${v.verdict_reason})`);
     }
   }
 
