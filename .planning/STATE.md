@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Self-hosted scraper hardening
 status: In progress
-stopped_at: Phase 13, Plan 01 complete
-last_updated: "2026-06-11T04:01:00.000Z"
+stopped_at: Phase 13, Plan 02 complete
+last_updated: "2026-06-11T08:00:00.000Z"
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 9
-  completed_plans: 8
-  percent: 89
+  completed_plans: 9
+  percent: 100
 ---
 
 ## Accumulated Context
@@ -31,8 +31,8 @@ progress:
 
 ### Last Session
 
-Stopped at: Phase 13 Plan 01 complete — persistence layer (migrate-spotcheck-phase13.js + lib/spotcheck-review-store.js)
-Resume: Phase 13, Plan 02
+Stopped at: Phase 13 Plan 02 complete — dHash lib + D-03 price guard (lib/spotcheck-dhash.js + patched lib/spotcheck-adjudicate.js)
+Resume: Phase 13, Plan 03
 
 ### Decisions (Phase 13)
 
@@ -40,3 +40,6 @@ Resume: Phase 13, Plan 02
 - 13-01: UNIQUE(pair_id, cohort_id) on spotcheck_review implements D-12 dedup via ON CONFLICT DO NOTHING in upsertReviewMessage
 - 13-01: Review-store exports take caller's pg client as first arg — no module-level DB connection opened (gate + poller pass their runJob client)
 - 13-01: All SQL uses $1,$2,... parameterised placeholders — no string interpolation (T-13-02 SQL injection mitigation confirmed by grep gate)
+- 13-02: D-02 threshold (<=6) NOT baked into spotcheck-dhash.js — threshold + per-pair logging deferred to the gate (Plan 04)
+- 13-02: jimp v1.x named-class import ({ Jimp }) + resize({ w, h }) API; old probe syntax not reused
+- 13-02: D-03 price guard closes adjudicate branch-3 false-positive; 15647->UNCERTAIN, 16347->CONFIRMED_MISMATCH (regression fixtures)
