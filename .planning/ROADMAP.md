@@ -228,3 +228,42 @@ Plans:
 
 **Wave 3**
 - [x] 13-06-PLAN.md — go-live: migration + weekly gate + daily poller crons + env vars + operator runbook in deploy-instructions.md [D-14] (2026-06-11)
+
+**Known carry-forward (2026-06-11 live test):** detection + Slack posting work; the actionable half is broken — ✅-removal blocked by the `cohort_daily_views` FK (and audit can't restore), and the UNCERTAIN digest shares one `ts` across all pairs so one reaction hits all of them. Interim operating rule: do NOT react on the digest; only ❌/❓ on individual MISMATCH messages are safe. Phases 13.1/13.2/14 below close these gaps.
+
+**Execution order (operator decision 2026-06-11): Phase 14 FIRST, then 13.1, then 13.2.** Rationale: the live loop is useless while the verdicts behind it aren't trusted/understood — fix verdict quality before making reactions actionable. The interim operating rule stays in force across upcoming gate runs (incl. Mon 2026-06-15) until 13.1 ships.
+
+### Phase 13.1: Spot-check review loop gap closure — make the live loop trustworthy
+
+**Goal:** A human reaction in Slack does exactly what it says, per pair, reversibly. (a) Replace the broken hard-DELETE removal path with soft-delete: `removed_at`/`removed_reason`/`removed_by` columns on `cohort_pairs` via migration; "removal" = UPDATE, FK never involved, `cohort_daily_views` history preserved, recovery = nulling `removed_at`; all cohort reporting/tracking queries exclude `removed_at IS NOT NULL`. (b) Post every UNCERTAIN pair as its own individual Slack message (operator decision 2026-06-11 — individual messages, not threads), each with its own `ts`, so reactions are per-pair; retire the actionable digest. (c) Poller guard: ignore any `spotcheck_review` rows whose `ts` is shared by >1 pair (protects against the W23-era rows already in the table).
+
+**Requirements:** `.planning/todos/pending/removal-hard-delete-fk-and-unrecoverable.md` + `.planning/todos/pending/uncertain-digest-no-per-pair-loop.md`
+**Depends on:** Phase 14 (sequencing, not technical — verdict quality first per operator decision 2026-06-11; original Mon 2026-06-15 pre-gate target dropped, interim operating rule stands until this ships)
+**Plans:** TBD (plan via gsd-plan-phase)
+
+### Phase 13.2: Spot-check review-queue hygiene — only reviewable pairs reach a human
+
+**Goal:** The eyeball queue contains only pairs a human can actually adjudicate, and nothing rots in it. (a) Classify each side's fetch outcome into delisted / transient-error / live-but-no-photos: delisted → own "listing delisted" bucket (summary line, not the review queue); transient-error → retry/roll-forward to next run, never silently dropped, persistent-failure count surfaced; live-but-no-photos → stays in adjudication, diverted only from image review. (b) Eyeball queue requires BOTH listings to exist (both galleries non-empty). (c) Stale-review aging alert: surface open review rows with no reaction after ~7 days in the poller's Slack output, excluding unanswerable (delisted) pairs.
+
+**Requirements:** `.planning/todos/pending/classify-fetch-outcomes-delisted-vs-error.md` + `.planning/todos/pending/review-queue-require-both-listings-exist.md` + `.planning/todos/pending/stale-review-aging-alert.md`
+**Depends on:** Phase 13.1 (the per-pair message volume from 13.1 is only sustainable once this filtering lands)
+**Plans:** TBD
+
+### Phase 14: Spot-check verdict quality — photos must correspond, not merely exist
+
+**Goal:** Close the false-confirm paths in the adjudicator. (a) **Sizing probe first** (operator decision 2026-06-11): on a full recent cohort sample (N=200+ per standing preference), measure how many likely-match + price-agree pairs actually fail dHash, and price the implied Claude-vision calls in $ before committing to routing. (b) Branch 2 rework: `priceAgrees + likely-match` requires a real dHash shared-photo signal (dHash result becomes an input to `adjudicatePair`), not `hasPhotos`; price-agree-but-no-shared-photo routes onward (vision and/or human, sized by the probe) instead of silently confirming; high dHash distance on a price-confirmed pair raises a flag (dHash can challenge, not only upgrade). (c) dHash auto-confirm hardening, shipped WITH (b) since it makes dHash load-bearing: exclude non-discriminating images (floorplans/`planlösning`, nyproduktion renders) from the compare set, require ≥2 distinct shared photos, never auto-confirm at multi-unit addresses; same guards apply to vision sharedPhoto.
+
+**Requirements:** `.planning/todos/pending/branch2-use-dhash-not-hasphotos.md` + `.planning/todos/pending/harden-dhash-autoconfirm-shared-stock-floorplan.md`
+**Depends on:** Phase 13 (runs FIRST of the three follow-up phases per operator decision 2026-06-11). If the probe needs the delisted-vs-transient-error distinction to interpret `miss` pairs, pull that classification forward from 13.2 into the probe rather than blocking on it.
+**Plans:** 4 plans (Wave 1: sizing/trust probe + operator routing gate · Wave 2: adjudicate Branch-2 rework ‖ vision floorplan guard · Wave 3: gate integration + deploy)
+
+Plans:
+**Wave 1**
+- [ ] 14-01-PLAN.md — D-01 sizing/trust probe (scripts/probe-dhash-sizing.js) + dHash primitives (sharedPhotoPairs + filterDiscriminatingFiles); ends at the operator routing-decision gate [D-01, D-03, D-05]
+
+**Wave 2**
+- [ ] 14-02-PLAN.md — Branch 2 rework in lib/spotcheck-adjudicate.js: dHash as 3rd input, D-05 guards (≥2 distinct / floorplan-only / multi-unit), D-04 challenge flag [D-02, D-03, D-04, D-05]
+- [ ] 14-03-PLAN.md — vision floorplan guard in lib/spotcheck-vision.js: filter non-discriminating images before payload + prompt warning [D-05]
+
+**Wave 3**
+- [ ] 14-04-PLAN.md — gate integration in cohort-spotcheck-gate.js: multi-unit query + sharedPhotoPairs dHash step + dhashResults into adjudicate + operator-chosen routing + D-04 logging + deploy [D-02, D-03, D-04, D-05]
