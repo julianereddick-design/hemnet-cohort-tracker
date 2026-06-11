@@ -253,17 +253,10 @@ Plans:
 
 **Goal:** Close the false-confirm paths in the adjudicator. (a) **Sizing probe first** (operator decision 2026-06-11): on a full recent cohort sample (N=200+ per standing preference), measure how many likely-match + price-agree pairs actually fail dHash, and price the implied Claude-vision calls in $ before committing to routing. (b) Branch 2 rework: `priceAgrees + likely-match` requires a real dHash shared-photo signal (dHash result becomes an input to `adjudicatePair`), not `hasPhotos`; price-agree-but-no-shared-photo routes onward (vision and/or human, sized by the probe) instead of silently confirming; high dHash distance on a price-confirmed pair raises a flag (dHash can challenge, not only upgrade). (c) dHash auto-confirm hardening, shipped WITH (b) since it makes dHash load-bearing: exclude non-discriminating images (floorplans/`planlösning`, nyproduktion renders) from the compare set, require ≥2 distinct shared photos, never auto-confirm at multi-unit addresses; same guards apply to vision sharedPhoto.
 
-**Requirements:** `.planning/todos/pending/branch2-use-dhash-not-hasphotos.md` + `.planning/todos/pending/harden-dhash-autoconfirm-shared-stock-floorplan.md`
-**Depends on:** Phase 13 (runs FIRST of the three follow-up phases per operator decision 2026-06-11). If the probe needs the delisted-vs-transient-error distinction to interpret `miss` pairs, pull that classification forward from 13.2 into the probe rather than blocking on it.
-**Plans:** 4 plans (Wave 1: sizing/trust probe + operator routing gate · Wave 2: adjudicate Branch-2 rework ‖ vision floorplan guard · Wave 3: gate integration + deploy)
+**Requirements:** `.planning/todos/done/branch2-use-dhash-not-hasphotos.md` + `.planning/todos/done/harden-dhash-autoconfirm-shared-stock-floorplan.md` (both RESOLVED 2026-06-12)
+**Depends on:** Phase 13 (ran FIRST of the three follow-up phases per operator decision 2026-06-11)
+**Progress:** **SHIPPED LIVE overnight 2026-06-11→12** under D-13 delegation (probe → design → implement → deploy → live test green on W23; cron_job_log id 586 status=success, mismatch rate 1.55%, 30 UNCERTAIN → review queue). Remaining: Mon 2026-06-15 06:30 UTC = first unattended scheduled fire; 20%-vs-100% coverage decision with operator.
 
 Plans:
-**Wave 1**
-- [ ] 14-01-PLAN.md — D-01 sizing/trust probe (scripts/probe-dhash-sizing.js) + dHash primitives (sharedPhotoPairs + filterDiscriminatingFiles); ends at the operator routing-decision gate [D-01, D-03, D-05]
-
-**Wave 2**
-- [ ] 14-02-PLAN.md — Branch 2 rework in lib/spotcheck-adjudicate.js: dHash as 3rd input, D-05 guards (≥2 distinct / floorplan-only / multi-unit), D-04 challenge flag [D-02, D-03, D-04, D-05]
-- [ ] 14-03-PLAN.md — vision floorplan guard in lib/spotcheck-vision.js: filter non-discriminating images before payload + prompt warning [D-05]
-
-**Wave 3**
-- [ ] 14-04-PLAN.md — gate integration in cohort-spotcheck-gate.js: multi-unit query + sharedPhotoPairs dHash step + dhashResults into adjudicate + operator-chosen routing + D-04 logging + deploy [D-02, D-03, D-04, D-05]
+- [x] 14-01-PLAN.md — sizing/trust probe (W23, 288 pairs) + dHash primitives + unit-field extraction (fee/floor/apartmentNumber + Hemnet Apollo image labels); DECISION in 14-01-SUMMARY.md [D-01, D-08, D-10, D-11, D-12] (2026-06-12)
+- [x] 14-02/03/04 — folded into the overnight implementation per D-13: identity-model adjudicator (fee-first; fee/floor contradictions → human-review conflict, never auto-mismatch; floor ±0.5 halvtrappa tolerance; D-04 challenge flag), label-based floorplan exclusion in dHash + vision, gate rework (multi-unit SQL stamp, dHash as verdict INPUT — promotion loop deleted, vision on first-pass-UNCERTAIN residue w/ VISION_MAX_CALLS cap, --max 6→20, artifact image cleanup, stale-cohort guard off-by-one-week fix) — commits 79911f0..e7d1ffe [D-02..D-05, D-09] (2026-06-12)

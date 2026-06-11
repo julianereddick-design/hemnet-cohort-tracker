@@ -31,8 +31,19 @@ progress:
 
 ### Last Session
 
-Stopped at: Re-plan 2026-06-11 — spot-check stream re-cut into Phases 13.1 / 13.2 / 14 in ROADMAP.md from the 7 pending todos (operator decisions: spot-check stream before Phase 10 remainder; UNCERTAIN pairs as individual Slack messages; D-11 reversed to soft-delete; Phase 14 vision routing sized by N=200+ probe first; EXECUTION ORDER SWAPPED to 14 → 13.1 → 13.2 — verdict trust before loop actionability)
-Resume: Plan Phase 14 (gsd-plan-phase) — first plan is the N=200+ sizing/trust probe; interim Slack rule (no digest reactions, no ✅-removal trust) stands until 13.1
+Stopped at: Phase 14 SHIPPED LIVE overnight 2026-06-11→12 under operator delegation D-13 (SSH to droplet enabled): probe (W23 288 pairs, fee 91.3%/95.2% exact, cap-6 lost 119 shared-photo pairs) → identity-model adjudicator + gate rework → deployed → live test green (cron_job_log 586 success, rate 1.55%, 30 UNCERTAIN, 4 MISMATCH posted to Slack)
+Resume: Phase 13.1 next (soft-delete removal + individual UNCERTAIN messages — the 30-pair digest from the live test still has the shared-ts problem); open operator decisions: 20%-vs-100% coverage ($4.32 vs $18.35/wk), Mon 2026-06-15 06:30 first unattended gate fire to watch
+
+### Decisions (Phase 14, 2026-06-12 overnight)
+
+- 14: Identity-model verdict — CONFIRMED_MATCH needs ≥1 unit-level signal (exact fee / ≥2 distinct label-filtered shared photos / vision) + ≥2 total; price alone never confirms (Branch-2 fig leaf deleted)
+- 14: Fee/floor contradictions → UNCERTAIN 'conflict' for human review, NEVER auto-MISMATCH (probe falsified auto-mismatch: fee drift on believed-true matches incl. 15647 at 5208vs4356; Booli≈80%-of-Hemnet cluster)
+- 14: Floor tolerance ±0.5 (Booli halvtrappa half-floors); floor can contradict, never confirm
+- 14: Gallery cap 6→20 (probe: 48% of shared-photo pairs had best match beyond 6); gate deletes images beyond index 6 post-dHash (disk)
+- 14: Vision routing = first-pass-UNCERTAIN residue with galleries, VISION_MAX_CALLS=60 cap, default ON when ANTHROPIC_API_KEY set (prod cron line has no flags; --mode-a opts out)
+- 14: dHash threshold stays 6; ≥2 distinct shared scenes (≥1 when either filtered side ≤2)
+- 14: stale-cohort guard fixed — expects the just-ended listing week (cohort ids label the LISTING week); old guard would have false-alarmed every scheduled Monday
+- 14: hemnet_url cross-link on Booli does NOT exist (spike 0/3) — Hemnet-match-cohort optimization path #1 dead
 
 ### Decisions (Phase 13)
 
