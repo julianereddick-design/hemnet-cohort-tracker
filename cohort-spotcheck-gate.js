@@ -32,7 +32,7 @@ const path = require('path');
 const { adjudicatePairs, adjudicatePair } = require('./lib/spotcheck-adjudicate');
 const { computeSummary, renderSlackAlert, renderSummaryMd } = require('./lib/spotcheck-summary');
 const { sharedPhotoPairs, filterDiscriminating } = require('./lib/spotcheck-dhash');
-const { postReviewMessage, postDigestMessage } = require('./lib/spotcheck-slack-bot');
+const { postReviewMessage, postInfoMessage } = require('./lib/spotcheck-slack-bot');
 const { upsertReviewMessage } = require('./lib/spotcheck-review-store');
 
 // ---------------------------------------------------------------
@@ -362,9 +362,13 @@ async function main(client, log) {
 
   log('INFO', `Wrote:\n  ${verdictsPath}\n  ${summaryMdPath}`);
 
-  // 9b. Slack review queue (D-07): weekly digest of UNCERTAIN pairs + one message per CONFIRMED_MISMATCH.
-  //     Each posted message ref is persisted (channel, ts, pair_id, cohort, vision verdict) so the
-  //     daily poller (spotcheck-reaction-poller.js) can read reactions and apply human verdicts.
+  // 9b. Slack review queue (D-07, reworked Phase 13.1): ONE message PER pair —
+  //     reviewable UNCERTAIN and CONFIRMED_MISMATCH alike — so every message has
+  //     its own ts and reactions are per-pair (the old shared-ts digest applied
+  //     one reaction to every pair in it; retired). Each posted message ref is
+  //     persisted (channel, ts, pair_id, cohort, vision verdict) so the daily
+  //     poller (spotcheck-reaction-poller.js) can read reactions and apply human
+  //     verdicts. Unreviewable (delisted) pairs get one INFO post, no review rows.
   // Partition UNCERTAIN into reviewable vs unreviewable (Phase 14.1):
   // a pair where either listing page is 'delisted' (removed since cohort build)
   // has nothing to eyeball — it gets ONE summary line in the digest and NO
@@ -381,28 +385,24 @@ async function main(client, log) {
     const uncertainPairs = uncertainAll.filter(v => !isUnreviewable(v));
     const mismatchPairs  = verdicts.filter(v => v.verdict === 'CONFIRMED_MISMATCH');
 
-    if (uncertainPairs.length > 0 || unreviewablePairs.length > 0) {
-      const res = await postDigestMessage(reviewChannel, uncertainPairs, {
-        unreviewablePairIds: unreviewablePairs.map(p => p.pair_id),
-      });
-      if (res && res.ts) {
-        for (const p of uncertainPairs) {
-          await upsertReviewMessage(client, {
-            pairId: p.pair_id, cohortId, channel: reviewChannel, ts: res.ts,
-            visionVerdict: p.vision ? (p.vision.sharedPhoto === false ? 'MISMATCH' : p.vision.sharedPhoto === true ? 'MATCH' : null) : null,
-          });
-        }
-      }
-    }
-    for (const p of mismatchPairs) {
+    // One message per reviewable pair — UNCERTAIN and MISMATCH alike (own ts each).
+    for (const p of [...uncertainPairs, ...mismatchPairs]) {
       const res = await postReviewMessage(reviewChannel, p);
       if (res && res.ts) {
         await upsertReviewMessage(client, {
-          pairId: p.pair_id, cohortId, channel: reviewChannel, ts: res.ts, visionVerdict: 'MISMATCH',
+          pairId: p.pair_id, cohortId, channel: reviewChannel, ts: res.ts,
+          visionVerdict: p.verdict === 'CONFIRMED_MISMATCH' ? 'MISMATCH'
+            : (p.vision ? (p.vision.sharedPhoto === false ? 'MISMATCH' : p.vision.sharedPhoto === true ? 'MATCH' : null) : null),
         });
       }
     }
-    log('INFO', `review queue: ${uncertainPairs.length} UNCERTAIN (digest) + ${mismatchPairs.length} MISMATCH (individual) posted; ${unreviewablePairs.length} unreviewable (delisted) diverted`);
+    // Unreviewable (delisted) pairs: ONE informational post, no review rows.
+    if (unreviewablePairs.length > 0) {
+      await postInfoMessage(reviewChannel,
+        `[SPOT-CHECK] ${cohortId}: ${unreviewablePairs.length} pair(s) unreviewable — listing removed since cohort build: ` +
+        unreviewablePairs.map(p => p.pair_id).join(', '));
+    }
+    log('INFO', `review queue: ${uncertainPairs.length} UNCERTAIN + ${mismatchPairs.length} MISMATCH posted individually; ${unreviewablePairs.length} unreviewable (delisted) diverted`);
   } else {
     log('INFO', 'review queue: SLACK_BOT_TOKEN/SLACK_REVIEW_CHANNEL not set — skipping Slack post (verdicts still written)');
   }
