@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Self-hosted scraper hardening
 status: In progress
-stopped_at: Phase 13, Plan 02 complete
-last_updated: "2026-06-11T08:00:00.000Z"
+stopped_at: Phase 13, Plan 03 complete
+last_updated: "2026-06-11T12:00:00.000Z"
 progress:
   total_phases: 5
   completed_phases: 0
@@ -31,8 +31,8 @@ progress:
 
 ### Last Session
 
-Stopped at: Phase 13 Plan 02 complete — dHash lib + D-03 price guard (lib/spotcheck-dhash.js + patched lib/spotcheck-adjudicate.js)
-Resume: Phase 13, Plan 03
+Stopped at: Phase 13 Plan 03 complete — Slack bot-token I/O lib + operator runbook (lib/spotcheck-slack-bot.js + SLACK-REVIEW-SETUP.md)
+Resume: Phase 13, Plan 04
 
 ### Decisions (Phase 13)
 
@@ -43,3 +43,6 @@ Resume: Phase 13, Plan 03
 - 13-02: D-02 threshold (<=6) NOT baked into spotcheck-dhash.js — threshold + per-pair logging deferred to the gate (Plan 04)
 - 13-02: jimp v1.x named-class import ({ Jimp }) + resize({ w, h }) API; old probe syntax not reused
 - 13-02: D-03 price guard closes adjudicate branch-3 false-positive; 15647->UNCERTAIN, 16347->CONFIRMED_MISMATCH (regression fixtures)
+- 13-03: parseReactions extracted as pure helper for offline smoke — all 3 exports return null without throwing when SLACK_BOT_TOKEN absent (T-13-08)
+- 13-03: Booli URLs use /annons/<booli_id> per COHORT-SPOTCHECK.md §4; SLACK_WEBHOOK_URL not referenced in new module (strict separation from Phase 12 alert path)
+- 13-03: SLACK-REVIEW-SETUP.md runbook authored autonomously; Slack app creation deferred to operator at deploy time (Plan 06)
