@@ -202,6 +202,27 @@ async function main(client, log) {
   }
   log('INFO', `Fetch failures: ${fetchFailures}`);
 
+  // 6b. dHash shared-image check (D-02). For each pair with both galleries, compute the closest
+  //     Booli<->Hemnet image distance. Auto-confirm CONFIRMED_MATCH when minDist <= DHASH_THRESHOLD
+  //     (default 6 — conservative, near-identical only). LOG every min-distance + outcome so the
+  //     threshold can be calibrated (likely → ≤10) from real data after a few weeks.
+  const DHASH_THRESHOLD = parseInt(process.env.DHASH_THRESHOLD || '6', 10);
+  const dhashResults = {};
+  for (const p of (artifact.pairs || [])) {
+    const photos = p.photos || {};
+    const booliFiles  = (photos.booli_gallery  || []).map(g => path.join(artifactDir, g.file));
+    const hemnetFiles = (photos.hemnet_gallery || []).map(g => path.join(artifactDir, g.file));
+    if (booliFiles.length === 0 || hemnetFiles.length === 0) {
+      log('INFO', `dHash pair ${p.pair_id}: skipped (no gallery on one side)`);
+      continue;
+    }
+    const { minDist, bFile, hFile } = await minDHashDistance(booliFiles, hemnetFiles);
+    const confirmed = minDist <= DHASH_THRESHOLD;
+    dhashResults[p.pair_id] = { minDist, confirmed, bFile, hFile };
+    p.dhash = { minDist, confirmed, threshold: DHASH_THRESHOLD };  // persisted into VERDICTS json
+    log('INFO', `dHash pair ${p.pair_id}: minDist=${minDist} threshold=${DHASH_THRESHOLD} ${confirmed ? 'AUTO-CONFIRM' : 'escalate'}`);
+  }
+
   // 7. Adjudicate pairs — Mode A (deterministic) or Mode B (Claude vision).
   //    Mode B is engaged ONLY when --mode-b is passed AND ANTHROPIC_API_KEY is set.
   //    Without either, the gate runs Mode A unchanged (graceful fallback).
@@ -234,6 +255,18 @@ async function main(client, log) {
     log('WARN', 'mode-b requested but ANTHROPIC_API_KEY not set — falling back to Mode A');
   }
   const verdicts = adjudicatePairs(artifact.pairs || [], { visionResults });
+
+  // D-02: a dHash shared-image hit confirms a MATCH. Promote UNCERTAIN -> CONFIRMED_MATCH only.
+  // Never overrides a CONFIRMED_MISMATCH (asymmetric rule, COHORT-SPOTCHECK.md §3).
+  for (const v of verdicts) {
+    const dr = dhashResults[v.pair_id];
+    if (dr && dr.confirmed && v.verdict === 'UNCERTAIN') {
+      v.verdict = 'CONFIRMED_MATCH';
+      v.verdict_source = 'dhash';
+      v.verdict_reason = `dHash shared image (minDist=${dr.minDist} <= ${DHASH_THRESHOLD})`;
+    }
+  }
+
   log('INFO', `Adjudicated ${verdicts.length} pairs (${adjudicationMode})`);
 
   // 8. Compute summary (rate + Wilson CI + by-county + mismatch list).
