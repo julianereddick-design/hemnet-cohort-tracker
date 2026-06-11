@@ -31,6 +31,7 @@ const { getWithRetry, extractNextData } = require('./lib/scrape-http');
 const {
   hemnetHeroUrl, booliHeroUrl, hemnetGalleryUrls, booliGalleryUrls, downloadImage,
   hemnetUnitFields, hemnetGalleryFromApollo, booliUnitFields,
+  classifyHemnetPage, classifyBooliPage,
 } = require('./lib/spotcheck-photos');
 
 function log(level, msg) {
@@ -117,11 +118,18 @@ async function main() {
       const photos = { hemnet_hero_url: null, booli_hero_url: null, hemnet_file: null, booli_file: null, hemnet_gallery: [], booli_gallery: [], notes: [] };
       const pairSub = args.gallery ? path.join(photoDir, `pair${p.pair_id}`) : photoDir;
       if (args.gallery) fs.mkdirSync(pairSub, { recursive: true });
+      // Phase 14.1: per-side page disposition — 'active' | 'delisted' | 'error'.
+      // 'delisted' pairs are unreviewable (nothing to eyeball) and are diverted
+      // from the Slack review queue by the gate.
+      p.page_status = { hemnet: 'error', booli: 'error' };
 
       // Hemnet
       try {
         const hp = await fetchPage(p.hemnet_url);
-        if (hp.status === 'active') {
+        p.page_status.hemnet = hp.status === 'active'
+          ? classifyHemnetPage(200, hp.html, hp.apollo)
+          : 'delisted'; // fetchPage 'inactive' = HTTP 404
+        if (hp.status === 'active' && p.page_status.hemnet === 'active') {
           // Phase 14: unit-level identity fields (fee/floor/rooms/energy) from the
           // Apollo state of the page we already fetched — zero extra cost.
           p.hemnet_unit = hemnetUnitFields(hp.apollo);
@@ -142,7 +150,7 @@ async function main() {
             }
             photos.hemnet_gallery = await dlGallery(entries, pairSub, 'hemnet', dir);
           }
-        } else { photos.notes.push(`hemnet-${hp.reason}`); counters.hemnetMiss++; }
+        } else { photos.notes.push(`hemnet-${hp.reason || 'delisted'}`); counters.hemnetMiss++; }
       } catch (e) { photos.notes.push(`hemnet-err:${e.message}`); counters.hemnetMiss++; }
 
       // Booli — prefer the current AD URL built from booli_id (the ad id) over the
@@ -158,7 +166,10 @@ async function main() {
           photos.booli_url_used = p.booli_url;
           bp = await fetchPage(p.booli_url);
         }
-        if (bp.status === 'active') {
+        p.page_status.booli = bp.status === 'active'
+          ? classifyBooliPage(200, bp.html, bp.apollo)
+          : 'delisted'; // 404 on /annons (and stored-url fallback if tried)
+        if (bp.status === 'active' && p.page_status.booli === 'active') {
           // Phase 14: unit-level identity fields (rent/floor/apartmentNumber) from
           // the Apollo state of the page we already fetched — zero extra cost.
           p.booli_unit = booliUnitFields(bp.apollo);
@@ -173,13 +184,14 @@ async function main() {
             const entries = booliGalleryUrls(bp.apollo, { max: args.max, interiorFirst: true });
             photos.booli_gallery = await dlGallery(entries, pairSub, 'booli', dir);
           }
-        } else { photos.notes.push(`booli-${bp.reason}`); counters.booliMiss++; }
+        } else { photos.notes.push(`booli-${bp.reason || 'delisted'}`); counters.booliMiss++; }
       } catch (e) { photos.notes.push(`booli-err:${e.message}`); counters.booliMiss++; }
 
       p.photos = photos;
       const galInfo = args.gallery ? ` gallery[h=${photos.hemnet_gallery.length} b=${photos.booli_gallery.length}]` : '';
       const feeInfo = ` fee[h=${(p.hemnet_unit && p.hemnet_unit.fee) ?? '—'} b=${(p.booli_unit && p.booli_unit.rent) ?? '—'}]`;
-      log('INFO', `pair ${p.pair_id} [${p.provisional}] hemnet=${photos.hemnet_file ? 'ok' : 'miss'} booli=${photos.booli_file ? 'ok' : 'miss'}${galInfo}${feeInfo}${photos.notes.length ? ' (' + photos.notes.join(',') + ')' : ''}`);
+      const pageInfo = ` page[h=${p.page_status.hemnet} b=${p.page_status.booli}]`;
+      log('INFO', `pair ${p.pair_id} [${p.provisional}] hemnet=${photos.hemnet_file ? 'ok' : 'miss'} booli=${photos.booli_file ? 'ok' : 'miss'}${galInfo}${feeInfo}${pageInfo}${photos.notes.length ? ' (' + photos.notes.join(',') + ')' : ''}`);
     }
   }
 

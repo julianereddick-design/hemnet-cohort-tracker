@@ -365,14 +365,26 @@ async function main(client, log) {
   // 9b. Slack review queue (D-07): weekly digest of UNCERTAIN pairs + one message per CONFIRMED_MISMATCH.
   //     Each posted message ref is persisted (channel, ts, pair_id, cohort, vision verdict) so the
   //     daily poller (spotcheck-reaction-poller.js) can read reactions and apply human verdicts.
+  // Partition UNCERTAIN into reviewable vs unreviewable (Phase 14.1):
+  // a pair where either listing page is 'delisted' (removed since cohort build)
+  // has nothing to eyeball — it gets ONE summary line in the digest and NO
+  // spotcheck_review row. 'error' (transient fetch failure) and legacy records
+  // without page_status stay reviewable — never silently drop a checkable pair.
+  const uncertainAll = verdicts.filter(v => v.verdict === 'UNCERTAIN');
+  const isUnreviewable = (v) =>
+    v.page_status && (v.page_status.hemnet === 'delisted' || v.page_status.booli === 'delisted');
+  const unreviewablePairs = uncertainAll.filter(isUnreviewable);
+
   const botToken = process.env.SLACK_BOT_TOKEN;
   const reviewChannel = process.env.SLACK_REVIEW_CHANNEL;
   if (botToken && reviewChannel) {
-    const uncertainPairs = verdicts.filter(v => v.verdict === 'UNCERTAIN');
+    const uncertainPairs = uncertainAll.filter(v => !isUnreviewable(v));
     const mismatchPairs  = verdicts.filter(v => v.verdict === 'CONFIRMED_MISMATCH');
 
-    if (uncertainPairs.length > 0) {
-      const res = await postDigestMessage(reviewChannel, uncertainPairs);
+    if (uncertainPairs.length > 0 || unreviewablePairs.length > 0) {
+      const res = await postDigestMessage(reviewChannel, uncertainPairs, {
+        unreviewablePairIds: unreviewablePairs.map(p => p.pair_id),
+      });
       if (res && res.ts) {
         for (const p of uncertainPairs) {
           await upsertReviewMessage(client, {
@@ -390,7 +402,7 @@ async function main(client, log) {
         });
       }
     }
-    log('INFO', `review queue: ${uncertainPairs.length} UNCERTAIN (digest) + ${mismatchPairs.length} MISMATCH (individual) posted`);
+    log('INFO', `review queue: ${uncertainPairs.length} UNCERTAIN (digest) + ${mismatchPairs.length} MISMATCH (individual) posted; ${unreviewablePairs.length} unreviewable (delisted) diverted`);
   } else {
     log('INFO', 'review queue: SLACK_BOT_TOKEN/SLACK_REVIEW_CHANNEL not set — skipping Slack post (verdicts still written)');
   }
@@ -405,6 +417,7 @@ async function main(client, log) {
     confirmedMatch: summary.confirmedMatch,
     confirmedMismatch: summary.confirmedMismatch,
     uncertain: summary.uncertain,
+    uncertainUnreviewable: unreviewablePairs.length,
     confirmedMismatchRate: summary.confirmedMismatchRate,
     wilsonLo: summary.wilsonLo,
     wilsonHi: summary.wilsonHi,
