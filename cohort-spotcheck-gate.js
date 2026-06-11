@@ -259,6 +259,11 @@ async function main(client, log) {
     dhashResults[p.pair_id] = { minDist: r.minDist, confirmed, sharedCount: r.sharedCount, needed, threshold: DHASH_THRESHOLD, excluded };
     p.dhash = dhashResults[p.pair_id];  // persisted into VERDICTS json
     log('INFO', `dHash pair ${p.pair_id}: minDist=${r.minDist} sharedScenes=${r.sharedCount}/${needed} excludedImgs=${excluded} ${confirmed ? 'PHOTO-CONFIRMED' : 'no-photo-signal'}`);
+    // Disk hygiene: at --max 20 a weekly artifact would persist ~2GB of images.
+    // dHash is computed; vision uses only the first 6 per side — delete the rest.
+    for (const g of [...bAll.slice(6), ...hAll.slice(6)]) {
+      try { fs.unlinkSync(path.join(artifactDir, g.file)); } catch (_) { /* best effort */ }
+    }
   }
 
   // 7. Adjudicate pairs — Mode A (deterministic) or Mode B (Claude vision).
