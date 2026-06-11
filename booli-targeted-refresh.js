@@ -94,6 +94,10 @@ function jitter() { return 100 + Math.random() * 200; }
 function shapeBooliForUpdate(listing) {
   const l = listing || {};
   return {
+    // null when Booli's page omits the 'pageviews' InfoPoint (transient variant /
+    // partial render). The SQL sites COALESCE it: UPDATE keeps the last good count,
+    // defensive INSERT defaults a never-seen row to 0. Returning null here (not 0)
+    // is deliberate so the UPDATE never overwrites a real count on a transient miss.
     times_viewed:
       l.timesViewed != null ? l.timesViewed : null,
     published_at_seconds:
@@ -148,7 +152,7 @@ async function processOne(pair, client, log, dryRun, summary) {
       // UPDATE the booli_listing row for this booli_id (D-03).
       const upd = await client.query(
         `UPDATE booli_listing
-            SET times_viewed = $1,
+            SET times_viewed = COALESCE($1, times_viewed),
                 is_active    = true,
                 crawled      = NOW(),
                 days_listed  = (CURRENT_DATE - listed)::int,
@@ -184,7 +188,7 @@ async function processOne(pair, client, log, dryRun, summary) {
                 price, rooms, living_area, object_type, agent_id)
              VALUES
                (nextval('booli_listing_id_seq'), $1, $2, true,
-                to_timestamp($3)::date, NOW(), $4,
+                to_timestamp($3)::date, NOW(), COALESCE($4, 0),
                 '', '', '', '', '', NULL, 'SEK',
                 GREATEST(0, (CURRENT_DATE - to_timestamp($3)::date)::int), false,
                 $5, $6, $7, $8, $9)
