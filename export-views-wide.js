@@ -223,7 +223,8 @@ async function run() {
   const fileA = writeCsv(outDir, `cumulative.csv`, linesA);
 
   // === File B: Per-Pair Incremental Daily ===
-  // H = 1-day delta, B = 2-day daily average (Booli scraper updates every other day)
+  // H and B are both per-day averages over the actual gap to the prior tracked
+  // sample (gap-aware since the every-2-days cutover — see incrMap build above).
   const headerB = ['pair_id', 'booli_id', 'hemnet_id', 'street_address', 'municipality', 'county'];
   for (const d of dates) { headerB.push(`H_incr_${d}`, `B_incr_${d}`); }
   const linesB = [headerB.join(',')];
@@ -289,7 +290,7 @@ async function run() {
     if (v.h === 0 && v.b === 0) zeroCount++;
   }
   console.log(`\nData quality: ${negCount} negative incrementals, ${zeroCount} zero-delta entries`);
-  console.log(`Note: Booli incrementals use 2-day avg (scraper updates every other day)`);
+  console.log(`Note: incrementals are per-day averages over the actual gap between tracked samples (every-2-days cadence)`);
 
   await client.end();
 }
