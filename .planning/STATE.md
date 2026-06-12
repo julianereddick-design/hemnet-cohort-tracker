@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Self-hosted scraper hardening
-status: Code-complete — no active coding phase; operator-gated prod steps + decisions remain
-stopped_at: "v2.1 (Phase 10) CODE-COMPLETE 2026-06-12 — 10-04 (export gap-aware fix + scripts/intel cleanup) and 10-05 (Pool & Flow repo retirement) shipped. Spot-check stream (12/13/13.1/13.2/14/14.1) + v2.2 market-totals (Phase 11) all previously shipped. Remaining is NOT coding: (1) operator-gated droplet steps for 10-05 (remove 4 Mon-09:00 crontab lines + DROP listing_gap_weekly/listing_flow_weekly + remove pool-flow-dashboard.html); (2) Mon 2026-06-15 06:30 UTC first unattended spot-check gate fire (live validation watch); (3) operator decision: spot-check 20%-vs-100% coverage ($4.32 vs $18.35/wk); (4) flagged booli-refresh coverage gap (5969 reported vs ~4097 refreshed) follow-up. Next coding work = a NEW milestone (none scoped yet)."
+status: v2.1 COMPLETE (repo + droplet) — no active coding phase; only decisions + a monitoring watch remain
+stopped_at: "v2.1 (Phase 10) COMPLETE 2026-06-12 — 10-04 (export gap-aware fix + scripts/intel cleanup) and 10-05 (Pool & Flow retirement) shipped to repo AND droplet: 4 Mon-09:00 crontab lines removed, pool-flow-dashboard.html deleted, 4 scripts gone; the listing_gap_weekly/listing_flow_weekly TABLES were intentionally LEFT (operator decision — harmless, writers gone). 10-04(a) export gap-aware fix verified on droplet (W21 incremental columns now populate). Spot-check stream (12/13/13.1/13.2/14/14.1) + v2.2 market-totals (Phase 11) all previously shipped. Remaining is NOT coding: (1) Mon 2026-06-15 06:30 UTC first unattended spot-check gate fire (live validation watch); (2) operator decision: spot-check 20%-vs-100% coverage ($4.32 vs $18.35/wk); (3) flagged booli-refresh coverage gap (5969 reported vs ~4097 refreshed) follow-up. Next coding work = a NEW milestone (none scoped yet)."
 last_updated: "2026-06-12"
 progress:
   # Scope = current milestone v2.1 (Phase 10 only). Prior block (5 phases / 9 plans /
@@ -34,7 +34,7 @@ progress:
 ### Last Session
 
 Stopped at: v2.1 (Phase 10) CODE-COMPLETE 2026-06-12. Shipped 10-04 (export-views-wide gap-aware incremental fix; deleted 16 spent one-off scripts + dead `migrate-booli-listing-drop-agent-fk.js` + 7 verf-log dirs + stray `.clone`; corrected stale SLACK_WEBHOOK "not configured" intel claims; Job C Final: line emits `jobStatus` not `status`) and 10-05 (deleted the 4 pre-v2.0 Pool & Flow scripts + `setup-chart-cron.sh` from the repo; `weekly-view-report.js` + the :3800 `view-data-server.js` kept). Also this session: fixed `booli-targeted-refresh` times_viewed NOT-NULL worker errors (COALESCE, commit 3b0f478, deployed) and confirmed the cohort-track null-jump alert was benign sell-through.
-Resume: (1) OPERATOR-GATED droplet steps for 10-05 — remove the 4 Mon-09:00 crontab lines (keep weekly-view-report), `DROP TABLE listing_gap_weekly, listing_flow_weekly`, remove pool-flow-dashboard.html, and `git pull` the repo deletions; (2) Mon 2026-06-15 06:30 UTC first unattended spot-check gate fire (live validation); (3) decide spot-check 20%-vs-100% coverage; (4) flagged booli-refresh coverage-gap follow-up. No active coding phase — next coding work needs a new milestone.
+Resume: v2.1 fully closed (repo + droplet). No active coding phase. Open items, none coding: (1) Mon 2026-06-15 06:30 UTC first unattended spot-check gate fire (live validation watch); (2) decide spot-check 20%-vs-100% coverage; (3) flagged booli-refresh coverage-gap follow-up. Next coding work needs a new milestone (none scoped).
 
 ### Decisions (Phase 14, 2026-06-12 overnight)
 
