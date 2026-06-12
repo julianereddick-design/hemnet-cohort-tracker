@@ -149,9 +149,14 @@ async function run() {
     pairRegionMap.set(pair.id, countyToRegion(pair.county));
   }
 
-  // --- Compute per-pair incrementals ---
-  // Hemnet: 1-day delta (updates daily)
-  // Booli: 2-day delta / 2 (scraper only updates views every other day)
+  // --- Compute per-pair incrementals (gap-aware per-day average) ---
+  // Post-cutover (Phase 9, every-2-days cadence) both Hemnet and Booli view data
+  // are sampled on the SAME ~2-day cohort-track cadence, so consecutive tracked
+  // dates are ~2 days apart. The old code assumed exactly-1-day spacing for
+  // Hemnet (gap !== 1 → continue), which blanked the incremental columns for
+  // W21+. Now divide each delta by the ACTUAL day gap to the immediately prior
+  // sample → a per-day average that is correct under any cadence (1-day legacy
+  // data → /1, every-2-days → /2). Mirrors the prior Booli 2-day-average intent.
   // incrMap: Map<"pairId_date", { h: number, b: number }>
   const incrMap = new Map();
   for (const pair of pairs) {
@@ -160,28 +165,19 @@ async function run() {
       const prevDate = new Date(pairDates[i - 1]);
       const currDate = new Date(pairDates[i]);
       const gap = Math.round((currDate - prevDate) / DAY_MS);
-      if (gap !== 1) continue;
+      if (gap < 1) continue; // guard against duplicate/out-of-order dates
 
       const curr = viewMap.get(`${pair.id}_${pairDates[i]}`);
-      const prev1 = viewMap.get(`${pair.id}_${pairDates[i - 1]}`);
+      const prev = viewMap.get(`${pair.id}_${pairDates[i - 1]}`);
 
-      // Hemnet: 1-day delta
       let h = null;
-      if (curr.hemnet_views != null && prev1.hemnet_views != null) {
-        h = curr.hemnet_views - prev1.hemnet_views;
+      if (curr.hemnet_views != null && prev.hemnet_views != null) {
+        h = (curr.hemnet_views - prev.hemnet_views) / gap;
       }
 
-      // Booli: 2-day lookback for daily average (scraper updates every other day)
       let b = null;
-      if (i >= 2) {
-        const prev2Date = new Date(pairDates[i - 2]);
-        const gap2 = Math.round((currDate - prev2Date) / DAY_MS);
-        if (gap2 === 2) {
-          const prev2 = viewMap.get(`${pair.id}_${pairDates[i - 2]}`);
-          if (curr.booli_views != null && prev2.booli_views != null) {
-            b = (curr.booli_views - prev2.booli_views) / 2;
-          }
-        }
+      if (curr.booli_views != null && prev.booli_views != null) {
+        b = (curr.booli_views - prev.booli_views) / gap;
       }
 
       if (h !== null || b !== null) {

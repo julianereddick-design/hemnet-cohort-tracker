@@ -122,7 +122,10 @@ function emitFinalLine(status, extraFields) {
   if (__finalEmitted) return;
   __finalEmitted = true;
   const base = __lastSummary || {};
-  const merged = Object.assign({}, base, extraFields || {}, { status });
+  // 09-01 #3: emit under `jobStatus` (run-completion: success|failure), NOT `status`,
+  // so a grep of the Final: log line can't be confused with cron_job_log.status —
+  // which cron-wrapper owns from validate() and may be 'warning' on a completed run.
+  const merged = Object.assign({}, base, extraFields || {}, { jobStatus: status });
   const line = `Final: ${JSON.stringify(merged)}`;
   if (typeof __lastLogger === 'function') {
     try { __lastLogger('INFO', line); return; } catch (_) { /* fall through */ }

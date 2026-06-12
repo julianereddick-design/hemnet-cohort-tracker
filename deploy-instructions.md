@@ -200,13 +200,19 @@ The live droplet crontab also contains the following operational and reporting j
 # Cron health monitor — daily 03:00 UTC. Aggregates cron_job_log statuses and Slack-pings on failures.
 0 3 * * *   cd /opt/hemnet-cohort-tracker && node cron-health-slack.js
 
-# Weekly reporting fan-out — Mondays 09:00 UTC and shortly after.
-0 9 * * 1   cd /opt/hemnet-cohort-tracker && node listing-gap-monitor.js
-0 9 * * 1   cd /opt/hemnet-cohort-tracker && node flow-monitor.js
-15 9 * * 1  cd /opt/hemnet-cohort-tracker && node pool-flow-report.js
+# Weekly reporting — Mondays 09:00 UTC.
 30 9 * * 1  cd /opt/hemnet-cohort-tracker && node weekly-view-report.js
-30 9 * * 1  cd /opt/hemnet-cohort-tracker && node generate-pool-flow-charts.js
 ```
+
+> **Phase 10-05 (2026-06-12): the pre-v2.0 Pool & Flow fan-out was retired.** The four
+> Monday-09:00 jobs `listing-gap-monitor.js`, `flow-monitor.js`, `pool-flow-report.js`
+> (direct Slack), and `generate-pool-flow-charts.js` (port-3800 dashboard HTML) were
+> superseded by the v2.0 cohort pipeline + `weekly-view-report.js` (which STAYS). Their
+> four `.js` files + `setup-chart-cron.sh` were deleted from the repo and the four crontab
+> lines removed from the droplet. The `view-data-server.js` static server on :3800 is KEPT
+> (it also serves `weekly-view-report.js`); only the `pool-flow-dashboard.html` it served is
+> retired. The `listing_gap_weekly` + `listing_flow_weekly` tables have no remaining
+> consumer and can be dropped (operator-confirmed schema change).
 
 To update on the droplet (the actual deploy procedure — see Task 2 for the full step-by-step including the live-crontab backup BEFORE any edits, preserved from the old Plan 09-02 Task 2 safety pattern):
 ```bash

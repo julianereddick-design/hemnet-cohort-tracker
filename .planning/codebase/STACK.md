@@ -51,7 +51,7 @@
   - `DB_PASSWORD` - Database password
   - `DB_NAME` - `defaultdb`
   - `DB_SSL` - `require`
-- Optional: `SLACK_WEBHOOK_URL` - For failure/warning alerts (not yet configured on Droplet)
+- Optional: `SLACK_WEBHOOK_URL` - For failure/warning alerts (configured + live on the Droplet since ~2026-05-17)
 
 **Build:**
 - No build configuration. All scripts execute directly.

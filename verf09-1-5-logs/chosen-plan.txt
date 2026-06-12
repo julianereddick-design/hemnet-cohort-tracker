@@ -1,5 +1,0 @@
-plan=B
-source=universal
-render=none
-premium=false
-endpoint_override=none

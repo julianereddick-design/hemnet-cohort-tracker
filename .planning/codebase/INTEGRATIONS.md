@@ -7,7 +7,7 @@
 **Slack (Incoming Webhook):**
 - Purpose: Alert on cron job failures and warnings
 - SDK/Client: Native Node.js `https` module (no SDK)
-- Auth: `SLACK_WEBHOOK_URL` env var (not yet configured on production Droplet)
+- Auth: `SLACK_WEBHOOK_URL` env var (configured + live on the Droplet since ~2026-05-17)
 - Implementation: `cron-wrapper.js` lines 32-55 (auto-alert on failure/warning), `cron-health-slack.js` (daily health digest)
 - Request timeout: 10,000ms
 

@@ -2,15 +2,17 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Self-hosted scraper hardening
-status: Ready to execute
-stopped_at: "Spot-check stream COMPLETE 2026-06-12 — Phases 14 (overnight), 14.1, 13.1, 13.2 all shipped + deployed; interim Slack rule lifted; Mon 2026-06-15 06:30 UTC first unattended gate fire is the live validation; v2.1 remainder (10-04/10-05) is the next coding work"
+status: Code-complete — no active coding phase; operator-gated prod steps + decisions remain
+stopped_at: "v2.1 (Phase 10) CODE-COMPLETE 2026-06-12 — 10-04 (export gap-aware fix + scripts/intel cleanup) and 10-05 (Pool & Flow repo retirement) shipped. Spot-check stream (12/13/13.1/13.2/14/14.1) + v2.2 market-totals (Phase 11) all previously shipped. Remaining is NOT coding: (1) operator-gated droplet steps for 10-05 (remove 4 Mon-09:00 crontab lines + DROP listing_gap_weekly/listing_flow_weekly + remove pool-flow-dashboard.html); (2) Mon 2026-06-15 06:30 UTC first unattended spot-check gate fire (live validation watch); (3) operator decision: spot-check 20%-vs-100% coverage ($4.32 vs $18.35/wk); (4) flagged booli-refresh coverage gap (5969 reported vs ~4097 refreshed) follow-up. Next coding work = a NEW milestone (none scoped yet)."
 last_updated: "2026-06-12"
 progress:
-  total_phases: 5
-  completed_phases: 0
-  total_plans: 9
-  completed_plans: 7
-  percent: 78
+  # Scope = current milestone v2.1 (Phase 10 only). Prior block (5 phases / 9 plans /
+  # 78%) was stale scaffolding that never recomputed as work shipped — corrected 2026-06-12.
+  total_phases: 1
+  completed_phases: 1
+  total_plans: 5
+  completed_plans: 5
+  percent: 100
 ---
 
 ## Accumulated Context
@@ -31,8 +33,8 @@ progress:
 
 ### Last Session
 
-Stopped at: Phases 13.1 + 13.2 SHIPPED 2026-06-12 (same day as the 14.1 follow-up): soft-delete removal path (migration + audit+UPDATE + removed_at IS NULL filters across 11 files), per-pair UNCERTAIN Slack messages (digest retired, info-only delisted summary), poller shared-ts guard + 7-day stale-review aging alert. Interim Slack rule LIFTED — full ✅/❌/❓ loop is live and reversible. Spot-check stream (12 → 13 → 14 → 14.1 → 13.1 → 13.2) is COMPLETE.
-Resume: watch Mon 2026-06-15 06:30 UTC first unattended gate fire (validates 14 + 14.1 + 13.1 live: per-pair messages, delisted diversion, fixed dHash/vision rendering) + daily poller cycles after first reactions; open operator decisions: 20%-vs-100% coverage ($4.32 vs $18.35/wk); next phases: 10-04/10-05 (v2.1 hardening remainder)
+Stopped at: v2.1 (Phase 10) CODE-COMPLETE 2026-06-12. Shipped 10-04 (export-views-wide gap-aware incremental fix; deleted 16 spent one-off scripts + dead `migrate-booli-listing-drop-agent-fk.js` + 7 verf-log dirs + stray `.clone`; corrected stale SLACK_WEBHOOK "not configured" intel claims; Job C Final: line emits `jobStatus` not `status`) and 10-05 (deleted the 4 pre-v2.0 Pool & Flow scripts + `setup-chart-cron.sh` from the repo; `weekly-view-report.js` + the :3800 `view-data-server.js` kept). Also this session: fixed `booli-targeted-refresh` times_viewed NOT-NULL worker errors (COALESCE, commit 3b0f478, deployed) and confirmed the cohort-track null-jump alert was benign sell-through.
+Resume: (1) OPERATOR-GATED droplet steps for 10-05 — remove the 4 Mon-09:00 crontab lines (keep weekly-view-report), `DROP TABLE listing_gap_weekly, listing_flow_weekly`, remove pool-flow-dashboard.html, and `git pull` the repo deletions; (2) Mon 2026-06-15 06:30 UTC first unattended spot-check gate fire (live validation); (3) decide spot-check 20%-vs-100% coverage; (4) flagged booli-refresh coverage-gap follow-up. No active coding phase — next coding work needs a new milestone.
 
 ### Decisions (Phase 14, 2026-06-12 overnight)
 

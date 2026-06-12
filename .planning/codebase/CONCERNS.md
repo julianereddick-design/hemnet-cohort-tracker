@@ -149,9 +149,8 @@
 - Problem: Multi-step operations (e.g., creating a cohort + inserting pairs + recording day 0 views in `cohort-create.js`) are not wrapped in database transactions. A failure mid-way leaves the database in a partial state.
 - Blocks: Safe recovery from failures. For example, if `cohort-create.js` inserts the cohort row and some pairs but crashes before inserting day 0 views, the cohort exists in a broken state. Re-running skips it because `existing.rows.length > 0` (line 64).
 
-**Slack Alerting Not Connected:**
-- Problem: `SLACK_WEBHOOK_URL` is not configured on the Droplet. Alert code exists in `cron-wrapper.js` and `cron-health-slack.js` but is inactive.
-- Blocks: Real-time failure notification. Failures are only discovered by manually running `node cron-health.js`.
+**Slack Alerting (RESOLVED):**
+- `SLACK_WEBHOOK_URL` IS configured on the Droplet and has been firing failure/warning alerts since ~2026-05-17 (corrected 10-04, 2026-06-12 — earlier note that it was "not configured/inactive" was stale; the channel simply wasn't being watched). Alert code in `cron-wrapper.js` + `cron-health-slack.js` is live. A separate `SLACK_BOT_TOKEN` path (Phase 13 review queue) is also configured.
 
 **No Database Migration System:**
 - Problem: Schema changes are applied manually (e.g., the `UNIQUE(pair_id, day)` to `UNIQUE(pair_id, date)` migration). `cohort-setup.js` uses `CREATE TABLE IF NOT EXISTS` which does not handle column additions or constraint changes.
