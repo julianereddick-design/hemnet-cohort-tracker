@@ -80,6 +80,33 @@ function parseBooliSoldCards(apollo) {
   return out;
 }
 
+// Parse a Booli SOLD detail page (/bostad/<residenceId>) SoldProperty node.
+// Used for the apartment fee-match escalation (rent) and broker (agentId/agencyId
+// for the Booli-only bypass classification). NOTE: sold detail pages serve NO
+// gallery images (images:[]), so dHash photo-matching is not available for sold.
+function parseBooliSoldDetail(apollo) {
+  const sp = Object.values(apollo || {}).find((v) => v && v.__typename === 'SoldProperty');
+  if (!sp) return null;
+  const raw = (x) => (x && x.raw != null ? x.raw : null);
+  return {
+    booli_id: sp.booliId || sp.id || null,
+    residence_id: sp.residenceId || null,
+    rent: raw(sp.rent),                       // monthly fee (apartments)
+    operating_cost: raw(sp.operatingCost),
+    living_area: raw(sp.livingArea),
+    additional_area: raw(sp.additionalArea),
+    plot_area: raw(sp.plotArea),
+    rooms: raw(sp.rooms),
+    construction_year: sp.constructionYear != null ? sp.constructionYear : null,
+    agent_id: sp.agentId || null,
+    agency_id: sp.agencyId || null,
+    object_type: sp.objectType || null,
+    sold_price: raw(sp.soldPrice),
+    sold_price_type: sp.soldPriceType || null,
+    tenure_form: sp.tenureForm || null,
+  };
+}
+
 // --- Hemnet ------------------------------------------------------
 
 function hemnetSalesNode(apollo) {
@@ -128,6 +155,7 @@ function parseHemnetSaleCards(apollo) {
 module.exports = {
   parseSweNum,
   parseBooliSoldCards,
+  parseBooliSoldDetail,
   booliSoldMeta,
   parseHemnetSaleCards,
   hemnetSalesMeta,

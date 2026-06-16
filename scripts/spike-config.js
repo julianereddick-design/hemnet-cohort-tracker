@@ -46,6 +46,15 @@ const READ_TIME_EXCLUDE_DAYS = 90;
 
 const DEFAULT_TARGET_PER_SEGMENT = 300;
 
+// ISO date N days before `fromISO` (or now). Used to seed the Booli sold window
+// ENDING 90 days ago: every record is then ratio-eligible (older than the
+// read-time exclusion) AND old enough that Hemnet has had time to post its
+// slutpris — so "Booli-only" reflects genuine bypass/miss, not posting lag.
+function daysAgoISO(n, fromISO) {
+  const base = fromISO ? new Date(`${fromISO}T00:00:00Z`) : new Date();
+  return new Date(base.getTime() - n * 86400000).toISOString().slice(0, 10);
+}
+
 module.exports = {
   SEGMENTS,
   MARKET_SOLD_TYPES,
@@ -56,4 +65,5 @@ module.exports = {
   SOLD_DATE_WINDOW_DAYS,
   READ_TIME_EXCLUDE_DAYS,
   DEFAULT_TARGET_PER_SEGMENT,
+  daysAgoISO,
 };
