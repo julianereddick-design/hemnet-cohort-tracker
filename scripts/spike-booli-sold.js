@@ -21,11 +21,9 @@ const { parseBooliSoldCards, booliSoldMeta } = require('./spike-sold-parse');
 
 const log = stdoutLogger('booli-sold');
 const SEED_DIR = ensureDir(path.join(ROOT, 'seed'));
-// Seed the window ENDING 90 days ago (ratio-eligible + Hemnet-posted).
-const MAX_SOLD_DATE = daysAgoISO(READ_TIME_EXCLUDE_DAYS);
 
 function parseArgs(argv) {
-  const o = { segment: null, target: DEFAULT_TARGET_PER_SEGMENT, marketTarget: null, maxPages: 60 };
+  const o = { segment: null, target: DEFAULT_TARGET_PER_SEGMENT, marketTarget: null, maxPages: 60, maxSoldDate: null, minSoldDate: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--segment') o.segment = argv[++i];
@@ -36,11 +34,15 @@ function parseArgs(argv) {
     else if (a.startsWith('--market-target=')) o.marketTarget = parseInt(a.split('=')[1], 10);
     else if (a === '--max-pages') o.maxPages = parseInt(argv[++i], 10);
     else if (a.startsWith('--max-pages=')) o.maxPages = parseInt(a.split('=')[1], 10);
+    else if (a === '--max-sold-date') o.maxSoldDate = argv[++i];
+    else if (a.startsWith('--max-sold-date=')) o.maxSoldDate = a.split('=')[1];
+    else if (a === '--min-sold-date') o.minSoldDate = argv[++i];
+    else if (a.startsWith('--min-sold-date=')) o.minSoldDate = a.split('=')[1];
   }
   return o;
 }
 
-async function scrapeSegment(segKey, seg, target, maxPages, marketTarget) {
+async function scrapeSegment(segKey, seg, target, maxPages, marketTarget, maxSoldDate, minSoldDate) {
   const seedFile = path.join(SEED_DIR, `${segKey}.jsonl`);
   const existing = readJsonl(seedFile);
   const seen = new Set(existing.map((r) => String(r.booli_id)));
@@ -58,7 +60,8 @@ async function scrapeSegment(segKey, seg, target, maxPages, marketTarget) {
   let stop = null;
 
   while (!reached() && page <= maxPages) {
-    const url = `https://www.booli.se/slutpriser?areaIds=${areaIds}&objectType=${encodeURIComponent(objectType)}&maxSoldDate=${MAX_SOLD_DATE}&page=${page}`;
+    const dateParams = `&maxSoldDate=${maxSoldDate}` + (minSoldDate ? `&minSoldDate=${minSoldDate}` : '');
+    const url = `https://www.booli.se/slutpriser?areaIds=${areaIds}&objectType=${encodeURIComponent(objectType)}${dateParams}&page=${page}`;
     let res;
     try {
       res = await cachedFetch(url, { logger: log });
@@ -102,7 +105,7 @@ async function scrapeSegment(segKey, seg, target, maxPages, marketTarget) {
 
   const summary = {
     segment: segKey, label: seg.label, seedFile: path.relative(ROOT, seedFile),
-    maxSoldDate: MAX_SOLD_DATE,
+    maxSoldDate, minSoldDate: minSoldDate || null,
     feedTotalCount: totalCount, feedPages: pagesAvail,
     collected: all.length, target, marketTarget: marketTarget || null, pagesWalked: page - 1, stoppedBy: stop,
     titleTransfers: titleTransfers.length,
@@ -114,13 +117,16 @@ async function scrapeSegment(segKey, seg, target, maxPages, marketTarget) {
 }
 
 async function main() {
-  const { segment, target, marketTarget, maxPages } = parseArgs(process.argv.slice(2));
+  const { segment, target, marketTarget, maxPages, minSoldDate } = parseArgs(process.argv.slice(2));
+  // Default window ENDS 90 days ago (ratio-eligible + Hemnet-posted); override
+  // with --max-sold-date for historical windows (e.g. 12 months ago).
+  const maxSoldDate = parseArgs(process.argv.slice(2)).maxSoldDate || daysAgoISO(READ_TIME_EXCLUDE_DAYS);
   const segKeys = segment ? [segment] : Object.keys(SEGMENTS);
   const summaries = [];
   for (const k of segKeys) {
     const seg = SEGMENTS[k];
     if (!seg) { log('ERROR', `unknown segment ${k}`); continue; }
-    summaries.push(await scrapeSegment(k, seg, target, maxPages, marketTarget));
+    summaries.push(await scrapeSegment(k, seg, target, maxPages, marketTarget, maxSoldDate, minSoldDate));
   }
   writeJson(path.join(SEED_DIR, '_summary.json'), { at: new Date().toISOString(), procStats: procStats(), segments: summaries });
   log('INFO', `procStats: ${JSON.stringify(procStats())}`);

@@ -116,7 +116,9 @@ function auditPack(a) {
 }
 
 function main() {
-  const segKeys = Object.keys(SEGMENTS);
+  // Only report segments that actually have a seed in this workspace (a
+  // villa-only historical run leaves the apartment segment empty).
+  const segKeys = Object.keys(SEGMENTS).filter((k) => readJsonl(path.join(ROOT, 'seed', `${k}.jsonl`)).length > 0);
   const analyses = segKeys.map((k) => analyzeSegment(k, SEGMENTS[k]));
 
   // Write audit packs.

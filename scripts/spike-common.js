@@ -35,7 +35,7 @@ const {
 // Paths — a STABLE root (not per-run timestamped) so the cache and spend
 // counter are shared across recon / scrape / match / report and survive reruns.
 // ---------------------------------------------------------------
-const ROOT = path.join(__dirname, '..', 'verf-soldspike');
+const ROOT = path.join(__dirname, '..', process.env.SPIKE_DIR || 'verf-soldspike');
 const CACHE_DIR = path.join(ROOT, 'cache');
 const SPEND_FILE = path.join(CACHE_DIR, '_spend.json');
 const MAX_OXY_CALLS = parseInt(process.env.MAX_OXY_CALLS || '4000', 10);

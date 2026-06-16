@@ -12,3 +12,9 @@ verf-soldspike/cache/
 verf-soldspike/recon/*.html
 verf-soldspike/**/*.html
 verf-soldspike/**/photos/
+
+# Sold-match spike: any-workspace cache + html artifacts
+verf-soldspike*/cache/
+verf-soldspike*/**/*.html
+verf-soldspike*/recon/*.html
+verf-soldspike*/**/photos/

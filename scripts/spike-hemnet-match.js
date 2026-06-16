@@ -34,6 +34,9 @@ const { booliObjectTypeToHemnet } = require('../lib/booli-to-hemnet-mapping');
 const log = stdoutLogger('match');
 const MATCH_DIR = ensureDir(path.join(ROOT, 'match'));
 const DAY = 86400;
+// Pagination depth for the per-record search. Older records sit deeper under the
+// NEWEST sort, so historical windows need more (env SPIKE_MAX_PAGES).
+const MAX_SEARCH_PAGES = parseInt(process.env.SPIKE_MAX_PAGES || '5', 10);
 
 function parseArgs(argv) {
   const o = { segment: null, limit: null, conc: 6, ceilingFloor: 50 };
@@ -183,7 +186,7 @@ async function matchOne(booli, seg) {
     : {};
   const url = buildHemnetSoldUrl(booli, seg, searchOpts);
   let cards, complete, pages;
-  try { ({ cards, complete, pages } = await searchSoldPaged(booli, seg, SOLD_DATE_WINDOW_DAYS, 5, searchOpts)); }
+  try { ({ cards, complete, pages } = await searchSoldPaged(booli, seg, SOLD_DATE_WINDOW_DAYS, MAX_SEARCH_PAGES, searchOpts)); }
   catch (e) { if (e instanceof CeilingError) throw e; return { booli_id: booli.booli_id, segment: booli.segment, verdict: 'ERROR', source: 'search-failed', reason: e.message, search_url: url }; }
 
   const cardsSeen = cards.length;
@@ -260,7 +263,7 @@ async function recallOne(booli, seg) {
   const opts = { priceBand: 0.30, areaBand: 0.25, dropRooms: true, dropItemType: true };
   const url = buildHemnetSoldUrl(booli, seg, opts);
   let cards;
-  try { ({ cards } = await searchSoldPaged(booli, seg, 45, 6, opts)); }
+  try { ({ cards } = await searchSoldPaged(booli, seg, 45, Math.max(6, MAX_SEARCH_PAGES), opts)); }
   catch (e) { if (e instanceof CeilingError) throw e; return { recall: 'error', reason: e.message }; }
   const cands = addrCandidates(booli, cards, 45);
   if (cands.length > 0) {

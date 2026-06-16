@@ -1,0 +1,42 @@
+{
+  "at": "2026-06-16T22:57:27.652Z",
+  "procStats": {
+    "live": 58,
+    "cacheHits": 0,
+    "fails": 0,
+    "spent": 58,
+    "remaining": 3942,
+    "cap": 4000
+  },
+  "segments": [
+    {
+      "segment": "taby-villa",
+      "label": "Täby houses",
+      "seedFile": "seed\\taby-villa.jsonl",
+      "maxSoldDate": "2025-06-17",
+      "minSoldDate": null,
+      "feedTotalCount": 12014,
+      "feedPages": 344,
+      "collected": 2024,
+      "target": 300,
+      "marketTarget": 300,
+      "pagesWalked": 58,
+      "stoppedBy": null,
+      "titleTransfers": 1724,
+      "matchSeed": 300,
+      "byObjectType": {
+        "Radhus": 431,
+        "Parhus": 160,
+        "Villa": 1129,
+        "Kedjehus": 284,
+        "Fritidshus": 17,
+        "Hus": 3
+      },
+      "bySoldPriceType": {
+        "Lagfart": 1724,
+        "Slutpris": 272,
+        "Sista bud": 28
+      }
+    }
+  ]
+}
