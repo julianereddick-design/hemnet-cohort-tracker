@@ -35,30 +35,32 @@
     "segKey": "taby-villa",
     "label": "Täby houses",
     "family": "HOUSE",
-    "seed": 300,
-    "titleTransfers": 210,
-    "matchSeed": 90,
-    "processed": 90,
+    "seed": 1970,
+    "titleTransfers": 1670,
+    "matchSeed": 300,
+    "processed": 300,
     "verdicts": {
-      "CONFIRMED_MATCH": 51,
-      "BOOLI_ONLY": 39
+      "CONFIRMED_MATCH": 189,
+      "BOOLI_ONLY": 110,
+      "UNCERTAIN": 1
     },
-    "confirmed": 51,
+    "confirmed": 189,
     "mismatch": 0,
-    "uncertain": 0,
-    "booliOnly": 39,
+    "uncertain": 1,
+    "booliOnly": 110,
     "errors": 0,
-    "incomplete": 0,
+    "incomplete": 2,
     "recall": {
-      "genuine-bypass": 39
+      "genuine-bypass": 109,
+      "match-miss": 1
     },
     "feeExact": 0,
     "aptConfirmedWithFee": 0,
-    "matchRate": 0.5666666666666667,
+    "matchRate": 0.63,
     "ratio": {
-      "p": 0.5666666666666667,
-      "lo": 0.46363911017642684,
-      "hi": 0.664235947367349
+      "p": 0.63,
+      "lo": 0.574043509355098,
+      "hi": 0.6826691988454907
     }
   }
 ]

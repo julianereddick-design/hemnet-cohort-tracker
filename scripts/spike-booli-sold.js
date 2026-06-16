@@ -25,25 +25,31 @@ const SEED_DIR = ensureDir(path.join(ROOT, 'seed'));
 const MAX_SOLD_DATE = daysAgoISO(READ_TIME_EXCLUDE_DAYS);
 
 function parseArgs(argv) {
-  const o = { segment: null, target: DEFAULT_TARGET_PER_SEGMENT, maxPages: 40 };
+  const o = { segment: null, target: DEFAULT_TARGET_PER_SEGMENT, marketTarget: null, maxPages: 60 };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--segment') o.segment = argv[++i];
     else if (a.startsWith('--segment=')) o.segment = a.split('=')[1];
     else if (a === '--target') o.target = parseInt(argv[++i], 10);
     else if (a.startsWith('--target=')) o.target = parseInt(a.split('=')[1], 10);
+    else if (a === '--market-target') o.marketTarget = parseInt(argv[++i], 10);
+    else if (a.startsWith('--market-target=')) o.marketTarget = parseInt(a.split('=')[1], 10);
     else if (a === '--max-pages') o.maxPages = parseInt(argv[++i], 10);
     else if (a.startsWith('--max-pages=')) o.maxPages = parseInt(a.split('=')[1], 10);
   }
   return o;
 }
 
-async function scrapeSegment(segKey, seg, target, maxPages) {
+async function scrapeSegment(segKey, seg, target, maxPages, marketTarget) {
   const seedFile = path.join(SEED_DIR, `${segKey}.jsonl`);
   const existing = readJsonl(seedFile);
   const seen = new Set(existing.map((r) => String(r.booli_id)));
   let collected = existing.length;
-  log('INFO', `segment=${segKey} (${seg.label}) target=${target} resume-from=${collected} seen`);
+  let marketCollected = existing.filter((r) => !r.is_title_transfer).length;
+  // Stop on N MARKET sales when --market-target set (the villa feed is ~70%
+  // lagfart, so total-row target wildly undershoots market sales); else N rows.
+  const reached = () => (marketTarget != null ? marketCollected >= marketTarget : collected >= target);
+  log('INFO', `segment=${segKey} (${seg.label}) ${marketTarget != null ? `market-target=${marketTarget}` : `target=${target}`} resume-from=${collected} rows (${marketCollected} market)`);
 
   const { areaIds, objectType } = seg.booli;
   let page = 1;
@@ -51,7 +57,7 @@ async function scrapeSegment(segKey, seg, target, maxPages) {
   let pagesAvail = null;
   let stop = null;
 
-  while (collected < target && page <= maxPages) {
+  while (!reached() && page <= maxPages) {
     const url = `https://www.booli.se/slutpriser?areaIds=${areaIds}&objectType=${encodeURIComponent(objectType)}&maxSoldDate=${MAX_SOLD_DATE}&page=${page}`;
     let res;
     try {
@@ -80,9 +86,10 @@ async function scrapeSegment(segKey, seg, target, maxPages) {
       seen.add(id);
       appendJsonl(seedFile, { ...c, segment: segKey, family: seg.family, scraped_at: new Date().toISOString() });
       collected++; added++;
-      if (collected >= target) break;
+      if (!c.is_title_transfer) marketCollected++;
+      if (reached()) break;
     }
-    log('INFO', `page ${page}: ${cards.length} cards, +${added} new (total ${collected}/${target})`);
+    log('INFO', `page ${page}: ${cards.length} cards, +${added} new (rows ${collected}, market ${marketCollected}${marketTarget != null ? `/${marketTarget}` : ''})`);
     page++;
   }
 
@@ -97,7 +104,7 @@ async function scrapeSegment(segKey, seg, target, maxPages) {
     segment: segKey, label: seg.label, seedFile: path.relative(ROOT, seedFile),
     maxSoldDate: MAX_SOLD_DATE,
     feedTotalCount: totalCount, feedPages: pagesAvail,
-    collected: all.length, target, pagesWalked: page - 1, stoppedBy: stop,
+    collected: all.length, target, marketTarget: marketTarget || null, pagesWalked: page - 1, stoppedBy: stop,
     titleTransfers: titleTransfers.length,
     matchSeed: all.length - titleTransfers.length,
     byObjectType: byType, bySoldPriceType: bySoldType,
@@ -107,13 +114,13 @@ async function scrapeSegment(segKey, seg, target, maxPages) {
 }
 
 async function main() {
-  const { segment, target, maxPages } = parseArgs(process.argv.slice(2));
+  const { segment, target, marketTarget, maxPages } = parseArgs(process.argv.slice(2));
   const segKeys = segment ? [segment] : Object.keys(SEGMENTS);
   const summaries = [];
   for (const k of segKeys) {
     const seg = SEGMENTS[k];
     if (!seg) { log('ERROR', `unknown segment ${k}`); continue; }
-    summaries.push(await scrapeSegment(k, seg, target, maxPages));
+    summaries.push(await scrapeSegment(k, seg, target, maxPages, marketTarget));
   }
   writeJson(path.join(SEED_DIR, '_summary.json'), { at: new Date().toISOString(), procStats: procStats(), segments: summaries });
   log('INFO', `procStats: ${JSON.stringify(procStats())}`);
