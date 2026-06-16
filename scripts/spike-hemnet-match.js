@@ -174,9 +174,16 @@ function cardBrief(c) {
 
 // Core per-record matcher. Returns a result record (does not write).
 async function matchOne(booli, seg) {
-  const url = buildHemnetSoldUrl(booli, seg);
+  // Houses are uniquely keyed by street address, so the search can be LOOSE
+  // (Täby density is low → no 50-cap risk): wider price/area, no rooms/item_type
+  // — this avoids missing matches on Booli↔Hemnet rooms/subtype quirks. Apartments
+  // stay TIGHT (dense buildings need rooms+area+item_type to stay under the cap).
+  const searchOpts = seg.family === 'HOUSE'
+    ? { priceBand: 0.10, areaBand: 0.15, dropRooms: true, dropItemType: true }
+    : {};
+  const url = buildHemnetSoldUrl(booli, seg, searchOpts);
   let cards, complete, pages;
-  try { ({ cards, complete, pages } = await searchSoldPaged(booli, seg, SOLD_DATE_WINDOW_DAYS, 5)); }
+  try { ({ cards, complete, pages } = await searchSoldPaged(booli, seg, SOLD_DATE_WINDOW_DAYS, 5, searchOpts)); }
   catch (e) { if (e instanceof CeilingError) throw e; return { booli_id: booli.booli_id, segment: booli.segment, verdict: 'ERROR', source: 'search-failed', reason: e.message, search_url: url }; }
 
   const cardsSeen = cards.length;
@@ -246,12 +253,14 @@ async function matchOne(booli, seg) {
 // rooms + item_type. If a same-street sold card surfaces in a wider date window,
 // it's a MATCH-MISS (recall gap); else GENUINE-BYPASS.
 async function recallOne(booli, seg) {
-  // Loosen the narrowing that could have caused a miss: widen price (±20%) and
-  // living area (±12%), drop rooms + item_type. Keep a loose area band so the
-  // result stays under the 50-card cap. A same-building hit here = match-miss.
-  const url = buildHemnetSoldUrl(booli, seg, { priceBand: 0.20, areaBand: 0.12, dropRooms: true, dropItemType: true });
+  // Maximally loose net (always looser than BOTH primary variants) so it truly
+  // stress-tests a Booli-only: wide price (±30%) + area (±25%), drop rooms +
+  // item_type, wide date window, paginated. A same-building hit here = match-miss
+  // (our narrowing missed it); nothing here = genuine Hemnet-absence.
+  const opts = { priceBand: 0.30, areaBand: 0.25, dropRooms: true, dropItemType: true };
+  const url = buildHemnetSoldUrl(booli, seg, opts);
   let cards;
-  try { cards = await searchSold(url); }
+  try { ({ cards } = await searchSoldPaged(booli, seg, 45, 6, opts)); }
   catch (e) { if (e instanceof CeilingError) throw e; return { recall: 'error', reason: e.message }; }
   const cands = addrCandidates(booli, cards, 45);
   if (cands.length > 0) {

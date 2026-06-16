@@ -1,0 +1,59 @@
+{
+  "at": "2026-06-16T12:41:27.617Z",
+  "procStats": {
+    "live": 16,
+    "cacheHits": 2,
+    "fails": 0,
+    "spent": 131,
+    "remaining": 3869,
+    "cap": 4000
+  },
+  "segments": [
+    {
+      "segment": "stockholm-apt",
+      "label": "Stockholm apartments",
+      "seedFile": "seed\\stockholm-apt.jsonl",
+      "maxSoldDate": "2026-03-18",
+      "feedTotalCount": 251009,
+      "feedPages": 7172,
+      "collected": 300,
+      "target": 300,
+      "pagesWalked": 9,
+      "stoppedBy": null,
+      "titleTransfers": 0,
+      "matchSeed": 300,
+      "byObjectType": {
+        "Lägenhet": 300
+      },
+      "bySoldPriceType": {
+        "Slutpris": 290,
+        "Sista bud": 10
+      }
+    },
+    {
+      "segment": "taby-villa",
+      "label": "Täby houses",
+      "seedFile": "seed\\taby-villa.jsonl",
+      "maxSoldDate": "2026-03-18",
+      "feedTotalCount": 12604,
+      "feedPages": 361,
+      "collected": 300,
+      "target": 300,
+      "pagesWalked": 9,
+      "stoppedBy": null,
+      "titleTransfers": 210,
+      "matchSeed": 90,
+      "byObjectType": {
+        "Kedjehus": 33,
+        "Villa": 179,
+        "Radhus": 61,
+        "Parhus": 27
+      },
+      "bySoldPriceType": {
+        "Sista bud": 3,
+        "Slutpris": 87,
+        "Lagfart": 210
+      }
+    }
+  ]
+}

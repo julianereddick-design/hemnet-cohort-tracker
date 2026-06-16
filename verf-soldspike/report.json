@@ -1,0 +1,64 @@
+[
+  {
+    "segKey": "stockholm-apt",
+    "label": "Stockholm apartments",
+    "family": "APARTMENT",
+    "seed": 300,
+    "titleTransfers": 0,
+    "matchSeed": 300,
+    "processed": 300,
+    "verdicts": {
+      "BOOLI_ONLY": 115,
+      "CONFIRMED_MATCH": 182,
+      "UNCERTAIN": 3
+    },
+    "confirmed": 182,
+    "mismatch": 0,
+    "uncertain": 3,
+    "booliOnly": 115,
+    "errors": 0,
+    "incomplete": 0,
+    "recall": {
+      "genuine-bypass": 114,
+      "match-miss": 1
+    },
+    "feeExact": 182,
+    "aptConfirmedWithFee": 182,
+    "matchRate": 0.6066666666666667,
+    "ratio": {
+      "p": 0.6066666666666667,
+      "lo": 0.55037422490742,
+      "hi": 0.6602618433597297
+    }
+  },
+  {
+    "segKey": "taby-villa",
+    "label": "Täby houses",
+    "family": "HOUSE",
+    "seed": 300,
+    "titleTransfers": 210,
+    "matchSeed": 90,
+    "processed": 90,
+    "verdicts": {
+      "CONFIRMED_MATCH": 51,
+      "BOOLI_ONLY": 39
+    },
+    "confirmed": 51,
+    "mismatch": 0,
+    "uncertain": 0,
+    "booliOnly": 39,
+    "errors": 0,
+    "incomplete": 0,
+    "recall": {
+      "genuine-bypass": 39
+    },
+    "feeExact": 0,
+    "aptConfirmedWithFee": 0,
+    "matchRate": 0.5666666666666667,
+    "ratio": {
+      "p": 0.5666666666666667,
+      "lo": 0.46363911017642684,
+      "hi": 0.664235947367349
+    }
+  }
+]
