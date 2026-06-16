@@ -6,3 +6,9 @@ node_modules/
 view-data/
 cohort-*-views.csv
 views-wide-*.csv
+
+# Sold-match spike: cache + large data artifacts (keep code + reports)
+verf-soldspike/cache/
+verf-soldspike/recon/*.html
+verf-soldspike/**/*.html
+verf-soldspike/**/photos/
