@@ -63,7 +63,15 @@ function booliSoldUnix(d) { const t = Date.parse(`${d}T00:00:00Z`); return Numbe
 // the unit is then disambiguated by fee/area/price (Phase 14 model).
 function normAddr(s) {
   if (s == null) return null;
-  return normStreet(String(s).split(',')[0]);
+  // Take the part before the first comma / slash / " och " (Hemnet floor suffix,
+  // dual-corner addresses "X 10 / Y 6", and "58 och 58A").
+  let t = String(s).split(',')[0].split('/')[0].split(/\s+och\s+/i)[0];
+  t = normStreet(t);
+  if (t == null) return null;
+  // Merge a space between house number and a single trailing unit letter:
+  // "norrskensvägen 1 c" -> "norrskensvägen 1c", "vasavägen 21 e" -> "21e".
+  t = t.replace(/(\d+)\s+([a-zåäö])(?=\s|$)/g, '$1$2');
+  return t;
 }
 
 // Build a narrowed Hemnet /salda search URL for one Booli seed record.

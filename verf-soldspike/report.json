@@ -8,27 +8,27 @@
     "matchSeed": 300,
     "processed": 300,
     "verdicts": {
-      "BOOLI_ONLY": 115,
-      "CONFIRMED_MATCH": 182,
-      "UNCERTAIN": 3
+      "BOOLI_ONLY": 112,
+      "CONFIRMED_MATCH": 184,
+      "UNCERTAIN": 4
     },
-    "confirmed": 182,
+    "confirmed": 184,
     "mismatch": 0,
-    "uncertain": 3,
-    "booliOnly": 115,
+    "uncertain": 4,
+    "booliOnly": 112,
     "errors": 0,
     "incomplete": 0,
     "recall": {
-      "genuine-bypass": 114,
+      "genuine-bypass": 111,
       "match-miss": 1
     },
-    "feeExact": 182,
-    "aptConfirmedWithFee": 182,
-    "matchRate": 0.6066666666666667,
+    "feeExact": 184,
+    "aptConfirmedWithFee": 184,
+    "matchRate": 0.6133333333333333,
     "ratio": {
-      "p": 0.6066666666666667,
-      "lo": 0.55037422490742,
-      "hi": 0.6602618433597297
+      "p": 0.6133333333333333,
+      "lo": 0.5571234733195609,
+      "hi": 0.6666773492142856
     }
   },
   {
@@ -40,27 +40,27 @@
     "matchSeed": 300,
     "processed": 300,
     "verdicts": {
-      "CONFIRMED_MATCH": 189,
-      "BOOLI_ONLY": 110,
+      "CONFIRMED_MATCH": 193,
+      "BOOLI_ONLY": 106,
       "UNCERTAIN": 1
     },
-    "confirmed": 189,
+    "confirmed": 193,
     "mismatch": 0,
     "uncertain": 1,
-    "booliOnly": 110,
+    "booliOnly": 106,
     "errors": 0,
     "incomplete": 2,
     "recall": {
-      "genuine-bypass": 109,
+      "genuine-bypass": 105,
       "match-miss": 1
     },
     "feeExact": 0,
     "aptConfirmedWithFee": 0,
-    "matchRate": 0.63,
+    "matchRate": 0.6433333333333333,
     "ratio": {
-      "p": 0.63,
-      "lo": 0.574043509355098,
-      "hi": 0.6826691988454907
+      "p": 0.6433333333333333,
+      "lo": 0.5876287210234448,
+      "hi": 0.6954134957105377
     }
   }
 ]
