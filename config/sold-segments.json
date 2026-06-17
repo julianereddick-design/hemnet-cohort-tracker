@@ -1,0 +1,14 @@
+{
+  "stockholm-apt": {
+    "label": "Stockholm apartments",
+    "family": "APARTMENT",
+    "booli": { "areaIds": 1, "objectType": "Lägenhet" },
+    "hemnet": { "locationId": 18031, "itemType": "bostadsratt" }
+  },
+  "taby-villa": {
+    "label": "Täby houses",
+    "family": "HOUSE",
+    "booli": { "areaIds": 20, "objectType": "Hus" },
+    "hemnet": { "locationId": 17793, "itemType": null }
+  }
+}
