@@ -219,7 +219,7 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 16-01-PLAN.md — migrate-sold-phase16.js: re-runnable migration for booli_sold / hemnet_sold / sold_match (design-only) + sold_spend tables [DB-01, Wave 1]
+- [x] 16-01-PLAN.md — migrate-sold-phase16.js: re-runnable migration for booli_sold / hemnet_sold / sold_match (design-only) + sold_spend tables [DB-01, Wave 1] (2026-06-17; commits 1a9c688, 5d40101; node -c OK, 4 tables; live prod run authorization-gated → operator one-time run pending)
 
 **Wave 2** *(blocked on Wave 1 — needs the tables)*
 - [ ] 16-02-PLAN.md — lib/sold-store.js (client-first upserts + D-02 title-transfer gate) + scripts/persist-sold.js (JSONL→DB pass) [DB-02, DB-03, Wave 2]
@@ -255,7 +255,7 @@ Plans:
 | 10. Self-hosted scraper hardening | v2.1 | 5/5 | Complete (repo + droplet) | 2026-06-12 |
 | 11. Daily market-totals capture + minimal report | v2.2 | 3/3 shipped | Live since 2026-05-28; 7-day soak running | - |
 | 15. Sold-data ingestion library | v3.0 | 5/5 | Complete    | 2026-06-17 |
-| 16. Sold-match DB schema + persistence | v3.0 | 0/3 | Planned | - |
+| 16. Sold-match DB schema + persistence | v3.0 | 1/3 | Executing | - |
 | 17. Match pipeline orchestration | v3.0 | 0/TBD | Not started | - |
 
 ### Phase 12: Cohort match spot-check weekly QA gate

@@ -3,24 +3,24 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Sold-match pipeline
 status: executing
-stopped_at: Phase 16 context gathered
-last_updated: "2026-06-17T03:41:28.941Z"
+stopped_at: Completed 16-01-PLAN.md
+last_updated: "2026-06-17T03:48:55Z"
 progress:
-  total_phases: 8
-  completed_phases: 3
-  total_plans: 21
-  completed_plans: 15
-  percent: 71
+  total_phases: 14
+  completed_phases: 4
+  total_plans: 33
+  completed_plans: 26
+  percent: 79
 ---
 
 ## Current Position
 
-Phase: 15 (sold-data-ingestion-library) — COMPLETE
-Plan: 5 of 5 (ALL COMPLETE)
+Phase: 16 (sold-match-db-schema-persistence) — EXECUTING
+Plan: 2 of 3 (Plan 01 complete)
 **Phase:** 16
-**Plan:** Not started
-**Status:** Ready to execute
-**Progress:** ██████████ 100% (5/5 plans complete in Phase 15)
+**Plan:** 01 complete; next 16-02 (Wave 2 — persist layer)
+**Status:** Executing Phase 16
+**Progress:** ███░░░░░░░ 33% (1/3 plans complete in Phase 16)
 
 **Milestone v3.0 phases:**
 
@@ -44,6 +44,13 @@ Plan: 5 of 5 (ALL COMPLETE)
 - v3.0: Image-based matching (dHash/vision) does NOT apply — sold detail pages carry no gallery images on either platform. The Phase-14 image path is out of scope for sold-match.
 - v3.0: DB was unreachable during the spike (doctl auth expired); rebuild assumes DB access restored. Apartment matching >9 months back is a design limit (no unit signal remains), not a bug.
 - v3.0 finding that anchors scope: ~36% of Booli villa sold records are genuine non-Hemnet presence (hand-confirmed 0/25 on Hemnet), not slutpris suppression and not a matcher miss.
+
+### Decisions (Phase 16-01, 2026-06-17 — sold schema migration, DB-01)
+
+- 16-01: migrate-sold-phase16.js creates all four sold tables idempotently (CREATE TABLE IF NOT EXISTS) — booli_sold (UNIQUE booli_id), hemnet_sold (UNIQUE hemnet_slug), sold_match (design-only, UNIQUE booli_id, JSONB evidence), sold_spend (UNIQUE spend_key); column contracts 1:1 with lib/sold-parse.js
+- 16-01: sold_at stored as BIGINT (Unix epoch seconds the parser emits), NOT DATE; sold_at_label TEXT carries the human form
+- 16-01: verdict (matched/booli_only/uncertain) + match_method (fee_exact/address_key) vocabularies documented in comments, NOT CHECK constraints — kept loose for Phase 17; matched_hemnet_slug nullable (booli_only/uncertain is a first-class outcome, not an error)
+- 16-01: live prod migration run is authorization-gated (auto-mode denied DDL against shared prod DB) — offline node -c gate passes, all structural acceptance met; OPERATOR must run `node migrate-sold-phase16.js` once on the droplet (or after doctl IP-whitelist) before 16-02 persistence writes live rows
 
 ### Decisions (Phase 15-05, 2026-06-17 — Hemnet fetch, SOLD-05 + MATCH-02)
 
@@ -91,8 +98,8 @@ Plan: 5 of 5 (ALL COMPLETE)
 
 ### Last Session
 
-Stopped at: Phase 16 context gathered
-Resume: Phase 15 complete. Next = /gsd-execute-phase 16 (sold-match DB schema + persistence).
+Stopped at: Completed 16-01-PLAN.md (sold schema migration, DB-01)
+Resume: 16-01 done (commits 1a9c688, 5d40101). Next = 16-02 (Wave 2: lib/sold-store.js upserts + scripts/persist-sold.js). OPEN operator action: run `node migrate-sold-phase16.js` once on the droplet to apply the schema to prod (auto-mode blocked the live DDL run; offline node -c passed).
 
 ### Decisions (Phase 14, 2026-06-12 overnight)
 
