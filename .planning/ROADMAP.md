@@ -200,7 +200,7 @@ Plans:
 - [x] 15-02-PLAN.md — `lib/sold-transport.js` (file-based MAX_OXY_CALLS ceiling, reuses scrape-http) + `lib/scrape-http.js` transient-613 sleep-retry on the main path [CONFIG-03, Wave 1] (2026-06-17; commits df560e7, 7c5df94; all acceptance criteria pass)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 15-03-PLAN.md — `scripts/sold-recon.js` extended for the "sold in advance" signal + documented finding gating the D-01 detail-fetch policy (operator checkpoint) [SOLD-04, Wave 2]
+- [x] 15-03-PLAN.md — `scripts/sold-recon.js` extended for the "sold in advance" signal + documented finding gating the D-01 detail-fetch policy (operator checkpoint) [SOLD-04, Wave 2]
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 15-04-PLAN.md — `lib/sold-fetch-booli.js` (paginated /slutpriser seed, classify+retain Lagfart, recon-gated detail, sold_in_advance flag) + `scripts/booli-sold.js` wrapper [SOLD-01..04, Wave 3]
@@ -246,7 +246,7 @@ Plans:
 | 9. Production cutover — self-hosted scraper launch | v2.0 | 5/5 | Complete (cutover-complete) | 2026-05-26 |
 | 10. Self-hosted scraper hardening | v2.1 | 5/5 | Complete (repo + droplet) | 2026-06-12 |
 | 11. Daily market-totals capture + minimal report | v2.2 | 3/3 shipped | Live since 2026-05-28; 7-day soak running | - |
-| 15. Sold-data ingestion library | v3.0 | 2/5 | Executing (plan 3 next) | - |
+| 15. Sold-data ingestion library | v3.0 | 3/5 | In Progress|  |
 | 16. Sold-match DB schema + persistence | v3.0 | 0/TBD | Not started | - |
 | 17. Match pipeline orchestration | v3.0 | 0/TBD | Not started | - |
 
@@ -255,7 +255,7 @@ Plans:
 **Goal:** Turn the validated manual cohort match spot-check into a weekly automated quality gate that runs after `cohort-create` succeeds: sample each new cohort, adjudicate sampled Booli↔Hemnet pairs to a verdict (CONFIRMED MATCH / CONFIRMED MISMATCH / UNCERTAIN), compute the confirmed false-match rate with a Wilson CI by county, log to `cron_job_log`, and escalate via Slack on a high rate (>5%) or fetch failure. Orchestrates the already-built spot-check tools; the matcher fix (PRD §9) is deferred.
 **Requirements**: derived from `.planning/phases/12-.../12-CONTEXT.md` decisions + COHORT-SPOTCHECK.md §7 success criteria (no REQUIREMENTS.md)
 **Depends on:** Phase 11
-**Plans:** 3 plans (Wave 1: pure adjudicate+summary libs · Wave 2: cron-wrapped orchestrator, Mode A · Wave 3: Mode B Claude-vision adjudicator)
+**Plans:** 3/5 plans executed
 **Progress:** 3/3 plans complete (Wave 1 + Wave 2 + Wave 3 done 2026-06-10)
 
 Plans:

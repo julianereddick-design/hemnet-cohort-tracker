@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Sold-match pipeline
 status: executing
-stopped_at: "v2.1 (Phase 10) CODE-COMPLETE 2026-06-12. Shipped 10-04 (export-views-wide gap-aware incremental fix; deleted 16 spent one-off scripts + dead `migrate-booli-listing-drop-agent-fk.js` + 7 verf-log dirs + stray `.clone`; corrected stale SLACK_WEBHOOK "not configured" intel claims; Job C Final: line emits `jobStatus` not `status`) and 10-05 (deleted the 4 pre-v2.0 Pool & Flow scripts + `setup-chart-cron.sh` from the repo; `weekly-view-report.js` + the :3800 `view-data-server.js` kept). Also this session: fixed `booli-targeted-refresh` times_viewed NOT-NULL worker errors (COALESCE, commit 3b0f478, deployed) and confirmed the cohort-track null-jump alert was benign sell-through."
-last_updated: "2026-06-17T13:26:12.000Z"
+stopped_at: Phase 15-03 COMPLETE 2026-06-17. D-04 recon confirmed soldAsUpcomingSale is detail-page-only (0 Oxylabs spend, offline dumps). Operator approved escalate-excluding-deed-transfers policy: detail-scope all EXCEPT soldPriceType=Lagfart/isTitleTransfer; approval marker written to 15-SOLD-IN-ADVANCE-RECON.md (2ba623f). Plan 04 --detail-scope all guard now unblocked.
+last_updated: "2026-06-17T13:30:00.000Z"
 progress:
   total_phases: 14
   completed_phases: 3
   total_plans: 30
-  completed_plans: 21
-  percent: 70
+  completed_plans: 24
+  percent: 80
 ---
 
 ## Current Position
@@ -18,9 +18,9 @@ progress:
 Phase: 15 (sold-data-ingestion-library) — EXECUTING
 Plan: 3 of 5
 **Phase:** 15 — Sold-data ingestion library
-**Plan:** 15-02 COMPLETE — Transport spine (sold-transport + scrape-http 613-retry)
+**Plan:** 15-03 COMPLETE — Sold-in-advance recon + D-01 policy decision
 **Status:** Executing Phase 15
-**Progress:** ████░░░░░░ 40% (2/5 plans complete in Phase 15)
+**Progress:** ██████░░░░ 60% (3/5 plans complete in Phase 15)
 
 **Milestone v3.0 phases:**
 
@@ -44,6 +44,12 @@ Plan: 3 of 5
 - v3.0: Image-based matching (dHash/vision) does NOT apply — sold detail pages carry no gallery images on either platform. The Phase-14 image path is out of scope for sold-match.
 - v3.0: DB was unreachable during the spike (doctl auth expired); rebuild assumes DB access restored. Apartment matching >9 months back is a design limit (no unit signal remains), not a bug.
 - v3.0 finding that anchors scope: ~36% of Booli villa sold records are genuine non-Hemnet presence (hand-confirmed 0/25 on Hemnet), not slutpris suppression and not a matcher miss.
+
+### Decisions (Phase 15-03, 2026-06-17 — sold-in-advance recon)
+
+- 15-03: sold_in_advance (SoldProperty.soldAsUpcomingSale) is detail-page-only — NOT on /slutpriser card nodes (confirmed offline, 0 Oxylabs spend)
+- 15-03: D-01 escalate-excluding-deed-transfers policy approved by operator: fetch /bostad/<residenceId> for all records WHERE !isTitleTransfer; soldPriceType=Lagfart records stay card-only with sold_in_advance=null; reduces ~2× cost increase by deed-transfer share
+- 15-03: Approval marker "escalate detail (spend confirmed)" written to 15-SOLD-IN-ADVANCE-RECON.md (2ba623f); Plan 04 --detail-scope all guard now unblocked
 
 ### Decisions (Phase 15-02, 2026-06-17 — transport spine)
 
@@ -69,8 +75,8 @@ Plan: 3 of 5
 
 ### Last Session
 
-Stopped at: Phase 15-02 COMPLETE 2026-06-17. Shipped lib/sold-transport.js (df560e7) — file-based MAX_OXY_CALLS ceiling + load-time SCRAPE_FORCE_OXYLABS guard + cachedFetch + assertOxyUsed + JSONL helpers. Extended lib/scrape-http.js (7c5df94) with 3s sleep-before-retry in fallbackViaOxylabs on OXYLABS_API_NON_200/OXYLABS_TARGET_NON_200 (CONFIG-03 main-path). All acceptance criteria pass. Public API unchanged.
-Resume: Phase 15 plan 2 of 5 complete. Next = /gsd-execute-phase 15 plan 3 (scripts/sold-recon.js + sold-in-advance recon).
+Stopped at: Phase 15-03 COMPLETE 2026-06-17. D-04 recon confirmed soldAsUpcomingSale is detail-page-only (0 Oxylabs spend, offline dumps). Operator approved escalate-excluding-deed-transfers policy at checkpoint. Approval marker written to 15-SOLD-IN-ADVANCE-RECON.md (2ba623f). Plan 04 booli-sold.js --detail-scope all guard unblocked.
+Resume: Phase 15 plan 3 of 5 complete. Next = /gsd-execute-phase 15 plan 4 (booli-sold.js fetch + detail scope + sold_in_advance capture).
 
 ### Decisions (Phase 14, 2026-06-12 overnight)
 

@@ -14,7 +14,7 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (15+).
 - [ ] **SOLD-01**: Pipeline fetches Booli `/slutpriser` sold records for a configured segment (municipality + objectType) and rolling sold-date window, with pagination and a sold-date early-stop.
 - [ ] **SOLD-02**: Pipeline classifies each Booli sold record's `soldPriceType` and excludes deed transfers (`Lagfart` / `isTitleTransfer`) from the match set while retaining them in the DB.
 - [ ] **SOLD-03**: Pipeline captures enriched Booli sold attributes from the SoldProperty node/detail — broker/agency id, operating cost, construction year, tenure form, rooms, living area, floor, coordinates, `soldPriceType`, and fee/rent (when available).
-- [ ] **SOLD-04**: Pipeline detects and persists a "sold in advance" (sold before viewing / pre-market) flag as a distinct attribute, after a recon step confirms where Booli encodes it.
+- [x] **SOLD-04**: Pipeline detects and persists a "sold in advance" (sold before viewing / pre-market) flag as a distinct attribute, after a recon step confirms where Booli encodes it.
 - [ ] **SOLD-05**: Pipeline fetches Hemnet `/salda` sold cards for each Booli property via per-property search (reusing the cohort search pattern), with pagination and sold-date early-stop, parsing `SaleCard` fields without a detail fetch.
 
 ### Matching (MATCH)
