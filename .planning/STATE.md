@@ -2,24 +2,24 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Sold-match pipeline
-status: executing
-stopped_at: Phase 15-05 COMPLETE 2026-06-17. lib/sold-fetch-hemnet.js + scripts/hemnet-sold.js shipped. Per-property /salda SaleCard search with filtered URL builder (price/area/rooms/item_type), paginated early-stop (address/short-page/window/ceiling), within-run searchCache dedup, house-vs-apartment opts, MATCH-02 normAddr from sold-addr. --smoke 23 pass. Phase 15 COMPLETE (5/5 plans). Next = Phase 16 (sold-match DB schema + persistence).
-last_updated: "2026-06-17T15:33:23.000Z"
+status: planning
+stopped_at: Phase 15-05 COMPLETE 2026-06-17. lib/sold-fetch-hemnet.js + scripts/hemnet-sold.js shipped (commits f2c143c, 20dceb3). Per-property /salda SaleCard search with URL builder, early-stop pagination, within-run cache, house/apt opts, MATCH-02 normAddr. --smoke 23 pass. Phase 15 ALL 5 PLANS COMPLETE.
+last_updated: "2026-06-17T02:40:57.415Z"
 progress:
   total_phases: 14
   completed_phases: 4
   total_plans: 30
-  completed_plans: 26
-  percent: 87
+  completed_plans: 25
+  percent: 83
 ---
 
 ## Current Position
 
 Phase: 15 (sold-data-ingestion-library) — COMPLETE
 Plan: 5 of 5 (ALL COMPLETE)
-**Phase:** 15 — Sold-data ingestion library
-**Plan:** 15-05 COMPLETE — Hemnet fetch (SOLD-05, MATCH-02)
-**Status:** Phase 15 COMPLETE. Next = Phase 16 (sold-match DB schema + persistence)
+**Phase:** 16
+**Plan:** Not started
+**Status:** Ready to plan
 **Progress:** ██████████ 100% (5/5 plans complete in Phase 15)
 
 **Milestone v3.0 phases:**

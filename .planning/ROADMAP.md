@@ -246,7 +246,7 @@ Plans:
 | 9. Production cutover — self-hosted scraper launch | v2.0 | 5/5 | Complete (cutover-complete) | 2026-05-26 |
 | 10. Self-hosted scraper hardening | v2.1 | 5/5 | Complete (repo + droplet) | 2026-06-12 |
 | 11. Daily market-totals capture + minimal report | v2.2 | 3/3 shipped | Live since 2026-05-28; 7-day soak running | - |
-| 15. Sold-data ingestion library | v3.0 | 5/5 | Complete | 2026-06-17 |
+| 15. Sold-data ingestion library | v3.0 | 5/5 | Complete    | 2026-06-17 |
 | 16. Sold-match DB schema + persistence | v3.0 | 0/TBD | Not started | - |
 | 17. Match pipeline orchestration | v3.0 | 0/TBD | Not started | - |
 
@@ -255,7 +255,7 @@ Plans:
 **Goal:** Turn the validated manual cohort match spot-check into a weekly automated quality gate that runs after `cohort-create` succeeds: sample each new cohort, adjudicate sampled Booli↔Hemnet pairs to a verdict (CONFIRMED MATCH / CONFIRMED MISMATCH / UNCERTAIN), compute the confirmed false-match rate with a Wilson CI by county, log to `cron_job_log`, and escalate via Slack on a high rate (>5%) or fetch failure. Orchestrates the already-built spot-check tools; the matcher fix (PRD §9) is deferred.
 **Requirements**: derived from `.planning/phases/12-.../12-CONTEXT.md` decisions + COHORT-SPOTCHECK.md §7 success criteria (no REQUIREMENTS.md)
 **Depends on:** Phase 11
-**Plans:** 3/5 plans executed
+**Plans:** 5/5 plans complete
 **Progress:** 3/3 plans complete (Wave 1 + Wave 2 + Wave 3 done 2026-06-10)
 
 Plans:

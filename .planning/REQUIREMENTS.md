@@ -11,16 +11,16 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (15+).
 
 ### Sold ingestion (SOLD)
 
-- [ ] **SOLD-01**: Pipeline fetches Booli `/slutpriser` sold records for a configured segment (municipality + objectType) and rolling sold-date window, with pagination and a sold-date early-stop.
-- [ ] **SOLD-02**: Pipeline classifies each Booli sold record's `soldPriceType` and excludes deed transfers (`Lagfart` / `isTitleTransfer`) from the match set while retaining them in the DB.
-- [ ] **SOLD-03**: Pipeline captures enriched Booli sold attributes from the SoldProperty node/detail — broker/agency id, operating cost, construction year, tenure form, rooms, living area, floor, coordinates, `soldPriceType`, and fee/rent (when available).
+- [x] **SOLD-01**: Pipeline fetches Booli `/slutpriser` sold records for a configured segment (municipality + objectType) and rolling sold-date window, with pagination and a sold-date early-stop.
+- [x] **SOLD-02**: Pipeline classifies each Booli sold record's `soldPriceType` and excludes deed transfers (`Lagfart` / `isTitleTransfer`) from the match set while retaining them in the DB.
+- [x] **SOLD-03**: Pipeline captures enriched Booli sold attributes from the SoldProperty node/detail — broker/agency id, operating cost, construction year, tenure form, rooms, living area, floor, coordinates, `soldPriceType`, and fee/rent (when available).
 - [x] **SOLD-04**: Pipeline detects and persists a "sold in advance" (sold before viewing / pre-market) flag as a distinct attribute, after a recon step confirms where Booli encodes it.
-- [ ] **SOLD-05**: Pipeline fetches Hemnet `/salda` sold cards for each Booli property via per-property search (reusing the cohort search pattern), with pagination and sold-date early-stop, parsing `SaleCard` fields without a detail fetch.
+- [x] **SOLD-05**: Pipeline fetches Hemnet `/salda` sold cards for each Booli property via per-property search (reusing the cohort search pattern), with pagination and sold-date early-stop, parsing `SaleCard` fields without a detail fetch.
 
 ### Matching (MATCH)
 
 - [ ] **MATCH-01**: Each non-deed-transfer Booli sold record is adjudicated against Hemnet `/salda` candidates using fee-exact precision (apartments) / address-key (villas), reusing the Phase-14 `adjudicatePair` logic.
-- [ ] **MATCH-02**: Address normalization (`normAddr` v2) handles the spike-recovered false-negative formats (space-before-unit-letter, dual `X / Y`, ` och `, Booli-truncated number).
+- [x] **MATCH-02**: Address normalization (`normAddr` v2) handles the spike-recovered false-negative formats (space-before-unit-letter, dual `X / Y`, ` och `, Booli-truncated number).
 - [ ] **MATCH-03**: Apartment matches are confirmed only within the fee-available window (~≤6–9 months back); house matches use the unique address key at any age.
 - [ ] **MATCH-04**: Each Booli record receives a persisted match verdict (matched / Booli-only / uncertain) with the supporting evidence (matched Hemnet slug, agreeing signals).
 
@@ -34,7 +34,7 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (15+).
 
 - [ ] **CONFIG-01**: Segments are configuration (municipality + objectType), seeded with the two validated spike segments (Stockholm apartments, Täby villas) and expandable without code changes.
 - [ ] **CONFIG-02**: A run accepts rolling-window parameters (min/max sold date) defaulting to a monthly window, and is runnable manually end-to-end (Booli seed → Hemnet search → adjudicate → persist).
-- [ ] **CONFIG-03**: Pipeline enforces an Oxylabs spend ceiling (`MAX_OXY_CALLS`, persisted spend tally) and retries transient Oxylabs 613 errors in the main path (not just probes).
+- [x] **CONFIG-03**: Pipeline enforces an Oxylabs spend ceiling (`MAX_OXY_CALLS`, persisted spend tally) and retries transient Oxylabs 613 errors in the main path (not just probes).
 
 ## v2 Requirements (deferred to future milestones)
 
