@@ -10,5 +10,17 @@
     "family": "HOUSE",
     "booli": { "areaIds": 20, "objectType": "Hus" },
     "hemnet": { "locationId": 17793, "itemType": null }
+  },
+  "kungalv-apt": {
+    "label": "Kungälv apartments",
+    "family": "APARTMENT",
+    "booli": { "areaIds": 229, "objectType": "Lägenhet" },
+    "hemnet": { "locationId": 17973, "itemType": "bostadsratt" }
+  },
+  "kungalv-villa": {
+    "label": "Kungälv houses",
+    "family": "HOUSE",
+    "booli": { "areaIds": 229, "objectType": "Hus" },
+    "hemnet": { "locationId": 17973, "itemType": null }
   }
 }
