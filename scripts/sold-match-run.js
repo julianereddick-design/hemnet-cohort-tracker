@@ -23,7 +23,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { createClient } = require('../db');
-const { cachedFetch, CeilingError, stdoutLogger, remainingCalls, setSpendClient } = require('../lib/sold-transport');
+const { cachedFetch, CeilingError, stdoutLogger, spentCallsAsync, remainingCallsAsync, setSpendClient } = require('../lib/sold-transport');
 const { isTitleTransfer, PRICE_AGREE_PCT, AREA_AGREE_PCT, SOLD_DATE_WINDOW_DAYS, READ_TIME_EXCLUDE_DAYS, daysAgoISO } = require('../lib/sold-config');
 const { fetchBooliSoldPage, fetchBooliDetail, extractResidenceId } = require('../lib/sold-fetch-booli');
 const { searchSoldPaged, searchOptsFor, booliSoldUnix } = require('../lib/sold-fetch-hemnet');
@@ -296,19 +296,24 @@ async function seedSegment(client, segKey, seg, minSoldDate, maxSoldDate, log, l
 
 // ---------------------------------------------------------------------------
 // runSegment — bounded worker pool (spike). Shared idx + stopped flag; tally from
-// the matchOne return string. DB-atomic ceiling drains at remainingCalls() <= 40.
+// the matchOne return string. DB-atomic ceiling drains at remainingCallsAsync() <= 40.
+// Spend reads use the ASYNC DB tally: setSpendClient switches the live counter to the
+// sold_spend table, so the sync file-based remainingCalls()/spentCalls() stay pinned
+// (drain guard never trips, oxylabsSpent prints 0). remainingCallsAsync/spentCallsAsync
+// read the authoritative DB tally instead.
 // Prints the D-04 per-segment summary with Oxylabs calls spent.
 // ---------------------------------------------------------------------------
 async function runSegment(client, segKey, seg, queue, minSoldDate, maxSoldDate, conc, log) {
   let idx = 0;
   let stopped = null;
   const stats = { matched: 0, booli_only: 0, uncertain: 0, error: 0 };
-  const callsBefore = remainingCalls();
+  const spentBefore = await spentCallsAsync();
 
   async function worker() {
     while (idx < queue.length) {
       if (stopped) return;
-      if (remainingCalls() <= 40) { stopped = 'ceiling-floor'; log('WARN', `approaching ceiling (${remainingCalls()} left) — draining`); return; }
+      const remaining = await remainingCallsAsync();
+      if (remaining <= 40) { stopped = 'ceiling-floor'; log('WARN', `approaching ceiling (${remaining} left) — draining`); return; }
       const record = queue[idx++];
       try {
         await sleep(jitter());
@@ -327,7 +332,7 @@ async function runSegment(client, segKey, seg, queue, minSoldDate, maxSoldDate, 
 
   const total = stats.matched + stats.booli_only + stats.uncertain + stats.error;
   const matchRate = total ? stats.matched / total : 0;
-  const spent = Math.max(0, callsBefore - remainingCalls());
+  const spent = Math.max(0, (await spentCallsAsync()) - spentBefore);
   log('INFO', `DONE ${segKey}: adjudicated=${queue.length} matched=${stats.matched} booli_only=${stats.booli_only} uncertain=${stats.uncertain} error=${stats.error} matchRate=${(matchRate * 100).toFixed(1)}% oxylabsSpent=${spent} stoppedBy=${stopped || 'none'}`);
   return { stats, stopped, spent };
 }
