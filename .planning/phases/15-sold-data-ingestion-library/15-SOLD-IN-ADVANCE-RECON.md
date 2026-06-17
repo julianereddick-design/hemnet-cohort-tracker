@@ -39,41 +39,40 @@ Note: The `Listing:<id>.upcomingSale` field found in the booli-slutpriser apollo
 
 ---
 
-## D-01 Disposition: All-Records Detail Escalation Required
+## D-01 Disposition: Escalate Detail — All Records EXCEPT Deed Transfers
 
-The `sold_in_advance` signal is **detail-page-only**. Per D-01:
+The `sold_in_advance` signal is **detail-page-only**. Per D-01, the all-records detail escalation has been operator-approved with the following scope optimisation:
 
-> "If 'sold in advance' proves detail-only: escalating to fetch detail for all market records (which would also yield full enrichment everywhere) is allowed only after Julian re-confirms the spend."
+> **Policy (2026-06-17):** Fetch a Booli detail page (`/bostad/<residenceId>`) for every sold record EXCEPT deed transfers. Gate the per-record detail fetch on `!isTitleTransfer` — skip records where `soldPriceType === "Lagfart"` (isTitleTransfer flag is true). Deed transfers are excluded from matching and retained card-only in the DB; a detail call on them is wasted spend. Genuine (non-deed-transfer) sales get the full detail page → `soldAsUpcomingSale` + full enrichment (broker, operating cost, construction year, tenure form). This reduces the ~2× escalation cost by the deed-transfer share.
 
-### What this means for cost
+### Plan 04 handoff instruction (UNAMBIGUOUS)
 
-The current D-01 default (Plan 04 without escalation) fetches detail pages **only for apartments within the fee window** — the one case where the `rent` field changes a match outcome. Under the default:
+Plan 04's `booli-sold.js` fetch loop MUST implement the following logic exactly:
 
-- Villas (Täby): card-only → `sold_in_advance` = `null` (D-03: best-effort, never block)
-- Apartments (Stockholm): detail fetched for fee-window records → `soldAsUpcomingSale` captured for those records only
+1. **Per record — gate the detail fetch:**
+   ```js
+   const isTitleTransfer = record.soldPriceType === 'Lagfart'; // or record.isTitleTransfer === true
+   if (!isTitleTransfer) {
+     // fetch /bostad/<residenceId> detail page
+     const detail = await fetchBooliDetail(record.residenceId, ...);
+     record.sold_in_advance = Boolean(detail?.soldAsUpcomingSale) || null;
+     // also capture: broker, operatingCost, constructionYear, tenureForm from detail
+   } else {
+     // deed transfer — card-only, no detail fetch
+     record.sold_in_advance = null;
+   }
+   ```
 
-To capture `sold_in_advance` for ALL records (both villas and apartments outside the fee window), Plan 04 would need to issue a detail fetch for every Booli sold record — approximately **doubling the per-segment Oxylabs call count** relative to the apartment-only-detail default.
+2. **Field to read on the detail `SoldProperty` node:** `sp.soldAsUpcomingSale` (boolean)
+   - Casting: `Boolean(sp.soldAsUpcomingSale)` — store as boolean or null
+   - Only populated for records that received a detail fetch (i.e. `!isTitleTransfer`)
 
-This is an operator spend decision (D-01, D-07). The agent does NOT escalate silently.
+3. **Deed transfers:** retained in DB with `sold_in_advance = null` and `is_title_transfer = true`; EXCLUDED from the match pipeline but NOT dropped.
 
-### Plan 04 handoff instruction
-
-**If operator approves card-only default (no escalation):**
-- Plan 04 reads `sold_in_advance` from `SoldProperty.soldAsUpcomingSale` on detail pages that are already fetched for fee-window apartments
-- For all other records (villas, apartments outside fee window): set `sold_in_advance = null`
-- Field to read: `sp.soldAsUpcomingSale` (boolean on the detail-page `SoldProperty` node)
-- Casting: `Boolean(sp.soldAsUpcomingSale)` → store as boolean or null
-
-**If operator approves all-records escalation:**
-- Plan 04 fetches `/bostad/<residenceId>` for every Booli sold record (villa and apartment alike)
-- Read `sp.soldAsUpcomingSale` from the detail `SoldProperty` node for every record
-- The literal marker line that unlocks `--detail-scope all` in Plan 04 is written to this file ONLY after operator approval at the checkpoint — see below.
+4. **`--detail-scope all` guard in `booli-sold.js`:** this guard is unlocked by the approval marker below. Plan 04's executor must assert the marker line is present before enabling the detail-fetch loop for all non-deed-transfer records.
 
 ---
 
 ## Checkpoint Marker (written by operator approval only)
 
-The line below is the approval marker for Plan 04's `--detail-scope all` guard.
-It must NOT be written by the agent. It is appended ONLY after operator approval at the Plan 03 checkpoint.
-
-[APPROVAL MARKER ABSENT — awaiting operator decision]
+escalate detail (spend confirmed)
