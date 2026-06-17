@@ -3,24 +3,24 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Sold-match pipeline
 status: executing
-stopped_at: Phase 15-03 COMPLETE 2026-06-17. D-04 recon confirmed soldAsUpcomingSale is detail-page-only (0 Oxylabs spend, offline dumps). Operator approved escalate-excluding-deed-transfers policy: detail-scope all EXCEPT soldPriceType=Lagfart/isTitleTransfer; approval marker written to 15-SOLD-IN-ADVANCE-RECON.md (2ba623f). Plan 04 --detail-scope all guard now unblocked.
-last_updated: "2026-06-17T13:30:00.000Z"
+stopped_at: Phase 15-04 COMPLETE 2026-06-17. lib/sold-fetch-booli.js + scripts/booli-sold.js shipped. Paginated /slutpriser fetch with idempotent JSONL resume, D-01 detail gate (all-scope operator-guarded, deed-transfer skip), sold_in_advance from SoldProperty.soldAsUpcomingSale. parseBooliSoldDetail extended to return sold_in_advance (Rule 2 fix). --smoke 17 pass. Next = Plan 05 (sold-fetch-hemnet + sold-match).
+last_updated: "2026-06-17T15:30:00.000Z"
 progress:
   total_phases: 14
   completed_phases: 3
   total_plans: 30
-  completed_plans: 24
-  percent: 80
+  completed_plans: 25
+  percent: 83
 ---
 
 ## Current Position
 
 Phase: 15 (sold-data-ingestion-library) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 **Phase:** 15 — Sold-data ingestion library
-**Plan:** 15-03 COMPLETE — Sold-in-advance recon + D-01 policy decision
+**Plan:** 15-04 COMPLETE — Booli fetch + detail enrichment (SOLD-01..04)
 **Status:** Executing Phase 15
-**Progress:** ██████░░░░ 60% (3/5 plans complete in Phase 15)
+**Progress:** ████████░░ 80% (4/5 plans complete in Phase 15)
 
 **Milestone v3.0 phases:**
 
@@ -44,6 +44,14 @@ Plan: 3 of 5
 - v3.0: Image-based matching (dHash/vision) does NOT apply — sold detail pages carry no gallery images on either platform. The Phase-14 image path is out of scope for sold-match.
 - v3.0: DB was unreachable during the spike (doctl auth expired); rebuild assumes DB access restored. Apartment matching >9 months back is a design limit (no unit signal remains), not a bug.
 - v3.0 finding that anchors scope: ~36% of Booli villa sold records are genuine non-Hemnet presence (hand-confirmed 0/25 on Hemnet), not slutpris suppression and not a matcher miss.
+
+### Decisions (Phase 15-04, 2026-06-17 — Booli fetch + detail enrichment)
+
+- 15-04: detailScope defaults to 'fee-window' (apartments only, within FEE_WINDOW_DAYS=270); 'all' requires operator marker in RECON doc at runtime; 'none' skips detail entirely — explicit escalation, never silent (D-01)
+- 15-04: parseBooliSoldDetail extended to return sold_in_advance (Boolean(sp.soldAsUpcomingSale) or null) — field was absent from the 15-01 lift, added as Rule 2 (SOLD-04 requirement)
+- 15-04: CeilingError caught at both page-loop and mid-card-loop levels — partial-page record written before break so no work lost on ceiling stop (idempotent/resumable)
+- 15-04: fetchBooliSoldPage returns { cards, meta } with no JSONL write — Phase 16 passes this primitive its own pg client; fetchBooliSold owns the seeds/<segKey>.jsonl path
+- 15-04: D-01 spend guard reads RECON doc at runtime via fs.readFileSync (not module load) — check runs on every invocation of --detail-scope all
 
 ### Decisions (Phase 15-03, 2026-06-17 — sold-in-advance recon)
 
@@ -75,8 +83,8 @@ Plan: 3 of 5
 
 ### Last Session
 
-Stopped at: Phase 15-03 COMPLETE 2026-06-17. D-04 recon confirmed soldAsUpcomingSale is detail-page-only (0 Oxylabs spend, offline dumps). Operator approved escalate-excluding-deed-transfers policy at checkpoint. Approval marker written to 15-SOLD-IN-ADVANCE-RECON.md (2ba623f). Plan 04 booli-sold.js --detail-scope all guard unblocked.
-Resume: Phase 15 plan 3 of 5 complete. Next = /gsd-execute-phase 15 plan 4 (booli-sold.js fetch + detail scope + sold_in_advance capture).
+Stopped at: Phase 15-04 COMPLETE 2026-06-17. lib/sold-fetch-booli.js + scripts/booli-sold.js shipped (commits 7743f36, 2a614c8). Paginated /slutpriser fetch with JSONL resume, D-01 detail gate (all-scope runtime-guarded, deed-transfer skip), sold_in_advance from SoldProperty.soldAsUpcomingSale. parseBooliSoldDetail extended (Rule 2). --smoke 17 pass.
+Resume: Phase 15 plan 4 of 5 complete. Next = /gsd-execute-phase 15 plan 5 (sold-fetch-hemnet + sold-match).
 
 ### Decisions (Phase 14, 2026-06-12 overnight)
 
