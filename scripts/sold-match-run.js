@@ -23,7 +23,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { createClient } = require('../db');
-const { cachedFetch, CeilingError, stdoutLogger, spentCallsAsync, remainingCallsAsync, setSpendClient } = require('../lib/sold-transport');
+const { cachedFetch, CeilingError, stdoutLogger, spentCallsAsync, remainingCallsAsync, setSpendClient, reserveOxylabsCall } = require('../lib/sold-transport');
 const { isTitleTransfer, PRICE_AGREE_PCT, AREA_AGREE_PCT, SOLD_DATE_WINDOW_DAYS, READ_TIME_EXCLUDE_DAYS, daysAgoISO } = require('../lib/sold-config');
 const { fetchBooliSoldPage, fetchBooliDetail, extractDetailUrl } = require('../lib/sold-fetch-booli');
 const { searchSoldPaged, searchOptsFor, booliSoldUnix } = require('../lib/sold-fetch-hemnet');
@@ -31,8 +31,17 @@ const { upsertBooliSold, upsertHemnetSold, persistVerdictForRecord } = require('
 const { adjudicatePair } = require('../lib/spotcheck-adjudicate');
 const { computeDeltas, pctDiff } = require('../lib/spotcheck-evidence');
 const { normAddr } = require('../lib/sold-addr');
+const { findHemnetListingByAddress } = require('../lib/sold-serp');
 
 const DAY = 86400;
+// Search-engine bridge (lib/sold-serp): for a record that would otherwise be booli_only,
+// query a Sweden-geo SERP for the Hemnet /bostad listing by address and, if a verified
+// exact-address page exists, reclassify as matched (match_method=bostad_bridge).
+// Enabled by default in the CLI/prod runner (main() sets SOLD_MATCH_BRIDGE=1 unless the
+// operator set it explicitly); opt out with SOLD_MATCH_BRIDGE=0. Read at CALL time so
+// the offline --smoke (which never goes through main and sets no env) stays network-free
+// unless a test injects deps.findHemnetListing.
+function bridgeEnabled() { return process.env.SOLD_MATCH_BRIDGE === '1'; }
 const MAX_SEARCH_PAGES = parseInt(process.env.SOLD_MATCH_MAX_PAGES || '5', 10);
 
 // ---------------------------------------------------------------------------
@@ -164,6 +173,39 @@ async function persistMapped(client, record, verdict, matchMethod, matchedCard, 
 }
 
 // ---------------------------------------------------------------------------
+// tryBridge — search-engine bridge fallback for a would-be booli_only record.
+// Returns 'matched' (and persists match_method=bostad_bridge) on a verified exact-
+// address /bostad hit; returns null otherwise (caller then persists booli_only).
+// No-ops (returns null) when the bridge is disabled. CeilingError re-throws.
+// `deps.findHemnetListing` lets the smoke inject a stub.
+// ---------------------------------------------------------------------------
+async function tryBridge(client, record, seg, segKey, minSoldDate, maxSoldDate, log, baseEvidence, deps = {}) {
+  if (!bridgeEnabled() && !deps.findHemnetListing) return null;  // deps.findHemnetListing forces the path for tests
+  const finder = deps.findHemnetListing || findHemnetListingByAddress;
+  let r;
+  try {
+    r = await finder(record, {
+      family: seg.family,
+      logger: log,
+      fetch: (u) => cachedFetch(u, { logger: log }),  // /bostad GET: counted + disk-cached + Oxylabs-forced
+      reserve: reserveOxylabsCall,                     // SERP POST: count against the same ceiling
+    });
+  } catch (e) {
+    if (e instanceof CeilingError) throw e;
+    return null;  // bridge failure must never block the booli_only verdict
+  }
+  if (!r || !r.found) return null;
+  return await persistMapped(client, record, 'matched', 'bostad_bridge', null, null, {
+    ...baseEvidence,
+    source: 'serp-bridge',
+    bridge_url: r.url,
+    bridge_listing_id: r.listingId,
+    bridge_state: r.state,
+    bridge_verified: r.verified,
+  }, segKey, minSoldDate, maxSoldDate, null);
+}
+
+// ---------------------------------------------------------------------------
 // matchOne — Hemnet search → address candidates → adjudication → persist verdict.
 // Reproduces the spike matchOne with the three Phase-17 divergences:
 //   (1) DB persist (persistVerdictForRecord) instead of JSONL,
@@ -194,11 +236,15 @@ async function matchOne(client, record, seg, segKey, minSoldDate, maxSoldDate, l
   const cards = (searchResult && searchResult.cards) || [];
   const cands = addrCandidates(record, cards, SOLD_DATE_WINDOW_DAYS);
 
-  // 2) No same-address candidate → booli_only. NO recall pass (D-03).
+  // 2) No same-address candidate → booli_only. NO recall pass (D-03). When the bridge
+  //    is enabled, first try the SERP /bostad lookup (recovers slutpris-lag false
+  //    positives and listings dropped from Hemnet's own /salda search).
   if (cands.length === 0) {
+    const baseEv = { source: 'no-address-candidate', addr_candidates: 0, cards_seen: cards.length };
+    const bridged = await tryBridge(client, record, seg, segKey, minSoldDate, maxSoldDate, log, baseEv, deps);
+    if (bridged) return bridged;
     return await persistMapped(client, record, 'booli_only', null, null, null,
-      { source: 'no-address-candidate', addr_candidates: 0, cards_seen: cards.length },
-      segKey, minSoldDate, maxSoldDate, null);
+      baseEv, segKey, minSoldDate, maxSoldDate, null);
   }
 
   const chosen = pickBest(record, cands);
@@ -228,9 +274,13 @@ async function matchOne(client, record, seg, segKey, minSoldDate, maxSoldDate, l
     const v = adj.verdict === 'CONFIRMED_MATCH' ? 'uncertain'
       : adj.verdict === 'CONFIRMED_MISMATCH' ? 'booli_only'
         : 'uncertain';
-    return await persistMapped(client, record, v, null, null, deltas, {
-      source: adj.source, reason: adj.reason, signals: adj.signals, addr_candidates: cands.length,
-    }, segKey, minSoldDate, maxSoldDate, null);
+    const houseEv = { source: adj.source, reason: adj.reason, signals: adj.signals, addr_candidates: cands.length };
+    if (v === 'booli_only') {
+      const bridged = await tryBridge(client, record, seg, segKey, minSoldDate, maxSoldDate, log, houseEv, deps);
+      if (bridged) return bridged;
+    }
+    return await persistMapped(client, record, v, null, null, deltas, houseEv,
+      segKey, minSoldDate, maxSoldDate, null);
   }
 
   // 4) APARTMENT branch — need a unit-level signal (fee-exact). D-06: seed-time
@@ -274,11 +324,17 @@ async function matchOne(client, record, seg, segKey, minSoldDate, maxSoldDate, l
     : adj.verdict === 'CONFIRMED_MISMATCH' ? 'booli_only'
       : 'uncertain';
   if (v === 'matched') await upsertHemnetSold(client, feeChosen); // D-07
+  const aptEv = {
+    source: adj.source, reason: adj.reason, signals: adj.signals, addr_candidates: cands.length,
+    fee: { booli_rent: booliRent, hemnet_fee: feeChosen.fee, exact: booliRent != null && feeChosen.fee != null && booliRent === feeChosen.fee },
+  };
+  if (v === 'booli_only') {
+    const bridged = await tryBridge(client, record, seg, segKey, minSoldDate, maxSoldDate, log, aptEv, deps);
+    if (bridged) return bridged;
+  }
   return await persistMapped(client, record, v, v === 'matched' ? 'fee_exact' : null,
-    v === 'matched' ? feeChosen : null, aptDeltas, {
-      source: adj.source, reason: adj.reason, signals: adj.signals, addr_candidates: cands.length,
-      fee: { booli_rent: booliRent, hemnet_fee: feeChosen.fee, exact: booliRent != null && feeChosen.fee != null && booliRent === feeChosen.fee },
-    }, segKey, minSoldDate, maxSoldDate, v === 'matched' ? feeChosen : null);
+    v === 'matched' ? feeChosen : null, aptDeltas, aptEv,
+    segKey, minSoldDate, maxSoldDate, v === 'matched' ? feeChosen : null);
 }
 
 // ---------------------------------------------------------------------------
@@ -357,6 +413,9 @@ async function runSegment(client, segKey, seg, queue, minSoldDate, maxSoldDate, 
 // main — DB lifecycle + spend ceiling + per-segment seed→match loop.
 // ---------------------------------------------------------------------------
 async function main() {
+  // Bridge ON by default for the production runner; operator opts out with
+  // SOLD_MATCH_BRIDGE=0. (Set BEFORE the run so bridgeEnabled() sees it.)
+  if (process.env.SOLD_MATCH_BRIDGE == null) process.env.SOLD_MATCH_BRIDGE = '1';
   const args = parseArgs(process.argv.slice(2));
   const segments = loadSegments();
   const maxSoldDate = args.maxSoldDate || daysAgoISO(READ_TIME_EXCLUDE_DAYS);          // ~90 days ago
@@ -368,7 +427,7 @@ async function main() {
     throw new Error(`unknown segment: ${args.segment} (config has: ${Object.keys(segments).join(', ')})`);
   }
 
-  log('INFO', `window=${minSoldDate}..${maxSoldDate} segments=${segKeys.join(',')} conc=${args.conc}${args.limit != null ? ` limit=${args.limit}` : ''}`);
+  log('INFO', `window=${minSoldDate}..${maxSoldDate} segments=${segKeys.join(',')} conc=${args.conc}${args.limit != null ? ` limit=${args.limit}` : ''} bridge=${bridgeEnabled() ? 'on' : 'off'}`);
 
   const client = createClient();
   await client.connect();
@@ -385,7 +444,7 @@ async function main() {
   }
 }
 
-module.exports = { loadSegments, validateDate, parseArgs, addrCandidates, pickBest, cardBrief, deltasFor, persistMapped, matchOne, seedSegment, runSegment };
+module.exports = { loadSegments, validateDate, parseArgs, addrCandidates, pickBest, cardBrief, deltasFor, persistMapped, tryBridge, matchOne, seedSegment, runSegment };
 
 if (require.main === module) {
   if (process.argv.includes('--smoke')) {
@@ -584,6 +643,44 @@ function runSmoke() {
       HOUSE, 'taby-villa', WIN[0], WIN[1], noLog, depsWith([hcard()]));
     assert.strictEqual(sold(c).length, 0, 'must issue zero sold_match queries for a title transfer');
     assert.ok(v === 'matched' || v === 'booli_only' || v === 'uncertain', 'returns a verdict string for the tally');
+  });
+
+  // --- Task 3: search-engine bridge wiring (deps.findHemnetListing forces the path) ---
+  const depsBridge = (cards, finder, detail) => ({
+    searchSoldPaged: async () => ({ cards, pages: 1, complete: true }),
+    fetchBooliDetail: async () => detail,
+    findHemnetListing: finder,
+  });
+
+  // 7) no-address-candidate + bridge HIT → matched/bostad_bridge (slug null, no Hemnet persist)
+  await checkAsync('bridge: no-candidate + SERP hit → matched/bostad_bridge', async () => {
+    const c = mockClient();
+    const finder = async () => ({ found: true, url: 'https://www.hemnet.se/bostad/x-1', listingId: '1', state: 'deactivated', verified: { addrOk: true, areaOk: true } });
+    const v = await matchOne(c, brec({ booli_id: 21, street_address: 'Solovägen 9' }), HOUSE, 'taby-villa', WIN[0], WIN[1], noLog,
+      depsBridge([hcard({ street_address: 'Annangatan 1' })], finder));
+    assert.strictEqual(v, 'matched');
+    assert.strictEqual(verdictName(c), 'matched');
+    assert.strictEqual(verdictMethod(c), 'bostad_bridge');
+    assert.strictEqual(verdictSlug(c), null, 'bridge match carries no Hemnet slug');
+    assert.strictEqual(hemnet(c).length, 0, 'no hemnet_sold persist for a bridge match');
+  });
+
+  // 8) no-address-candidate + bridge MISS → stays booli_only
+  await checkAsync('bridge: no-candidate + SERP miss → booli_only', async () => {
+    const c = mockClient();
+    const finder = async () => ({ found: false, reason: 'no-exact-slug' });
+    const v = await matchOne(c, brec({ booli_id: 22, street_address: 'Solovägen 9' }), HOUSE, 'taby-villa', WIN[0], WIN[1], noLog,
+      depsBridge([hcard({ street_address: 'Annangatan 1' })], finder));
+    assert.strictEqual(v, 'booli_only');
+    assert.strictEqual(verdictMethod(c), null);
+  });
+
+  // 9) bridge OFF (no finder injected, flag unset) → booli_only unchanged (regression guard)
+  await checkAsync('bridge disabled → no-candidate stays booli_only', async () => {
+    const c = mockClient();
+    const v = await matchOne(c, brec({ booli_id: 23, street_address: 'Solovägen 9' }), HOUSE, 'taby-villa', WIN[0], WIN[1], noLog,
+      depsWith([hcard({ street_address: 'Annangatan 1' })]));
+    assert.strictEqual(v, 'booli_only');
   });
 
   console.log(`smoke: ${pass} pass, ${fail} fail`);
