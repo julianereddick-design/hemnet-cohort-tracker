@@ -9,7 +9,7 @@ progress:
   # Scope = current milestone v3.0 (Phases 15–17). Plan totals TBD until each phase is planned.
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
+  total_plans: 5
   completed_plans: 0
   percent: 0
 ---
@@ -18,7 +18,7 @@ progress:
 
 **Phase:** 15 — Sold-data ingestion library (context gathered, not yet planned)
 **Plan:** None
-**Status:** planning — Phase 15 CONTEXT.md written, ready for /gsd-plan-phase 15
+**Status:** planning — Phase 15 planned (5 plans, 3 waves), ready for /gsd-execute-phase 15
 **Progress:** ░░░░░░░░░░ 0% (0/3 phases)
 
 **Milestone v3.0 phases:**
@@ -26,7 +26,7 @@ progress:
 - [ ] Phase 16 — Sold-match DB schema + persistence (DB-01..03)
 - [ ] Phase 17 — Match pipeline orchestration (MATCH-01/03/04, CONFIG-01/02)
 
-**Next:** `/gsd-plan-phase 15`
+**Next:** `/gsd-execute-phase 15`
 
 ## Accumulated Context
 

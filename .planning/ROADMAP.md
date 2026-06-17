@@ -191,8 +191,15 @@ Plans:
   3. A short recon step confirms where Booli encodes "sold in advance" (sold before viewing), and the module sets a distinct `sold_in_advance` flag on each record accordingly
   4. A `lib/` Hemnet-`/salda` module returns parsed `SaleCard` candidates for a given Booli property via per-property search (reusing the cohort search pattern), paginating and early-stopping on sold date, with no per-card detail fetch
   5. `normAddr` v2 matches the spike-recovered formats (space-before-unit-letter, dual `X / Y`, ` och `, Booli-truncated number); the main fetch path enforces a `MAX_OXY_CALLS` ceiling and retries transient Oxylabs 613 errors
-**Plans**: TBD
+**Plans**: 5 plans (planned 2026-06-17)
 **UI hint**: no
+
+Plans:
+- [ ] 15-01-PLAN.md — Foundation libs: `lib/sold-config.js` + `lib/sold-parse.js` (snake_case parser contract) + `lib/sold-addr.js` (normAddr v2, MATCH-02 unit-tested) [Wave 1]
+- [ ] 15-02-PLAN.md — `lib/sold-transport.js` (file-based MAX_OXY_CALLS ceiling, reuses scrape-http) + `lib/scrape-http.js` transient-613 sleep-retry on the main path [CONFIG-03, Wave 1]
+- [ ] 15-03-PLAN.md — `scripts/sold-recon.js` extended for the "sold in advance" signal + documented finding gating the D-01 detail-fetch policy (operator checkpoint) [SOLD-04, Wave 2]
+- [ ] 15-04-PLAN.md — `lib/sold-fetch-booli.js` (paginated /slutpriser seed, classify+retain Lagfart, recon-gated detail, sold_in_advance flag) + `scripts/booli-sold.js` wrapper [SOLD-01..04, Wave 3]
+- [ ] 15-05-PLAN.md — `lib/sold-fetch-hemnet.js` (per-property /salda SaleCard search, no detail fetch, house/apt opts) + `scripts/hemnet-sold.js` wrapper [SOLD-05, Wave 3]
 
 #### Phase 16: Sold-match DB schema + persistence
 **Goal**: A migrated sold-side schema (Booli-sold table, Hemnet-`/salda` table, match/verdict table — including enriched columns and the `sold_in_advance` flag) plus an idempotent upsert layer replaces the spike's DB-free JSON output, so re-runs converge without duplicate rows.
