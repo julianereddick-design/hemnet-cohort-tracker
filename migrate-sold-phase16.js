@@ -91,6 +91,56 @@ async function run() {
   `);
   console.log('Created table: hemnet_sold');
 
+  // sold_match: DESIGN-ONLY this phase — created empty, populated in Phase 17 (adjudicatePair). D-05.
+  // Verdict vocabulary mirrors Phase-14 (verdict allowed: matched, booli_only, uncertain — kept loose,
+  // no CHECK constraint, for Phase 17). match_method allowed: fee_exact, address_key.
+  // matched_hemnet_slug is nullable: null for booli_only / uncertain — a first-class outcome
+  // (the spike's ~36% genuine-non-Hemnet finding), NOT an error. evidence is JSONB for flexibility.
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS sold_match (
+      id                  SERIAL PRIMARY KEY,
+      booli_id            BIGINT NOT NULL,
+      matched_hemnet_slug TEXT,
+      verdict             TEXT,
+      match_method        TEXT,
+      evidence            JSONB,
+      segment             TEXT,
+      window_start        DATE,
+      window_end          DATE,
+      adjudicated_at      TIMESTAMPTZ,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(booli_id)
+    )
+  `);
+  console.log('Created table: sold_match');
+
+  // sold_spend: backs the D-03 DB atomic spend ceiling (closes CR-01). One row per logical
+  // spend bucket, keyed by a stable text key so Phase 17's concurrent drivers share one counter.
+  // Plan 03's atomic increment: UPDATE sold_spend SET calls = calls + 1, updated_at = NOW()
+  //   WHERE spend_key = $1 AND calls < $2 RETURNING calls  (zero rows = ceiling hit).
+  // Seeding: INSERT ... ON CONFLICT (spend_key) DO NOTHING — UNIQUE(spend_key) makes seed idempotent.
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS sold_spend (
+      id         SERIAL PRIMARY KEY,
+      spend_key  TEXT NOT NULL,
+      calls      INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(spend_key)
+    )
+  `);
+  console.log('Created table: sold_spend');
+
+  // Read-back verify (idiom from migrate-booli-listing-add-fields.js): confirm the four tables
+  // exist after the run, so a re-run visibly reports the schema applied. Parameterized $1 — no
+  // string interpolation.
+  const check = await client.query(
+    `SELECT table_name FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = ANY($1::text[])
+      ORDER BY table_name`,
+    [['booli_sold', 'hemnet_sold', 'sold_match', 'sold_spend']]
+  );
+  console.log('Tables present:', check.rows.map(r => r.table_name).join(', '));
+
   await client.end();
 }
 
