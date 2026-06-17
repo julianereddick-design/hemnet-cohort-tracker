@@ -1,0 +1,488 @@
+{
+  "__typename": "SoldProperty",
+  "id": "6107381",
+  "booliId": "6107381",
+  "addressId": "122563589",
+  "adTargetingProperties": [
+    {
+      "__typename": "KeyValueOutput",
+      "key": "municipality",
+      "value": "20"
+    },
+    {
+      "__typename": "KeyValueOutput",
+      "key": "county",
+      "value": "2"
+    },
+    {
+      "__typename": "KeyValueOutput",
+      "key": "suburb",
+      "value": ""
+    },
+    {
+      "__typename": "KeyValueOutput",
+      "key": "district",
+      "value": "115816"
+    },
+    {
+      "__typename": "KeyValueOutput",
+      "key": "room",
+      "value": "7"
+    },
+    {
+      "__typename": "KeyValueOutput",
+      "key": "priceGroup",
+      "value": "1"
+    },
+    {
+      "__typename": "KeyValueOutput",
+      "key": "constructionYearEra",
+      "value": "1"
+    },
+    {
+      "__typename": "KeyValueOutput",
+      "key": "objectType",
+      "value": "6"
+    },
+    {
+      "__typename": "KeyValueOutput",
+      "key": "plotAreaGroup",
+      "value": "2"
+    },
+    {
+      "__typename": "KeyValueOutput",
+      "key": "status",
+      "value": "2"
+    },
+    {
+      "__typename": "KeyValueOutput",
+      "key": "address",
+      "value": "Travslingan 4"
+    },
+    {
+      "__typename": "KeyValueOutput",
+      "key": "livingAreaGroup",
+      "value": "5"
+    },
+    {
+      "__typename": "KeyValueOutput",
+      "key": "zipCode",
+      "value": "855168"
+    },
+    {
+      "__typename": "KeyValueOutput",
+      "key": "upcomingSale",
+      "value": "0"
+    },
+    {
+      "__typename": "KeyValueOutput",
+      "key": "brokerAgency",
+      "value": "20"
+    }
+  ],
+  "buildingFloors": null,
+  "residenceId": "2265068",
+  "breadcrumbs": [
+    {
+      "__typename": "BreadcrumbItem",
+      "label": "Stockholms län",
+      "url": "/sok/slutpriser?areaIds=2&objectType=Villa"
+    },
+    {
+      "__typename": "BreadcrumbItem",
+      "label": "Täby kommun",
+      "url": "/sok/slutpriser?areaIds=20&objectType=Villa"
+    },
+    {
+      "__typename": "BreadcrumbItem",
+      "label": "Travslingan",
+      "url": "/sok/slutpriser?areaIds=112755&objectType=Villa"
+    }
+  ],
+  "relatedSearchUrl": "/sok/slutpriser?areaIds=20&objectType=Villa",
+  "breadcrumbsJsonLd": "{\"@context\":\"http://schema.org\",\"@type\":\"BreadcrumbList\",\"itemListElement\":[{\"@type\":\"ListItem\",\"position\":1,\"name\":\"Stockholms län\",\"item\":\"https://www.booli.se/sok/slutpriser?areaIds=2&objectType=Villa\"},{\"@type\":\"ListItem\",\"position\":2,\"name\":\"Täby kommun\",\"item\":\"https://www.booli.se/sok/slutpriser?areaIds=20&objectType=Villa\"},{\"@type\":\"ListItem\",\"position\":3,\"name\":\"Travslingan\",\"item\":\"https://www.booli.se/sok/slutpriser?areaIds=112755&objectType=Villa\"}]}",
+  "propertyType": "sold",
+  "objectType": "Villa",
+  "streetAddress": "Travslingan 4",
+  "descriptiveAreaName": "Visinge",
+  "latitude": 59.46475735,
+  "longitude": 18.06122525,
+  "constructionYear": 1983,
+  "housingCoop": null,
+  "rooms": {
+    "__typename": "FormattedValue",
+    "formatted": "7 rum",
+    "value": "7",
+    "raw": 7,
+    "unit": "rum"
+  },
+  "livingArea": {
+    "__typename": "FormattedValue",
+    "formatted": "169 m²",
+    "value": "169",
+    "raw": 169,
+    "unit": "m²"
+  },
+  "additionalArea": {
+    "__typename": "FormattedValue",
+    "raw": 24,
+    "unit": "m²",
+    "value": "24"
+  },
+  "plotArea": {
+    "__typename": "FormattedValue",
+    "raw": 845,
+    "value": "845",
+    "unit": "m²"
+  },
+  "rent": null,
+  "operatingCost": {
+    "__typename": "FormattedValue",
+    "raw": 2641,
+    "value": "2 641",
+    "unit": "kr/mån"
+  },
+  "primaryArea": {
+    "__typename": "Area_V3",
+    "name": "Täby",
+    "preposition": "i"
+  },
+  "displayAttributes({\"queryContext\":\"PROPERTY_PAGE_LISTING\"})": {
+    "__typename": "DisplayAttributes",
+    "dataPoints": [
+      {
+        "__typename": "DataPoint",
+        "key": "livingArea",
+        "label": "Boarea",
+        "value": {
+          "__typename": "DisplayText",
+          "plainText": "169 m²",
+          "markdown": "**169 m²**"
+        }
+      },
+      {
+        "__typename": "DataPoint",
+        "key": "additionalArea",
+        "label": "Biarea",
+        "value": {
+          "__typename": "DisplayText",
+          "plainText": "24 m²",
+          "markdown": "**24 m²**"
+        }
+      },
+      {
+        "__typename": "DataPoint",
+        "key": "rooms",
+        "label": "Rum",
+        "value": {
+          "__typename": "DisplayText",
+          "plainText": "7 rum",
+          "markdown": "**7 rum**"
+        }
+      },
+      {
+        "__typename": "DataPoint",
+        "key": "plotArea",
+        "label": "Tomtarea",
+        "value": {
+          "__typename": "DisplayText",
+          "plainText": "845 m²",
+          "markdown": "**845 m²**"
+        }
+      },
+      {
+        "__typename": "DataPoint",
+        "key": "constructionYear",
+        "label": "Byggår",
+        "value": {
+          "__typename": "DisplayText",
+          "plainText": "1983",
+          "markdown": "**1983**"
+        }
+      }
+    ]
+  },
+  "areas": [
+    {
+      "__ref": "Area_V3:2"
+    },
+    {
+      "__ref": "Area_V3:20"
+    },
+    {
+      "__ref": "Area_V3:6160"
+    },
+    {
+      "__ref": "Area_V3:77104"
+    },
+    {
+      "__ref": "Area_V3:112755"
+    },
+    {
+      "__ref": "Area_V3:115816"
+    },
+    {
+      "__ref": "Area_V3:855168"
+    },
+    {
+      "__ref": "Area_V3:914053"
+    },
+    {
+      "__ref": "Area_V3:973576"
+    },
+    {
+      "__ref": "Area_V3:1002244"
+    },
+    {
+      "__ref": "Area_V3:1015206"
+    },
+    {
+      "__ref": "Area_V3:1016035"
+    }
+  ],
+  "location": {
+    "__typename": "Location",
+    "namedAreas": [
+      "Visinge"
+    ],
+    "region": {
+      "__typename": "Region",
+      "municipalityName": "Täby"
+    }
+  },
+  "salesOfResidence": [
+    {
+      "__ref": "SoldProperty:6107381"
+    }
+  ],
+  "url": "/bostad/2265068",
+  "tenureForm": "Äganderätt",
+  "infoSections": [
+    {
+      "__typename": "InfoSection",
+      "key": "soldInfo",
+      "title": "Om försäljningen",
+      "type": "standalone",
+      "lazyLoad": false,
+      "tracking": null,
+      "content": {
+        "__typename": "InfoSectionContent",
+        "infoPoints": [
+          {
+            "__typename": "InfoPoint",
+            "key": "soldPrice",
+            "displayText": {
+              "__typename": "DisplayText",
+              "markdown": "Slutpriset blev **9 000 000** kr"
+            },
+            "logos": [],
+            "icons": [
+              {
+                "__typename": "CrossPlatformIcon",
+                "key": "Trophy",
+                "svg": "https://bcdn.se/assets/shared/icons/Trophy.svg"
+              }
+            ],
+            "sponsored": false,
+            "url": null,
+            "action": null,
+            "tracking": null,
+            "tooltip": null
+          },
+          {
+            "__typename": "InfoPoint",
+            "key": "soldOrRemovedDate",
+            "displayText": {
+              "__typename": "DisplayText",
+              "markdown": "Såld eller borttagen **2026-06-16**"
+            },
+            "logos": [],
+            "icons": [
+              {
+                "__typename": "CrossPlatformIcon",
+                "key": "Gavel",
+                "svg": "https://bcdn.se/assets/shared/icons/Gavel.svg"
+              }
+            ],
+            "sponsored": false,
+            "url": null,
+            "action": null,
+            "tracking": null,
+            "tooltip": null
+          },
+          {
+            "__typename": "InfoPoint",
+            "key": "soldSqmPrice",
+            "displayText": {
+              "__typename": "DisplayText",
+              "markdown": "Slutpriset per kvadratmeter var **53 300** kr/m²"
+            },
+            "logos": [],
+            "icons": [
+              {
+                "__typename": "CrossPlatformIcon",
+                "key": "AreaChart",
+                "svg": "https://bcdn.se/assets/shared/icons/AreaChart.svg"
+              }
+            ],
+            "sponsored": false,
+            "url": null,
+            "action": null,
+            "tracking": null,
+            "tooltip": null
+          },
+          {
+            "__typename": "InfoPoint",
+            "key": "soldInfoReadMore",
+            "displayText": {
+              "__typename": "DisplayText",
+              "markdown": "[Om slutpris](https://www.booli.se/vanliga-fragor/sv/articles/10545580-vad-ar-skillnaden-mellan-slutpris-lagfart-och-sista-bud)"
+            },
+            "logos": [],
+            "icons": [],
+            "sponsored": false,
+            "url": "https://www.booli.se/vanliga-fragor/sv/articles/10545580-vad-ar-skillnaden-mellan-slutpris-lagfart-och-sista-bud",
+            "action": "openExternalUrl",
+            "tracking": {
+              "__typename": "TrackingEvent",
+              "eventName": "link_clicked",
+              "properties": {
+                "type": "internal",
+                "destination": "support",
+                "href": "https://www.booli.se/vanliga-fragor/sv/articles/10545580-vad-ar-skillnaden-mellan-slutpris-lagfart-och-sista-bud"
+              }
+            },
+            "tooltip": null
+          }
+        ],
+        "ctas": []
+      }
+    },
+    {
+      "__typename": "InfoSection",
+      "key": "propertyInfo",
+      "title": "Om bostaden",
+      "type": "standalone",
+      "lazyLoad": false,
+      "tracking": null,
+      "content": {
+        "__typename": "InfoSectionContent",
+        "infoPoints": [
+          {
+            "__typename": "InfoPoint",
+            "key": "soldDate",
+            "displayText": {
+              "__typename": "DisplayText",
+              "markdown": "Uppgifter från försäljningen **2026-06-16**:"
+            },
+            "logos": [],
+            "icons": [],
+            "sponsored": false,
+            "url": null,
+            "action": null,
+            "tracking": null,
+            "tooltip": null
+          },
+          {
+            "__typename": "InfoPoint",
+            "key": "tenureForm",
+            "displayText": {
+              "__typename": "DisplayText",
+              "markdown": "Den här villan är en **äganderätt**"
+            },
+            "logos": [],
+            "icons": [
+              {
+                "__typename": "CrossPlatformIcon",
+                "key": "ApartmentFilled",
+                "svg": "https://bcdn.se/assets/shared/icons/ApartmentFilled.svg"
+              }
+            ],
+            "sponsored": false,
+            "url": null,
+            "action": null,
+            "tracking": null,
+            "tooltip": null
+          },
+          {
+            "__typename": "InfoPoint",
+            "key": "operatingCost",
+            "displayText": {
+              "__typename": "DisplayText",
+              "markdown": "Driftskostnaden är **2 641** kr/mån"
+            },
+            "logos": [],
+            "icons": [
+              {
+                "__typename": "CrossPlatformIcon",
+                "key": "SizeSelect",
+                "svg": "https://bcdn.se/assets/shared/icons/SizeSelect.svg"
+              }
+            ],
+            "sponsored": false,
+            "url": null,
+            "action": null,
+            "tracking": null,
+            "tooltip": null
+          },
+          {
+            "__typename": "InfoPoint",
+            "key": "daysActive",
+            "displayText": {
+              "__typename": "DisplayText",
+              "markdown": "Bostaden var snart till salu i **42** dagar"
+            },
+            "logos": [],
+            "icons": [
+              {
+                "__typename": "CrossPlatformIcon",
+                "key": "Calendar",
+                "svg": "https://bcdn.se/assets/shared/icons/Calendar.svg"
+              }
+            ],
+            "sponsored": false,
+            "url": null,
+            "action": null,
+            "tracking": null,
+            "tooltip": null
+          }
+        ],
+        "ctas": []
+      }
+    }
+  ],
+  "priceInfo": {
+    "__typename": "PriceInfo",
+    "label": "Slutpris",
+    "displayPrice": "9 000 000 kr",
+    "displayPriceChange": null,
+    "positivePriceChange": null,
+    "description": {
+      "__typename": "DisplayText",
+      "markdown": "Detta pris har rapporterats in direkt till Booli av en mäklare, köpare eller säljare. Det är det bekräftade priset från när kontraktet skrevs.\n\n[Läs mer om skillnaden mellan Slutpris, Lagfart och Sista bud](https://www.booli.se/vanliga-fragor/sv/articles/10545580-vad-ar-skillnaden-mellan-slutpris-lagfart-och-sista-bud)"
+    }
+  },
+  "amenities": [],
+  "agentId": "10837",
+  "agencyId": "20",
+  "soldPrice": {
+    "__typename": "FormattedValue",
+    "formatted": "9 000 000 kr",
+    "value": "9 000 000",
+    "raw": 9000000,
+    "unit": "kr"
+  },
+  "soldSqmPrice": {
+    "__typename": "FormattedValue",
+    "value": "53 300",
+    "unit": "kr/m²"
+  },
+  "soldPriceAbsoluteDiff": null,
+  "soldPricePercentageDiff": null,
+  "listPrice": null,
+  "firstPrice": null,
+  "soldPriceType": "Slutpris",
+  "removed": "2026-06-16 12:20:05",
+  "images": [],
+  "soldAsUpcomingSale": true
+}
