@@ -1,25 +1,47 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.1
-milestone_name: Self-hosted scraper hardening
-status: v2.1 COMPLETE (repo + droplet) — no active coding phase; only decisions + a monitoring watch remain
-stopped_at: "v2.1 (Phase 10) COMPLETE 2026-06-12 — 10-04 (export gap-aware fix + scripts/intel cleanup) and 10-05 (Pool & Flow retirement) shipped to repo AND droplet: 4 Mon-09:00 crontab lines removed, pool-flow-dashboard.html deleted, 4 scripts gone; the listing_gap_weekly/listing_flow_weekly TABLES were intentionally LEFT (operator decision — harmless, writers gone). 10-04(a) export gap-aware fix verified on droplet (W21 incremental columns now populate). Spot-check stream (12/13/13.1/13.2/14/14.1) + v2.2 market-totals (Phase 11) all previously shipped. Remaining is NOT coding: (1) Mon 2026-06-15 06:30 UTC first unattended spot-check gate fire (live validation watch); (2) operator decision: spot-check 20%-vs-100% coverage ($4.32 vs $18.35/wk); (3) flagged booli-refresh coverage gap (5969 reported vs ~4097 refreshed) follow-up. Next coding work = a NEW milestone (none scoped yet)."
-last_updated: "2026-06-12"
+milestone: v3.0
+milestone_name: Sold-match pipeline
+status: planning
+stopped_at: "v3.0 roadmap created 2026-06-17 — Phases 15 (sold-data ingestion library), 16 (sold-match DB schema + persistence), 17 (match pipeline orchestration) defined; 15/15 v1 requirements mapped, 0 unmapped. No phase planned yet. Prior milestone v2.1 (Phase 10) COMPLETE + v2.2 (Phase 11) live + spot-check stream (Phases 12–14.1) shipped — see Accumulated Context below. Next: /gsd-plan-phase 15."
+last_updated: "2026-06-17"
 progress:
-  # Scope = current milestone v2.1 (Phase 10 only). Prior block (5 phases / 9 plans /
-  # 78%) was stale scaffolding that never recomputed as work shipped — corrected 2026-06-12.
-  total_phases: 1
-  completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  # Scope = current milestone v3.0 (Phases 15–17). Plan totals TBD until each phase is planned.
+  total_phases: 3
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
+
+## Current Position
+
+**Phase:** Not started (defining requirements complete)
+**Plan:** None
+**Status:** planning — v3.0 roadmap created, awaiting first phase plan
+**Progress:** ░░░░░░░░░░ 0% (0/3 phases)
+
+**Milestone v3.0 phases:**
+- [ ] Phase 15 — Sold-data ingestion library (SOLD-01..05, MATCH-02, CONFIG-03)
+- [ ] Phase 16 — Sold-match DB schema + persistence (DB-01..03)
+- [ ] Phase 17 — Match pipeline orchestration (MATCH-01/03/04, CONFIG-01/02)
+
+**Next:** `/gsd-plan-phase 15`
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
+- Milestone v3.0 (Sold-match pipeline) defined 2026-06-17: productionize the validated `spike/sold-match-feasibility` spike into reusable `lib/` modules + DB persistence. 3 phases (15–17), 15 v1 requirements, all mapped. v2 deferred: SCHED (cron scheduling), REPORT (Slack/reporting), SUPPRESS (listing-stage suppression test).
 - Phase 12 added: Cohort match spot-check weekly QA gate (verify Booli↔Hemnet pairs are the same property; spec in repo `COHORT-SPOTCHECK.md`)
+
+### Decisions (v3.0, 2026-06-17 — anchored by the spike)
+
+- v3.0: Sold-match reuses the cohort per-property search pattern + Phase-14 `adjudicatePair` logic — no new matching paradigm. Apartments confirm via fee-exact (only ≤~6–9mo back before Booli strips fee/broker); villas via address-key at any age.
+- v3.0: Deed transfers (`soldPriceType=Lagfart` / `isTitleTransfer`) are EXCLUDED from matching but RETAINED in the DB. "Sold in advance" (sold before viewing) is a market signal to detect + flag; exact Booli encoding needs a short recon (Phase 15 discovery task).
+- v3.0: Image-based matching (dHash/vision) does NOT apply — sold detail pages carry no gallery images on either platform. The Phase-14 image path is out of scope for sold-match.
+- v3.0: DB was unreachable during the spike (doctl auth expired); rebuild assumes DB access restored. Apartment matching >9 months back is a design limit (no unit signal remains), not a bug.
+- v3.0 finding that anchors scope: ~36% of Booli villa sold records are genuine non-Hemnet presence (hand-confirmed 0/25 on Hemnet), not slutpris suppression and not a matcher miss.
 
 ### Decisions
 
@@ -34,7 +56,7 @@ progress:
 ### Last Session
 
 Stopped at: v2.1 (Phase 10) CODE-COMPLETE 2026-06-12. Shipped 10-04 (export-views-wide gap-aware incremental fix; deleted 16 spent one-off scripts + dead `migrate-booli-listing-drop-agent-fk.js` + 7 verf-log dirs + stray `.clone`; corrected stale SLACK_WEBHOOK "not configured" intel claims; Job C Final: line emits `jobStatus` not `status`) and 10-05 (deleted the 4 pre-v2.0 Pool & Flow scripts + `setup-chart-cron.sh` from the repo; `weekly-view-report.js` + the :3800 `view-data-server.js` kept). Also this session: fixed `booli-targeted-refresh` times_viewed NOT-NULL worker errors (COALESCE, commit 3b0f478, deployed) and confirmed the cohort-track null-jump alert was benign sell-through.
-Resume: v2.1 fully closed (repo + droplet). No active coding phase. Open items, none coding: (1) Mon 2026-06-15 06:30 UTC first unattended spot-check gate fire (live validation watch); (2) decide spot-check 20%-vs-100% coverage; (3) flagged booli-refresh coverage-gap follow-up. Next coding work needs a new milestone (none scoped).
+Resume: v2.1 fully closed (repo + droplet). No active coding phase. Open items, none coding: (1) Mon 2026-06-15 06:30 UTC first unattended spot-check gate fire (live validation watch); (2) decide spot-check 20%-vs-100% coverage; (3) flagged booli-refresh coverage-gap follow-up. NEW coding work scoped as milestone v3.0 (Sold-match pipeline) on 2026-06-17 — see Current Position above; next = /gsd-plan-phase 15.
 
 ### Decisions (Phase 14, 2026-06-12 overnight)
 

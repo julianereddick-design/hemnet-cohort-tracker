@@ -67,27 +67,27 @@ Which phases cover which requirements. Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SOLD-01 | TBD | Pending |
-| SOLD-02 | TBD | Pending |
-| SOLD-03 | TBD | Pending |
-| SOLD-04 | TBD | Pending |
-| SOLD-05 | TBD | Pending |
-| MATCH-01 | TBD | Pending |
-| MATCH-02 | TBD | Pending |
-| MATCH-03 | TBD | Pending |
-| MATCH-04 | TBD | Pending |
-| DB-01 | TBD | Pending |
-| DB-02 | TBD | Pending |
-| DB-03 | TBD | Pending |
-| CONFIG-01 | TBD | Pending |
-| CONFIG-02 | TBD | Pending |
-| CONFIG-03 | TBD | Pending |
+| SOLD-01 | Phase 15 | Mapped |
+| SOLD-02 | Phase 15 | Mapped |
+| SOLD-03 | Phase 15 | Mapped |
+| SOLD-04 | Phase 15 | Mapped |
+| SOLD-05 | Phase 15 | Mapped |
+| MATCH-01 | Phase 17 | Mapped |
+| MATCH-02 | Phase 15 | Mapped |
+| MATCH-03 | Phase 17 | Mapped |
+| MATCH-04 | Phase 17 | Mapped |
+| DB-01 | Phase 16 | Mapped |
+| DB-02 | Phase 16 | Mapped |
+| DB-03 | Phase 16 | Mapped |
+| CONFIG-01 | Phase 17 | Mapped |
+| CONFIG-02 | Phase 17 | Mapped |
+| CONFIG-03 | Phase 15 | Mapped |
 
 **Coverage:**
 - v1 requirements: 15 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 15 ⚠️
+- Mapped to phases: 15 ✅ (Phase 15: SOLD-01..05, MATCH-02, CONFIG-03 · Phase 16: DB-01..03 · Phase 17: MATCH-01/03/04, CONFIG-01/02)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-17*
-*Last updated: 2026-06-17 after milestone v3.0 definition*
+*Last updated: 2026-06-17 after v3.0 roadmap creation (traceability populated, 15/15 mapped)*
