@@ -6,6 +6,7 @@
 - ✅ **v2.0 Self-hosted scraper** — Phases 6–9 (shipped 2026-05-26; cutover-complete tag `phase-9-cutover-complete`)
 - ✅ **v2.1 Self-hosted scraper hardening** — Phase 10 (cleanup of observation-week carry-forwards; production-stable) — COMPLETE 2026-06-12 (repo + droplet; the two Pool & Flow tables intentionally retained)
 - 🚧 **v2.2 Market supply pulse** — Phase 11 (new data product: daily nationwide listing totals; runs in parallel to v2.1)
+- 🚧 **v3.0 Sold-match pipeline (Booli-sold → Hemnet-sold), DB-backed** — Phases 15–17 (productionize the validated `spike/sold-match-feasibility` spike into reusable `lib/` modules + DB persistence + config-driven segments; planning 2026-06-17)
 
 ## Phases
 
@@ -172,9 +173,73 @@ Plans:
 
 **Out of scope for Phase 11**: Per-municipality or per-county totals (the top-level pages only expose nationwide; per-area totals would require N×Oxylabs fan-out and belong in a future milestone). Long-horizon backfill — start fresh; historic sold totals are level-only, not deltas. Cross-platform reconciliation beyond raw deltas — see [[project-booli-hemnet-totals-asymmetry]] memory; that's an analyst-side framing question, not a pipeline concern. Sold totals — operator-deferred during Phase 11 discuss; JSON paths known but reserved for a future plan.
 
+### 🚧 v3.0 Sold-match pipeline (Booli-sold → Hemnet-sold), DB-backed (Planning — 2026-06-17)
+
+**Milestone Goal:** Productionize the validated `spike/sold-match-feasibility` spike into a reusable, config-driven, **database-backed** pipeline that fetches Booli `/slutpriser` sold records per segment, searches Hemnet `/salda` per property, adjudicates each Booli record to a match verdict (matched / Booli-only / uncertain), and persists seeds, sold cards, and verdicts to the project DB — runnable manually. This is a rebuild of empirically-validated logic, not greenfield research.
+
+**Background:** The spike proved matching is feasible and precise (apartments via fee-exact ≤~6–9mo back; villas via address-key at any age; Stockholm apt ~61%, Täby villa ~64% stable across windows) and surfaced the headline finding that ~36% of Booli villa sold records are genuine non-Hemnet presence (hand-confirmed 0/25 on Hemnet). The pipeline currently exists only as DB-free `scripts/spike-*.js` + the `scripts/spike-sold-parse.js` parser. This milestone reuses the cohort per-property search pattern and the Phase-14 `adjudicatePair` logic; no new matching paradigm. Deed transfers (`soldPriceType=Lagfart`) are excluded from matching but retained in the DB; "sold in advance" is a market signal to detect and flag.
+
+**Deferred (v2):** production cron scheduling (SCHED), reporting/Slack output (REPORT), listing-stage suppression test (SUPPRESS).
+
+#### Phase 15: Sold-data ingestion library
+**Goal**: The spike's DB-free fetch/parse scripts become reusable `lib/` modules that fetch and parse both sides of the sold-match — Booli `/slutpriser` seeds (paginated, sold-date early-stop, enriched attributes, `soldPriceType` classification with `Lagfart` exclusion-but-retain, "sold in advance" detection) and per-property Hemnet `/salda` `SaleCard` search — under the main fetch path's spend ceiling and transient-613 retry, with `normAddr` v2 recovering the spike's known false-negative address formats.
+**Depends on**: Nothing in v3.0 (productionizes existing spike scripts; assumes DB access restored)
+**Requirements**: SOLD-01, SOLD-02, SOLD-03, SOLD-04, SOLD-05, MATCH-02, CONFIG-03
+**Success Criteria** (what must be TRUE):
+  1. A `lib/` Booli-sold module returns parsed, enriched sold records (broker/agency, operating cost, construction year, tenure form, rooms, living area, floor, coords, `soldPriceType`, fee/rent when available) for a configured segment + rolling window, paginating and early-stopping on sold date
+  2. Each Booli sold record is classified by `soldPriceType`, and deed transfers (`Lagfart` / `isTitleTransfer`) are flagged as excluded-from-matching while still returned for retention
+  3. A short recon step confirms where Booli encodes "sold in advance" (sold before viewing), and the module sets a distinct `sold_in_advance` flag on each record accordingly
+  4. A `lib/` Hemnet-`/salda` module returns parsed `SaleCard` candidates for a given Booli property via per-property search (reusing the cohort search pattern), paginating and early-stopping on sold date, with no per-card detail fetch
+  5. `normAddr` v2 matches the spike-recovered formats (space-before-unit-letter, dual `X / Y`, ` och `, Booli-truncated number); the main fetch path enforces a `MAX_OXY_CALLS` ceiling and retries transient Oxylabs 613 errors
+**Plans**: 5 plans (planned 2026-06-17)
+**UI hint**: no
+
+Plans:
+**Wave 1**
+- [x] 15-01-PLAN.md — Foundation libs: `lib/sold-config.js` + `lib/sold-parse.js` (snake_case parser contract) + `lib/sold-addr.js` (normAddr v2, MATCH-02 unit-tested) [Wave 1] (2026-06-17; commits d159b01, f010dad, bd70ce3; 18+18+10 smoke tests pass)
+- [x] 15-02-PLAN.md — `lib/sold-transport.js` (file-based MAX_OXY_CALLS ceiling, reuses scrape-http) + `lib/scrape-http.js` transient-613 sleep-retry on the main path [CONFIG-03, Wave 1] (2026-06-17; commits df560e7, 7c5df94; all acceptance criteria pass)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [x] 15-03-PLAN.md — `scripts/sold-recon.js` extended for the "sold in advance" signal + documented finding gating the D-01 detail-fetch policy (operator checkpoint) [SOLD-04, Wave 2]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [x] 15-04-PLAN.md — `lib/sold-fetch-booli.js` (paginated /slutpriser seed, classify+retain Lagfart, recon-gated detail, sold_in_advance flag) + `scripts/booli-sold.js` wrapper [SOLD-01..04, Wave 3] (2026-06-17; commits 7743f36, 2a614c8; --smoke 17 pass; Rule 2: parseBooliSoldDetail extended for sold_in_advance)
+- [x] 15-05-PLAN.md — `lib/sold-fetch-hemnet.js` (per-property /salda SaleCard search, no detail fetch, house/apt opts) + `scripts/hemnet-sold.js` wrapper [SOLD-05, Wave 3] (2026-06-17; commits f2c143c, 20dceb3; --smoke 23 pass; MATCH-02 normAddr imported from sold-addr)
+
+#### Phase 16: Sold-match DB schema + persistence
+**Goal**: A migrated sold-side schema (Booli-sold table, Hemnet-`/salda` table, match/verdict table — including enriched columns and the `sold_in_advance` flag) plus an idempotent upsert layer replaces the spike's DB-free JSON output, so re-runs converge without duplicate rows.
+**Depends on**: Phase 15 (the record shapes the schema must hold are defined by the ingestion modules)
+**Requirements**: DB-01, DB-02, DB-03
+**Success Criteria** (what must be TRUE):
+  1. A migration creates three sold-side tables — Booli-sold, Hemnet-`/salda`, and match/verdict — carrying the enriched attributes and the `sold_in_advance` flag, in the project DB
+  2. The pipeline persists Booli seeds, Hemnet sold cards, and match verdicts to those tables instead of writing JSON files
+  3. Re-running the same segment + window upserts by stable keys (booli_id / hemnet slug / pair) and produces no duplicate rows
+**Plans**: 3 plans (planned 2026-06-17)
+**UI hint**: no
+
+Plans:
+**Wave 1**
+- [x] 16-01-PLAN.md — migrate-sold-phase16.js: re-runnable migration for booli_sold / hemnet_sold / sold_match (design-only) + sold_spend tables [DB-01, Wave 1] (2026-06-17; commits 1a9c688, 5d40101; node -c OK, 4 tables; live prod run authorization-gated → operator one-time run pending)
+
+**Wave 2** *(blocked on Wave 1 — needs the tables)*
+- [x] 16-02-PLAN.md — lib/sold-store.js (client-first upserts + D-02 title-transfer gate) + scripts/persist-sold.js (JSONL→DB pass) [DB-02, DB-03, Wave 2] (2026-06-17; commits 389c1ee, c4d45a9, 85bb280; sold-store --smoke 12/12, persist-sold --smoke OK; live persist authorization-gated → operator one-time run pending)
+- [x] 16-03-PLAN.md — lib/sold-spend.js (DB atomic spend ceiling + file fallback, closes CR-01) + lib/sold-transport.js wiring [DB-02, DB-03, Wave 2] (2026-06-17; commits 3d4169e, 2e10695; sold-spend --smoke 6/6, load probe OK no-DB, fetcher smokes 17/23; live DB ceiling exercise authorization-gated → same operator migration run)
+
+#### Phase 17: Match pipeline orchestration
+**Goal**: A config-driven runner stitches the ingestion modules, the Phase-14 adjudicator, and DB persistence into one manually-runnable end-to-end pipeline: for each configured segment (municipality + objectType) and a monthly rolling window it seeds Booli, searches Hemnet, adjudicates each non-deed-transfer record to a persisted verdict with evidence, honoring the apartment fee-window vs villa address-key rule.
+**Depends on**: Phase 15 (ingestion modules), Phase 16 (persistence layer)
+**Requirements**: MATCH-01, MATCH-03, MATCH-04, CONFIG-01, CONFIG-02
+**Success Criteria** (what must be TRUE):
+  1. Segments are configuration (municipality + objectType), seeded with Stockholm apartments + Täby villas and expandable without code changes
+  2. A run accepts rolling-window parameters (min/max sold date) defaulting to a monthly window and executes end-to-end manually (Booli seed → Hemnet search → adjudicate → persist)
+  3. Each non-deed-transfer Booli record is adjudicated against its Hemnet `/salda` candidates via the Phase-14 `adjudicatePair` logic — fee-exact for apartments (only within the ~≤6–9mo fee window), address-key for villas at any age
+  4. Each Booli record receives a persisted verdict (matched / Booli-only / uncertain) with supporting evidence (matched Hemnet slug, agreeing signals)
+**Plans**: TBD
+**UI hint**: no
+
 ## Progress
 
-**Execution Order:** Phases 1–10 executed in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 7.1 → 8 → 9 → 10. Phase 11 (v2.2) runs in parallel to Phase 10 (v2.1) — the two milestones are orthogonal.
+**Execution Order:** Phases 1–10 executed in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 7.1 → 8 → 9 → 10. Phase 11 (v2.2) runs in parallel to Phase 10 (v2.1) — the two milestones are orthogonal. v3.0 (Phases 15 → 16 → 17) runs sequentially after the v2.x streams: 15 (ingestion lib) → 16 (DB schema/persistence) → 17 (orchestration); 16 depends on 15, 17 depends on both.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -189,13 +254,16 @@ Plans:
 | 9. Production cutover — self-hosted scraper launch | v2.0 | 5/5 | Complete (cutover-complete) | 2026-05-26 |
 | 10. Self-hosted scraper hardening | v2.1 | 5/5 | Complete (repo + droplet) | 2026-06-12 |
 | 11. Daily market-totals capture + minimal report | v2.2 | 3/3 shipped | Live since 2026-05-28; 7-day soak running | - |
+| 15. Sold-data ingestion library | v3.0 | 5/5 | Complete    | 2026-06-17 |
+| 16. Sold-match DB schema + persistence | v3.0 | 3/3 | Complete | - |
+| 17. Match pipeline orchestration | v3.0 | 0/TBD | Not started | - |
 
 ### Phase 12: Cohort match spot-check weekly QA gate
 
 **Goal:** Turn the validated manual cohort match spot-check into a weekly automated quality gate that runs after `cohort-create` succeeds: sample each new cohort, adjudicate sampled Booli↔Hemnet pairs to a verdict (CONFIRMED MATCH / CONFIRMED MISMATCH / UNCERTAIN), compute the confirmed false-match rate with a Wilson CI by county, log to `cron_job_log`, and escalate via Slack on a high rate (>5%) or fetch failure. Orchestrates the already-built spot-check tools; the matcher fix (PRD §9) is deferred.
 **Requirements**: derived from `.planning/phases/12-.../12-CONTEXT.md` decisions + COHORT-SPOTCHECK.md §7 success criteria (no REQUIREMENTS.md)
 **Depends on:** Phase 11
-**Plans:** 3 plans (Wave 1: pure adjudicate+summary libs · Wave 2: cron-wrapped orchestrator, Mode A · Wave 3: Mode B Claude-vision adjudicator)
+**Plans:** 5/5 plans complete
 **Progress:** 3/3 plans complete (Wave 1 + Wave 2 + Wave 3 done 2026-06-10)
 
 Plans:

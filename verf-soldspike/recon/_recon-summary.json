@@ -1,0 +1,633 @@
+[
+  {
+    "label": "booli-sold-stockholm-county",
+    "url": "https://www.booli.se/sok/salda?areaIds=2",
+    "status": 404,
+    "note": "no-html-or-404"
+  },
+  {
+    "label": "hemnet-sold-bare",
+    "url": "https://www.hemnet.se/salda",
+    "status": 200,
+    "hasApollo": true,
+    "typenames": {
+      "SaleCard": 50,
+      "Query": 1
+    },
+    "rootQueryFields": [
+      {
+        "field": "__typename",
+        "shape": "string"
+      },
+      {
+        "field": "searchForSaleListings({\"limit\":0,\"search\":{\"locationSlugs\":null}})",
+        "shape": "object{__typename,total,totalViewable,sort,inputSearch}"
+      },
+      {
+        "field": "searchSales({\"limit\":0,\"search\":{\"locationSlugs\":null}})",
+        "shape": "object{__typename,total,sort,totalViewable,inputSearch}"
+      },
+      {
+        "field": "searchUpcomingListings({\"limit\":0,\"search\":{\"locationSlugs\":null,\"teaser\":\"INCLUDE\"}})",
+        "shape": "object{__typename,total,totalViewable,inputSearch}"
+      },
+      {
+        "field": "searchSales({\"limit\":50,\"offset\":0,\"search\":{\"locationSlugs\":null},\"searchContext\":\"LIST\",\"sort\":\"NEWEST\"})",
+        "shape": "object{__typename,total,adTargeting,sort,breadcrumbs,cards,gaCustomParameters,inputSearch}"
+      }
+    ],
+    "transferScan": [
+      {
+        "path": "$.ROOT_QUERY.searchSales({\"limit\":0,\"search\":{\"locationSlugs\":null}}).__typename",
+        "value": "SoldListingResults"
+      },
+      {
+        "path": "$.ROOT_QUERY.searchSales({\"limit\":0,\"search\":{\"locationSlugs\":null}}).inputSearch.soldSince",
+        "key": "soldSince",
+        "value": "all"
+      },
+      {
+        "path": "$.ROOT_QUERY.searchSales({\"limit\":50,\"offset\":0,\"search\":{\"locationSlugs\":null},\"searchContext\":\"LIST\",\"sort\":\"NEWEST\"}).__typename",
+        "value": "SoldListingResults"
+      },
+      {
+        "path": "$.ROOT_QUERY.searchSales({\"limit\":50,\"offset\":0,\"search\":{\"locationSlugs\":null},\"searchContext\":\"LIST\",\"sort\":\"NEWEST\"}).inputSearch.soldSince",
+        "key": "soldSince",
+        "value": "all"
+      },
+      {
+        "path": "$.SaleCard:3351587925325915966.slug",
+        "value": "villa-6rum-harryda-harryda-kommun-soldattorpsvagen-14-3351587925325915966"
+      },
+      {
+        "path": "$.SaleCard:3351587925325915966.streetAddress",
+        "value": "Soldattorpsvägen 14"
+      },
+      {
+        "path": "$.SaleCard:3351587925325915966.soldAt",
+        "key": "soldAt",
+        "value": "1781613000.0"
+      },
+      {
+        "path": "$.SaleCard:3351587925325915966.soldAtLabel",
+        "key": "soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:3351587925325915966.soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:3351587925325915966.brokerAgencyName",
+        "key": "brokerAgencyName",
+        "value": "Notar"
+      },
+      {
+        "path": "$.SaleCard:3351587925325915966.brokerAgencyThumbnail",
+        "key": "brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/fc/31/fc3191831a6ecaf61cd246590fc02710.png"
+      },
+      {
+        "path": "$.SaleCard:3351587925325915966.brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/fc/31/fc3191831a6ecaf61cd246590fc02710.png"
+      },
+      {
+        "path": "$.SaleCard:2473874655305232172.soldAt",
+        "key": "soldAt",
+        "value": "1781608933.0"
+      },
+      {
+        "path": "$.SaleCard:2473874655305232172.soldAtLabel",
+        "key": "soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:2473874655305232172.soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:2473874655305232172.brokerAgencyName",
+        "key": "brokerAgencyName",
+        "value": "Mäklarhuset Norrköping"
+      },
+      {
+        "path": "$.SaleCard:2473874655305232172.brokerAgencyThumbnail",
+        "key": "brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/9a/22/9a2213178febb64e22967476bf12c177.png"
+      },
+      {
+        "path": "$.SaleCard:2473874655305232172.brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/9a/22/9a2213178febb64e22967476bf12c177.png"
+      },
+      {
+        "path": "$.SaleCard:7635230490190881077.soldAt",
+        "key": "soldAt",
+        "value": "1781608688.0"
+      },
+      {
+        "path": "$.SaleCard:7635230490190881077.soldAtLabel",
+        "key": "soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:7635230490190881077.soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:7635230490190881077.brokerAgencyName",
+        "key": "brokerAgencyName",
+        "value": "Mäklarhuset Bromma/Essingen/Solna/Sundbyberg"
+      },
+      {
+        "path": "$.SaleCard:7635230490190881077.brokerAgencyThumbnail",
+        "key": "brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/9a/22/9a2213178febb64e22967476bf12c177.png"
+      },
+      {
+        "path": "$.SaleCard:7635230490190881077.brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/9a/22/9a2213178febb64e22967476bf12c177.png"
+      },
+      {
+        "path": "$.SaleCard:7635230490190881077.brokerThumbnail",
+        "key": "brokerThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_profile_small/3d/4b/3d4b4aeff7779dcab6537da97ccfd703.jpg"
+      },
+      {
+        "path": "$.SaleCard:7635230490190881077.brokerThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_profile_small/3d/4b/3d4b4aeff7779dcab6537da97ccfd703.jpg"
+      },
+      {
+        "path": "$.SaleCard:7635230490190881077.brokerName",
+        "key": "brokerName",
+        "value": "Emma Andersson Hejll"
+      },
+      {
+        "path": "$.SaleCard:6067175109874844851.soldAt",
+        "key": "soldAt",
+        "value": "1781608500.0"
+      },
+      {
+        "path": "$.SaleCard:6067175109874844851.soldAtLabel",
+        "key": "soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:6067175109874844851.soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:6067175109874844851.brokerAgencyName",
+        "key": "brokerAgencyName",
+        "value": "Bjurfors Luleå"
+      },
+      {
+        "path": "$.SaleCard:6067175109874844851.brokerAgencyThumbnail",
+        "key": "brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/64/e9/64e95305668e943da204f07b900742e0.jpg"
+      },
+      {
+        "path": "$.SaleCard:6067175109874844851.brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/64/e9/64e95305668e943da204f07b900742e0.jpg"
+      },
+      {
+        "path": "$.SaleCard:8315925799319089557.soldAt",
+        "key": "soldAt",
+        "value": "1781607600.0"
+      },
+      {
+        "path": "$.SaleCard:8315925799319089557.soldAtLabel",
+        "key": "soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:8315925799319089557.soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:8315925799319089557.brokerAgencyName",
+        "key": "brokerAgencyName",
+        "value": "Bjurfors Huddinge/Älvsjö"
+      },
+      {
+        "path": "$.SaleCard:8315925799319089557.brokerAgencyThumbnail",
+        "key": "brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/64/e9/64e95305668e943da204f07b900742e0.jpg"
+      },
+      {
+        "path": "$.SaleCard:8315925799319089557.brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/64/e9/64e95305668e943da204f07b900742e0.jpg"
+      },
+      {
+        "path": "$.SaleCard:5851467343818695212.soldAt",
+        "key": "soldAt",
+        "value": "1781607600.0"
+      },
+      {
+        "path": "$.SaleCard:5851467343818695212.soldAtLabel",
+        "key": "soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:5851467343818695212.soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:5851467343818695212.brokerAgencyName",
+        "key": "brokerAgencyName",
+        "value": "Bjurfors Hässleholm"
+      },
+      {
+        "path": "$.SaleCard:5851467343818695212.brokerAgencyThumbnail",
+        "key": "brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/64/e9/64e95305668e943da204f07b900742e0.jpg"
+      },
+      {
+        "path": "$.SaleCard:5851467343818695212.brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/64/e9/64e95305668e943da204f07b900742e0.jpg"
+      },
+      {
+        "path": "$.SaleCard:5471419519570335055.soldAt",
+        "key": "soldAt",
+        "value": "1781607600.0"
+      },
+      {
+        "path": "$.SaleCard:5471419519570335055.soldAtLabel",
+        "key": "soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:5471419519570335055.soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:5471419519570335055.brokerAgencyName",
+        "key": "brokerAgencyName",
+        "value": "MOHV Halmstad"
+      },
+      {
+        "path": "$.SaleCard:5471419519570335055.brokerAgencyThumbnail",
+        "key": "brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/e1/56/e156e8ee917c437fd751885a417715ea.png"
+      },
+      {
+        "path": "$.SaleCard:5471419519570335055.brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/e1/56/e156e8ee917c437fd751885a417715ea.png"
+      },
+      {
+        "path": "$.SaleCard:1157607334219917298.soldAt",
+        "key": "soldAt",
+        "value": "1781607600.0"
+      },
+      {
+        "path": "$.SaleCard:1157607334219917298.soldAtLabel",
+        "key": "soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:1157607334219917298.soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:1157607334219917298.brokerAgencyName",
+        "key": "brokerAgencyName",
+        "value": "LF Fastighetsförmedling Sollentuna"
+      },
+      {
+        "path": "$.SaleCard:1157607334219917298.brokerAgencyThumbnail",
+        "key": "brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/78/4f/784fec46b84c09047e6628dff7c3d4b7.png"
+      },
+      {
+        "path": "$.SaleCard:1157607334219917298.brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/78/4f/784fec46b84c09047e6628dff7c3d4b7.png"
+      },
+      {
+        "path": "$.SaleCard:1157607334219917298.brokerThumbnail",
+        "key": "brokerThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_profile_small/ff/b8/ffb8372b6c6a769da680a425cccdc670.jpg"
+      },
+      {
+        "path": "$.SaleCard:1157607334219917298.brokerThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_profile_small/ff/b8/ffb8372b6c6a769da680a425cccdc670.jpg"
+      },
+      {
+        "path": "$.SaleCard:1157607334219917298.brokerName",
+        "key": "brokerName",
+        "value": "Linda Rosén"
+      }
+    ]
+  },
+  {
+    "label": "hemnet-sold-narrowed-probe",
+    "url": "https://www.hemnet.se/salda?location_ids%5B%5D=17744&price_min=2000000&price_max=6000000&rooms_min=2&rooms_max=2&item_types%5B%5D=bostadsratt",
+    "status": 200,
+    "hasApollo": true,
+    "typenames": {
+      "SaleCard": 50,
+      "Location": 2,
+      "Query": 1
+    },
+    "rootQueryFields": [
+      {
+        "field": "__typename",
+        "shape": "string"
+      },
+      {
+        "field": "searchForSaleListings({\"limit\":0,\"search\":{\"housingFormGroups\":[\"APARTMENTS\"],\"locationIds\":[\"17744\"],\"locationSlugs\":null,\"priceMax\":600000",
+        "shape": "object{__typename,total,totalViewable,sort,inputSearch}"
+      },
+      {
+        "field": "searchSales({\"limit\":0,\"search\":{\"housingFormGroups\":[\"APARTMENTS\"],\"locationIds\":[\"17744\"],\"locationSlugs\":null,\"priceMax\":6000000,\"priceMi",
+        "shape": "object{__typename,total,sort,totalViewable,inputSearch}"
+      },
+      {
+        "field": "searchUpcomingListings({\"limit\":0,\"search\":{\"housingFormGroups\":[\"APARTMENTS\"],\"locationIds\":[\"17744\"],\"locationSlugs\":null,\"priceMax\":60000",
+        "shape": "object{__typename,total,totalViewable,inputSearch}"
+      },
+      {
+        "field": "searchSales({\"limit\":50,\"offset\":0,\"search\":{\"housingFormGroups\":[\"APARTMENTS\"],\"locationIds\":[\"17744\"],\"locationSlugs\":null,\"priceMax\":6000",
+        "shape": "object{__typename,total,adTargeting,sort,breadcrumbs,cards,gaCustomParameters,inputSearch}"
+      }
+    ],
+    "transferScan": [
+      {
+        "path": "$.ROOT_QUERY.searchSales({\"limit\":0,\"search\":{\"housingFormGroups\":[\"APARTMENTS\"],\"locationIds\":[\"17744\"],\"locationSlugs\":null,\"priceMax\":6000000,\"priceMin\":2000000,\"roomsMax\":2,\"roomsMin\":2}}).__typename",
+        "value": "SoldListingResults"
+      },
+      {
+        "path": "$.ROOT_QUERY.searchSales({\"limit\":0,\"search\":{\"housingFormGroups\":[\"APARTMENTS\"],\"locationIds\":[\"17744\"],\"locationSlugs\":null,\"priceMax\":6000000,\"priceMin\":2000000,\"roomsMax\":2,\"roomsMin\":2}}).inputSearch.soldSince",
+        "key": "soldSince",
+        "value": "all"
+      },
+      {
+        "path": "$.ROOT_QUERY.searchSales({\"limit\":50,\"offset\":0,\"search\":{\"housingFormGroups\":[\"APARTMENTS\"],\"locationIds\":[\"17744\"],\"locationSlugs\":null,\"priceMax\":6000000,\"priceMin\":2000000,\"roomsMax\":2,\"roomsMin\":2},\"searchContext\":\"LIST\",\"sort\":\"NEWEST\"}).__typename",
+        "value": "SoldListingResults"
+      },
+      {
+        "path": "$.ROOT_QUERY.searchSales({\"limit\":50,\"offset\":0,\"search\":{\"housingFormGroups\":[\"APARTMENTS\"],\"locationIds\":[\"17744\"],\"locationSlugs\":null,\"priceMax\":6000000,\"priceMin\":2000000,\"roomsMax\":2,\"roomsMin\":2},\"searchContext\":\"LIST\",\"sort\":\"NEWEST\"}).breadcrumbs.0.path",
+        "value": "/salda/bostader?housing_form_groups%5B%5D=apartments&rooms_max=2&rooms_min=2&selling_price_max=6000000&selling_price_min"
+      },
+      {
+        "path": "$.ROOT_QUERY.searchSales({\"limit\":50,\"offset\":0,\"search\":{\"housingFormGroups\":[\"APARTMENTS\"],\"locationIds\":[\"17744\"],\"locationSlugs\":null,\"priceMax\":6000000,\"priceMin\":2000000,\"roomsMax\":2,\"roomsMin\":2},\"searchContext\":\"LIST\",\"sort\":\"NEWEST\"}).inputSearch.soldSince",
+        "key": "soldSince",
+        "value": "all"
+      },
+      {
+        "path": "$.SaleCard:6097906265620746203.soldAt",
+        "key": "soldAt",
+        "value": "1781604000.0"
+      },
+      {
+        "path": "$.SaleCard:6097906265620746203.soldAtLabel",
+        "key": "soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:6097906265620746203.soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:6097906265620746203.brokerAgencyName",
+        "key": "brokerAgencyName",
+        "value": "Bjurfors Kungsholmen"
+      },
+      {
+        "path": "$.SaleCard:6097906265620746203.brokerAgencyThumbnail",
+        "key": "brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/64/e9/64e95305668e943da204f07b900742e0.jpg"
+      },
+      {
+        "path": "$.SaleCard:6097906265620746203.brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/64/e9/64e95305668e943da204f07b900742e0.jpg"
+      },
+      {
+        "path": "$.SaleCard:6097906265620746203.brokerThumbnail",
+        "key": "brokerThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_profile_small/25/19/251966b7134bea01e01311cfb416115b.png"
+      },
+      {
+        "path": "$.SaleCard:6097906265620746203.brokerThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_profile_small/25/19/251966b7134bea01e01311cfb416115b.png"
+      },
+      {
+        "path": "$.SaleCard:6097906265620746203.brokerName",
+        "key": "brokerName",
+        "value": "Vilhelm Åman"
+      },
+      {
+        "path": "$.SaleCard:3748575135901411519.soldAt",
+        "key": "soldAt",
+        "value": "1781604000.0"
+      },
+      {
+        "path": "$.SaleCard:3748575135901411519.soldAtLabel",
+        "key": "soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:3748575135901411519.soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:3748575135901411519.brokerAgencyName",
+        "key": "brokerAgencyName",
+        "value": "Widerlöv Solna-Sundbyberg"
+      },
+      {
+        "path": "$.SaleCard:3748575135901411519.brokerAgencyThumbnail",
+        "key": "brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/c3/89/c3898ee0ce91885c423e1576fd484d46.png"
+      },
+      {
+        "path": "$.SaleCard:3748575135901411519.brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/c3/89/c3898ee0ce91885c423e1576fd484d46.png"
+      },
+      {
+        "path": "$.SaleCard:3748575135901411519.brokerThumbnail",
+        "key": "brokerThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_profile_small/e4/0b/e40bf2eecaae55b6c87a6b9ec675734d.jpg"
+      },
+      {
+        "path": "$.SaleCard:3748575135901411519.brokerThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_profile_small/e4/0b/e40bf2eecaae55b6c87a6b9ec675734d.jpg"
+      },
+      {
+        "path": "$.SaleCard:3748575135901411519.brokerName",
+        "key": "brokerName",
+        "value": "Tobias Franzén"
+      },
+      {
+        "path": "$.SaleCard:423735783930110968.soldAt",
+        "key": "soldAt",
+        "value": "1781604000.0"
+      },
+      {
+        "path": "$.SaleCard:423735783930110968.soldAtLabel",
+        "key": "soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:423735783930110968.soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:423735783930110968.brokerAgencyName",
+        "key": "brokerAgencyName",
+        "value": "Alicia Edelman Gärdet/Hjorthagen"
+      },
+      {
+        "path": "$.SaleCard:423735783930110968.brokerAgencyThumbnail",
+        "key": "brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/39/d4/39d40c0e3d8adab9191ddca93dfc2004.png"
+      },
+      {
+        "path": "$.SaleCard:423735783930110968.brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/39/d4/39d40c0e3d8adab9191ddca93dfc2004.png"
+      },
+      {
+        "path": "$.SaleCard:8231584079446626877.soldAt",
+        "key": "soldAt",
+        "value": "1781589600.0"
+      },
+      {
+        "path": "$.SaleCard:8231584079446626877.soldAtLabel",
+        "key": "soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:8231584079446626877.soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:8231584079446626877.brokerAgencyName",
+        "key": "brokerAgencyName",
+        "value": "Tradition Mäkleri"
+      },
+      {
+        "path": "$.SaleCard:8231584079446626877.brokerAgencyThumbnail",
+        "key": "brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/3c/9c/3c9c69b6d6d56cc07bb1120698271edb.png"
+      },
+      {
+        "path": "$.SaleCard:8231584079446626877.brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/3c/9c/3c9c69b6d6d56cc07bb1120698271edb.png"
+      },
+      {
+        "path": "$.SaleCard:7345886139782114279.soldAt",
+        "key": "soldAt",
+        "value": "1781568000.0"
+      },
+      {
+        "path": "$.SaleCard:7345886139782114279.soldAtLabel",
+        "key": "soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:7345886139782114279.soldAtLabel",
+        "value": "Såld 16 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:7345886139782114279.brokerAgencyName",
+        "key": "brokerAgencyName",
+        "value": "SkandiaMäklarna Älvsjö/Årsta"
+      },
+      {
+        "path": "$.SaleCard:7345886139782114279.brokerAgencyThumbnail",
+        "key": "brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/e4/a8/e4a8b297b623f7722a8bd7c15f8fa4e7.png"
+      },
+      {
+        "path": "$.SaleCard:7345886139782114279.brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/e4/a8/e4a8b297b623f7722a8bd7c15f8fa4e7.png"
+      },
+      {
+        "path": "$.SaleCard:5425490278625574829.soldAt",
+        "key": "soldAt",
+        "value": "1781550641.0"
+      },
+      {
+        "path": "$.SaleCard:5425490278625574829.soldAtLabel",
+        "key": "soldAtLabel",
+        "value": "Såld 15 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:5425490278625574829.soldAtLabel",
+        "value": "Såld 15 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:5425490278625574829.brokerAgencyName",
+        "key": "brokerAgencyName",
+        "value": "Mäklarhuset Stockholm Innerstan"
+      },
+      {
+        "path": "$.SaleCard:5425490278625574829.brokerAgencyThumbnail",
+        "key": "brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/9a/22/9a2213178febb64e22967476bf12c177.png"
+      },
+      {
+        "path": "$.SaleCard:5425490278625574829.brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/9a/22/9a2213178febb64e22967476bf12c177.png"
+      },
+      {
+        "path": "$.SaleCard:6698419586848882925.soldAt",
+        "key": "soldAt",
+        "value": "1781550000.0"
+      },
+      {
+        "path": "$.SaleCard:6698419586848882925.soldAtLabel",
+        "key": "soldAtLabel",
+        "value": "Såld 15 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:6698419586848882925.soldAtLabel",
+        "value": "Såld 15 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:6698419586848882925.brokerAgencyName",
+        "key": "brokerAgencyName",
+        "value": "Fastighetsbyrån Södertälje"
+      },
+      {
+        "path": "$.SaleCard:6698419586848882925.brokerAgencyThumbnail",
+        "key": "brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/9a/1d/9a1d96473c8655c0b20a5339912f91e2.png"
+      },
+      {
+        "path": "$.SaleCard:6698419586848882925.brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/9a/1d/9a1d96473c8655c0b20a5339912f91e2.png"
+      },
+      {
+        "path": "$.SaleCard:5386666621439131622.soldAt",
+        "key": "soldAt",
+        "value": "1781550000.0"
+      },
+      {
+        "path": "$.SaleCard:5386666621439131622.soldAtLabel",
+        "key": "soldAtLabel",
+        "value": "Såld 15 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:5386666621439131622.soldAtLabel",
+        "value": "Såld 15 jun. 2026"
+      },
+      {
+        "path": "$.SaleCard:5386666621439131622.brokerAgencyName",
+        "key": "brokerAgencyName",
+        "value": "Edward & Partners Fastighetsmäklare AB"
+      },
+      {
+        "path": "$.SaleCard:5386666621439131622.brokerAgencyName",
+        "value": "Edward & Partners Fastighetsmäklare AB"
+      },
+      {
+        "path": "$.SaleCard:5386666621439131622.brokerAgencyThumbnail",
+        "key": "brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/7b/ae/7bae739a56eef3b79e6976a7d10d6d30.png"
+      },
+      {
+        "path": "$.SaleCard:5386666621439131622.brokerAgencyThumbnail",
+        "value": "https://bilder.hemnet.se/images/broker_logo_1_2x/7b/ae/7bae739a56eef3b79e6976a7d10d6d30.png"
+      }
+    ]
+  }
+]

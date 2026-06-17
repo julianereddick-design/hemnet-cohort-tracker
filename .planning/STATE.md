@@ -1,25 +1,110 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.1
-milestone_name: Self-hosted scraper hardening
-status: v2.1 COMPLETE (repo + droplet) — no active coding phase; only decisions + a monitoring watch remain
-stopped_at: "v2.1 (Phase 10) COMPLETE 2026-06-12 — 10-04 (export gap-aware fix + scripts/intel cleanup) and 10-05 (Pool & Flow retirement) shipped to repo AND droplet: 4 Mon-09:00 crontab lines removed, pool-flow-dashboard.html deleted, 4 scripts gone; the listing_gap_weekly/listing_flow_weekly TABLES were intentionally LEFT (operator decision — harmless, writers gone). 10-04(a) export gap-aware fix verified on droplet (W21 incremental columns now populate). Spot-check stream (12/13/13.1/13.2/14/14.1) + v2.2 market-totals (Phase 11) all previously shipped. Remaining is NOT coding: (1) Mon 2026-06-15 06:30 UTC first unattended spot-check gate fire (live validation watch); (2) operator decision: spot-check 20%-vs-100% coverage ($4.32 vs $18.35/wk); (3) flagged booli-refresh coverage gap (5969 reported vs ~4097 refreshed) follow-up. Next coding work = a NEW milestone (none scoped yet)."
-last_updated: "2026-06-12"
+milestone: v3.0
+milestone_name: Sold-match pipeline
+status: executing
+stopped_at: Completed 16-03-PLAN.md (Phase 16 complete)
+last_updated: "2026-06-17T04:02:00Z"
 progress:
-  # Scope = current milestone v2.1 (Phase 10 only). Prior block (5 phases / 9 plans /
-  # 78%) was stale scaffolding that never recomputed as work shipped — corrected 2026-06-12.
-  total_phases: 1
-  completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  total_phases: 14
+  completed_phases: 5
+  total_plans: 33
+  completed_plans: 28
+  percent: 85
 ---
+
+## Current Position
+
+Phase: 16 (sold-match-db-schema-persistence) — COMPLETE (3/3 plans)
+Plan: 3 of 3 complete
+**Phase:** 16
+**Plan:** 03 complete — Phase 16 done
+**Status:** Phase 16 complete; next phase 17 (match pipeline orchestration)
+**Progress:** ██████████ 100% (3/3 plans complete in Phase 16)
+
+**Milestone v3.0 phases:**
+
+- [x] Phase 15 — Sold-data ingestion library (SOLD-01..05, MATCH-02, CONFIG-03) COMPLETE
+- [x] Phase 16 — Sold-match DB schema + persistence (DB-01..03) COMPLETE
+- [ ] Phase 17 — Match pipeline orchestration (MATCH-01/03/04, CONFIG-01/02)
+
+**Next:** `/gsd-execute-phase 17`
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
+- Milestone v3.0 (Sold-match pipeline) defined 2026-06-17: productionize the validated `spike/sold-match-feasibility` spike into reusable `lib/` modules + DB persistence. 3 phases (15–17), 15 v1 requirements, all mapped. v2 deferred: SCHED (cron scheduling), REPORT (Slack/reporting), SUPPRESS (listing-stage suppression test).
 - Phase 12 added: Cohort match spot-check weekly QA gate (verify Booli↔Hemnet pairs are the same property; spec in repo `COHORT-SPOTCHECK.md`)
+
+### Decisions (v3.0, 2026-06-17 — anchored by the spike)
+
+- v3.0: Sold-match reuses the cohort per-property search pattern + Phase-14 `adjudicatePair` logic — no new matching paradigm. Apartments confirm via fee-exact (only ≤~6–9mo back before Booli strips fee/broker); villas via address-key at any age.
+- v3.0: Deed transfers (`soldPriceType=Lagfart` / `isTitleTransfer`) are EXCLUDED from matching but RETAINED in the DB. "Sold in advance" (sold before viewing) is a market signal to detect + flag; exact Booli encoding needs a short recon (Phase 15 discovery task).
+- v3.0: Image-based matching (dHash/vision) does NOT apply — sold detail pages carry no gallery images on either platform. The Phase-14 image path is out of scope for sold-match.
+- v3.0: DB was unreachable during the spike (doctl auth expired); rebuild assumes DB access restored. Apartment matching >9 months back is a design limit (no unit signal remains), not a bug.
+- v3.0 finding that anchors scope: ~36% of Booli villa sold records are genuine non-Hemnet presence (hand-confirmed 0/25 on Hemnet), not slutpris suppression and not a matcher miss.
+
+### Decisions (Phase 16-03, 2026-06-17 — DB-backed atomic spend tally, DB-02/DB-03, closes CR-01)
+
+- 16-03: lib/sold-spend.js — one interface { reserveCall, spent, remaining, backend } with two impls; makeSpendTally factory selects DB tally when a client is present, file tally otherwise
+- 16-03: DB path closes CR-01 via a single atomic statement — INSERT ... ON CONFLICT (spend_key) DO NOTHING seed, then UPDATE sold_spend SET calls=calls+1 WHERE spend_key=$1 AND calls<$2 RETURNING calls; zero rows = ceiling hit (no read-then-write window for concurrent Phase-17 drivers)
+- 16-03: file path retains the _spend.json { liveCalls } load->check->++->save counter verbatim (offline/no-DB fallback); CeilingError (code OXY_CEILING) defined ONCE in sold-spend, re-exported from sold-transport so 15-04/15-05 catch sites match the shared type unchanged
+- 16-03: sold-transport defaults _tally to the file backend (plain require loads with NO DB); setSpendClient(client) is the opt-in switch Phase 17 calls once; cachedFetch replaces the CR-01 inline block with `await _tally.reserveCall()` (D-07 count-before-issue preserved — reserveCall runs before getWithRetry)
+- 16-03: sync spentCalls()/remainingCalls() kept unchanged (sold-fetch-hemnet drain guard calls remainingCalls() synchronously at :151); async spentCallsAsync()/remainingCallsAsync() added for the DB backend; all existing sold-transport exports retained
+- 16-03: live DB ceiling exercise deferred — same authorization gate as 16-01/16-02 (sold_spend table not yet created live; operator must run migrate-sold-phase16.js once). Offline gates all pass: sold-spend --smoke 6/6, scripts/verf-sold-transport-load.js → load OK no-DB, fetcher smokes 17/23, node -c on all three files, no ${} SQL interpolation
+- 16-03: GSD SDK CLI still absent (no node_modules sdk / no gsd-sdk on PATH) — STATE.md + ROADMAP.md updated via direct edits
+
+### Decisions (Phase 16-02, 2026-06-17 — persist layer, DB-02/DB-03)
+
+- 16-02: lib/sold-store.js client-first upserts (no module-level DB connection) — upsertBooliSold (28-col, ON CONFLICT booli_id DO UPDATE), upsertHemnetSold (slug→hemnet_slug, ON CONFLICT hemnet_slug DO UPDATE), upsertSoldVerdict (sold_match, ON CONFLICT booli_id DO UPDATE)
+- 16-02: Booli/Hemnet use DO UPDATE not DO NOTHING — a detail-enriched re-fetch refreshes columns from EXCLUDED + bumps updated_at; re-running converges, never duplicates (DB-03/D-01)
+- 16-02: D-02 gate lives in persistVerdictForRecord (policy layer), not in upsertSoldVerdict — title transfers (parsed is_title_transfer, isTitleTransfer config fallback) never enter sold_match; smoke asserts zero queries for a transfer
+- 16-02: evidence bound as JSON.stringify for the JSONB column (T-16-05, never concatenated); matched_hemnet_slug null accepted (booli_only first-class)
+- 16-02: scripts/persist-sold.js reads JSONL inline (split/filter/JSON.parse) to avoid sold-transport's SCRAPE_FORCE_OXYLABS load guard; opens own client via createClient, client.end() in finally (T-16-09); fetcher JSONL append untouched (DB store of record, JSONL retained — D-04)
+- 16-02: live persist run deferred — same authorization/runtime gate as 16-01 (prod migration not yet applied; tables don't exist live). Offline gates pass (sold-store --smoke 12/12, persist-sold --smoke ok, node -c, no-${}-interp). Operator: run migrate-sold-phase16.js then persist-sold twice to confirm idempotency
+- 16-02: GSD SDK CLI absent in environment (no node_modules sdk / no gsd-sdk on PATH) — STATE.md + ROADMAP.md updated via direct edits instead of state handlers
+
+### Decisions (Phase 16-01, 2026-06-17 — sold schema migration, DB-01)
+
+- 16-01: migrate-sold-phase16.js creates all four sold tables idempotently (CREATE TABLE IF NOT EXISTS) — booli_sold (UNIQUE booli_id), hemnet_sold (UNIQUE hemnet_slug), sold_match (design-only, UNIQUE booli_id, JSONB evidence), sold_spend (UNIQUE spend_key); column contracts 1:1 with lib/sold-parse.js
+- 16-01: sold_at stored as BIGINT (Unix epoch seconds the parser emits), NOT DATE; sold_at_label TEXT carries the human form
+- 16-01: verdict (matched/booli_only/uncertain) + match_method (fee_exact/address_key) vocabularies documented in comments, NOT CHECK constraints — kept loose for Phase 17; matched_hemnet_slug nullable (booli_only/uncertain is a first-class outcome, not an error)
+- 16-01: live prod migration run is authorization-gated (auto-mode denied DDL against shared prod DB) — offline node -c gate passes, all structural acceptance met; OPERATOR must run `node migrate-sold-phase16.js` once on the droplet (or after doctl IP-whitelist) before 16-02 persistence writes live rows
+
+### Decisions (Phase 15-05, 2026-06-17 — Hemnet fetch, SOLD-05 + MATCH-02)
+
+- 15-05: normAddr imported from lib/sold-addr (MATCH-02 single source of truth, not redefined in sold-fetch-hemnet)
+- 15-05: searchOptsFor HOUSE: priceBand=0.10, areaBand=0.15, dropRooms=true, dropItemType=true — street address is near-unique key; loose search avoids Booli/Hemnet rooms/subtype quirks; Täby density is low so 50-cap risk is low
+- 15-05: searchOptsFor APARTMENT: empty opts (tight defaults) — rooms+area+item_type keep dense building results under the 50-card page cap
+- 15-05: CeilingError caught in searchSoldPaged and returned cleanly as stopReason='ceiling'; drain guard at remainingCalls()<=40 returns partial as stopReason='ceiling-floor' (T-15-15)
+- 15-05: Within-run searchCache/searchInFlight are module-level Maps (process lifetime scope) — deduplicates concurrent Phase-17 worker calls for the same URL at zero extra Oxylabs cost
+
+### Decisions (Phase 15-04, 2026-06-17 — Booli fetch + detail enrichment)
+
+- 15-04: detailScope defaults to 'fee-window' (apartments only, within FEE_WINDOW_DAYS=270); 'all' requires operator marker in RECON doc at runtime; 'none' skips detail entirely — explicit escalation, never silent (D-01)
+- 15-04: parseBooliSoldDetail extended to return sold_in_advance (Boolean(sp.soldAsUpcomingSale) or null) — field was absent from the 15-01 lift, added as Rule 2 (SOLD-04 requirement)
+- 15-04: CeilingError caught at both page-loop and mid-card-loop levels — partial-page record written before break so no work lost on ceiling stop (idempotent/resumable)
+- 15-04: fetchBooliSoldPage returns { cards, meta } with no JSONL write — Phase 16 passes this primitive its own pg client; fetchBooliSold owns the seeds/<segKey>.jsonl path
+- 15-04: D-01 spend guard reads RECON doc at runtime via fs.readFileSync (not module load) — check runs on every invocation of --detail-scope all
+
+### Decisions (Phase 15-03, 2026-06-17 — sold-in-advance recon)
+
+- 15-03: sold_in_advance (SoldProperty.soldAsUpcomingSale) is detail-page-only — NOT on /slutpriser card nodes (confirmed offline, 0 Oxylabs spend)
+- 15-03: D-01 escalate-excluding-deed-transfers policy approved by operator: fetch /bostad/<residenceId> for all records WHERE !isTitleTransfer; soldPriceType=Lagfart records stay card-only with sold_in_advance=null; reduces ~2× cost increase by deed-transfer share
+- 15-03: Approval marker "escalate detail (spend confirmed)" written to 15-SOLD-IN-ADVANCE-RECON.md (2ba623f); Plan 04 --detail-scope all guard now unblocked
+
+### Decisions (Phase 15-02, 2026-06-17 — transport spine)
+
+- 15-02: sold-transport require path is ./scrape-http (same lib/ dir) — no HTTP duplication; sold pages are 100% Oxylabs so the load-time SCRAPE_FORCE_OXYLABS guard is an invariant kept verbatim from the spike
+- 15-02: 613-class sleep in scrape-http.js fallbackViaOxylabs inserted BEFORE the existing single retry; uses existing sleep() helper (no new function added); retry count stays at 1; triggers on OXYLABS_API_NON_200 and OXYLABS_TARGET_NON_200 — both transient classes
+- 15-02: spend ceiling (_spend.json) incremented BEFORE fetch — a forced attempt consumes credits whether or not it ultimately succeeds (D-07 invariant preserved from spike)
+
+### Decisions (Phase 15-01, 2026-06-17 — foundation libs)
+
+- 15-01: normStreet imported from lib/spotcheck-evidence in sold-addr.js (not inlined) — keeps sold normalization in sync with cohort spot-check normalization across the codebase
+- 15-01: snake_case field names in parsers preserved verbatim from spike (Phase 16 DB column contract; renaming would break Phase 16/17)
+- 15-01: startsWith('searchSold(') and startsWith('displayAttributes(') key-scan idioms preserved — do not convert to exact-key lookups (Booli/Hemnet parametrize these query keys)
 
 ### Decisions
 
@@ -33,8 +118,8 @@ progress:
 
 ### Last Session
 
-Stopped at: v2.1 (Phase 10) CODE-COMPLETE 2026-06-12. Shipped 10-04 (export-views-wide gap-aware incremental fix; deleted 16 spent one-off scripts + dead `migrate-booli-listing-drop-agent-fk.js` + 7 verf-log dirs + stray `.clone`; corrected stale SLACK_WEBHOOK "not configured" intel claims; Job C Final: line emits `jobStatus` not `status`) and 10-05 (deleted the 4 pre-v2.0 Pool & Flow scripts + `setup-chart-cron.sh` from the repo; `weekly-view-report.js` + the :3800 `view-data-server.js` kept). Also this session: fixed `booli-targeted-refresh` times_viewed NOT-NULL worker errors (COALESCE, commit 3b0f478, deployed) and confirmed the cohort-track null-jump alert was benign sell-through.
-Resume: v2.1 fully closed (repo + droplet). No active coding phase. Open items, none coding: (1) Mon 2026-06-15 06:30 UTC first unattended spot-check gate fire (live validation watch); (2) decide spot-check 20%-vs-100% coverage; (3) flagged booli-refresh coverage-gap follow-up. Next coding work needs a new milestone (none scoped).
+Stopped at: Completed 16-03-PLAN.md — PHASE 16 COMPLETE (3/3 plans)
+Resume: 16-03 done (commits 3d4169e, 2e10695). lib/sold-spend.js (pluggable DB atomic spend tally + file fallback, closes CR-01) + lib/sold-transport.js wired + scripts/verf-sold-transport-load.js load probe. Next = Phase 17 (match pipeline orchestration: MATCH-01/03/04, CONFIG-01/02). OPEN operator action (carried from 16-01/16-02, still one run): on the droplet run `node migrate-sold-phase16.js` to create the four sold tables, then `node scripts/persist-sold.js --booli <seed.jsonl>` twice to confirm idempotency; the DB spend ceiling (setSpendClient) and live persistence are unblocked once that schema exists. Auto-mode blocked the live DDL/persist/ceiling runs; all offline smokes pass (sold-spend 6/6, load OK no-DB, fetcher 17/23).
 
 ### Decisions (Phase 14, 2026-06-12 overnight)
 

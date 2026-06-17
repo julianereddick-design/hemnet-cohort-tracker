@@ -1,0 +1,29 @@
+{
+  "at": "2026-06-16T23:08:40.052Z",
+  "procStats": {
+    "live": 1766,
+    "cacheHits": 0,
+    "fails": 0,
+    "spent": 1824,
+    "remaining": 2176,
+    "cap": 4000
+  },
+  "segments": [
+    {
+      "segment": "taby-villa",
+      "family": "HOUSE",
+      "seed": 2024,
+      "processed": 300,
+      "stoppedBy": null,
+      "verdicts": {
+        "CONFIRMED_MATCH": 193,
+        "BOOLI_ONLY": 105,
+        "UNCERTAIN": 2
+      },
+      "recall": {
+        "genuine-bypass": 102,
+        "match-miss": 3
+      }
+    }
+  ]
+}

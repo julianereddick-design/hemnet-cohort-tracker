@@ -1,0 +1,2745 @@
+{
+  "Location:17691": {
+    "__typename": "Location",
+    "id": "17691",
+    "slug": "sverige",
+    "fullName": "Sverige",
+    "type": "COUNTRY"
+  },
+  "Location:17744": {
+    "__typename": "Location",
+    "fullName": "Stockholms län",
+    "id": "17744",
+    "parentFullName": "Sverige",
+    "type": "COUNTY",
+    "searchable": true,
+    "slug": "stockholms-lan",
+    "ancestors": [
+      {
+        "__ref": "Location:17691"
+      }
+    ]
+  },
+  "ROOT_QUERY": {
+    "__typename": "Query",
+    "searchForSaleListings({\"limit\":0,\"search\":{\"housingFormGroups\":[\"APARTMENTS\"],\"locationIds\":[\"17744\"],\"locationSlugs\":null,\"priceMax\":6000000,\"priceMin\":2000000,\"roomsMax\":2,\"roomsMin\":2}})": {
+      "__typename": "ListingResults",
+      "total": 1361,
+      "totalViewable": 1361,
+      "sort": "NEWEST",
+      "inputSearch": {
+        "__typename": "ListingSearchForSale",
+        "deactivatedBeforeOpenHouse": "INCLUDE",
+        "newConstruction": "INCLUDE",
+        "openHouseWithin": null,
+        "publishedSince": "all",
+        "priceChange": "INCLUDE",
+        "biddingStarted": "INCLUDE",
+        "foreclosure": "INCLUDE",
+        "liveStream": "INCLUDE",
+        "locationIds": [
+          "17744"
+        ],
+        "balcony": "INCLUDE",
+        "coastlineDistanceMax": null,
+        "constructionYearMax": null,
+        "constructionYearMin": null,
+        "elevator": "INCLUDE",
+        "expandLocations": null,
+        "feeMax": null,
+        "housingFormGroups": [
+          "APARTMENTS"
+        ],
+        "keywords": null,
+        "landAreaMin": null,
+        "livingAreaMax": null,
+        "livingAreaMin": null,
+        "locations": [
+          {
+            "__ref": "Location:17744"
+          }
+        ],
+        "priceMax": 6000000,
+        "priceMin": 2000000,
+        "roomsMax": 2,
+        "roomsMin": 2,
+        "squareMeterPriceMax": null,
+        "squareMeterPriceMin": null,
+        "waterDistanceMax": null,
+        "owned": "INCLUDE",
+        "suggestedName": "Lägenheter, Stockholms län",
+        "geometries": [],
+        "floor": "ALL"
+      }
+    },
+    "searchSales({\"limit\":0,\"search\":{\"housingFormGroups\":[\"APARTMENTS\"],\"locationIds\":[\"17744\"],\"locationSlugs\":null,\"priceMax\":6000000,\"priceMin\":2000000,\"roomsMax\":2,\"roomsMin\":2}})": {
+      "__typename": "SoldListingResults",
+      "total": 119228,
+      "sort": "NEWEST",
+      "totalViewable": 2500,
+      "inputSearch": {
+        "__typename": "SaleSearch",
+        "expandLocations": null,
+        "feeMax": null,
+        "feeMin": null,
+        "geometries": [],
+        "housingFormGroups": [
+          "APARTMENTS"
+        ],
+        "landAreaMin": null,
+        "livingAreaMax": null,
+        "livingAreaMin": null,
+        "locationIds": [
+          "17744"
+        ],
+        "locations": [
+          {
+            "__ref": "Location:17744"
+          }
+        ],
+        "priceChange": "INCLUDE",
+        "priceMax": 6000000,
+        "priceMin": 2000000,
+        "roomsMax": 2,
+        "roomsMin": 2,
+        "soldSince": "all",
+        "squareMeterPriceMax": null,
+        "squareMeterPriceMin": null
+      }
+    },
+    "searchUpcomingListings({\"limit\":0,\"search\":{\"housingFormGroups\":[\"APARTMENTS\"],\"locationIds\":[\"17744\"],\"locationSlugs\":null,\"priceMax\":6000000,\"priceMin\":2000000,\"roomsMax\":2,\"roomsMin\":2,\"teaser\":\"INCLUDE\"}})": {
+      "__typename": "ListingResults",
+      "total": 256,
+      "totalViewable": 256,
+      "inputSearch": {
+        "__typename": "ListingSearchUpcoming",
+        "balcony": "INCLUDE",
+        "coastlineDistanceMax": null,
+        "constructionYearMax": null,
+        "constructionYearMin": null,
+        "elevator": "INCLUDE",
+        "expandLocations": null,
+        "feeMax": null,
+        "floor": "ALL",
+        "geometries": [],
+        "housingFormGroups": [
+          "APARTMENTS"
+        ],
+        "keywords": null,
+        "landAreaMin": null,
+        "livingAreaMax": null,
+        "livingAreaMin": null,
+        "locationIds": [
+          "17744"
+        ],
+        "locations": [
+          {
+            "__ref": "Location:17744"
+          }
+        ],
+        "newConstruction": "INCLUDE",
+        "owned": "INCLUDE",
+        "priceMax": 6000000,
+        "priceMin": 2000000,
+        "roomsMax": 2,
+        "roomsMin": 2,
+        "squareMeterPriceMax": null,
+        "squareMeterPriceMin": null,
+        "waterDistanceMax": null
+      }
+    },
+    "searchSales({\"limit\":50,\"offset\":0,\"search\":{\"housingFormGroups\":[\"APARTMENTS\"],\"locationIds\":[\"17744\"],\"locationSlugs\":null,\"priceMax\":6000000,\"priceMin\":2000000,\"roomsMax\":2,\"roomsMin\":2},\"searchContext\":\"LIST\",\"sort\":\"NEWEST\"})": {
+      "__typename": "SoldListingResults",
+      "total": 119228,
+      "adTargeting": "{\"item_types\":[7],\"rooms\":[3],\"price\":[3,4,5,6,7],\"region\":[12],\"country\":[1]}",
+      "sort": "NEWEST",
+      "breadcrumbs": [
+        {
+          "__typename": "Breadcrumb",
+          "label": "Sverige",
+          "path": "/salda/bostader?housing_form_groups%5B%5D=apartments&rooms_max=2&rooms_min=2&selling_price_max=6000000&selling_price_min=2000000",
+          "totalHits": 171971,
+          "trackingValue": "Land"
+        }
+      ],
+      "cards": [
+        {
+          "__ref": "SaleCard:6097906265620746203"
+        },
+        {
+          "__ref": "SaleCard:3748575135901411519"
+        },
+        {
+          "__ref": "SaleCard:423735783930110968"
+        },
+        {
+          "__ref": "SaleCard:8231584079446626877"
+        },
+        {
+          "__ref": "SaleCard:7345886139782114279"
+        },
+        {
+          "__ref": "SaleCard:5425490278625574829"
+        },
+        {
+          "__ref": "SaleCard:6698419586848882925"
+        },
+        {
+          "__ref": "SaleCard:5386666621439131622"
+        },
+        {
+          "__ref": "SaleCard:4606001604388173872"
+        },
+        {
+          "__ref": "SaleCard:6023193766244246892"
+        },
+        {
+          "__ref": "SaleCard:4667201262967307905"
+        },
+        {
+          "__ref": "SaleCard:8694751800694575174"
+        },
+        {
+          "__ref": "SaleCard:8040357175865187451"
+        },
+        {
+          "__ref": "SaleCard:4256053071674646541"
+        },
+        {
+          "__ref": "SaleCard:6555155798841555629"
+        },
+        {
+          "__ref": "SaleCard:8000595889662873912"
+        },
+        {
+          "__ref": "SaleCard:1561805258869341895"
+        },
+        {
+          "__ref": "SaleCard:3030598582659720979"
+        },
+        {
+          "__ref": "SaleCard:8079392927690101867"
+        },
+        {
+          "__ref": "SaleCard:1739075043594662236"
+        },
+        {
+          "__ref": "SaleCard:1637161420157421903"
+        },
+        {
+          "__ref": "SaleCard:604446874342201891"
+        },
+        {
+          "__ref": "SaleCard:3674977964987274888"
+        },
+        {
+          "__ref": "SaleCard:3016508860531581513"
+        },
+        {
+          "__ref": "SaleCard:6021072530864127653"
+        },
+        {
+          "__ref": "SaleCard:8944172301427299468"
+        },
+        {
+          "__ref": "SaleCard:8410233806974390329"
+        },
+        {
+          "__ref": "SaleCard:5072917902458528953"
+        },
+        {
+          "__ref": "SaleCard:9217478893331356353"
+        },
+        {
+          "__ref": "SaleCard:7731907199415592226"
+        },
+        {
+          "__ref": "SaleCard:7424005740562659497"
+        },
+        {
+          "__ref": "SaleCard:3568287894581110166"
+        },
+        {
+          "__ref": "SaleCard:3529686239663388875"
+        },
+        {
+          "__ref": "SaleCard:1946867647041488853"
+        },
+        {
+          "__ref": "SaleCard:1430249124774164259"
+        },
+        {
+          "__ref": "SaleCard:990662119168355452"
+        },
+        {
+          "__ref": "SaleCard:9016406332241985713"
+        },
+        {
+          "__ref": "SaleCard:6956077737054966088"
+        },
+        {
+          "__ref": "SaleCard:5969693360240000328"
+        },
+        {
+          "__ref": "SaleCard:5128261256751524290"
+        },
+        {
+          "__ref": "SaleCard:5124870532033684108"
+        },
+        {
+          "__ref": "SaleCard:3310079805710088912"
+        },
+        {
+          "__ref": "SaleCard:2336585549494038954"
+        },
+        {
+          "__ref": "SaleCard:1762988603446155934"
+        },
+        {
+          "__ref": "SaleCard:1450516829550928466"
+        },
+        {
+          "__ref": "SaleCard:261261788617716179"
+        },
+        {
+          "__ref": "SaleCard:4804054936803192"
+        },
+        {
+          "__ref": "SaleCard:6794051175609568836"
+        },
+        {
+          "__ref": "SaleCard:2932842514380516116"
+        },
+        {
+          "__ref": "SaleCard:7042896176100034195"
+        }
+      ],
+      "gaCustomParameters": [
+        {
+          "__typename": "GACustomParameter",
+          "name": "active_filters",
+          "value": "ABpuwx"
+        },
+        {
+          "__typename": "GACustomParameter",
+          "name": "counties",
+          "value": "Stockholms"
+        },
+        {
+          "__typename": "GACustomParameter",
+          "name": "toplisting_result_count",
+          "value": "0"
+        }
+      ],
+      "inputSearch": {
+        "__typename": "SaleSearch",
+        "expandLocations": null,
+        "feeMax": null,
+        "feeMin": null,
+        "geometries": [],
+        "housingFormGroups": [
+          "APARTMENTS"
+        ],
+        "landAreaMin": null,
+        "livingAreaMax": null,
+        "livingAreaMin": null,
+        "locationIds": [
+          "17744"
+        ],
+        "locations": [
+          {
+            "__ref": "Location:17744"
+          }
+        ],
+        "priceChange": "INCLUDE",
+        "priceMax": 6000000,
+        "priceMin": 2000000,
+        "roomsMax": 2,
+        "roomsMin": 2,
+        "soldSince": "all",
+        "squareMeterPriceMax": null,
+        "squareMeterPriceMin": null
+      }
+    }
+  },
+  "SaleCard:6097906265620746203": {
+    "__typename": "SaleCard",
+    "id": "6097906265620746203",
+    "listingId": "21729193",
+    "slug": "lagenhet-2rum-kungsholmen-norr-malarstrand-stockholms-kommun-john-ericssonsgatan-11b-6097906265620746203",
+    "streetAddress": "John Ericssonsgatan 11B",
+    "soldAt": "1781604000.0",
+    "soldAtLabel": "Såld 16 jun. 2026",
+    "askingPrice": "4 595 000 kr",
+    "finalPrice": "4 595 000 kr",
+    "image": null,
+    "livingArea": "44 m²",
+    "locationDescription": "Kungsholmen - Norr Mälarstrand, Stockholms kommun",
+    "fee": "2 970 kr/mån",
+    "squareMeterPrice": "104 432 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "±0 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.3290176,
+      "long": 18.0373631
+    },
+    "brokerAgencyName": "Bjurfors Kungsholmen",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/64/e9/64e95305668e943da204f07b900742e0.jpg",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/25/19/251966b7134bea01e01311cfb416115b.png",
+    "brokerName": "Vilhelm Åman",
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.3290176%2C18.0373631&size=690x460&zoom=14&signature=oIUIQmJDU5j5r_xUmifci356CbU",
+    "recordType": "COMMON"
+  },
+  "SaleCard:3748575135901411519": {
+    "__typename": "SaleCard",
+    "id": "3748575135901411519",
+    "listingId": "21718135",
+    "slug": "lagenhet-2rum-sollentuna-edsangen-sollentuna-kommun-hovslagarevagen-19-3748575135901411519",
+    "streetAddress": "Hovslagarevägen 19",
+    "soldAt": "1781604000.0",
+    "soldAtLabel": "Såld 16 jun. 2026",
+    "askingPrice": "2 390 000 kr",
+    "finalPrice": "2 485 000 kr",
+    "image": null,
+    "livingArea": "54 m²",
+    "locationDescription": "Sollentuna - Edsängen, Sollentuna kommun",
+    "fee": "3 985 kr/mån",
+    "squareMeterPrice": "46 019 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+4 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.447567,
+      "long": 17.9521
+    },
+    "brokerAgencyName": "Widerlöv Solna-Sundbyberg",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/c3/89/c3898ee0ce91885c423e1576fd484d46.png",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/e4/0b/e40bf2eecaae55b6c87a6b9ec675734d.jpg",
+    "brokerName": "Tobias Franzén",
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.447567%2C17.9521&size=690x460&zoom=14&signature=7ajF3fiDdhr6QIuQZl-N3-5p11A",
+    "recordType": "COMMON"
+  },
+  "SaleCard:423735783930110968": {
+    "__typename": "SaleCard",
+    "id": "423735783930110968",
+    "listingId": "21724395",
+    "slug": "lagenhet-2rum-hjorthagen-stockholms-kommun-lanforsvagen-37-423735783930110968",
+    "streetAddress": "Lanforsvägen 37",
+    "soldAt": "1781604000.0",
+    "soldAtLabel": "Såld 16 jun. 2026",
+    "askingPrice": "3 050 000 kr",
+    "finalPrice": "3 085 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "69/b8/69b8ba2775b1e48cc780fa942e3d3eba.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMklEQVR4nAEnANj/AP768eTh2t/Z0+Xh2ADf2dHe3NTq6OOvnZkARDk0SUI+spuOEwQANN8Xz1dZiQgAAAAASUVORK5CYII="
+    },
+    "livingArea": "44,2 m²",
+    "locationDescription": "Hjorthagen, Stockholms kommun",
+    "fee": "4 308 kr/mån",
+    "squareMeterPrice": "69 796 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+1 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.3524628,
+      "long": 18.09434
+    },
+    "brokerAgencyName": "Alicia Edelman Gärdet/Hjorthagen",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/39/d4/39d40c0e3d8adab9191ddca93dfc2004.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/69/b8/69b8ba2775b1e48cc780fa942e3d3eba.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:8231584079446626877": {
+    "__typename": "SaleCard",
+    "id": "8231584079446626877",
+    "listingId": "21740094",
+    "slug": "lagenhet-2rum-sodermalm-skanstull-stockholms-kommun-bohusgatan-27a-over-gard-8231584079446626877",
+    "streetAddress": "Bohusgatan 27A Över gård",
+    "soldAt": "1781589600.0",
+    "soldAtLabel": "Såld 16 jun. 2026",
+    "askingPrice": "5 195 000 kr",
+    "finalPrice": "5 625 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "f1/e2/f1e2a241a8047911b3973c21b19e423e.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMklEQVR4nAEnANj/AOvgy//++efYyOPNrQDWwKXr7t+2qZSqlH8AlW5LsqORfW9pGAAAJuwXtS0nOpUAAAAASUVORK5CYII="
+    },
+    "livingArea": "51 m²",
+    "locationDescription": "Södermalm - Skanstull, Stockholms kommun",
+    "fee": "3 870 kr/mån",
+    "squareMeterPrice": "110 294 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+8 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.3072662,
+      "long": 18.0808487
+    },
+    "brokerAgencyName": "Tradition Mäkleri",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/3c/9c/3c9c69b6d6d56cc07bb1120698271edb.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/f1/e2/f1e2a241a8047911b3973c21b19e423e.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:7345886139782114279": {
+    "__typename": "SaleCard",
+    "id": "7345886139782114279",
+    "listingId": "21696597",
+    "slug": "lagenhet-2rum-alvsjo-herrangen-stockholms-kommun-nejlikevagen-7e-7345886139782114279",
+    "streetAddress": "Nejlikevägen 7E",
+    "soldAt": "1781568000.0",
+    "soldAtLabel": "Såld 16 jun. 2026",
+    "askingPrice": "3 295 000 kr",
+    "finalPrice": "3 200 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "07/99/0799338e77fd33479737e4fdfe982ae7.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMklEQVR4nAEnANj/AI6jrZe0yn+fs0xhSAA+Qib//ezLyLJYXToAAAYAwsGMk5lqHicAfDMRbGOA9dgAAAAASUVORK5CYII="
+    },
+    "livingArea": "24,5+24,5 m²",
+    "locationDescription": "Älvsjö - Herrängen, Stockholms kommun",
+    "fee": "829 kr/mån",
+    "squareMeterPrice": "130 612 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "-3 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.2792738,
+      "long": 17.967451
+    },
+    "brokerAgencyName": "SkandiaMäklarna Älvsjö/Årsta",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/e4/a8/e4a8b297b623f7722a8bd7c15f8fa4e7.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Uteplats",
+        "identifier": "PATIO",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/07/99/0799338e77fd33479737e4fdfe982ae7.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:5425490278625574829": {
+    "__typename": "SaleCard",
+    "id": "5425490278625574829",
+    "listingId": "21723975",
+    "slug": "lagenhet-2rum-helgo-kaggeholms-slottsby-ekero-kommun-kaggeholm-14,-hogst-upp-5425490278625574829",
+    "streetAddress": "Kaggeholm 14, högst upp!",
+    "soldAt": "1781550641.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "2 995 000 kr",
+    "finalPrice": "2 850 000 kr",
+    "image": null,
+    "livingArea": "59 m²",
+    "locationDescription": "Helgö / Kaggeholms Slottsby, Ekerö kommun",
+    "fee": "2 664 kr/mån",
+    "squareMeterPrice": "48 305 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "-5 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.2834888,
+      "long": 17.6631385
+    },
+    "brokerAgencyName": "Mäklarhuset Stockholm Innerstan",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/9a/22/9a2213178febb64e22967476bf12c177.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.2834888%2C17.6631385&size=690x460&zoom=14&signature=pk9F0bWjv1uNT7RJx7wZEpcWGTE",
+    "recordType": "COMMON"
+  },
+  "SaleCard:6698419586848882925": {
+    "__typename": "SaleCard",
+    "id": "6698419586848882925",
+    "listingId": "21704963",
+    "slug": "lagenhet-2rum-jarna-sodertalje-kommun-vallhojdsvagen-13-6698419586848882925",
+    "streetAddress": "Vallhöjdsvägen 13",
+    "soldAt": "1781550000.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "2 395 000 kr",
+    "finalPrice": "2 375 000 kr",
+    "image": null,
+    "livingArea": "52 m²",
+    "locationDescription": "Järna, Södertälje kommun",
+    "fee": "3 674 kr/mån",
+    "squareMeterPrice": "45 673 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "-1 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.108932,
+      "long": 17.537773
+    },
+    "brokerAgencyName": "Fastighetsbyrån Södertälje",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/9a/1d/9a1d96473c8655c0b20a5339912f91e2.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Uteplats",
+        "identifier": "PATIO",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.108932%2C17.537773&size=690x460&zoom=14&signature=pOp_IekzkqVfmDO1xUxSh7WbgUs",
+    "recordType": "COMMON"
+  },
+  "SaleCard:5386666621439131622": {
+    "__typename": "SaleCard",
+    "id": "5386666621439131622",
+    "listingId": "21717210",
+    "slug": "lagenhet-2rum-ostermalm-stockholms-kommun-uggelviksgatan-7-5386666621439131622",
+    "streetAddress": "Uggelviksgatan 7",
+    "soldAt": "1781550000.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "5 995 000 kr",
+    "finalPrice": "6 000 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "af/21/af21950133f89ed76a703a819f60047e.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMklEQVR4nAEnANj/AIRxY+LSw//88frw5gBUPCqJc2PIvK/ZzcMAKAAAgmhUaVdIJhcNu90S+ci9d+YAAAAASUVORK5CYII="
+    },
+    "livingArea": "41 m²",
+    "locationDescription": "Östermalm, Stockholms kommun",
+    "fee": "4 791 kr/mån",
+    "squareMeterPrice": "146 341 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "±0 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.34499,
+      "long": 18.0692387
+    },
+    "brokerAgencyName": "Edward & Partners Fastighetsmäklare AB",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/7b/ae/7bae739a56eef3b79e6976a7d10d6d30.png",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/48/33/4833a19f3f9be8a955d3de051d88e0b3.jpg",
+    "brokerName": "Alexandra Zaitseva",
+    "labels": [],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/af/21/af21950133f89ed76a703a819f60047e.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:4606001604388173872": {
+    "__typename": "SaleCard",
+    "id": "4606001604388173872",
+    "listingId": "21744472",
+    "slug": "lagenhet-2rum-vasastan-hagastaden-stockholms-kommun-nina-einhorns-gata-4-van-11-13-4606001604388173872",
+    "streetAddress": "Nina Einhorns Gata 4 Vån 11/13",
+    "soldAt": "1781546400.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "Pris på förfrågan",
+    "finalPrice": "5 800 000 kr",
+    "image": null,
+    "livingArea": "47 m²",
+    "locationDescription": "Vasastan - Hagastaden, Stockholms kommun",
+    "fee": "3 822 kr/mån",
+    "squareMeterPrice": "123 404 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": null,
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.3473,
+      "long": 18.03567
+    },
+    "brokerAgencyName": "Bergets Ro Fastighetsförmedling",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/7d/c1/7dc17273da1148f12ec8ea23bd3f6827.jpg",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/c9/fb/c9fbe79f4367e854053b48d273b2748b.jpg",
+    "brokerName": "Sherwan Baderkhan",
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.3473%2C18.03567&size=690x460&zoom=14&signature=Laarc2wN8LSKBYmkkk88sDrVn2c",
+    "recordType": "COMMON"
+  },
+  "SaleCard:6023193766244246892": {
+    "__typename": "SaleCard",
+    "id": "6023193766244246892",
+    "listingId": "",
+    "slug": "lagenhet-2rum-midsommarkransen-stockholms-kommun-pingstvagen-46-6023193766244246892",
+    "streetAddress": "Pingstvägen 46",
+    "soldAt": "1781542800.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "2 495 000 kr",
+    "finalPrice": "2 710 000 kr",
+    "image": null,
+    "livingArea": "35 m²",
+    "locationDescription": "Hägersten, Stockholms kommun",
+    "fee": "3 527 kr/mån",
+    "squareMeterPrice": "77 429 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+9 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.30131,
+      "long": 17.9967976
+    },
+    "brokerAgencyName": "Erik Olsson Fastighetsförmedling",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/ad/cd/adcd07e428ac8ff10c43939453b94757.png",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/21/4b/214b053792887b4e38806c8b8c6ff0d8.jpg",
+    "brokerName": "Therese Jarmunger",
+    "labels": [],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.30131%2C17.9967976&size=690x460&zoom=14&signature=JCzy0j0pNWUE6KATfIhoq4YFdng",
+    "recordType": "COMMON"
+  },
+  "SaleCard:4667201262967307905": {
+    "__typename": "SaleCard",
+    "id": "4667201262967307905",
+    "listingId": "21733376",
+    "slug": "lagenhet-2rum-sodermalm-stockholms-kommun-ostgotagatan-89-4667201262967307905",
+    "streetAddress": "Östgötagatan 89",
+    "soldAt": "1781542800.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "3 995 000 kr",
+    "finalPrice": "4 850 000 kr",
+    "image": null,
+    "livingArea": "41 m²",
+    "locationDescription": "Södermalm, Stockholms kommun",
+    "fee": "2 210 kr/mån",
+    "squareMeterPrice": "118 293 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+21 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.3077431,
+      "long": 18.08005
+    },
+    "brokerAgencyName": "Alicia Edelman Södermalm/Gamla stan",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/39/d4/39d40c0e3d8adab9191ddca93dfc2004.png",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/6b/b9/6bb9f633ed85b95b4e0f89a6a45451f1.jpg",
+    "brokerName": "Lovisa Stewén",
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.3077431%2C18.08005&size=690x460&zoom=14&signature=0-bV0ZjtG9pN939SEwFuOHHpkuQ",
+    "recordType": "COMMON"
+  },
+  "SaleCard:8694751800694575174": {
+    "__typename": "SaleCard",
+    "id": "8694751800694575174",
+    "listingId": "21730673",
+    "slug": "lagenhet-2rum-hokmossen-telefonplan-stockholms-kommun-tangvagen-22-8694751800694575174",
+    "streetAddress": "Tångvägen 22",
+    "soldAt": "1781541000.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "2 495 000 kr",
+    "finalPrice": "2 700 000 kr",
+    "image": null,
+    "livingArea": "42,5 m²",
+    "locationDescription": "Hökmossen/Telefonplan, Stockholms kommun",
+    "fee": "3 744 kr/mån",
+    "squareMeterPrice": "63 529 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+8 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.2935524,
+      "long": 17.9959164
+    },
+    "brokerAgencyName": "Svenska Mäklarhuset Hägersten/Liljeholmen",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/90/66/90666b94ebb0f185aa813f391fdb8202.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.2935524%2C17.9959164&size=690x460&zoom=14&signature=QSLgx49G8Syi8QovOYELWvTO5p0",
+    "recordType": "COMMON"
+  },
+  "SaleCard:8040357175865187451": {
+    "__typename": "SaleCard",
+    "id": "8040357175865187451",
+    "listingId": "21734518",
+    "slug": "lagenhet-2rum-marieberg-stockholms-kommun-wennerbergsgatan-6b,-4-tr-8040357175865187451",
+    "streetAddress": "Wennerbergsgatan 6B, 4 tr",
+    "soldAt": "1781541000.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "3 750 000 kr",
+    "finalPrice": "4 180 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "16/49/16497dad942bc25b44a6ca8b2e950fc1.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMklEQVR4nAEnANj/AMK1o/bt3f/67tzSwwBrXk6lnIjUzsLk3dUAEAAAOSsgeXBodnV16mEVUiFjLRUAAAAASUVORK5CYII="
+    },
+    "livingArea": "47 m²",
+    "locationDescription": "Marieberg, Stockholms kommun",
+    "fee": "3 333 kr/mån",
+    "squareMeterPrice": "88 936 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+11 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.327628306,
+      "long": 18.0123099237
+    },
+    "brokerAgencyName": "Fastighetsbyrån Stockholm - Kungsholmen",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/9a/1d/9a1d96473c8655c0b20a5339912f91e2.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/16/49/16497dad942bc25b44a6ca8b2e950fc1.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:4256053071674646541": {
+    "__typename": "SaleCard",
+    "id": "4256053071674646541",
+    "listingId": "21732228",
+    "slug": "lagenhet-2rum-kungsholmen-stockholms-kommun-alstromergatan-32u-4256053071674646541",
+    "streetAddress": "Alströmergatan 32U",
+    "soldAt": "1781541000.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "4 795 000 kr",
+    "finalPrice": "5 175 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "97/86/978681da89f6a95c14ffa9599760eba8.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMklEQVR4nAEnANj/AP/37fLx7aSekqachgDl39Pm3tGsno4xJhcAvbOinIdqn4twFQEA/ckWEZrgXIQAAAAASUVORK5CYII="
+    },
+    "livingArea": "49 m²",
+    "locationDescription": "Kungsholmen, Stockholms kommun",
+    "fee": "2 930 kr/mån",
+    "squareMeterPrice": "105 612 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+8 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.336792,
+      "long": 18.0263214
+    },
+    "brokerAgencyName": "Alicia Edelman Vasastan/Norrmalm",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/39/d4/39d40c0e3d8adab9191ddca93dfc2004.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/97/86/978681da89f6a95c14ffa9599760eba8.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:6555155798841555629": {
+    "__typename": "SaleCard",
+    "id": "6555155798841555629",
+    "listingId": "21689123",
+    "slug": "lagenhet-2rum-bromma-brommaplan-stockholms-kommun-spangavagen-32-6555155798841555629",
+    "streetAddress": "Spångavägen 32",
+    "soldAt": "1781539200.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "2 495 000 kr",
+    "finalPrice": "2 600 000 kr",
+    "image": null,
+    "livingArea": "56 m²",
+    "locationDescription": "Bromma / Brommaplan, Stockholms kommun",
+    "fee": "5 521 kr/mån",
+    "squareMeterPrice": "46 429 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+4 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.3416748,
+      "long": 17.9371262
+    },
+    "brokerAgencyName": "Svenska Mäklarhuset Bromma",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/90/66/90666b94ebb0f185aa813f391fdb8202.png",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/d0/1b/d01bf2b270a7656fd2bdc3d84434af54.jpg",
+    "brokerName": "Axel Östlund",
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.3416748%2C17.9371262&size=690x460&zoom=14&signature=ZfMtoCiiRMkin5ZkeFsWcJLShC4",
+    "recordType": "COMMON"
+  },
+  "SaleCard:8000595889662873912": {
+    "__typename": "SaleCard",
+    "id": "8000595889662873912",
+    "listingId": "21734381",
+    "slug": "lagenhet-2rum-alphyddan-nacka-kommun-alphyddevagen-53-8000595889662873912",
+    "streetAddress": "Alphyddevägen 53",
+    "soldAt": "1781537400.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "2 995 000 kr",
+    "finalPrice": "3 100 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "d5/44/d544f96dbd8ff53c7aba322460bcddb1.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMklEQVR4nAEnANj/AN/k3czHvv3588O6rwCdl4xRRjmwqp/AtKgAPisoKBwZEAAAsKyk04kTquUC9EMAAAAASUVORK5CYII="
+    },
+    "livingArea": "45,6 m²",
+    "locationDescription": "Alphyddan, Nacka kommun",
+    "fee": "3 239 kr/mån",
+    "squareMeterPrice": "67 982 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+4 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.3074226,
+      "long": 18.121357
+    },
+    "brokerAgencyName": "LF Fastighetsförmedling Nacka",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/78/4f/784fec46b84c09047e6628dff7c3d4b7.png",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/33/b7/33b797c0e98c9ef7b62135efb6bb0218.jpg",
+    "brokerName": "Åsa von Zweigbergk",
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/d5/44/d544f96dbd8ff53c7aba322460bcddb1.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:1561805258869341895": {
+    "__typename": "SaleCard",
+    "id": "1561805258869341895",
+    "listingId": "21693465",
+    "slug": "lagenhet-2rum-huvudsta-solna-kommun-huvudstagatan-29-1561805258869341895",
+    "streetAddress": "Huvudstagatan 29",
+    "soldAt": "1781537400.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "3 350 000 kr",
+    "finalPrice": "3 600 000 kr",
+    "image": null,
+    "livingArea": "70 m²",
+    "locationDescription": "Huvudsta, Solna kommun",
+    "fee": "4 678 kr/mån",
+    "squareMeterPrice": "51 429 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+7 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.3508949,
+      "long": 17.996994
+    },
+    "brokerAgencyName": "Erik Olsson Fastighetsförmedling",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/ad/cd/adcd07e428ac8ff10c43939453b94757.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.3508949%2C17.996994&size=690x460&zoom=14&signature=T3Yv73zh-meJKBM_TxBJVrPbE_Y",
+    "recordType": "COMMON"
+  },
+  "SaleCard:3030598582659720979": {
+    "__typename": "SaleCard",
+    "id": "3030598582659720979",
+    "listingId": "21743211",
+    "slug": "lagenhet-2rum-segeltorp-huddinge-kommun-borgbacken-8-3030598582659720979",
+    "streetAddress": "Borgbacken 8",
+    "soldAt": "1781535600.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "1 895 000 kr",
+    "finalPrice": "2 000 000 kr",
+    "image": null,
+    "livingArea": "58,5 m²",
+    "locationDescription": "Segeltorp, Huddinge kommun",
+    "fee": "4 867 kr/mån",
+    "squareMeterPrice": "34 188 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+6 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.2782059,
+      "long": 17.9270859
+    },
+    "brokerAgencyName": "Notar",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/fc/31/fc3191831a6ecaf61cd246590fc02710.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.2782059%2C17.9270859&size=690x460&zoom=14&signature=S2psSZ9_UzcMgStdsRFk6gYMInA",
+    "recordType": "COMMON"
+  },
+  "SaleCard:8079392927690101867": {
+    "__typename": "SaleCard",
+    "id": "8079392927690101867",
+    "listingId": "18059479",
+    "slug": "lagenhet-2rum-taby-centrum-taby-kommun-goran-elgfelts-gata-5a-8079392927690101867",
+    "streetAddress": "Göran Elgfelts Gata 5A",
+    "soldAt": "1781533800.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "2 795 000 kr",
+    "finalPrice": "3 200 000 kr",
+    "image": null,
+    "livingArea": "44 m²",
+    "locationDescription": "Täby Centrum, Täby kommun",
+    "fee": "3 847 kr/mån",
+    "squareMeterPrice": "72 727 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+14 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.4434166,
+      "long": 18.0699673
+    },
+    "brokerAgencyName": "MOHV Täby",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/e1/56/e156e8ee917c437fd751885a417715ea.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.4434166%2C18.0699673&size=690x460&zoom=14&signature=YWKgeGFp1VEdfyLfi83m4YiIG_o",
+    "recordType": "COMMON"
+  },
+  "SaleCard:1739075043594662236": {
+    "__typename": "SaleCard",
+    "id": "1739075043594662236",
+    "listingId": "21419543",
+    "slug": "lagenhet-2rum-mariehall-stockholms-kommun-kratsbodavagen-44a-1739075043594662236",
+    "streetAddress": "Kratsbodavägen 44A",
+    "soldAt": "1781533800.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "3 395 000 kr",
+    "finalPrice": "3 400 000 kr",
+    "image": null,
+    "livingArea": "50 m²",
+    "locationDescription": "Mariehäll, Stockholms kommun",
+    "fee": "3 152 kr/mån",
+    "squareMeterPrice": "68 000 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "±0 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.36076,
+      "long": 17.9550285
+    },
+    "brokerAgencyName": "Erik Olsson Nyproduktion",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/ad/cd/adcd07e428ac8ff10c43939453b94757.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.36076%2C17.9550285&size=690x460&zoom=14&signature=6UFuK_FMpwPYJrBXwNaOuIfeN78",
+    "recordType": "COMMON"
+  },
+  "SaleCard:1637161420157421903": {
+    "__typename": "SaleCard",
+    "id": "1637161420157421903",
+    "listingId": "21740550",
+    "slug": "lagenhet-2rum-sodermalm-katarina-stockholms-kommun-eriksdalsgatan-17-1637161420157421903",
+    "streetAddress": "Eriksdalsgatan 17",
+    "soldAt": "1781533800.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "3 950 000 kr",
+    "finalPrice": "4 500 000 kr",
+    "image": null,
+    "livingArea": "43 m²",
+    "locationDescription": "Södermalm Katarina, Stockholms kommun",
+    "fee": "2 804 kr/mån",
+    "squareMeterPrice": "104 651 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+14 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.30669,
+      "long": 18.06607
+    },
+    "brokerAgencyName": "Bjurfors Södermalm",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/64/e9/64e95305668e943da204f07b900742e0.jpg",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.30669%2C18.06607&size=690x460&zoom=14&signature=QY5Sbpx9DK8cj0OlYaAHm_chj2I",
+    "recordType": "COMMON"
+  },
+  "SaleCard:604446874342201891": {
+    "__typename": "SaleCard",
+    "id": "604446874342201891",
+    "listingId": "",
+    "slug": "lagenhet-2rum-storskogen-sundbybergs-kommun-vintergatan-15b-604446874342201891",
+    "streetAddress": "Vintergatan 15b",
+    "soldAt": "1781529573.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "4 795 000 kr",
+    "finalPrice": "5 200 000 kr",
+    "image": null,
+    "livingArea": "57,1 m²",
+    "locationDescription": "Sundbyberg, Sundbybergs kommun",
+    "fee": "4 815 kr/mån",
+    "squareMeterPrice": "91 068 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+8 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.3630965,
+      "long": 17.9755323
+    },
+    "brokerAgencyName": "Mäklarhuset Bromma/Essingen/Solna/Sundbyberg",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/9a/22/9a2213178febb64e22967476bf12c177.png",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/1a/60/1a60c1c78ff7205e59b84d8df4f57942.jpg",
+    "brokerName": "Marcus Nilsson",
+    "labels": [],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.3630965%2C17.9755323&size=690x460&zoom=14&signature=iM6EfIhsN7NJMOdHXvMHojDcNuo",
+    "recordType": "COMMON"
+  },
+  "SaleCard:3674977964987274888": {
+    "__typename": "SaleCard",
+    "id": "3674977964987274888",
+    "listingId": "21734691",
+    "slug": "lagenhet-2rum-hammarbyhojden-stockholms-kommun-lidkopingsvagen-55-3674977964987274888",
+    "streetAddress": "Lidköpingsvägen 55",
+    "soldAt": "1781526600.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "3 195 000 kr",
+    "finalPrice": "3 500 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "bd/c6/bdc6c131db58f0b059a362c258f8dbc5.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMklEQVR4nAEnANj/AEMzJf/w37Cfj+3ZxwCDa2T/+ufTvq3myrUAGwAAKQ4AeF1MWEMyq2cS6u6Jr6cAAAAASUVORK5CYII="
+    },
+    "livingArea": "48 m²",
+    "locationDescription": "Hammarbyhöjden, Stockholms kommun",
+    "fee": "4 847 kr/mån",
+    "squareMeterPrice": "72 917 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+10 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.2923622,
+      "long": 18.1016121
+    },
+    "brokerAgencyName": "Historiska Hem",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/29/ef/29ef6ea0936106a0033c5f69a2feda85.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/bd/c6/bdc6c131db58f0b059a362c258f8dbc5.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:3016508860531581513": {
+    "__typename": "SaleCard",
+    "id": "3016508860531581513",
+    "listingId": "21687483",
+    "slug": "lagenhet-2rum-kallfors-sodertalje-kommun-vallhojdsvagen-25-3016508860531581513",
+    "streetAddress": "Vallhöjdsvägen 25",
+    "soldAt": "1781524800.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "2 295 000 kr",
+    "finalPrice": "2 275 000 kr",
+    "image": null,
+    "livingArea": "52 m²",
+    "locationDescription": "Kallfors, Södertälje kommun",
+    "fee": "4 318 kr/mån",
+    "squareMeterPrice": "43 750 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "-1 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.10907,
+      "long": 17.534338
+    },
+    "brokerAgencyName": "Erik Olsson Fastighetsförmedling",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/ad/cd/adcd07e428ac8ff10c43939453b94757.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.10907%2C17.534338&size=690x460&zoom=14&signature=kgx2A5Rnws_Us3l9BNB1oHmW-hw",
+    "recordType": "COMMON"
+  },
+  "SaleCard:6021072530864127653": {
+    "__typename": "SaleCard",
+    "id": "6021072530864127653",
+    "listingId": "21744455",
+    "slug": "lagenhet-2rum-vastra-skogen-solna-kommun-infanterigatan-1-6021072530864127653",
+    "streetAddress": "Infanterigatan 1",
+    "soldAt": "1781518500.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "Pris på förfrågan",
+    "finalPrice": "3 200 000 kr",
+    "image": null,
+    "livingArea": "56,5 m²",
+    "locationDescription": "Västra Skogen, Solna kommun",
+    "fee": "3 961 kr/mån",
+    "squareMeterPrice": "56 637 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": null,
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.3516655,
+      "long": 18.0037251
+    },
+    "brokerAgencyName": "Svenska Mäklarhuset Solna",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/90/66/90666b94ebb0f185aa813f391fdb8202.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.3516655%2C18.0037251&size=690x460&zoom=14&signature=hcy94pocgHt4OvWWrYIGDDVckNw",
+    "recordType": "COMMON"
+  },
+  "SaleCard:8944172301427299468": {
+    "__typename": "SaleCard",
+    "id": "8944172301427299468",
+    "listingId": "21725090",
+    "slug": "lagenhet-2rum-hjorthagen-stockholms-kommun-untravagen-23-8944172301427299468",
+    "streetAddress": "Untravägen 23",
+    "soldAt": "1781512200.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "3 450 000 kr",
+    "finalPrice": "3 550 000 kr",
+    "image": null,
+    "livingArea": "44,2 m²",
+    "locationDescription": "Hjorthagen, Stockholms kommun",
+    "fee": "4 232 kr/mån",
+    "squareMeterPrice": "80 317 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+3 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.3536644,
+      "long": 18.0934334
+    },
+    "brokerAgencyName": "Alicia Edelman Gärdet/Hjorthagen",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/39/d4/39d40c0e3d8adab9191ddca93dfc2004.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.3536644%2C18.0934334&size=690x460&zoom=14&signature=tG9AjFEW36Y-S0vBOt4dxrIDRRg",
+    "recordType": "COMMON"
+  },
+  "SaleCard:8410233806974390329": {
+    "__typename": "SaleCard",
+    "id": "8410233806974390329",
+    "listingId": "",
+    "slug": "lagenhet-2rum-lahall-nasby-park-taby-kommun-ornstigen-33-8410233806974390329",
+    "streetAddress": "Örnstigen 33",
+    "soldAt": "1781512200.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "2 900 000 kr",
+    "finalPrice": "2 950 000 kr",
+    "image": null,
+    "livingArea": "58 m²",
+    "locationDescription": "Täby, Täby kommun",
+    "fee": "2 905 kr/mån",
+    "squareMeterPrice": "50 862 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+2 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.4320869,
+      "long": 18.07583
+    },
+    "brokerAgencyName": "Bjurfors Täby Danderyd",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/64/e9/64e95305668e943da204f07b900742e0.jpg",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/72/aa/72aafb34244f3e4232b70e651aac88bb.jpg",
+    "brokerName": "Linda Nuhma",
+    "labels": [],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.4320869%2C18.07583&size=690x460&zoom=14&signature=BZ1oQjlVFsCKowwIp6UgkM0-Gpk",
+    "recordType": "COMMON"
+  },
+  "SaleCard:5072917902458528953": {
+    "__typename": "SaleCard",
+    "id": "5072917902458528953",
+    "listingId": "21659982",
+    "slug": "lagenhet-2rum-kungsholmen-thorildsplan-stockholms-kommun-drottningholmsvagen-78-5072917902458528953",
+    "streetAddress": "Drottningholmsvägen 78",
+    "soldAt": "1781511110.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "4 695 000 kr",
+    "finalPrice": "4 850 000 kr",
+    "image": null,
+    "livingArea": "60 m²",
+    "locationDescription": "Kungsholmen / Thorildsplan, Stockholms kommun",
+    "fee": "3 983 kr/mån",
+    "squareMeterPrice": "80 833 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+3 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.3318335,
+      "long": 18.0151853
+    },
+    "brokerAgencyName": "Mäklarhuset Stockholm Innerstan",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/9a/22/9a2213178febb64e22967476bf12c177.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.3318335%2C18.0151853&size=690x460&zoom=14&signature=dMbVulYsfB0mL3es0jlKnxQ-Jmg",
+    "recordType": "COMMON"
+  },
+  "SaleCard:9217478893331356353": {
+    "__typename": "SaleCard",
+    "id": "9217478893331356353",
+    "listingId": "",
+    "slug": "lagenhet-2rum-vallentuna-vallentuna-kommun-tegelbruksgatan-1-9217478893331356353",
+    "streetAddress": "Tegelbruksgatan 1",
+    "soldAt": "1781481600.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "Pris på förfrågan",
+    "finalPrice": "3 300 000 kr",
+    "image": null,
+    "livingArea": "70 m²",
+    "locationDescription": "Vallentuna, Vallentuna kommun",
+    "fee": null,
+    "squareMeterPrice": "47 143 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": null,
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.53652,
+      "long": 18.08231
+    },
+    "brokerAgencyName": "Svensk Fastighetsförmedling Vallentuna",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/2a/4a/2a4a03ea8f74b36983d2f6e61ae5207d.png",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/7e/e4/7ee4c8a94241bda5b8a3749861b4de8e.jpg",
+    "brokerName": "Malou Parkkila",
+    "labels": [],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.53652%2C18.08231&size=690x460&zoom=14&signature=3BDeoyAR1VBaEJ_HbY05CwfxVfw",
+    "recordType": "COMMON"
+  },
+  "SaleCard:7731907199415592226": {
+    "__typename": "SaleCard",
+    "id": "7731907199415592226",
+    "listingId": "21662363",
+    "slug": "lagenhet-2rum-rasunda-solna-kommun-ostervagen-1,-2-tr-7731907199415592226",
+    "streetAddress": "Östervägen 1, 2 tr",
+    "soldAt": "1781481600.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "2 795 000 kr",
+    "finalPrice": "3 050 000 kr",
+    "image": null,
+    "livingArea": "43,6 m²",
+    "locationDescription": "Råsunda, Solna kommun",
+    "fee": "3 261 kr/mån",
+    "squareMeterPrice": "69 954 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+9 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.36235,
+      "long": 18.00289
+    },
+    "brokerAgencyName": "Svensk Fastighetsförmedling Solna",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/2a/4a/2a4a03ea8f74b36983d2f6e61ae5207d.png",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/1d/c4/1dc43ad7befde607f0618af0e6de112c.jpg",
+    "brokerName": "Manuel Campos",
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.36235%2C18.00289&size=690x460&zoom=14&signature=bGdoRemQeeluRHysA54Le3UTFs4",
+    "recordType": "COMMON"
+  },
+  "SaleCard:7424005740562659497": {
+    "__typename": "SaleCard",
+    "id": "7424005740562659497",
+    "listingId": "21728924",
+    "slug": "lagenhet-2rum-ronninge-salems-kommun-sabytorgsvagen-43-7424005740562659497",
+    "streetAddress": "Säbytorgsvägen 43",
+    "soldAt": "1781481600.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "1 990 000 kr",
+    "finalPrice": "2 090 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "34/1e/341eb5e5f28f9c43d2644961778c2f5f.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAIAAADwyuo0AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAI0lEQVR4nGNQ1uZ69+/3hydnf3y6ziAtyBAZJhnkZWlrow8ArF0LE/k0AGYAAAAASUVORK5CYII="
+    },
+    "livingArea": "57 m²",
+    "locationDescription": "Rönninge, Salems kommun",
+    "fee": "4 554 kr/mån",
+    "squareMeterPrice": "36 667 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+5 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.1955,
+      "long": 17.7516
+    },
+    "brokerAgencyName": "Svensk Fastighetsförmedling Botkyrka/Salem",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/2a/4a/2a4a03ea8f74b36983d2f6e61ae5207d.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/34/1e/341eb5e5f28f9c43d2644961778c2f5f.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:3568287894581110166": {
+    "__typename": "SaleCard",
+    "id": "3568287894581110166",
+    "listingId": "21710985",
+    "slug": "lagenhet-2rum-kungsangen-centrum-upplands-bro-kommun-furuhallsvagen-4,-4-tr-3568287894581110166",
+    "streetAddress": "Furuhällsvägen 4, 4 tr",
+    "soldAt": "1781481600.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "2 195 000 kr",
+    "finalPrice": "2 080 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "1a/ba/1aba0a91ad0c54acaab58dbbc8abda6b.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMklEQVR4nAEnANj/ANj//77R39L4/8Ls/wDo5tng4dqytaaUlHsAx7ydcV85GAAAGBIAMXYXGJgqH/sAAAAASUVORK5CYII="
+    },
+    "livingArea": "55 m²",
+    "locationDescription": "Kungsängen centrum, Upplands-Bro kommun",
+    "fee": "4 888 kr/mån",
+    "squareMeterPrice": "37 818 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "-5 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.47813849999999,
+      "long": 17.7497444
+    },
+    "brokerAgencyName": "Wingenblixt Mäklarbyrå",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/14/ef/14efd29a294458f00d02416b5c502d46.jpg",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/10/94/1094f1b9a862b16f93aa9c1cbf689e2b.jpg",
+    "brokerName": "Kenneth Viinikka",
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/1a/ba/1aba0a91ad0c54acaab58dbbc8abda6b.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:3529686239663388875": {
+    "__typename": "SaleCard",
+    "id": "3529686239663388875",
+    "listingId": "21729164",
+    "slug": "lagenhet-2rum-viggbygardet-viggbyholm-taby-kommun-sodervagen-30-3529686239663388875",
+    "streetAddress": "Södervägen 30",
+    "soldAt": "1781481600.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "2 400 000 kr",
+    "finalPrice": "2 400 000 kr",
+    "image": null,
+    "livingArea": "52,5 m²",
+    "locationDescription": "Viggbygärdet / Viggbyholm, Täby kommun",
+    "fee": "3 768 kr/mån",
+    "squareMeterPrice": "45 714 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "±0 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.44750949999999,
+      "long": 18.0984158
+    },
+    "brokerAgencyName": "Jägholm Norrortsmäklarna",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/a2/15/a215e6fd3b632b60e3003f2d790b1c59.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.44750949999999%2C18.0984158&size=690x460&zoom=14&signature=W7zWD8qK75LFJ4aLQtyRxW_6eA0",
+    "recordType": "COMMON"
+  },
+  "SaleCard:1946867647041488853": {
+    "__typename": "SaleCard",
+    "id": "1946867647041488853",
+    "listingId": "",
+    "slug": "lagenhet-2rum-aspudden-stockholms-kommun-vapengatan-5-1946867647041488853",
+    "streetAddress": "Vapengatan 5",
+    "soldAt": "1781481600.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "Pris på förfrågan",
+    "finalPrice": "4 900 000 kr",
+    "image": null,
+    "livingArea": "52 m²",
+    "locationDescription": "Hägersten, Stockholms kommun",
+    "fee": null,
+    "squareMeterPrice": "94 231 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": null,
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.3058903,
+      "long": 17.9965512
+    },
+    "brokerAgencyName": "SkandiaMäklarna Hägersten/Liljeholmen/Skärholmen",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/e4/a8/e4a8b297b623f7722a8bd7c15f8fa4e7.png",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/c7/59/c75907674392482306024829c04350a7.png",
+    "brokerName": "Anna Rahman",
+    "labels": [],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.3058903%2C17.9965512&size=690x460&zoom=14&signature=JrCHdvipo4EZ-441HxqQRMyhb1I",
+    "recordType": "COMMON"
+  },
+  "SaleCard:1430249124774164259": {
+    "__typename": "SaleCard",
+    "id": "1430249124774164259",
+    "listingId": "21732983",
+    "slug": "lagenhet-2rum-reimersholme-stockholms-kommun-anders-reimers-vag-17-1430249124774164259",
+    "streetAddress": "Anders Reimers väg 17",
+    "soldAt": "1781481600.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "4 995 000 kr",
+    "finalPrice": "5 200 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "0d/e2/0de2495e9d7c90d7d79c36359e1e9a40.png",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMklEQVR4nAEnANj/AAcGAJSXbVVWMnVyUgA1NyOvtql4eWRQU0EA5tzA9vnzkZCBtraqExoRrgGVBZ4AAAAASUVORK5CYII="
+    },
+    "livingArea": "48 m²",
+    "locationDescription": "Reimersholme, Stockholms kommun",
+    "fee": "3 830 kr/mån",
+    "squareMeterPrice": "108 333 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+4 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.3196251,
+      "long": 18.0214226
+    },
+    "brokerAgencyName": "Real Estate Stockholm",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/98/d3/98d3b5297481d0e4f2156e57f39296b3.jpg",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/0d/e2/0de2495e9d7c90d7d79c36359e1e9a40.png",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:990662119168355452": {
+    "__typename": "SaleCard",
+    "id": "990662119168355452",
+    "listingId": "21711296",
+    "slug": "lagenhet-2rum-johannesfred-stockholms-kommun-slaggvagen-5-990662119168355452",
+    "streetAddress": "Slaggvägen 5",
+    "soldAt": "1781481600.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "3 695 000 kr",
+    "finalPrice": "4 000 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "1d/cc/1dcc67eff5f088d2312fe4b688649379.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMElEQVR4nGOwCmOonmP////167duM3RN8Oyf5NLZG1PVVs9g6KTq7egc5ODIwM4BAGM7D0oqfK7JAAAAAElFTkSuQmCC"
+    },
+    "livingArea": "65 m²",
+    "locationDescription": "Johannesfred, Stockholms kommun",
+    "fee": "3 854 kr/mån",
+    "squareMeterPrice": "61 538 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+8 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.34707315,
+      "long": 17.9764538
+    },
+    "brokerAgencyName": "SkandiaMäklarna Bromma",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/e4/a8/e4a8b297b623f7722a8bd7c15f8fa4e7.png",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/51/3d/513df711efcaf2c6653f782b0a267d8b.jpg",
+    "brokerName": "Julia Hast",
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Uteplats",
+        "identifier": "PATIO",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/1d/cc/1dcc67eff5f088d2312fe4b688649379.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:9016406332241985713": {
+    "__typename": "SaleCard",
+    "id": "9016406332241985713",
+    "listingId": "21740929",
+    "slug": "lagenhet-2rum-vasastan-stockholms-kommun-robert-almstromsgatan-7-9016406332241985713",
+    "streetAddress": "Robert Almströmsgatan 7",
+    "soldAt": "1781474400.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "4 050 000 kr",
+    "finalPrice": "4 350 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "bc/64/bc64ba2a5278e54eff8da687fb91913e.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMklEQVR4nAEnANj/AM3Ct//78MCxn6ydjQDMvLL98eK6po8rIhgAHQAAWEQ2q5aCTTMY1zwTv/FeEbQAAAAASUVORK5CYII="
+    },
+    "livingArea": "35 m²",
+    "locationDescription": "Vasastan, Stockholms kommun",
+    "fee": "2 435 kr/mån",
+    "squareMeterPrice": "124 286 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+7 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.339114220473284,
+      "long": 18.03325102395158
+    },
+    "brokerAgencyName": "Innerstad Mäkleri",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/a6/c2/a6c2a7f3ebd65b45a7f9611fdb14bc0f.png",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/66/03/6603cde7919d2175b3921279bc1a2ca3.jpg",
+    "brokerName": "Caroline Hanell",
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/bc/64/bc64ba2a5278e54eff8da687fb91913e.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:6956077737054966088": {
+    "__typename": "SaleCard",
+    "id": "6956077737054966088",
+    "listingId": "21740172",
+    "slug": "lagenhet-2rum-huvudsta-solna-kommun-storgatan-62c-6956077737054966088",
+    "streetAddress": "Storgatan 62C",
+    "soldAt": "1781474400.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "2 695 000 kr",
+    "finalPrice": "2 900 000 kr",
+    "image": null,
+    "livingArea": "53,5 m²",
+    "locationDescription": "Huvudsta, Solna kommun",
+    "fee": "3 669 kr/mån",
+    "squareMeterPrice": "54 206 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+8 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.349472,
+      "long": 17.9872856
+    },
+    "brokerAgencyName": "Bergets Ro Fastighetsförmedling",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/7d/c1/7dc17273da1148f12ec8ea23bd3f6827.jpg",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/00/6c/006c6b29e0e9ace824d0c6cab1ff591d.jpg",
+    "brokerName": "Hasan Shahid",
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.349472%2C17.9872856&size=690x460&zoom=14&signature=BInLI3epwJkWXtOHzl_2MPT_ZDc",
+    "recordType": "COMMON"
+  },
+  "SaleCard:5969693360240000328": {
+    "__typename": "SaleCard",
+    "id": "5969693360240000328",
+    "listingId": "21727534",
+    "slug": "lagenhet-2rum-fruangen-stockholms-kommun-agnes-lagerstedts-gata-12-5969693360240000328",
+    "streetAddress": "Agnes Lagerstedts gata 12",
+    "soldAt": "1781474400.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "2 495 000 kr",
+    "finalPrice": "2 700 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "df/83/df83651883a711e37ec21cbdb6336cda.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMklEQVR4nAEnANj/AMy8pf/v1//x3//24wDJr4T/57zq2sPt368AYkAytpR/8M+0HwAANVkZaWSx804AAAAASUVORK5CYII="
+    },
+    "livingArea": "55 m²",
+    "locationDescription": "Fruängen, Stockholms kommun",
+    "fee": "3 932 kr/mån",
+    "squareMeterPrice": "49 091 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+8 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.28534,
+      "long": 17.9689083
+    },
+    "brokerAgencyName": "Historiska Hem",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/29/ef/29ef6ea0936106a0033c5f69a2feda85.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/df/83/df83651883a711e37ec21cbdb6336cda.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:5128261256751524290": {
+    "__typename": "SaleCard",
+    "id": "5128261256751524290",
+    "listingId": "21734282",
+    "slug": "lagenhet-2rum-lilla-essingen-stockholms-kommun-luxgatan-13-5128261256751524290",
+    "streetAddress": "Luxgatan 13",
+    "soldAt": "1781474400.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "3 250 000 kr",
+    "finalPrice": "3 250 000 kr",
+    "image": null,
+    "livingArea": "49 m²",
+    "locationDescription": "Lilla Essingen, Stockholms kommun",
+    "fee": "3 671 kr/mån",
+    "squareMeterPrice": "66 327 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "±0 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.3236465,
+      "long": 18.0074654
+    },
+    "brokerAgencyName": "SMH Living",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/90/66/90666b94ebb0f185aa813f391fdb8202.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.3236465%2C18.0074654&size=690x460&zoom=14&signature=yPMh1xYG9tsapF61TbVyVeDNPCQ",
+    "recordType": "COMMON"
+  },
+  "SaleCard:5124870532033684108": {
+    "__typename": "SaleCard",
+    "id": "5124870532033684108",
+    "listingId": "21730047",
+    "slug": "lagenhet-2rum-vasastan-stockholms-kommun-sonja-kovalevskys-gata-11-5124870532033684108",
+    "streetAddress": "Sonja Kovalevskys Gata 11",
+    "soldAt": "1781474400.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "5 450 000 kr",
+    "finalPrice": "5 250 000 kr",
+    "image": null,
+    "livingArea": "46 m²",
+    "locationDescription": "Vasastan, Stockholms kommun",
+    "fee": "2 530 kr/mån",
+    "squareMeterPrice": "114 130 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "-4 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.3474464,
+      "long": 18.0341816
+    },
+    "brokerAgencyName": "Bergets Ro Fastighetsförmedling",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/7d/c1/7dc17273da1148f12ec8ea23bd3f6827.jpg",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/8e/8a/8e8a9df6cd9e1cd8a1cace02a38838b7.jpg",
+    "brokerName": "Ronni Mleczkovicz",
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.3474464%2C18.0341816&size=690x460&zoom=14&signature=fHhT4lIycJJTFoobbvB89FIBpLg",
+    "recordType": "COMMON"
+  },
+  "SaleCard:3310079805710088912": {
+    "__typename": "SaleCard",
+    "id": "3310079805710088912",
+    "listingId": "21732060",
+    "slug": "lagenhet-2rum-vasastan-stockholms-kommun-bravallagatan-3-3310079805710088912",
+    "streetAddress": "Bråvallagatan 3",
+    "soldAt": "1781474400.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "4 950 000 kr",
+    "finalPrice": "5 100 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "65/e9/65e9ba2e6b9ab0adbc61d77087aabd5d.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMklEQVR4nAEnANj/ANnUx9DIu//87qOUhQD17965rJW2p5B0XUwAIR4DqpBmsYtkJgAA7cwU2/Sm4sYAAAAASUVORK5CYII="
+    },
+    "livingArea": "41 m²",
+    "locationDescription": "Vasastan, Stockholms kommun",
+    "fee": "2 796 kr/mån",
+    "squareMeterPrice": "124 390 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+3 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.33850720695672,
+      "long": 18.03423469770117
+    },
+    "brokerAgencyName": "SJÖMAN\\PARTNERS",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/cd/a9/cda9cfc2d8d114c9810d1a882602ec19.png",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/6b/ff/6bff29748024431906805d88d0a7f7b1.jpg",
+    "brokerName": "Oskar Vilgotsson",
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/65/e9/65e9ba2e6b9ab0adbc61d77087aabd5d.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:2336585549494038954": {
+    "__typename": "SaleCard",
+    "id": "2336585549494038954",
+    "listingId": "21622938",
+    "slug": "lagenhet-2rum-hammarbyhojden-stockholms-kommun-lidkopingsvagen-24-2336585549494038954",
+    "streetAddress": "Lidköpingsvägen 24",
+    "soldAt": "1781474400.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "2 995 000 kr",
+    "finalPrice": "3 200 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "a3/d1/a3d1e4775d23e32ae613f27ff1ea6277.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAMElEQVR4nGP4/Pf/jt2n+lbcTGo/ytDVFFvpxXBtRcPxu/8ZlBkY4q0ZKj0ZMxOcALJDEkIS7Z3mAAAAAElFTkSuQmCC"
+    },
+    "livingArea": "48 m²",
+    "locationDescription": "Hammarbyhöjden, Stockholms kommun",
+    "fee": "3 988 kr/mån",
+    "squareMeterPrice": "66 667 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+7 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.2921524,
+      "long": 18.0973377
+    },
+    "brokerAgencyName": "Erik Olsson Fastighetsförmedling",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/ad/cd/adcd07e428ac8ff10c43939453b94757.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/a3/d1/a3d1e4775d23e32ae613f27ff1ea6277.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:1762988603446155934": {
+    "__typename": "SaleCard",
+    "id": "1762988603446155934",
+    "listingId": "21692700",
+    "slug": "lagenhet-2rum-gardet-stockholms-kommun-rindogatan-9-1762988603446155934",
+    "streetAddress": "Rindögatan 9",
+    "soldAt": "1781474400.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "4 395 000 kr",
+    "finalPrice": "4 650 000 kr",
+    "image": null,
+    "livingArea": "44 m²",
+    "locationDescription": "Gärdet, Stockholms kommun",
+    "fee": "2 751 kr/mån",
+    "squareMeterPrice": "105 682 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+6 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.347540586563824,
+      "long": 18.094882994130103
+    },
+    "brokerAgencyName": "Oscars Fastighetsmäkleri",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/9e/e6/9ee6e8b5e713934e77432b818291ce43.png",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/89/5b/895bbd0c65dbba80fc9be4d0d58d2b9c.jpg",
+    "brokerName": "Fredrik Brunned",
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.347540586563824%2C18.094882994130103&size=690x460&zoom=14&signature=HiFIDUxf-zL3A2nrYNxrQv7Z6_0",
+    "recordType": "COMMON"
+  },
+  "SaleCard:1450516829550928466": {
+    "__typename": "SaleCard",
+    "id": "1450516829550928466",
+    "listingId": "21740371",
+    "slug": "lagenhet-2rum-arsta-stockholms-kommun-arstavagen-24,-1-tr-1450516829550928466",
+    "streetAddress": "Årstavägen 24, 1 tr",
+    "soldAt": "1781474400.0",
+    "soldAtLabel": "Såld 15 jun. 2026",
+    "askingPrice": "2 375 000 kr",
+    "finalPrice": "2 550 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "30/4b/304ba56a8544b7a4fc86ee0b8c08ac83.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMklEQVR4nAEnANj/AKCEbcStmf/8+MC6sgBlUkQ9JAvSxsDl5eYAMwAAjlUA6cabTTIVoqETHmtZ9YEAAAAASUVORK5CYII="
+    },
+    "livingArea": "51 m²",
+    "locationDescription": "Årsta, Stockholms kommun",
+    "fee": "4 690 kr/mån",
+    "squareMeterPrice": "50 000 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+7 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.295546158575014,
+      "long": 18.055651569585514
+    },
+    "brokerAgencyName": "BOSTHLM Årsta",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/a7/93/a7938208102cd23ddb10b6429d1b32cd.png",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/ef/c9/efc94a3197eaf9a7d1b4ef7da579a5bc.jpg",
+    "brokerName": "Monia Belgacem",
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/30/4b/304ba56a8544b7a4fc86ee0b8c08ac83.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:261261788617716179": {
+    "__typename": "SaleCard",
+    "id": "261261788617716179",
+    "listingId": "21730169",
+    "slug": "lagenhet-2rum-centrala-sundbyberg-sundbybergs-kommun-sundbybergs-torg-1b-261261788617716179",
+    "streetAddress": "Sundbybergs torg 1B",
+    "soldAt": "1781467200.0",
+    "soldAtLabel": "Såld 14 jun. 2026",
+    "askingPrice": "3 795 000 kr",
+    "finalPrice": "4 200 000 kr",
+    "image": null,
+    "livingArea": "53 m²",
+    "locationDescription": "Centrala Sundbyberg, Sundbybergs kommun",
+    "fee": "3 368 kr/mån",
+    "squareMeterPrice": "79 245 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+11 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.3617,
+      "long": 17.9667416
+    },
+    "brokerAgencyName": "Bergets Ro Fastighetsförmedling",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/7d/c1/7dc17273da1148f12ec8ea23bd3f6827.jpg",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/4a/27/4a27babee73a0c636b58f1f343b949b7.jpg",
+    "brokerName": "Rasmus Logärd",
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.3617%2C17.9667416&size=690x460&zoom=14&signature=5yqovEQbA7S9aKU_g9JSXvzYIjA",
+    "recordType": "COMMON"
+  },
+  "SaleCard:4804054936803192": {
+    "__typename": "SaleCard",
+    "id": "4804054936803192",
+    "listingId": "",
+    "slug": "lagenhet-2rum-fredhall-stockholms-kommun-frodingsvagen-3-4804054936803192",
+    "streetAddress": "Frödingsvägen 3",
+    "soldAt": "1781443800.0",
+    "soldAtLabel": "Såld 14 jun. 2026",
+    "askingPrice": "Pris på förfrågan",
+    "finalPrice": "4 200 000 kr",
+    "image": null,
+    "livingArea": "42 m²",
+    "locationDescription": "Stockholm, Stockholms kommun",
+    "fee": "3 011 kr/mån",
+    "squareMeterPrice": "100 000 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": null,
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.33098,
+      "long": 18.003479
+    },
+    "brokerAgencyName": "Bjurfors Kungsholmen",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/64/e9/64e95305668e943da204f07b900742e0.jpg",
+    "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/60/81/608146a59dabb4af716eb85b984e8f11.jpg",
+    "brokerName": "Sanna Rihm",
+    "labels": [],
+    "product": "ENHANCED",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.33098%2C18.003479&size=690x460&zoom=14&signature=ISFtaVIwZtVtiAdLLijkOClOAdI",
+    "recordType": "COMMON"
+  },
+  "SaleCard:6794051175609568836": {
+    "__typename": "SaleCard",
+    "id": "6794051175609568836",
+    "listingId": "21734289",
+    "slug": "lagenhet-2rum-hogdalen-stockholms-kommun-skebokvarnsvagen-366,-van-13-6794051175609568836",
+    "streetAddress": "Skebokvarnsvägen 366, vån 13",
+    "soldAt": "1781438400.0",
+    "soldAtLabel": "Såld 14 jun. 2026",
+    "askingPrice": "1 995 000 kr",
+    "finalPrice": "2 020 000 kr",
+    "image": null,
+    "livingArea": "66 m²",
+    "locationDescription": "Högdalen, Stockholms kommun",
+    "fee": "6 170 kr/mån",
+    "squareMeterPrice": "30 606 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+1 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.26199,
+      "long": 18.0398045
+    },
+    "brokerAgencyName": "LF Fastighetsförmedling Årsta-Bandhagen",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/78/4f/784fec46b84c09047e6628dff7c3d4b7.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.26199%2C18.0398045&size=690x460&zoom=14&signature=fB8B-0ALfPRlWicm6Zd2611rO0U",
+    "recordType": "COMMON"
+  },
+  "SaleCard:2932842514380516116": {
+    "__typename": "SaleCard",
+    "id": "2932842514380516116",
+    "listingId": "21729395",
+    "slug": "lagenhet-2rum-grindtorp-taby-kommun-grindtorpsvagen-21-van-6-2932842514380516116",
+    "streetAddress": "Grindtorpsvägen 21 vån 6",
+    "soldAt": "1781438400.0",
+    "soldAtLabel": "Såld 14 jun. 2026",
+    "askingPrice": "2 195 000 kr",
+    "finalPrice": "2 350 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "48/ec/48ecad4aaac00ecac9ce62e3221909c2.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMElEQVR4nGPIykpbvnzF3gNH9u/by5CVka6jrqKtrvzt518GJU4GHTEGJQYGBXYGAFUfDXOIGpyTAAAAAElFTkSuQmCC"
+    },
+    "livingArea": "61 m²",
+    "locationDescription": "Grindtorp, Täby kommun",
+    "fee": "4 875 kr/mån",
+    "squareMeterPrice": "38 525 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+7 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.439806013,
+      "long": 18.0758180759
+    },
+    "brokerAgencyName": "Fastighetsbyrån Täby",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/9a/1d/9a1d96473c8655c0b20a5339912f91e2.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [
+      {
+        "__typename": "Label",
+        "text": "Balkong",
+        "identifier": "BALCONY",
+        "category": "FEATURE"
+      },
+      {
+        "__typename": "Label",
+        "text": "Hiss",
+        "identifier": "ELEVATOR",
+        "category": "FEATURE"
+      }
+    ],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/48/ec/48ecad4aaac00ecac9ce62e3221909c2.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  },
+  "SaleCard:7042896176100034195": {
+    "__typename": "SaleCard",
+    "id": "7042896176100034195",
+    "listingId": "21732895",
+    "slug": "lagenhet-2rum-aspudden-hagerstensasen-stockholms-kommun-fastlagsvagen-61,-van-3-3-7042896176100034195",
+    "streetAddress": "Fastlagsvägen 61, vån 3/3",
+    "soldAt": "1781424000.0",
+    "soldAtLabel": "Såld 14 jun. 2026",
+    "askingPrice": "2 995 000 kr",
+    "finalPrice": "3 250 000 kr",
+    "image": {
+      "__typename": "CardImage",
+      "filename": "bd/56/bd560888f79d15e11996e6ad98ee0f02.jpg",
+      "lqipBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMklEQVR4nAEnANj/AIWFgPv79ufl3315cgCqq6Xm49js697EwsIAYFpSgXFdXkk2GAAA61sVcgDXaUwAAAAASUVORK5CYII="
+    },
+    "livingArea": "53 m²",
+    "locationDescription": "Aspudden - Hägerstensåsen, Stockholms kommun",
+    "fee": "4 826 kr/mån",
+    "squareMeterPrice": "61 321 kr/m²",
+    "housingForm": {
+      "__typename": "HousingForm",
+      "symbol": "APARTMENT",
+      "name": "Lägenhet"
+    },
+    "rooms": "2 rum",
+    "landArea": null,
+    "priceChange": "+9 %",
+    "coordinates": {
+      "__typename": "GeometryPoint",
+      "lat": 59.30286,
+      "long": 17.9936733
+    },
+    "brokerAgencyName": "Notar",
+    "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/fc/31/fc3191831a6ecaf61cd246590fc02710.png",
+    "brokerThumbnail": null,
+    "brokerName": null,
+    "labels": [],
+    "product": "NONE",
+    "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://bilder.hemnet.se/images/itemgallery_cut/bd/56/bd560888f79d15e11996e6ad98ee0f02.jpg",
+    "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+    "recordType": "COMMON"
+  }
+}

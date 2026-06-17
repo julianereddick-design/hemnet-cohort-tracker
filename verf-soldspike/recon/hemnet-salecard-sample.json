@@ -1,0 +1,38 @@
+{
+  "__typename": "SaleCard",
+  "id": "4513215104435221698",
+  "listingId": "21744808",
+  "slug": "lagenhet-2rum-kungsholmen-fredhall-stockholms-kommun-frodingsvagen-5-4513215104435221698",
+  "streetAddress": "Frödingsvägen 5",
+  "soldAt": "1781609400.0",
+  "soldAtLabel": "Såld 16 jun. 2026",
+  "askingPrice": "3 595 000 kr",
+  "finalPrice": "3 600 000 kr",
+  "image": null,
+  "livingArea": "42,5 m²",
+  "locationDescription": "Kungsholmen - Fredhäll, Stockholms kommun",
+  "fee": "3 024 kr/mån",
+  "squareMeterPrice": "84 706 kr/m²",
+  "housingForm": {
+    "__typename": "HousingForm",
+    "symbol": "APARTMENT",
+    "name": "Lägenhet"
+  },
+  "rooms": "2 rum",
+  "landArea": null,
+  "priceChange": "±0 %",
+  "coordinates": {
+    "__typename": "GeometryPoint",
+    "lat": 59.3308,
+    "long": 18.0033569
+  },
+  "brokerAgencyName": "LF Fastighetsförmedling Kungsholmen",
+  "brokerAgencyThumbnail": "https://bilder.hemnet.se/images/broker_logo_1_2x/78/4f/784fec46b84c09047e6628dff7c3d4b7.png",
+  "brokerThumbnail": "https://bilder.hemnet.se/images/broker_profile_small/48/db/48db9945c9ef78651391e3d8e1a63c94.jpg",
+  "brokerName": "Tolgay Erdinc",
+  "labels": [],
+  "product": "ENHANCED",
+  "thumbnail({\"format\":\"ITEMGALLERY_CUT\"})": null,
+  "mapThumbnail({\"format\":\"ITEMGALLERY_CUT\"})": "https://maps.googleapis.com/maps/api/staticmap?key=AIzaSyAvR8lQbyQytYdggFUVGZekvRFX2fJGGZ0&language=sv&map_id=f2115f301367545e&markers=icon%3Ahttps%3A%2F%2Fwww.hemnet.se%2Fimages%2Flisting_icons%2Fmap_markers%2Fstatic_map_markers%2Fsale%2Fapartment.png%7Cscale%3A1%7C59.3308%2C18.0033569&size=690x460&zoom=14&signature=ipu_K8hO6MgSFglt0TEtZ5kha-M",
+  "recordType": "COMMON"
+}

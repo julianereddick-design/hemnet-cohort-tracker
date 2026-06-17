@@ -1,0 +1,45 @@
+{
+  "at": "2026-06-16T23:24:27.376Z",
+  "procStats": {
+    "live": 3,
+    "cacheHits": 2203,
+    "fails": 0,
+    "spent": 2831,
+    "remaining": 1169,
+    "cap": 4000
+  },
+  "segments": [
+    {
+      "segment": "stockholm-apt",
+      "family": "APARTMENT",
+      "seed": 300,
+      "processed": 300,
+      "stoppedBy": null,
+      "verdicts": {
+        "BOOLI_ONLY": 112,
+        "CONFIRMED_MATCH": 184,
+        "UNCERTAIN": 4
+      },
+      "recall": {
+        "genuine-bypass": 111,
+        "match-miss": 1
+      }
+    },
+    {
+      "segment": "taby-villa",
+      "family": "HOUSE",
+      "seed": 1970,
+      "processed": 300,
+      "stoppedBy": null,
+      "verdicts": {
+        "CONFIRMED_MATCH": 193,
+        "BOOLI_ONLY": 106,
+        "UNCERTAIN": 1
+      },
+      "recall": {
+        "genuine-bypass": 105,
+        "match-miss": 1
+      }
+    }
+  ]
+}
