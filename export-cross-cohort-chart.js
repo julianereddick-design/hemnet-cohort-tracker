@@ -11,14 +11,18 @@ const SKIP_COHORTS = ['2026-W09', '2026-W10', '2026-W11']; // low data quality
 // Override per-run with --min-cohort YYYY-Www.
 const MIN_COHORT = '2026-W20';
 
-const REGIONS = ['Total', 'Stockholm', 'Gotenberg', 'Skane', 'Olland'];
+const REGIONS = ['Total', 'Stockholm', 'Gotenberg', 'Skane', 'Olland', 'Ostermalm'];
 const REGION_LABELS = {
   Total: 'TOTAL',
   Stockholm: 'Stockholm',
   Gotenberg: 'Gotenberg',
   Skane: 'Skane',
   Olland: 'Olland (350k pop County)',
+  Ostermalm: 'Östermalm (Sthlm 114–115xx)',
 };
+// Östermalm is a postcode-defined district (additive overlay of Stockholm), not a county.
+const OSTERMALM_PC_MIN = 11400;
+const OSTERMALM_PC_MAX = 11599;
 
 const COHORT_COLORS = [
   '#1565C0', // blue
@@ -74,6 +78,7 @@ async function parseXlsx(filePath) {
     const row = ws.getRow(r);
     const region = row.getCell(6).value; // Col F = region
     if (!region) continue;
+    const postcode = row.getCell(7).value; // Col G = postcode (for district slicing; may be absent in old xlsx)
 
     const cumH = [];
     const cumB = [];
@@ -86,7 +91,7 @@ async function parseXlsx(filePath) {
       cumB.push(typeof bVal === 'number' ? bVal : null);
     }
 
-    pairs.push({ region, cumH, cumB });
+    pairs.push({ region, postcode, cumH, cumB });
   }
 
   console.log(`  ${cohortId}: ${pairs.length} pairs, ${dates.length} dates (${dates[0]} to ${dates[dates.length - 1]})`);
@@ -106,7 +111,18 @@ function computeHPct(cohortData) {
       const bIncrVals = [];
 
       for (const pair of pairs) {
-        if (region !== 'Total' && pair.region !== region) continue;
+        // Region membership. 'Total' = all; 'Ostermalm' = postcode-defined additive overlay of
+        // Stockholm (pairs also still count toward Stockholm); others = exact region match.
+        let include;
+        if (region === 'Total') {
+          include = true;
+        } else if (region === 'Ostermalm') {
+          const pc = Number(pair.postcode);
+          include = Number.isFinite(pc) && pc >= OSTERMALM_PC_MIN && pc <= OSTERMALM_PC_MAX;
+        } else {
+          include = pair.region === region;
+        }
+        if (!include) continue;
 
         // Include flag H: both current and 2-day-back must be positive numbers
         const hCurr = pair.cumH[d];
@@ -216,7 +232,7 @@ ${canvases}
 <li><strong>Include criteria:</strong> A pair-date is included only if both the current date and 2 dates prior have positive cumulative views (replicates the Section 3 flags in the xlsx).</li>
 <li><strong>Daily incremental:</strong> <code>max(0, (cumulative_today - cumulative_2_days_ago) / 2)</code> for both Hemnet and Booli. Negative deltas are floored to zero.</li>
 <li><strong>Hemnet % of Total:</strong> <code>mean(H_incremental) / (mean(H_incremental) + mean(B_incremental)) &times; 100</code> per region per date. Minimum 3 included pairs required.</li>
-<li><strong>Regions:</strong> Stockholm, Gotenberg (V&auml;stra G&ouml;talands), Skane (Sk&aring;ne), Olland (all other counties). TOTAL includes all regions.</li>
+<li><strong>Regions:</strong> Stockholm, Gotenberg (V&auml;stra G&ouml;talands), Skane (Sk&aring;ne), Olland (all other counties). TOTAL includes all regions. <strong>&Ouml;stermalm</strong> is an additive drill-down of Stockholm postcodes 11400&ndash;11599 (those pairs also remain in the Stockholm series).</li>
 </ul></div>
 <script>
 ${scripts}

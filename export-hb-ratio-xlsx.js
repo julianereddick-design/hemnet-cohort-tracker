@@ -50,7 +50,7 @@ async function run() {
 
   // Query pairs
   const pairsRes = await client.query(`
-    SELECT id, booli_id, hemnet_id, street_address, municipality, county,
+    SELECT id, booli_id, hemnet_id, street_address, municipality, county, postcode,
            booli_listed::text AS booli_listed
     FROM cohort_pairs
     WHERE cohort_id = $1
@@ -148,6 +148,14 @@ async function run() {
     if (hiddenCols.includes(i + 1)) ws.getColumn(i + 1).hidden = true;
   }
 
+  // Col 7 (G): postcode — written into the former blank separator so downstream consumers
+  // (export-cross-cohort-chart.js) can slice districts like Östermalm. Hidden; SEC2_START stays
+  // col 8, so the cumulative/flag/incremental sections are unshifted.
+  row2.getCell(7).value = 'postcode';
+  row2.getCell(7).fill = HEADER_FILL_BLUE;
+  ws.getColumn(7).width = 10;
+  ws.getColumn(7).hidden = true;
+
   // Section 2: date headers (H_date, B_date alternating)
   for (let d = 0; d < dates.length; d++) {
     const hCol = SEC2_START + d * 2;
@@ -204,6 +212,7 @@ async function run() {
     row.getCell(4).value = pair.street_address || '';
     row.getCell(5).value = pair.county || '';
     row.getCell(6).value = region;
+    row.getCell(7).value = pair.postcode == null ? '' : pair.postcode; // Col G — for district slicing
 
     // Section 2: cumulative views (static values)
     for (let d = 0; d < dates.length; d++) {
