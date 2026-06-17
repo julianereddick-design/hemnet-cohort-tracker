@@ -1,7 +1,8 @@
 // market-totals-weekly-report.js
 // Phase 11 (v2.2) — Weekly market-supply Slack pulse.
-// Reads market_totals for (CURRENT_DATE, CURRENT_DATE - 7 days) × {hemnet, booli} × till_salu.
-// Renders the locked Slack format (D-04) and posts to SLACK_WEBHOOK_URL.
+// Reads market_totals for (CURRENT_DATE, CURRENT_DATE - 7 days) × {hemnet, booli}
+// × {till_salu, kommande}. Renders two stacked blocks (For Sale + Pre-market) in
+// the locked Slack format (D-04) and posts to SLACK_WEBHOOK_URL.
 // Missing prior-week rows render as `?` (D-04); does NOT crash.
 
 require('dotenv').config();
@@ -76,8 +77,25 @@ function renderRow(label, prior, curr, withPct) {
   return `${labelCol} ${lpad(priorStr, 8)} → ${lpad(currStr, 8)}   ${deltaCell}`;
 }
 
+// Render one segment block: a title line + Hemnet / Booli / gap rows.
+// `seg` is { hemnet: {prior, curr}, booli: {prior, curr} }.
+function renderBlock(title, seg) {
+  const gapPrior = (seg.booli.prior != null && seg.hemnet.prior != null)
+    ? seg.booli.prior - seg.hemnet.prior : null;
+  const gapCurr  = (seg.booli.curr  != null && seg.hemnet.curr  != null)
+    ? seg.booli.curr  - seg.hemnet.curr  : null;
+  return [
+    title,
+    renderRow('Hemnet',         seg.hemnet.prior, seg.hemnet.curr, true),
+    renderRow('Booli',          seg.booli.prior,  seg.booli.curr,  true),
+    renderRow('Booli − Hemnet', gapPrior,         gapCurr,         false),
+  ];
+}
+
 async function run() {
-  const today = new Date().toISOString().slice(0, 10);
+  // Report "current" date. Defaults to today; REPORT_DATE=YYYY-MM-DD re-runs a past
+  // week (e.g. to backfill a missed pulse or eyeball a prior week's numbers).
+  const today = process.env.REPORT_DATE || new Date().toISOString().slice(0, 10);
   console.log(`=== Market Supply Pulse — ${today} ===\n`);
 
   const client = createClient();
@@ -86,51 +104,53 @@ async function run() {
   let rows;
   try {
     const res = await client.query(`
-      SELECT site, day, total
+      SELECT site, segment, to_char(day, 'YYYY-MM-DD') AS day, total
       FROM market_totals
-      WHERE segment = 'till_salu'
-        AND day IN (CURRENT_DATE, CURRENT_DATE - INTERVAL '7 days')
-      ORDER BY site, day
-    `);
+      WHERE segment IN ('till_salu', 'kommande')
+        AND day IN ($1::date, $1::date - INTERVAL '7 days')
+      ORDER BY segment, site, day
+    `, [today]);
     rows = res.rows;
   } finally {
     await client.end();
   }
 
-  // Shape into { hemnet: { prior: null, curr: null }, booli: { prior: null, curr: null } }.
-  const buckets = { hemnet: { prior: null, curr: null }, booli: { prior: null, curr: null } };
+  // Shape into { <segment>: { hemnet: {prior,curr}, booli: {prior,curr} } }.
+  const buckets = {
+    till_salu: { hemnet: { prior: null, curr: null }, booli: { prior: null, curr: null } },
+    kommande:  { hemnet: { prior: null, curr: null }, booli: { prior: null, curr: null } },
+  };
   for (const r of rows) {
-    // pg returns DATE columns as JS Date objects; extract the YYYY-MM-DD string.
-    const dayStr = r.day instanceof Date
-      ? r.day.toISOString().slice(0, 10)
-      : String(r.day).slice(0, 10);
-    const isToday = dayStr === today;
-    const slot = isToday ? 'curr' : 'prior';
-    if (buckets[r.site]) buckets[r.site][slot] = Number(r.total);
+    // r.day is already a 'YYYY-MM-DD' string (to_char in SQL) — no JS Date / TZ math.
+    const slot = r.day === today ? 'curr' : 'prior';
+    if (buckets[r.segment] && buckets[r.segment][r.site]) {
+      buckets[r.segment][r.site][slot] = Number(r.total);
+    }
   }
 
-  if (buckets.hemnet.prior == null || buckets.hemnet.curr == null ||
-      buckets.booli.prior  == null || buckets.booli.curr  == null) {
+  // Warn (don't crash) if any of the 8 expected cells is missing — renders "?" per D-04.
+  const missing = [];
+  for (const seg of ['till_salu', 'kommande']) {
+    for (const site of ['hemnet', 'booli']) {
+      for (const slot of ['prior', 'curr']) {
+        if (buckets[seg][site][slot] == null) missing.push(`${seg}.${site}.${slot}`);
+      }
+    }
+  }
+  if (missing.length) {
     console.warn(
-      `WARN: at least one of the 4 expected rows is missing. ` +
-      `hemnet.prior=${buckets.hemnet.prior} hemnet.curr=${buckets.hemnet.curr} ` +
-      `booli.prior=${buckets.booli.prior} booli.curr=${buckets.booli.curr}. ` +
+      `WARN: ${missing.length} of 8 expected cells missing [${missing.join(', ')}]. ` +
       `Rendering "?" cells per D-04. If this is the first-ever Phase 11 run, ` +
       `or fewer than 7 days have elapsed since deploy, this is expected.`
     );
   }
 
-  // Booli − Hemnet gap (note: U+2212 MINUS in the label per D-04).
-  const gapPrior = (buckets.booli.prior != null && buckets.hemnet.prior != null)
-    ? buckets.booli.prior - buckets.hemnet.prior : null;
-  const gapCurr  = (buckets.booli.curr  != null && buckets.hemnet.curr  != null)
-    ? buckets.booli.curr  - buckets.hemnet.curr  : null;
-
   const bodyLines = [
-    `Market supply pulse — Till salu, week of ${today}`,
-    renderRow('Hemnet',           buckets.hemnet.prior, buckets.hemnet.curr, true),
-    renderRow('Booli',            buckets.booli.prior,  buckets.booli.curr,  true),
-    renderRow('Booli − Hemnet', gapPrior,          gapCurr,             false),
+    `Market supply pulse — week of ${today}`,
+    '',
+    ...renderBlock('Till salu (For Sale)', buckets.till_salu),
+    '',
+    ...renderBlock('Kommande (Pre-market)', buckets.kommande),
   ];
   const message = '```\n' + bodyLines.join('\n') + '\n```';
 
