@@ -15,7 +15,13 @@ findings:
   warning: 5
   info: 5
   total: 10
+  warning_resolved: 4
+  warning_open: 1
 status: issues_found
+resolution:
+  note: "WR-01/03/04/05 fixed inline 2026-06-17 (commits 57cd499, 41951b0, 82775f2); smokes re-run green. WR-02 (per-instance seeded flag) deferred — revisit when per-window spend keys arrive. 5 info items are deliberate sync/async duality notes handed to Phase 17."
+  fixed: [WR-01, WR-03, WR-04, WR-05]
+  open: [WR-02]
 ---
 
 # Phase 16: Code Review Report
