@@ -164,13 +164,105 @@ async function persistMapped(client, record, verdict, matchMethod, matchedCard, 
 }
 
 // ---------------------------------------------------------------------------
-// matchOne — Task 2 fills the search → candidate → adjudicate → persist body.
-// Placeholder for the Task-1 scaffold (returns 'uncertain' without touching the
-// network/DB so the worker pool wiring is exercisable). deps allows the smoke to
-// inject stubbed searchSoldPaged / fetchBooliDetail (offline).
+// matchOne — Hemnet search → address candidates → adjudication → persist verdict.
+// Reproduces the spike matchOne with the three Phase-17 divergences:
+//   (1) DB persist (persistVerdictForRecord) instead of JSONL,
+//   (2) NO recall pass — non-matched emits booli_only (D-03),
+//   (3) inline apartment fee via fetchBooliDetail (D-06; seed-time rent is null
+//       for the monthly window — Pitfall 3).
+// Houses confirm via the address-key shortcut (unique address + agreeing area+price
+// → match_method=address_key); apartments confirm via fee-exact through adjudicatePair.
+// `deps` lets the offline smoke inject searchSoldPaged / fetchBooliDetail.
+// Returns the mapped verdict string ('matched'|'booli_only'|'uncertain') for the tally.
 // ---------------------------------------------------------------------------
 async function matchOne(client, record, seg, segKey, minSoldDate, maxSoldDate, log, deps = {}) {
-  return 'uncertain';
+  const search = deps.searchSoldPaged || searchSoldPaged;
+  const detailFetch = deps.fetchBooliDetail || fetchBooliDetail;
+  const opts = searchOptsFor(seg);
+
+  // 1) Per-record narrowed Hemnet /salda search. CeilingError re-throws (worker
+  //    catches); any other error → a booli_only verdict tagged search-failed.
+  let searchResult;
+  try {
+    searchResult = await search(record, seg, SOLD_DATE_WINDOW_DAYS, MAX_SEARCH_PAGES, opts);
+  } catch (e) {
+    if (e instanceof CeilingError) throw e;
+    return await persistMapped(client, record, 'booli_only', null, null, null,
+      { error: e.message, source: 'search-failed' }, segKey, minSoldDate, maxSoldDate, null);
+  }
+
+  const cards = (searchResult && searchResult.cards) || [];
+  const cands = addrCandidates(record, cards, SOLD_DATE_WINDOW_DAYS);
+
+  // 2) No same-address candidate → booli_only. NO recall pass (D-03).
+  if (cands.length === 0) {
+    return await persistMapped(client, record, 'booli_only', null, null, null,
+      { source: 'no-address-candidate', addr_candidates: 0, cards_seen: cards.length },
+      segKey, minSoldDate, maxSoldDate, null);
+  }
+
+  const chosen = pickBest(record, cands);
+  const deltas = deltasFor(record, chosen);
+
+  // 3) HOUSE branch — address is a (near-)unique key. Unique address + agreeing
+  //    area + price → CONFIRMED match via the spike shortcut (match_method=address_key);
+  //    multi-candidate / divergent → let the Phase-14 model speak (CONFIRMED_MATCH
+  //    demoted to uncertain, CONFIRMED_MISMATCH → booli_only). Villas have no fee
+  //    signal, so they NEVER route through fee-exact.
+  if (seg.family === 'HOUSE') {
+    const areaOk = deltas.area_pct_diff != null && deltas.area_pct_diff <= AREA_AGREE_PCT;
+    const priceOk = deltas.price_pct_diff != null && deltas.price_pct_diff <= PRICE_AGREE_PCT;
+    if (cands.length === 1 && areaOk && priceOk) {
+      await upsertHemnetSold(client, chosen); // D-07
+      return await persistMapped(client, record, 'matched', 'address_key', chosen, deltas, {
+        source: 'house-address+area+price',
+        reason: `unique address; area Δ${(deltas.area_pct_diff * 100).toFixed(1)}% price Δ${(deltas.price_pct_diff * 100).toFixed(1)}%`,
+        addr_candidates: cands.length,
+      }, segKey, minSoldDate, maxSoldDate, chosen);
+    }
+    const adj = adjudicatePair({
+      pair_id: record.booli_id, deltas,
+      photos: { hemnet_gallery: [], booli_gallery: [] }, // D-05: no photos for sold
+      hemnet_unit: {}, booli_unit: {},
+    }, {});
+    const v = adj.verdict === 'CONFIRMED_MATCH' ? 'uncertain'
+      : adj.verdict === 'CONFIRMED_MISMATCH' ? 'booli_only'
+        : 'uncertain';
+    return await persistMapped(client, record, v, null, null, deltas, {
+      source: adj.source, reason: adj.reason, signals: adj.signals, addr_candidates: cands.length,
+    }, segKey, minSoldDate, maxSoldDate, null);
+  }
+
+  // 4) APARTMENT branch — need a unit-level signal (fee-exact). D-06: seed-time
+  //    rent is null for the monthly window, so fetch the Booli detail INLINE.
+  let booliRent = null;
+  const residenceId = extractResidenceId(record);
+  if (residenceId) {
+    const detail = await detailFetch(residenceId, { logger: log }); // re-throws CeilingError only
+    booliRent = detail ? detail.rent : null;
+  }
+  // Prefer a fee-exact candidate when the Booli fee is known.
+  let feeChosen = chosen;
+  if (booliRent != null) {
+    const fm = cands.find((c) => c.fee != null && Math.abs(c.fee - booliRent) === 0);
+    if (fm) feeChosen = fm;
+  }
+  const aptDeltas = deltasFor(record, feeChosen);
+  const adj = adjudicatePair({
+    pair_id: record.booli_id, deltas: aptDeltas,
+    photos: { hemnet_gallery: [], booli_gallery: [] }, // D-05: no photos for sold
+    hemnet_unit: { fee: feeChosen.fee != null ? feeChosen.fee : null },
+    booli_unit: { rent: booliRent, floor: record.floor != null ? record.floor : null },
+  }, {});
+  const v = adj.verdict === 'CONFIRMED_MATCH' ? 'matched'
+    : adj.verdict === 'CONFIRMED_MISMATCH' ? 'booli_only'
+      : 'uncertain';
+  if (v === 'matched') await upsertHemnetSold(client, feeChosen); // D-07
+  return await persistMapped(client, record, v, v === 'matched' ? 'fee_exact' : null,
+    v === 'matched' ? feeChosen : null, aptDeltas, {
+      source: adj.source, reason: adj.reason, signals: adj.signals, addr_candidates: cands.length,
+      fee: { booli_rent: booliRent, hemnet_fee: feeChosen.fee, exact: booliRent != null && feeChosen.fee != null && booliRent === feeChosen.fee },
+    }, segKey, minSoldDate, maxSoldDate, v === 'matched' ? feeChosen : null);
 }
 
 // ---------------------------------------------------------------------------
