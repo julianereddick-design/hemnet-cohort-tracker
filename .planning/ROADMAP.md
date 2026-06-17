@@ -214,8 +214,16 @@ Plans:
   1. A migration creates three sold-side tables — Booli-sold, Hemnet-`/salda`, and match/verdict — carrying the enriched attributes and the `sold_in_advance` flag, in the project DB
   2. The pipeline persists Booli seeds, Hemnet sold cards, and match verdicts to those tables instead of writing JSON files
   3. Re-running the same segment + window upserts by stable keys (booli_id / hemnet slug / pair) and produces no duplicate rows
-**Plans**: TBD
+**Plans**: 3 plans (planned 2026-06-17)
 **UI hint**: no
+
+Plans:
+**Wave 1**
+- [ ] 16-01-PLAN.md — migrate-sold-phase16.js: re-runnable migration for booli_sold / hemnet_sold / sold_match (design-only) + sold_spend tables [DB-01, Wave 1]
+
+**Wave 2** *(blocked on Wave 1 — needs the tables)*
+- [ ] 16-02-PLAN.md — lib/sold-store.js (client-first upserts + D-02 title-transfer gate) + scripts/persist-sold.js (JSONL→DB pass) [DB-02, DB-03, Wave 2]
+- [ ] 16-03-PLAN.md — lib/sold-spend.js (DB atomic spend ceiling + file fallback, closes CR-01) + lib/sold-transport.js wiring [DB-02, DB-03, Wave 2]
 
 #### Phase 17: Match pipeline orchestration
 **Goal**: A config-driven runner stitches the ingestion modules, the Phase-14 adjudicator, and DB persistence into one manually-runnable end-to-end pipeline: for each configured segment (municipality + objectType) and a monthly rolling window it seeds Booli, searches Hemnet, adjudicates each non-deed-transfer record to a persisted verdict with evidence, honoring the apartment fee-window vs villa address-key rule.
@@ -247,7 +255,7 @@ Plans:
 | 10. Self-hosted scraper hardening | v2.1 | 5/5 | Complete (repo + droplet) | 2026-06-12 |
 | 11. Daily market-totals capture + minimal report | v2.2 | 3/3 shipped | Live since 2026-05-28; 7-day soak running | - |
 | 15. Sold-data ingestion library | v3.0 | 5/5 | Complete    | 2026-06-17 |
-| 16. Sold-match DB schema + persistence | v3.0 | 0/TBD | Not started | - |
+| 16. Sold-match DB schema + persistence | v3.0 | 0/3 | Planned | - |
 | 17. Match pipeline orchestration | v3.0 | 0/TBD | Not started | - |
 
 ### Phase 12: Cohort match spot-check weekly QA gate
