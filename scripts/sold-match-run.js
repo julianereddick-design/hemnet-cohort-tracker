@@ -293,6 +293,28 @@ function runSmoke() {
     try { fn(); pass++; }
     catch (e) { console.error(`SMOKE FAIL [${name}]: ${e.message}`); fail++; }
   }
+  async function checkAsync(name, fn) {
+    try { await fn(); pass++; }
+    catch (e) { console.error(`SMOKE FAIL [${name}]: ${e.message}`); fail++; }
+  }
+
+  // Mock pg client: records every (sql, params); returns an empty rowset. Offline.
+  function mockClient() {
+    const queries = [];
+    return {
+      queries,
+      // eslint-disable-next-line no-unused-vars
+      async query(sql, params) { queries.push({ sql, params }); return { rows: [], rowCount: 0 }; },
+    };
+  }
+  const sold = (c) => c.queries.filter((q) => /INSERT INTO sold_match/.test(q.sql));
+  const hemnet = (c) => c.queries.filter((q) => /INSERT INTO hemnet_sold/.test(q.sql));
+  const verdictSlug = (c) => sold(c)[0].params[1]; // $2 matched_hemnet_slug
+  const verdictMethod = (c) => sold(c)[0].params[3]; // $4 match_method
+  const verdictName = (c) => sold(c)[0].params[2]; // $3 verdict
+
+  // run the async portion, then print + exit.
+  (async () => {
 
   // --- Task 1: scaffold ---
   check('loadSegments returns stockholm-apt (APARTMENT) and taby-villa (HOUSE)', () => {
@@ -345,6 +367,103 @@ function runSmoke() {
     assert.strictEqual(b.slug, 'x');
   });
 
+  // --- Task 2: matchOne behaviors (offline, mock client + injected search/detail) ---
+  const HOUSE = { family: 'HOUSE', hemnet: { locationId: 17793, itemType: null } };
+  const APT = { family: 'APARTMENT', hemnet: { locationId: 18031, itemType: 'bostadsratt' } };
+  const WIN = ['2026-01-01', '2026-02-01'];
+  const noLog = () => {};
+
+  // A Hemnet candidate card whose address matches the booli record (normAddr equal),
+  // sold close in time, with agreeing price+area. final_price/living_area tuned per test.
+  function hcard(over) {
+    return Object.assign({
+      card_id: 'c1', listing_id: 'l1', slug: 'sold-slug-1', detail_url: 'http://h/1',
+      street_address: 'Testgatan 1', sold_at: 1767312000, // 2026-01-02
+      final_price: 5000000, living_area: 100, rooms: 5, fee: null, housing_form: 'Villa',
+    }, over);
+  }
+  // A Booli record (sold_date near the card; same street).
+  function brec(over) {
+    return Object.assign({
+      booli_id: 1, street_address: 'Testgatan 1', object_type: 'Villa',
+      sold_price: 5000000, sold_date: '2026-01-02', living_area: 100, rooms: 5,
+      floor: null, residence_url: '/bostad/999', is_title_transfer: false,
+      sold_price_type: 'Slutpris',
+    }, over);
+  }
+  const depsWith = (cards, detail) => ({
+    searchSoldPaged: async () => ({ cards, pages: 1, complete: true }),
+    fetchBooliDetail: async () => detail,
+  });
+
+  // 1) HOUSE, unique agreeing address → matched / address_key, slug set
+  await checkAsync('house unique address+price+area → matched/address_key', async () => {
+    const c = mockClient();
+    const v = await matchOne(c, brec({ booli_id: 11 }), HOUSE, 'taby-villa', WIN[0], WIN[1], noLog, depsWith([hcard()]));
+    assert.strictEqual(v, 'matched');
+    assert.strictEqual(sold(c).length, 1, 'one sold_match upsert');
+    assert.strictEqual(verdictName(c), 'matched');
+    assert.strictEqual(verdictMethod(c), 'address_key');
+    assert.strictEqual(verdictSlug(c), 'sold-slug-1');
+    assert.strictEqual(hemnet(c).length, 1, 'matched house persists its Hemnet card (D-07)');
+  });
+
+  // 2) HOUSE, no address candidate → booli_only, no recall (D-03)
+  await checkAsync('house no candidate → booli_only (no recall)', async () => {
+    const c = mockClient();
+    const v = await matchOne(c, brec({ booli_id: 12 }), HOUSE, 'taby-villa', WIN[0], WIN[1], noLog,
+      depsWith([hcard({ street_address: 'Annangatan 9' })]));
+    assert.strictEqual(v, 'booli_only');
+    assert.strictEqual(verdictName(c), 'booli_only');
+    assert.strictEqual(verdictSlug(c), null);
+    assert.strictEqual(hemnet(c).length, 0, 'no Hemnet persist for booli_only');
+  });
+
+  // 3) HOUSE, multi-candidate / divergent → uncertain | booli_only (routed to adjudicatePair)
+  await checkAsync('house multi-candidate → uncertain or booli_only (not matched)', async () => {
+    const c = mockClient();
+    const cards = [hcard({ slug: 's-a' }), hcard({ slug: 's-b', card_id: 'c2', sold_at: 1767312000 })];
+    const v = await matchOne(c, brec({ booli_id: 13 }), HOUSE, 'taby-villa', WIN[0], WIN[1], noLog, depsWith(cards));
+    assert.ok(v === 'uncertain' || v === 'booli_only', `multi-candidate maps to uncertain|booli_only, got ${v}`);
+    assert.notStrictEqual(v, 'matched');
+  });
+
+  // 4) APARTMENT, fee-exact → matched / fee_exact + upsertHemnetSold (D-06 inline fee)
+  await checkAsync('apt fee-exact → matched/fee_exact + Hemnet persist', async () => {
+    const c = mockClient();
+    const cands = [hcard({ slug: 'apt-1', housing_form: 'Lägenhet', fee: 4500 })];
+    const v = await matchOne(c, brec({ booli_id: 14, object_type: 'Lägenhet' }), APT, 'stockholm-apt', WIN[0], WIN[1], noLog,
+      depsWith(cands, { rent: 4500 }));
+    assert.strictEqual(v, 'matched');
+    assert.strictEqual(verdictMethod(c), 'fee_exact');
+    assert.strictEqual(verdictSlug(c), 'apt-1');
+    assert.strictEqual(hemnet(c).length, 1, 'matched apt persists its Hemnet card (D-07)');
+  });
+
+  // 5) APARTMENT, no fee (detail rent null) → uncertain (no false confirm — Pitfall 3)
+  await checkAsync('apt no fee (rent null) → uncertain', async () => {
+    const c = mockClient();
+    const cands = [hcard({ slug: 'apt-2', housing_form: 'Lägenhet', fee: 4500 })];
+    const v = await matchOne(c, brec({ booli_id: 15, object_type: 'Lägenhet' }), APT, 'stockholm-apt', WIN[0], WIN[1], noLog,
+      depsWith(cands, { rent: null }));
+    assert.strictEqual(v, 'uncertain');
+    assert.strictEqual(verdictName(c), 'uncertain');
+    assert.strictEqual(hemnet(c).length, 0, 'no Hemnet persist when unmatched');
+  });
+
+  // 6) Title transfer → zero verdict queries (D-02 gate in persistVerdictForRecord)
+  await checkAsync('title transfer → zero verdict queries (D-02)', async () => {
+    const c = mockClient();
+    const v = await matchOne(c, brec({ booli_id: 16, is_title_transfer: true, sold_price_type: 'Lagfart' }),
+      HOUSE, 'taby-villa', WIN[0], WIN[1], noLog, depsWith([hcard()]));
+    assert.strictEqual(sold(c).length, 0, 'must issue zero sold_match queries for a title transfer');
+    assert.ok(v === 'matched' || v === 'booli_only' || v === 'uncertain', 'returns a verdict string for the tally');
+  });
+
   console.log(`smoke: ${pass} pass, ${fail} fail`);
   process.exit(fail === 0 ? 0 : 1);
+  })().catch((err) => {
+    console.error(`SMOKE FAIL [uncaught]: ${err && err.stack || err}`);
+    process.exit(1);
+  });
 }
