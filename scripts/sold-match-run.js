@@ -242,7 +242,20 @@ async function matchOne(client, record, seg, segKey, minSoldDate, maxSoldDate, l
   const detailUrl = extractDetailUrl(record);
   if (detailUrl) {
     const detail = await detailFetch(detailUrl, { logger: log }); // re-throws CeilingError only
-    booliRent = detail ? detail.rent : null;
+    if (detail) {
+      booliRent = detail.rent;
+      // Persist the detail-only enrichment back to booli_sold (the seed-time row left
+      // these null — D-06 fetches inline at match time; capture them so the DB row is
+      // complete). ON CONFLICT booli_id DO UPDATE refreshes from EXCLUDED (idempotent).
+      await upsertBooliSold(client, {
+        ...record, segment: segKey, family: seg.family,
+        rent: detail.rent, operating_cost: detail.operating_cost,
+        construction_year: detail.construction_year, tenure_form: detail.tenure_form,
+        sold_in_advance: detail.sold_in_advance,
+        agent_id: detail.agent_id, agency_id: detail.agency_id,
+        residence_id: detail.residence_id != null ? detail.residence_id : record.residence_id,
+      });
+    }
   }
   // Prefer a fee-exact candidate when the Booli fee is known.
   let feeChosen = chosen;
