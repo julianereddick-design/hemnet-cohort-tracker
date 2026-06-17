@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Sold-match pipeline
 status: planning
-stopped_at: "v3.0 roadmap created 2026-06-17 — Phases 15 (sold-data ingestion library), 16 (sold-match DB schema + persistence), 17 (match pipeline orchestration) defined; 15/15 v1 requirements mapped, 0 unmapped. No phase planned yet. Prior milestone v2.1 (Phase 10) COMPLETE + v2.2 (Phase 11) live + spot-check stream (Phases 12–14.1) shipped — see Accumulated Context below. Next: /gsd-plan-phase 15."
+stopped_at: "Phase 15 context gathered 2026-06-17 (.planning/phases/15-sold-data-ingestion-library/15-CONTEXT.md). Decisions: detail-fetch recon-gated/prefer-cheaper (apartments-fee-window default; all-records detail only if 'sold in advance' is detail-only AND spend re-confirmed); sold-in-advance best-effort/never-block with a recon-first task; module layout + spike-script disposition = Claude's discretion (new lib/sold-*.js, spike scripts → thin wrappers + cleanup). v3.0 roadmap (Phases 15–17) created same day, 15/15 reqs mapped. Prior: v2.1/v2.2 + spot-check stream shipped (Accumulated Context below). Next: /gsd-plan-phase 15."
 last_updated: "2026-06-17"
 progress:
   # Scope = current milestone v3.0 (Phases 15–17). Plan totals TBD until each phase is planned.
@@ -16,9 +16,9 @@ progress:
 
 ## Current Position
 
-**Phase:** Not started (defining requirements complete)
+**Phase:** 15 — Sold-data ingestion library (context gathered, not yet planned)
 **Plan:** None
-**Status:** planning — v3.0 roadmap created, awaiting first phase plan
+**Status:** planning — Phase 15 CONTEXT.md written, ready for /gsd-plan-phase 15
 **Progress:** ░░░░░░░░░░ 0% (0/3 phases)
 
 **Milestone v3.0 phases:**
