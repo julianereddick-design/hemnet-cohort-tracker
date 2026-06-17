@@ -42,4 +42,4 @@ blocked: 0
 
 ## Gaps
 
-- **Data cleanup (open, operator decision):** UAT item 2 loaded 1970 real spike villa records into prod `booli_sold` (table was empty before). They are partial (18/28 columns — old spike field set) and ~12 months old. Options: (a) leave them — Phase 17 upserts over by booli_id harmlessly; (b) `TRUNCATE booli_sold RESTART IDENTITY` to restore the pre-test empty schema and let Phase 17 do the real segment+window seeding. Re-loadable any time from the seed file. Awaiting operator decision (auto-mode classifier correctly declined to truncate prod without explicit sign-off).
+- **Data cleanup (RESOLVED 2026-06-17):** Operator chose truncate. Ran `TRUNCATE booli_sold RESTART IDENTITY` on the droplet — `booli_sold` 1970 → 0; all 4 schema tables remain present. Prod is back to the pre-test empty-schema state; Phase 17 will do the real segment+window seeding. The 1970 villa records are re-loadable any time from `verf-soldspike/seed/taby-villa.jsonl`.
