@@ -25,7 +25,7 @@ const path = require('path');
 const { createClient } = require('../db');
 const { cachedFetch, CeilingError, stdoutLogger, spentCallsAsync, remainingCallsAsync, setSpendClient } = require('../lib/sold-transport');
 const { isTitleTransfer, PRICE_AGREE_PCT, AREA_AGREE_PCT, SOLD_DATE_WINDOW_DAYS, READ_TIME_EXCLUDE_DAYS, daysAgoISO } = require('../lib/sold-config');
-const { fetchBooliSoldPage, fetchBooliDetail, extractResidenceId } = require('../lib/sold-fetch-booli');
+const { fetchBooliSoldPage, fetchBooliDetail, extractDetailUrl } = require('../lib/sold-fetch-booli');
 const { searchSoldPaged, searchOptsFor, booliSoldUnix } = require('../lib/sold-fetch-hemnet');
 const { upsertBooliSold, upsertHemnetSold, persistVerdictForRecord } = require('../lib/sold-store');
 const { adjudicatePair } = require('../lib/spotcheck-adjudicate');
@@ -235,10 +235,13 @@ async function matchOne(client, record, seg, segKey, minSoldDate, maxSoldDate, l
 
   // 4) APARTMENT branch — need a unit-level signal (fee-exact). D-06: seed-time
   //    rent is null for the monthly window, so fetch the Booli detail INLINE.
+  //    Use the card's residence_url for BOTH Booli flavors (/bostad/<residenceId>
+  //    AND /annons/<booliId>) — the prior extractResidenceId(/bostad-only) silently
+  //    dropped the fee for ~half the apartments, forcing them to UNCERTAIN.
   let booliRent = null;
-  const residenceId = extractResidenceId(record);
-  if (residenceId) {
-    const detail = await detailFetch(residenceId, { logger: log }); // re-throws CeilingError only
+  const detailUrl = extractDetailUrl(record);
+  if (detailUrl) {
+    const detail = await detailFetch(detailUrl, { logger: log }); // re-throws CeilingError only
     booliRent = detail ? detail.rent : null;
   }
   // Prefer a fee-exact candidate when the Booli fee is known.
@@ -546,6 +549,19 @@ function runSmoke() {
     assert.strictEqual(v, 'uncertain');
     assert.strictEqual(verdictName(c), 'uncertain');
     assert.strictEqual(hemnet(c).length, 0, 'no Hemnet persist when unmatched');
+  });
+
+  // 5b) APARTMENT on an /annons/<booliId> card → fee fetch STILL runs → matched.
+  //     Regression guard for the /annons fee-fetch fix: extractResidenceId returned
+  //     null for /annons (→ forced uncertain); extractDetailUrl follows both flavors.
+  await checkAsync('apt /annons card → fee fetch runs → matched/fee_exact', async () => {
+    const c = mockClient();
+    const cands = [hcard({ slug: 'apt-annons', housing_form: 'Lägenhet', fee: 4500 })];
+    const v = await matchOne(c, brec({ booli_id: 17, object_type: 'Lägenhet', residence_url: '/annons/777' }),
+      APT, 'stockholm-apt', WIN[0], WIN[1], noLog, depsWith(cands, { rent: 4500 }));
+    assert.strictEqual(v, 'matched', '/annons apt must reach fee-exact (was uncertain before the fix)');
+    assert.strictEqual(verdictMethod(c), 'fee_exact');
+    assert.strictEqual(verdictSlug(c), 'apt-annons');
   });
 
   // 6) Title transfer → zero verdict queries (D-02 gate in persistVerdictForRecord)
