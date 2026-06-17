@@ -3,24 +3,24 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Sold-match pipeline
 status: executing
-stopped_at: Completed 16-01-PLAN.md
-last_updated: "2026-06-17T03:48:55Z"
+stopped_at: Completed 16-02-PLAN.md
+last_updated: "2026-06-17T03:55:45Z"
 progress:
   total_phases: 14
   completed_phases: 4
   total_plans: 33
-  completed_plans: 26
-  percent: 79
+  completed_plans: 27
+  percent: 82
 ---
 
 ## Current Position
 
 Phase: 16 (sold-match-db-schema-persistence) — EXECUTING
-Plan: 2 of 3 (Plan 01 complete)
+Plan: 3 of 3 (Plans 01–02 complete)
 **Phase:** 16
-**Plan:** 01 complete; next 16-02 (Wave 2 — persist layer)
+**Plan:** 02 complete; next 16-03 (Wave 2 — DB-backed spend tally)
 **Status:** Executing Phase 16
-**Progress:** ███░░░░░░░ 33% (1/3 plans complete in Phase 16)
+**Progress:** ███████░░░ 67% (2/3 plans complete in Phase 16)
 
 **Milestone v3.0 phases:**
 
@@ -44,6 +44,16 @@ Plan: 2 of 3 (Plan 01 complete)
 - v3.0: Image-based matching (dHash/vision) does NOT apply — sold detail pages carry no gallery images on either platform. The Phase-14 image path is out of scope for sold-match.
 - v3.0: DB was unreachable during the spike (doctl auth expired); rebuild assumes DB access restored. Apartment matching >9 months back is a design limit (no unit signal remains), not a bug.
 - v3.0 finding that anchors scope: ~36% of Booli villa sold records are genuine non-Hemnet presence (hand-confirmed 0/25 on Hemnet), not slutpris suppression and not a matcher miss.
+
+### Decisions (Phase 16-02, 2026-06-17 — persist layer, DB-02/DB-03)
+
+- 16-02: lib/sold-store.js client-first upserts (no module-level DB connection) — upsertBooliSold (28-col, ON CONFLICT booli_id DO UPDATE), upsertHemnetSold (slug→hemnet_slug, ON CONFLICT hemnet_slug DO UPDATE), upsertSoldVerdict (sold_match, ON CONFLICT booli_id DO UPDATE)
+- 16-02: Booli/Hemnet use DO UPDATE not DO NOTHING — a detail-enriched re-fetch refreshes columns from EXCLUDED + bumps updated_at; re-running converges, never duplicates (DB-03/D-01)
+- 16-02: D-02 gate lives in persistVerdictForRecord (policy layer), not in upsertSoldVerdict — title transfers (parsed is_title_transfer, isTitleTransfer config fallback) never enter sold_match; smoke asserts zero queries for a transfer
+- 16-02: evidence bound as JSON.stringify for the JSONB column (T-16-05, never concatenated); matched_hemnet_slug null accepted (booli_only first-class)
+- 16-02: scripts/persist-sold.js reads JSONL inline (split/filter/JSON.parse) to avoid sold-transport's SCRAPE_FORCE_OXYLABS load guard; opens own client via createClient, client.end() in finally (T-16-09); fetcher JSONL append untouched (DB store of record, JSONL retained — D-04)
+- 16-02: live persist run deferred — same authorization/runtime gate as 16-01 (prod migration not yet applied; tables don't exist live). Offline gates pass (sold-store --smoke 12/12, persist-sold --smoke ok, node -c, no-${}-interp). Operator: run migrate-sold-phase16.js then persist-sold twice to confirm idempotency
+- 16-02: GSD SDK CLI absent in environment (no node_modules sdk / no gsd-sdk on PATH) — STATE.md + ROADMAP.md updated via direct edits instead of state handlers
 
 ### Decisions (Phase 16-01, 2026-06-17 — sold schema migration, DB-01)
 
@@ -98,8 +108,8 @@ Plan: 2 of 3 (Plan 01 complete)
 
 ### Last Session
 
-Stopped at: Completed 16-01-PLAN.md (sold schema migration, DB-01)
-Resume: 16-01 done (commits 1a9c688, 5d40101). Next = 16-02 (Wave 2: lib/sold-store.js upserts + scripts/persist-sold.js). OPEN operator action: run `node migrate-sold-phase16.js` once on the droplet to apply the schema to prod (auto-mode blocked the live DDL run; offline node -c passed).
+Stopped at: Completed 16-02-PLAN.md (persist layer, DB-02/DB-03)
+Resume: 16-02 done (commits 389c1ee, c4d45a9, 85bb280). Next = 16-03 (Wave 2: lib/sold-spend.js DB-backed atomic spend tally against sold_spend). OPEN operator action (carried from 16-01): run `node migrate-sold-phase16.js` once on the droplet to apply the schema to prod, then `node scripts/persist-sold.js --booli <seed.jsonl>` twice to confirm idempotency (booli_sold count unchanged on 2nd run). Auto-mode blocked the live DDL/persist runs; all offline smokes pass.
 
 ### Decisions (Phase 14, 2026-06-12 overnight)
 

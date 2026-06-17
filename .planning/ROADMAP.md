@@ -255,7 +255,7 @@ Plans:
 | 10. Self-hosted scraper hardening | v2.1 | 5/5 | Complete (repo + droplet) | 2026-06-12 |
 | 11. Daily market-totals capture + minimal report | v2.2 | 3/3 shipped | Live since 2026-05-28; 7-day soak running | - |
 | 15. Sold-data ingestion library | v3.0 | 5/5 | Complete    | 2026-06-17 |
-| 16. Sold-match DB schema + persistence | v3.0 | 1/3 | Executing | - |
+| 16. Sold-match DB schema + persistence | v3.0 | 2/3 | Executing | - |
 | 17. Match pipeline orchestration | v3.0 | 0/TBD | Not started | - |
 
 ### Phase 12: Cohort match spot-check weekly QA gate
