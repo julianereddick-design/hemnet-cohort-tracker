@@ -2,26 +2,26 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Sold-match pipeline
-status: planning
-stopped_at: "Phase 15 context gathered 2026-06-17 (.planning/phases/15-sold-data-ingestion-library/15-CONTEXT.md). Decisions: detail-fetch recon-gated/prefer-cheaper (apartments-fee-window default; all-records detail only if 'sold in advance' is detail-only AND spend re-confirmed); sold-in-advance best-effort/never-block with a recon-first task; module layout + spike-script disposition = Claude's discretion (new lib/sold-*.js, spike scripts → thin wrappers + cleanup). v3.0 roadmap (Phases 15–17) created same day, 15/15 reqs mapped. Prior: v2.1/v2.2 + spot-check stream shipped (Accumulated Context below). Next: /gsd-plan-phase 15."
-last_updated: "2026-06-17"
+status: executing
+stopped_at: "v2.1 (Phase 10) CODE-COMPLETE 2026-06-12. Shipped 10-04 (export-views-wide gap-aware incremental fix; deleted 16 spent one-off scripts + dead `migrate-booli-listing-drop-agent-fk.js` + 7 verf-log dirs + stray `.clone`; corrected stale SLACK_WEBHOOK "not configured" intel claims; Job C Final: line emits `jobStatus` not `status`) and 10-05 (deleted the 4 pre-v2.0 Pool & Flow scripts + `setup-chart-cron.sh` from the repo; `weekly-view-report.js` + the :3800 `view-data-server.js` kept). Also this session: fixed `booli-targeted-refresh` times_viewed NOT-NULL worker errors (COALESCE, commit 3b0f478, deployed) and confirmed the cohort-track null-jump alert was benign sell-through."
+last_updated: "2026-06-17T01:31:31.552Z"
 progress:
-  # Scope = current milestone v3.0 (Phases 15–17). Plan totals TBD until each phase is planned.
-  total_phases: 3
-  completed_phases: 0
-  total_plans: 5
-  completed_plans: 0
-  percent: 0
+  total_phases: 14
+  completed_phases: 3
+  total_plans: 30
+  completed_plans: 20
+  percent: 67
 ---
 
 ## Current Position
 
 **Phase:** 15 — Sold-data ingestion library (context gathered, not yet planned)
 **Plan:** None
-**Status:** planning — Phase 15 planned (5 plans, 3 waves), ready for /gsd-execute-phase 15
+**Status:** Ready to execute
 **Progress:** ░░░░░░░░░░ 0% (0/3 phases)
 
 **Milestone v3.0 phases:**
+
 - [ ] Phase 15 — Sold-data ingestion library (SOLD-01..05, MATCH-02, CONFIG-03)
 - [ ] Phase 16 — Sold-match DB schema + persistence (DB-01..03)
 - [ ] Phase 17 — Match pipeline orchestration (MATCH-01/03/04, CONFIG-01/02)

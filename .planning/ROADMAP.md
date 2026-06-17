@@ -195,9 +195,14 @@ Plans:
 **UI hint**: no
 
 Plans:
+**Wave 1**
 - [ ] 15-01-PLAN.md — Foundation libs: `lib/sold-config.js` + `lib/sold-parse.js` (snake_case parser contract) + `lib/sold-addr.js` (normAddr v2, MATCH-02 unit-tested) [Wave 1]
 - [ ] 15-02-PLAN.md — `lib/sold-transport.js` (file-based MAX_OXY_CALLS ceiling, reuses scrape-http) + `lib/scrape-http.js` transient-613 sleep-retry on the main path [CONFIG-03, Wave 1]
+
+**Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 15-03-PLAN.md — `scripts/sold-recon.js` extended for the "sold in advance" signal + documented finding gating the D-01 detail-fetch policy (operator checkpoint) [SOLD-04, Wave 2]
+
+**Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 15-04-PLAN.md — `lib/sold-fetch-booli.js` (paginated /slutpriser seed, classify+retain Lagfart, recon-gated detail, sold_in_advance flag) + `scripts/booli-sold.js` wrapper [SOLD-01..04, Wave 3]
 - [ ] 15-05-PLAN.md — `lib/sold-fetch-hemnet.js` (per-property /salda SaleCard search, no detail fetch, house/apt opts) + `scripts/hemnet-sold.js` wrapper [SOLD-05, Wave 3]
 
