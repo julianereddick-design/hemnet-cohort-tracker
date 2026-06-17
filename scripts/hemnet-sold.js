@@ -35,6 +35,15 @@ function parseArgs(argv) {
 async function main() {
   const { segment, seed, windowDays, maxPages } = parseArgs(process.argv.slice(2));
 
+  // WR-05: reject NaN / non-positive numeric flags (typo-proof spend caps).
+  for (const [flag, val] of [['--window-days', windowDays], ['--max-pages', maxPages]]) {
+    if (!Number.isInteger(val) || val <= 0) {
+      log('ERROR', `Invalid ${flag} value "${val}" — must be a positive integer`);
+      process.exitCode = 1;
+      return;
+    }
+  }
+
   const segKeys = segment ? [segment] : Object.keys(SEGMENTS);
 
   for (const k of segKeys) {

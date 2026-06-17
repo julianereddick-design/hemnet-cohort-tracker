@@ -84,6 +84,21 @@ async function main() {
   // Default maxSoldDate = 90 days ago (ratio-eligible + Hemnet-posted window).
   const maxSoldDate = parseArgs(process.argv.slice(2)).maxSoldDate || daysAgoISO(READ_TIME_EXCLUDE_DAYS);
 
+  // WR-05: reject NaN / non-positive numeric flags so a typo can't silently
+  // disable a cap and overspend Oxylabs budget.
+  for (const [flag, val, required] of [
+    ['--target', target, true],
+    ['--max-pages', maxPages, true],
+    ['--market-target', marketTarget, false], // optional: null = unset, allowed
+  ]) {
+    if (val === null && !required) continue;
+    if (!Number.isInteger(val) || val <= 0) {
+      log('ERROR', `Invalid ${flag} value "${val}" — must be a positive integer`);
+      process.exitCode = 1;
+      return;
+    }
+  }
+
   // Validate detailScope value.
   const validScopes = ['fee-window', 'all', 'none'];
   if (!validScopes.includes(detailScope)) {

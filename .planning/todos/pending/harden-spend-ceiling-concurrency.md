@@ -24,10 +24,10 @@ adding any concurrency:
   overshoots. Parallel reruns clobber the file via full-overwrite `saveSpend`.
   Fix: in-process async mutex around the increment + atomic temp-file write-then-rename
   for cross-process safety.
-- **WR-05 (CLI wrappers `scripts/booli-sold.js`, `scripts/hemnet-sold.js`):** unvalidated
-  `NaN` numeric flags (e.g. bad `--max-pages`/target) can silently disable caps → overspend.
-  Add `Number.isFinite` validation, reject NaN. (This one is the cheapest live spend-safety
-  gap — consider fixing standalone even before Phase 16.)
+- **WR-05 (CLI wrappers `scripts/booli-sold.js`, `scripts/hemnet-sold.js`):** RESOLVED 2026-06-17
+  (standalone fix on spike/sold-match-feasibility). Both wrappers now reject NaN / non-positive
+  numeric flags (`--target`, `--market-target`, `--max-pages`, `--window-days`) and exit 1 before
+  any fetch. No longer outstanding.
 - **WR-06 / WR-07:** spend-summary / accounting accuracy issues — fold into the same pass.
 
 Also review the early-stop/pagination warnings (WR-01..04) for correctness while in this code:
