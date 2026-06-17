@@ -197,7 +197,7 @@ Plans:
 Plans:
 **Wave 1**
 - [x] 15-01-PLAN.md — Foundation libs: `lib/sold-config.js` + `lib/sold-parse.js` (snake_case parser contract) + `lib/sold-addr.js` (normAddr v2, MATCH-02 unit-tested) [Wave 1] (2026-06-17; commits d159b01, f010dad, bd70ce3; 18+18+10 smoke tests pass)
-- [ ] 15-02-PLAN.md — `lib/sold-transport.js` (file-based MAX_OXY_CALLS ceiling, reuses scrape-http) + `lib/scrape-http.js` transient-613 sleep-retry on the main path [CONFIG-03, Wave 1]
+- [x] 15-02-PLAN.md — `lib/sold-transport.js` (file-based MAX_OXY_CALLS ceiling, reuses scrape-http) + `lib/scrape-http.js` transient-613 sleep-retry on the main path [CONFIG-03, Wave 1] (2026-06-17; commits df560e7, 7c5df94; all acceptance criteria pass)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 15-03-PLAN.md — `scripts/sold-recon.js` extended for the "sold in advance" signal + documented finding gating the D-01 detail-fetch policy (operator checkpoint) [SOLD-04, Wave 2]
@@ -246,7 +246,7 @@ Plans:
 | 9. Production cutover — self-hosted scraper launch | v2.0 | 5/5 | Complete (cutover-complete) | 2026-05-26 |
 | 10. Self-hosted scraper hardening | v2.1 | 5/5 | Complete (repo + droplet) | 2026-06-12 |
 | 11. Daily market-totals capture + minimal report | v2.2 | 3/3 shipped | Live since 2026-05-28; 7-day soak running | - |
-| 15. Sold-data ingestion library | v3.0 | 1/5 | Executing (plan 2 next) | - |
+| 15. Sold-data ingestion library | v3.0 | 2/5 | Executing (plan 3 next) | - |
 | 16. Sold-match DB schema + persistence | v3.0 | 0/TBD | Not started | - |
 | 17. Match pipeline orchestration | v3.0 | 0/TBD | Not started | - |
 

@@ -16,11 +16,11 @@ progress:
 ## Current Position
 
 Phase: 15 (sold-data-ingestion-library) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 **Phase:** 15 — Sold-data ingestion library
-**Plan:** 15-01 COMPLETE — Foundation libs (sold-config, sold-parse, sold-addr)
+**Plan:** 15-02 COMPLETE — Transport spine (sold-transport + scrape-http 613-retry)
 **Status:** Executing Phase 15
-**Progress:** ██░░░░░░░░ 20% (1/5 plans complete in Phase 15)
+**Progress:** ████░░░░░░ 40% (2/5 plans complete in Phase 15)
 
 **Milestone v3.0 phases:**
 
@@ -45,6 +45,12 @@ Plan: 2 of 5
 - v3.0: DB was unreachable during the spike (doctl auth expired); rebuild assumes DB access restored. Apartment matching >9 months back is a design limit (no unit signal remains), not a bug.
 - v3.0 finding that anchors scope: ~36% of Booli villa sold records are genuine non-Hemnet presence (hand-confirmed 0/25 on Hemnet), not slutpris suppression and not a matcher miss.
 
+### Decisions (Phase 15-02, 2026-06-17 — transport spine)
+
+- 15-02: sold-transport require path is ./scrape-http (same lib/ dir) — no HTTP duplication; sold pages are 100% Oxylabs so the load-time SCRAPE_FORCE_OXYLABS guard is an invariant kept verbatim from the spike
+- 15-02: 613-class sleep in scrape-http.js fallbackViaOxylabs inserted BEFORE the existing single retry; uses existing sleep() helper (no new function added); retry count stays at 1; triggers on OXYLABS_API_NON_200 and OXYLABS_TARGET_NON_200 — both transient classes
+- 15-02: spend ceiling (_spend.json) incremented BEFORE fetch — a forced attempt consumes credits whether or not it ultimately succeeds (D-07 invariant preserved from spike)
+
 ### Decisions (Phase 15-01, 2026-06-17 — foundation libs)
 
 - 15-01: normStreet imported from lib/spotcheck-evidence in sold-addr.js (not inlined) — keeps sold normalization in sync with cohort spot-check normalization across the codebase
@@ -63,8 +69,8 @@ Plan: 2 of 5
 
 ### Last Session
 
-Stopped at: Phase 15-01 COMPLETE 2026-06-17. Shipped lib/sold-config.js (d159b01), lib/sold-parse.js (f010dad), lib/sold-addr.js (bd70ce3) — foundation libs for the sold-match pipeline. All three --smoke tests exit 0 (18+18+10 pass). MATCH-02 normAddr v2 recovers all four spike false-negative formats. snake_case parser contract preserved as Phase 16 DB column contract.
-Resume: Phase 15 plan 1 of 5 complete. Next = /gsd-execute-phase 15 plan 2 (lib/sold-transport.js + scrape-http 613 retry).
+Stopped at: Phase 15-02 COMPLETE 2026-06-17. Shipped lib/sold-transport.js (df560e7) — file-based MAX_OXY_CALLS ceiling + load-time SCRAPE_FORCE_OXYLABS guard + cachedFetch + assertOxyUsed + JSONL helpers. Extended lib/scrape-http.js (7c5df94) with 3s sleep-before-retry in fallbackViaOxylabs on OXYLABS_API_NON_200/OXYLABS_TARGET_NON_200 (CONFIG-03 main-path). All acceptance criteria pass. Public API unchanged.
+Resume: Phase 15 plan 2 of 5 complete. Next = /gsd-execute-phase 15 plan 3 (scripts/sold-recon.js + sold-in-advance recon).
 
 ### Decisions (Phase 14, 2026-06-12 overnight)
 
