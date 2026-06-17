@@ -3,32 +3,32 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Sold-match pipeline
 status: executing
-stopped_at: Completed 16-02-PLAN.md
-last_updated: "2026-06-17T03:55:45Z"
+stopped_at: Completed 16-03-PLAN.md (Phase 16 complete)
+last_updated: "2026-06-17T04:02:00Z"
 progress:
   total_phases: 14
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 33
-  completed_plans: 27
-  percent: 82
+  completed_plans: 28
+  percent: 85
 ---
 
 ## Current Position
 
-Phase: 16 (sold-match-db-schema-persistence) — EXECUTING
-Plan: 3 of 3 (Plans 01–02 complete)
+Phase: 16 (sold-match-db-schema-persistence) — COMPLETE (3/3 plans)
+Plan: 3 of 3 complete
 **Phase:** 16
-**Plan:** 02 complete; next 16-03 (Wave 2 — DB-backed spend tally)
-**Status:** Executing Phase 16
-**Progress:** ███████░░░ 67% (2/3 plans complete in Phase 16)
+**Plan:** 03 complete — Phase 16 done
+**Status:** Phase 16 complete; next phase 17 (match pipeline orchestration)
+**Progress:** ██████████ 100% (3/3 plans complete in Phase 16)
 
 **Milestone v3.0 phases:**
 
 - [x] Phase 15 — Sold-data ingestion library (SOLD-01..05, MATCH-02, CONFIG-03) COMPLETE
-- [ ] Phase 16 — Sold-match DB schema + persistence (DB-01..03)
+- [x] Phase 16 — Sold-match DB schema + persistence (DB-01..03) COMPLETE
 - [ ] Phase 17 — Match pipeline orchestration (MATCH-01/03/04, CONFIG-01/02)
 
-**Next:** `/gsd-execute-phase 16`
+**Next:** `/gsd-execute-phase 17`
 
 ## Accumulated Context
 
@@ -44,6 +44,16 @@ Plan: 3 of 3 (Plans 01–02 complete)
 - v3.0: Image-based matching (dHash/vision) does NOT apply — sold detail pages carry no gallery images on either platform. The Phase-14 image path is out of scope for sold-match.
 - v3.0: DB was unreachable during the spike (doctl auth expired); rebuild assumes DB access restored. Apartment matching >9 months back is a design limit (no unit signal remains), not a bug.
 - v3.0 finding that anchors scope: ~36% of Booli villa sold records are genuine non-Hemnet presence (hand-confirmed 0/25 on Hemnet), not slutpris suppression and not a matcher miss.
+
+### Decisions (Phase 16-03, 2026-06-17 — DB-backed atomic spend tally, DB-02/DB-03, closes CR-01)
+
+- 16-03: lib/sold-spend.js — one interface { reserveCall, spent, remaining, backend } with two impls; makeSpendTally factory selects DB tally when a client is present, file tally otherwise
+- 16-03: DB path closes CR-01 via a single atomic statement — INSERT ... ON CONFLICT (spend_key) DO NOTHING seed, then UPDATE sold_spend SET calls=calls+1 WHERE spend_key=$1 AND calls<$2 RETURNING calls; zero rows = ceiling hit (no read-then-write window for concurrent Phase-17 drivers)
+- 16-03: file path retains the _spend.json { liveCalls } load->check->++->save counter verbatim (offline/no-DB fallback); CeilingError (code OXY_CEILING) defined ONCE in sold-spend, re-exported from sold-transport so 15-04/15-05 catch sites match the shared type unchanged
+- 16-03: sold-transport defaults _tally to the file backend (plain require loads with NO DB); setSpendClient(client) is the opt-in switch Phase 17 calls once; cachedFetch replaces the CR-01 inline block with `await _tally.reserveCall()` (D-07 count-before-issue preserved — reserveCall runs before getWithRetry)
+- 16-03: sync spentCalls()/remainingCalls() kept unchanged (sold-fetch-hemnet drain guard calls remainingCalls() synchronously at :151); async spentCallsAsync()/remainingCallsAsync() added for the DB backend; all existing sold-transport exports retained
+- 16-03: live DB ceiling exercise deferred — same authorization gate as 16-01/16-02 (sold_spend table not yet created live; operator must run migrate-sold-phase16.js once). Offline gates all pass: sold-spend --smoke 6/6, scripts/verf-sold-transport-load.js → load OK no-DB, fetcher smokes 17/23, node -c on all three files, no ${} SQL interpolation
+- 16-03: GSD SDK CLI still absent (no node_modules sdk / no gsd-sdk on PATH) — STATE.md + ROADMAP.md updated via direct edits
 
 ### Decisions (Phase 16-02, 2026-06-17 — persist layer, DB-02/DB-03)
 
@@ -108,8 +118,8 @@ Plan: 3 of 3 (Plans 01–02 complete)
 
 ### Last Session
 
-Stopped at: Completed 16-02-PLAN.md (persist layer, DB-02/DB-03)
-Resume: 16-02 done (commits 389c1ee, c4d45a9, 85bb280). Next = 16-03 (Wave 2: lib/sold-spend.js DB-backed atomic spend tally against sold_spend). OPEN operator action (carried from 16-01): run `node migrate-sold-phase16.js` once on the droplet to apply the schema to prod, then `node scripts/persist-sold.js --booli <seed.jsonl>` twice to confirm idempotency (booli_sold count unchanged on 2nd run). Auto-mode blocked the live DDL/persist runs; all offline smokes pass.
+Stopped at: Completed 16-03-PLAN.md — PHASE 16 COMPLETE (3/3 plans)
+Resume: 16-03 done (commits 3d4169e, 2e10695). lib/sold-spend.js (pluggable DB atomic spend tally + file fallback, closes CR-01) + lib/sold-transport.js wired + scripts/verf-sold-transport-load.js load probe. Next = Phase 17 (match pipeline orchestration: MATCH-01/03/04, CONFIG-01/02). OPEN operator action (carried from 16-01/16-02, still one run): on the droplet run `node migrate-sold-phase16.js` to create the four sold tables, then `node scripts/persist-sold.js --booli <seed.jsonl>` twice to confirm idempotency; the DB spend ceiling (setSpendClient) and live persistence are unblocked once that schema exists. Auto-mode blocked the live DDL/persist/ceiling runs; all offline smokes pass (sold-spend 6/6, load OK no-DB, fetcher 17/23).
 
 ### Decisions (Phase 14, 2026-06-12 overnight)
 

@@ -27,8 +27,8 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (15+).
 ### Persistence (DB)
 
 - [x] **DB-01**: Sold-side schema is migrated into the project DB — a Booli-sold table, a Hemnet-`/salda` table, and a match/verdict table (with the enriched columns and `sold_in_advance` flag). _(Phase 16-01, 2026-06-17; migrate-sold-phase16.js — live prod apply operator-gated)_
-- [ ] **DB-02**: Pipeline persists seeds, sold cards, and match verdicts to the DB, replacing the spike's DB-free JSON output.
-- [ ] **DB-03**: Re-runs are idempotent — sold records, Hemnet cards, and match rows upsert by stable keys (booli_id / hemnet slug / pair) without duplicate rows.
+- [x] **DB-02**: Pipeline persists seeds, sold cards, and match verdicts to the DB, replacing the spike's DB-free JSON output. _(Phase 16-02 lib/sold-store.js + scripts/persist-sold.js, Phase 16-03 DB-backed spend tally; 2026-06-17 — live writes operator-gated on the one-time migration run)_
+- [x] **DB-03**: Re-runs are idempotent — sold records, Hemnet cards, and match rows upsert by stable keys (booli_id / hemnet slug / pair) without duplicate rows. _(Phase 16-02 ON CONFLICT DO UPDATE upserts + Phase 16-03 atomic UPDATE ... WHERE calls<$2 RETURNING spend counter; 2026-06-17)_
 
 ### Config & robustness (CONFIG)
 
@@ -77,8 +77,8 @@ Which phases cover which requirements. Populated during roadmap creation.
 | MATCH-03 | Phase 17 | Mapped |
 | MATCH-04 | Phase 17 | Mapped |
 | DB-01 | Phase 16 | Complete |
-| DB-02 | Phase 16 | Mapped |
-| DB-03 | Phase 16 | Mapped |
+| DB-02 | Phase 16 | Complete |
+| DB-03 | Phase 16 | Complete |
 | CONFIG-01 | Phase 17 | Mapped |
 | CONFIG-02 | Phase 17 | Mapped |
 | CONFIG-03 | Phase 15 | Mapped |
