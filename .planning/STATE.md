@@ -4,21 +4,23 @@ milestone: v3.0
 milestone_name: Sold-match pipeline
 status: executing
 stopped_at: "v2.1 (Phase 10) CODE-COMPLETE 2026-06-12. Shipped 10-04 (export-views-wide gap-aware incremental fix; deleted 16 spent one-off scripts + dead `migrate-booli-listing-drop-agent-fk.js` + 7 verf-log dirs + stray `.clone`; corrected stale SLACK_WEBHOOK "not configured" intel claims; Job C Final: line emits `jobStatus` not `status`) and 10-05 (deleted the 4 pre-v2.0 Pool & Flow scripts + `setup-chart-cron.sh` from the repo; `weekly-view-report.js` + the :3800 `view-data-server.js` kept). Also this session: fixed `booli-targeted-refresh` times_viewed NOT-NULL worker errors (COALESCE, commit 3b0f478, deployed) and confirmed the cohort-track null-jump alert was benign sell-through."
-last_updated: "2026-06-17T01:31:31.552Z"
+last_updated: "2026-06-17T13:26:12.000Z"
 progress:
   total_phases: 14
   completed_phases: 3
   total_plans: 30
-  completed_plans: 20
-  percent: 67
+  completed_plans: 21
+  percent: 70
 ---
 
 ## Current Position
 
-**Phase:** 15 — Sold-data ingestion library (context gathered, not yet planned)
-**Plan:** None
-**Status:** Ready to execute
-**Progress:** ░░░░░░░░░░ 0% (0/3 phases)
+Phase: 15 (sold-data-ingestion-library) — EXECUTING
+Plan: 2 of 5
+**Phase:** 15 — Sold-data ingestion library
+**Plan:** 15-01 COMPLETE — Foundation libs (sold-config, sold-parse, sold-addr)
+**Status:** Executing Phase 15
+**Progress:** ██░░░░░░░░ 20% (1/5 plans complete in Phase 15)
 
 **Milestone v3.0 phases:**
 
@@ -43,6 +45,12 @@ progress:
 - v3.0: DB was unreachable during the spike (doctl auth expired); rebuild assumes DB access restored. Apartment matching >9 months back is a design limit (no unit signal remains), not a bug.
 - v3.0 finding that anchors scope: ~36% of Booli villa sold records are genuine non-Hemnet presence (hand-confirmed 0/25 on Hemnet), not slutpris suppression and not a matcher miss.
 
+### Decisions (Phase 15-01, 2026-06-17 — foundation libs)
+
+- 15-01: normStreet imported from lib/spotcheck-evidence in sold-addr.js (not inlined) — keeps sold normalization in sync with cohort spot-check normalization across the codebase
+- 15-01: snake_case field names in parsers preserved verbatim from spike (Phase 16 DB column contract; renaming would break Phase 16/17)
+- 15-01: startsWith('searchSold(') and startsWith('displayAttributes(') key-scan idioms preserved — do not convert to exact-key lookups (Booli/Hemnet parametrize these query keys)
+
 ### Decisions
 
 - 12-01: Mode A deterministic promote (priceAgrees + hasPhotos + likely-match → CONFIRMED_MATCH) ensures complete artifact without Anthropic API; price alone never confirms a match
@@ -55,8 +63,8 @@ progress:
 
 ### Last Session
 
-Stopped at: v2.1 (Phase 10) CODE-COMPLETE 2026-06-12. Shipped 10-04 (export-views-wide gap-aware incremental fix; deleted 16 spent one-off scripts + dead `migrate-booli-listing-drop-agent-fk.js` + 7 verf-log dirs + stray `.clone`; corrected stale SLACK_WEBHOOK "not configured" intel claims; Job C Final: line emits `jobStatus` not `status`) and 10-05 (deleted the 4 pre-v2.0 Pool & Flow scripts + `setup-chart-cron.sh` from the repo; `weekly-view-report.js` + the :3800 `view-data-server.js` kept). Also this session: fixed `booli-targeted-refresh` times_viewed NOT-NULL worker errors (COALESCE, commit 3b0f478, deployed) and confirmed the cohort-track null-jump alert was benign sell-through.
-Resume: v2.1 fully closed (repo + droplet). No active coding phase. Open items, none coding: (1) Mon 2026-06-15 06:30 UTC first unattended spot-check gate fire (live validation watch); (2) decide spot-check 20%-vs-100% coverage; (3) flagged booli-refresh coverage-gap follow-up. NEW coding work scoped as milestone v3.0 (Sold-match pipeline) on 2026-06-17 — see Current Position above; next = /gsd-plan-phase 15.
+Stopped at: Phase 15-01 COMPLETE 2026-06-17. Shipped lib/sold-config.js (d159b01), lib/sold-parse.js (f010dad), lib/sold-addr.js (bd70ce3) — foundation libs for the sold-match pipeline. All three --smoke tests exit 0 (18+18+10 pass). MATCH-02 normAddr v2 recovers all four spike false-negative formats. snake_case parser contract preserved as Phase 16 DB column contract.
+Resume: Phase 15 plan 1 of 5 complete. Next = /gsd-execute-phase 15 plan 2 (lib/sold-transport.js + scrape-http 613 retry).
 
 ### Decisions (Phase 14, 2026-06-12 overnight)
 
