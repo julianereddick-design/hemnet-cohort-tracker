@@ -3,32 +3,32 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Sold-match pipeline
 status: executing
-stopped_at: Completed 17-01-PLAN.md — Phase 17 Wave 1 done (1/2 plans)
-last_updated: "2026-06-17T06:30:00.000Z"
+stopped_at: Completed 17-02-PLAN.md — Phase 17 COMPLETE (2/2 plans); v3.0 code-complete
+last_updated: "2026-06-17T07:15:00.000Z"
 progress:
   total_phases: 14
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 35
-  completed_plans: 29
-  percent: 83
+  completed_plans: 30
+  percent: 86
 ---
 
 ## Current Position
 
-Phase: 17 (match-pipeline-orchestration) — EXECUTING (1/2 plans)
-Plan: 1 of 2 complete (Wave 1 done)
+Phase: 17 (match-pipeline-orchestration) — COMPLETE (2/2 plans)
+Plan: 2 of 2 complete (Wave 1 + Wave 2 done)
 **Phase:** 17
-**Plan:** 01 complete — Wave 2 (17-02 runner) next
-**Status:** Ready to execute 17-02
-**Progress:** █████░░░░░ 50% (1/2 plans complete in Phase 17)
+**Plan:** 02 complete — PHASE 17 COMPLETE; v3.0 (Phases 15–17) code-complete
+**Status:** Milestone v3.0 code-complete; operator one-time droplet run remaining
+**Progress:** ██████████ 100% (2/2 plans complete in Phase 17)
 
 **Milestone v3.0 phases:**
 
 - [x] Phase 15 — Sold-data ingestion library (SOLD-01..05, MATCH-02, CONFIG-03) COMPLETE
 - [x] Phase 16 — Sold-match DB schema + persistence (DB-01..03) COMPLETE
-- [~] Phase 17 — Match pipeline orchestration (MATCH-01/03/04, CONFIG-01/02) — Wave 1 done (17-01), Wave 2 (17-02 runner) pending
+- [x] Phase 17 — Match pipeline orchestration (MATCH-01/03/04, CONFIG-01/02) COMPLETE
 
-**Next:** execute 17-02-PLAN.md (the runner)
+**Next:** Milestone v3.0 code-complete. Operator action: on the droplet run `node migrate-sold-phase16.js` (if tables not already live per Phase 16) then a first manual `node scripts/sold-match-run.js` run to populate sold_match.
 
 ## Accumulated Context
 
@@ -44,6 +44,18 @@ Plan: 1 of 2 complete (Wave 1 done)
 - v3.0: Image-based matching (dHash/vision) does NOT apply — sold detail pages carry no gallery images on either platform. The Phase-14 image path is out of scope for sold-match.
 - v3.0: DB was unreachable during the spike (doctl auth expired); rebuild assumes DB access restored. Apartment matching >9 months back is a design limit (no unit signal remains), not a bug.
 - v3.0 finding that anchors scope: ~36% of Booli villa sold records are genuine non-Hemnet presence (hand-confirmed 0/25 on Hemnet), not slutpris suppression and not a matcher miss.
+
+### Decisions (Phase 17-02, 2026-06-17 — Wave 2 runner, MATCH-01/03/04 + CONFIG-02)
+
+- 17-02: scripts/sold-match-run.js — the config-driven end-to-end runner (561 lines), replaces the throwaway scripts/spike-hemnet-match.js. loadSegments() reads config/sold-segments.json (D-01, grep gate enforces 0 SEGMENTS imports — Pitfall 7); rolling window defaults maxSoldDate=daysAgoISO(READ_TIME_EXCLUDE_DAYS) / minSoldDate=daysAgoISO(+30) (D-02/CONFIG-02), overridable via --min/max-sold-date
+- 17-02: validateDate enforces YYYY-MM-DD + Date.parse + ISO round-trip (rejects 2026-13-99 / 2026-02-30 rollovers); parseArgs throws BEFORE any fetch/query (ASVS V5 / T-17-03 mitigated). Dates reach the DB only via already-parameterized store upserts
+- 17-02: HOUSE = spike address-key shortcut (OQ-2 resolved) — cands.length===1 && areaOk(≤7%) && priceOk(≤5%) → matched/address_key + upsertHemnetSold (D-07); multi/divergent → adjudicatePair with empty units (CONFIRMED_MATCH demoted to uncertain, MISMATCH→booli_only). Villas NEVER route through fee-exact (would yield ~0%)
+- 17-02: APARTMENT = inline fetchBooliDetail(extractResidenceId(record)) for rent BEFORE building the adjudicatePair record (D-06; seed-time rent is null for the monthly window because the fee-window gate is inverted — Pitfall 3) → fee-exact via adjudicatePair → matched/fee_exact + upsertHemnetSold (D-07)
+- 17-02: D-03 recall pass dropped (non-matched → booli_only, no second loose search); D-08 verdict object assembled in persistMapped with PLAIN-OBJECT evidence (store JSON.stringify's internally — Pitfall 4, grep gate enforces 0 JSON.stringify); D-02 title-transfer gate lives in persistVerdictForRecord (zero sold_match queries for transfers)
+- 17-02: D-09 spend safety — setSpendClient(client) called once after connect BEFORE any fetch (Pitfall 5); bounded ~6-worker pool with CeilingError early-stop + remainingCalls()<=40 drain guard; D-04 per-segment summary printed (adjudicated/matched/booli_only/uncertain/error/matchRate/oxylabsSpent/stoppedBy), no report file
+- 17-02: matchOne takes an optional deps param (searchSoldPaged/fetchBooliDetail default to real imports) so the offline --smoke injects stubs + a mock pg client — all six matchOne behaviors green with NO network, NO DB; matchOne returns the mapped verdict string so the worker pool tallies without re-reading the DB
+- 17-02: TDD RED→GREEN per task (test commit precedes feat commit): Task 1 c7df895→ba6a5a9, Task 2 b1c1503→6dca0e4; --smoke 14/14 offline, node -c OK, line-1 SCRAPE_FORCE_OXYLABS guard + all grep gates pass
+- 17-02: GSD SDK CLI still absent — STATE.md + ROADMAP.md updated via direct edits, sequential executor on master (not a worktree)
 
 ### Decisions (Phase 17-01, 2026-06-17 — Wave 1 prerequisites, CONFIG-01 + OQ-2/OQ-3)
 
@@ -126,8 +138,13 @@ Plan: 1 of 2 complete (Wave 1 done)
 
 ### Last Session
 
+Stopped at: Completed 17-02-PLAN.md — PHASE 17 COMPLETE (2/2 plans); v3.0 (Phases 15–17) code-complete
+Resume: 17-02 done (commits c7df895/ba6a5a9 Task 1, b1c1503/6dca0e4 Task 2). scripts/sold-match-run.js — the config-driven end-to-end runner replacing scripts/spike-hemnet-match.js: loadSegments() from config/sold-segments.json + rolling monthly window (default ~90d ago, --min/max-sold-date override, validated) → seedSegment (fetchBooliSoldPage + upsertBooliSold page-by-page) → per non-transfer record searchSoldPaged → matchOne (HOUSE address-key shortcut / APARTMENT inline-fetchBooliDetail fee-exact via adjudicatePair) → persistVerdictForRecord with object evidence (D-02 gate inside) → D-04 per-segment summary, all under setSpendClient DB-atomic ceiling + ~6-worker pool + CeilingError early-stop. Offline --smoke 14/14 (mock client + injected deps, six matchOne behaviors green), node -c OK, all grep gates pass. Phase 17 closes MATCH-01/03/04 + CONFIG-02 (CONFIG-01 closed by 17-01); v3.0 is now code-complete. OPEN operator action (carried from Phase 16, still one run): on the droplet run `node migrate-sold-phase16.js` to create the four sold tables IF not already live (per 17-RESEARCH, Phase 16 commit 466cfe7 already confirmed them on prod — verify first), then a first manual `SCRAPE_FORCE_OXYLABS=1 node scripts/sold-match-run.js --segment taby-villa --limit 50` seeds booli_sold + populates sold_match for the first time and prints the per-segment summary; re-run upserts with no duplicate rows (DB-03).
+
+### Session before this
+
 Stopped at: Completed 17-01-PLAN.md — Phase 17 Wave 1 done (1/2 plans)
-Resume: 17-01 done (commits b7ed2e7, 9311701). config/sold-segments.json (CONFIG-01 segments-as-data, stockholm-apt + taby-villa) + fetchBooliDetail/extractResidenceId exported from lib/sold-fetch-booli.js (export-only, smoke 19/19). Both Wave-1 prerequisites for the runner are in place; SEGMENTS const left untouched for backward compat. Next = 17-02-PLAN.md: build scripts/sold-match-run.js (config-loaded segments + rolling window → seed booli_sold → Hemnet search → adjudicate apt fee-exact inline-detail / villa address-key → persist verdict + per-segment summary). OPEN operator action (carried from Phase 16, still one run): on the droplet run `node migrate-sold-phase16.js` to create the four sold tables, then the runner's live DB persistence + setSpendClient ceiling are exercisable.
+Resume: 17-01 done (commits b7ed2e7, 9311701). config/sold-segments.json (CONFIG-01 segments-as-data, stockholm-apt + taby-villa) + fetchBooliDetail/extractResidenceId exported from lib/sold-fetch-booli.js (export-only, smoke 19/19). Both Wave-1 prerequisites for the runner are in place; SEGMENTS const left untouched for backward compat.
 
 ### Prior Session
 
