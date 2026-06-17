@@ -1,10 +1,24 @@
 process.env.SCRAPE_FORCE_OXYLABS = '1';
 require('dotenv').config();
 
-// scripts/sold-match-run.js — Phase 17 config-driven sold-match runner.
+// scripts/sold-match-run.js — Phase 17 config-driven, manually-runnable end-to-end
+// sold-match runner. Replaces the throwaway scripts/spike-hemnet-match.js (file-JSONL,
+// hard-coded segments) with a clean DB-backed tool.
 //
-// RED scaffold (TDD): functions are stubs; the --smoke block below asserts the
-// Task-1 behaviors and is EXPECTED TO FAIL until the GREEN implementation lands.
+// Per configured segment (config/sold-segments.json) and a rolling sold-date window
+// (default ~30-day month ending at READ_TIME_EXCLUDE_DAYS), it:
+//   1. seeds booli_sold via fetchBooliSoldPage + upsertBooliSold (page-by-page),
+//   2. searches Hemnet /salda per non-deed-transfer record (searchSoldPaged),
+//   3. adjudicates: apartments fee-exact (inline fetchBooliDetail rent vs Hemnet fee),
+//      villas address+price+area (spike shortcut, match_method=address_key),
+//   4. persists a verdict (matched / booli_only / uncertain) via persistVerdictForRecord,
+// all under the Phase-16 DB-atomic spend ceiling (setSpendClient) with a bounded
+// ~6-worker pool that early-stops on CeilingError. Prints a per-segment summary; writes
+// NO report file (D-04). Title transfers never enter sold_match (D-02 gate in the store).
+//
+//   SCRAPE_FORCE_OXYLABS=1 node scripts/sold-match-run.js [--segment ..] [--limit N]
+//       [--conc 6] [--min-sold-date YYYY-MM-DD] [--max-sold-date YYYY-MM-DD]
+//   SCRAPE_FORCE_OXYLABS=1 node scripts/sold-match-run.js --smoke   # offline self-test
 
 const fs = require('fs');
 const path = require('path');
@@ -18,25 +32,260 @@ const { adjudicatePair } = require('../lib/spotcheck-adjudicate');
 const { computeDeltas, pctDiff } = require('../lib/spotcheck-evidence');
 const { normAddr } = require('../lib/sold-addr');
 
-// --- STUBS (RED) ---
-function loadSegments() { return {}; }
-function validateDate() { return false; }
-function parseArgs() { return {}; }
-function addrCandidates() { return []; }
-function pickBest() { return null; }
-function cardBrief() { return undefined; }
+const DAY = 86400;
+const MAX_SEARCH_PAGES = parseInt(process.env.SOLD_MATCH_MAX_PAGES || '5', 10);
 
-module.exports = { loadSegments, validateDate, parseArgs, addrCandidates, pickBest, cardBrief };
+// ---------------------------------------------------------------------------
+// Config loader (D-01) — read segments-as-data, NOT the SEGMENTS const (Pitfall 7).
+// ---------------------------------------------------------------------------
+function loadSegments() {
+  return JSON.parse(
+    fs.readFileSync(path.join(__dirname, '..', 'config', 'sold-segments.json'), 'utf8'),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// validateDate — ASVS V5 (T-17-03): accept only a real YYYY-MM-DD. The format
+// regex + Date.parse + ISO round-trip together reject 2026-13-99 (Date.parse
+// rolls it over to 2027-…, so the round-trip string differs).
+// ---------------------------------------------------------------------------
+function validateDate(s) {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const t = Date.parse(`${s}T00:00:00Z`);
+  if (Number.isNaN(t)) return false;
+  return new Date(t).toISOString().slice(0, 10) === s;
+}
+
+// ---------------------------------------------------------------------------
+// CLI args (spike parseArgs, extended for D-02 date args + validation).
+// Supports both `--flag value` and `--flag=value`. Throws on a malformed date
+// BEFORE any fetch/query (ASVS V5).
+// ---------------------------------------------------------------------------
+function parseArgs(argv) {
+  const o = { segment: null, limit: null, conc: 6, minSoldDate: null, maxSoldDate: null, smoke: false };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--segment') o.segment = argv[++i];
+    else if (a.startsWith('--segment=')) o.segment = a.split('=')[1];
+    else if (a === '--limit') o.limit = parseInt(argv[++i], 10);
+    else if (a.startsWith('--limit=')) o.limit = parseInt(a.split('=')[1], 10);
+    else if (a === '--conc') o.conc = parseInt(argv[++i], 10);
+    else if (a.startsWith('--conc=')) o.conc = parseInt(a.split('=')[1], 10);
+    else if (a === '--min-sold-date') o.minSoldDate = argv[++i];
+    else if (a.startsWith('--min-sold-date=')) o.minSoldDate = a.split('=')[1];
+    else if (a === '--max-sold-date') o.maxSoldDate = argv[++i];
+    else if (a.startsWith('--max-sold-date=')) o.maxSoldDate = a.split('=')[1];
+    else if (a === '--smoke') o.smoke = true;
+  }
+  if (o.minSoldDate != null && !validateDate(o.minSoldDate)) {
+    throw new Error(`invalid --min-sold-date: ${o.minSoldDate} (expected YYYY-MM-DD)`);
+  }
+  if (o.maxSoldDate != null && !validateDate(o.maxSoldDate)) {
+    throw new Error(`invalid --max-sold-date: ${o.maxSoldDate} (expected YYYY-MM-DD)`);
+  }
+  return o;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers (copied verbatim from the spike).
+// ---------------------------------------------------------------------------
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+function jitter() { return 80 + Math.random() * 160; }
+
+// Address + sold-date-window candidate filter (spike addrCandidates). normAddr is
+// the canonical MATCH-02 source (lib/sold-addr.js).
+function addrCandidates(booli, cards, windowDays) {
+  const bStreet = normAddr(booli.street_address);
+  const bUnix = booliSoldUnix(booli.sold_date);
+  return cards.filter((c) => {
+    if (!c.street_address || normAddr(c.street_address) !== bStreet) return false;
+    if (bUnix != null && c.sold_at != null && Math.abs(c.sold_at - bUnix) > windowDays * DAY) return false;
+    return true;
+  });
+}
+
+// Best candidate: nearest sold date, then closest price (spike pickBest).
+function pickBest(booli, cands) {
+  const bUnix = booliSoldUnix(booli.sold_date);
+  return cands.slice().sort((a, b) => {
+    const da = bUnix != null && a.sold_at != null ? Math.abs(a.sold_at - bUnix) : 9e9;
+    const db = bUnix != null && b.sold_at != null ? Math.abs(b.sold_at - bUnix) : 9e9;
+    if (da !== db) return da - db;
+    const pa = pctDiff(booli.sold_price, a.final_price) ?? 9;
+    const pb = pctDiff(booli.sold_price, b.final_price) ?? 9;
+    return pa - pb;
+  })[0];
+}
+
+// Compact Hemnet-card brief for the evidence JSONB (spike cardBrief). Null-safe.
+function cardBrief(c) {
+  return c ? {
+    card_id: c.card_id, listing_id: c.listing_id, slug: c.slug,
+    detail_url: c.detail_url, street_address: c.street_address,
+    final_price: c.final_price, living_area: c.living_area,
+    rooms: c.rooms, fee: c.fee, sold_at: c.sold_at,
+  } : null;
+}
+
+// computeDeltas with the runner's booli↔hemnet field mapping (postcode null for sold).
+function deltasFor(record, card) {
+  return computeDeltas(
+    { price: record.sold_price, living_area: record.living_area, object_type: record.object_type, street_address: record.street_address, postcode: null },
+    { asking_price: card.final_price, living_area: card.living_area, housing_form: card.housing_form, street_address: card.street_address, post_code: null },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// persistMapped — assemble the D-08 verdict object and persist (D-02 gate inside
+// persistVerdictForRecord). evidence is a PLAIN OBJECT — never pre-stringified
+// (Pitfall 4; upsertSoldVerdict JSON.stringify's it internally). Returns the
+// mapped verdict string for the worker-pool tally.
+// ---------------------------------------------------------------------------
+async function persistMapped(client, record, verdict, matchMethod, matchedCard, deltas, extraEvidence, segKey, minSoldDate, maxSoldDate, slugCard) {
+  const slugSource = slugCard || (verdict === 'matched' ? matchedCard : null);
+  const verdictObj = {
+    matched_hemnet_slug: slugSource ? (slugSource.slug || null) : null,
+    verdict,
+    match_method: matchMethod,
+    evidence: {
+      ...extraEvidence,
+      deltas,
+      matched_card: matchedCard ? cardBrief(matchedCard) : null,
+      window_start: minSoldDate,
+      window_end: maxSoldDate,
+    },
+    segment: segKey,
+    window_start: minSoldDate,
+    window_end: maxSoldDate,
+    adjudicated_at: new Date().toISOString(),
+  };
+  await persistVerdictForRecord(client, record, verdictObj);
+  return verdict;
+}
+
+// ---------------------------------------------------------------------------
+// matchOne — Task 2 fills the search → candidate → adjudicate → persist body.
+// Placeholder for the Task-1 scaffold (returns 'uncertain' without touching the
+// network/DB so the worker pool wiring is exercisable). deps allows the smoke to
+// inject stubbed searchSoldPaged / fetchBooliDetail (offline).
+// ---------------------------------------------------------------------------
+async function matchOne(client, record, seg, segKey, minSoldDate, maxSoldDate, log, deps = {}) {
+  return 'uncertain';
+}
+
+// ---------------------------------------------------------------------------
+// seedSegment — paginate fetchBooliSoldPage; upsert every card into booli_sold;
+// collect non-title-transfer cards into the match queue (D-02 split). Respects
+// args.limit (stop growing the queue once it reaches limit).
+// ---------------------------------------------------------------------------
+async function seedSegment(client, segKey, seg, minSoldDate, maxSoldDate, log, limit) {
+  const queue = [];
+  let page = 1;
+  let seeded = 0;
+  let transfers = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { cards, meta } = await fetchBooliSoldPage(segKey, seg, {
+      page, maxSoldDate, minSoldDate, logger: log,
+    });
+    for (const card of cards) {
+      await upsertBooliSold(client, { ...card, segment: segKey, family: seg.family });
+      seeded++;
+      if (card.is_title_transfer) { transfers++; continue; }
+      if (limit == null || queue.length < limit) queue.push(card);
+    }
+    if (cards.length === 0 || (meta && meta.pages != null && page >= meta.pages)) break;
+    if (limit != null && queue.length >= limit) break;
+    page++;
+  }
+  log('INFO', `seeded ${segKey}: rows=${seeded} title-transfers=${transfers} queued=${queue.length}`);
+  return queue;
+}
+
+// ---------------------------------------------------------------------------
+// runSegment — bounded worker pool (spike). Shared idx + stopped flag; tally from
+// the matchOne return string. DB-atomic ceiling drains at remainingCalls() <= 40.
+// Prints the D-04 per-segment summary with Oxylabs calls spent.
+// ---------------------------------------------------------------------------
+async function runSegment(client, segKey, seg, queue, minSoldDate, maxSoldDate, conc, log) {
+  let idx = 0;
+  let stopped = null;
+  const stats = { matched: 0, booli_only: 0, uncertain: 0, error: 0 };
+  const callsBefore = remainingCalls();
+
+  async function worker() {
+    while (idx < queue.length) {
+      if (stopped) return;
+      if (remainingCalls() <= 40) { stopped = 'ceiling-floor'; log('WARN', `approaching ceiling (${remainingCalls()} left) — draining`); return; }
+      const record = queue[idx++];
+      try {
+        await sleep(jitter());
+        const verdict = await matchOne(client, record, seg, segKey, minSoldDate, maxSoldDate, log);
+        if (verdict === 'matched' || verdict === 'booli_only' || verdict === 'uncertain') stats[verdict]++;
+        else stats.error++;
+      } catch (e) {
+        if (e instanceof CeilingError) { stopped = 'ceiling'; log('WARN', `CEILING hit: ${e.message}`); return; }
+        stats.error++;
+        log('ERROR', `booli_id=${record.booli_id}: ${e && e.message}`);
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.max(1, conc) }, () => worker()));
+
+  const total = stats.matched + stats.booli_only + stats.uncertain + stats.error;
+  const matchRate = total ? stats.matched / total : 0;
+  const spent = Math.max(0, callsBefore - remainingCalls());
+  log('INFO', `DONE ${segKey}: adjudicated=${queue.length} matched=${stats.matched} booli_only=${stats.booli_only} uncertain=${stats.uncertain} error=${stats.error} matchRate=${(matchRate * 100).toFixed(1)}% oxylabsSpent=${spent} stoppedBy=${stopped || 'none'}`);
+  return { stats, stopped, spent };
+}
+
+// ---------------------------------------------------------------------------
+// main — DB lifecycle + spend ceiling + per-segment seed→match loop.
+// ---------------------------------------------------------------------------
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const segments = loadSegments();
+  const maxSoldDate = args.maxSoldDate || daysAgoISO(READ_TIME_EXCLUDE_DAYS);          // ~90 days ago
+  const minSoldDate = args.minSoldDate || daysAgoISO(READ_TIME_EXCLUDE_DAYS + 30);     // ~120 days ago
+  const log = stdoutLogger('sold-match');
+
+  const segKeys = args.segment ? [args.segment] : Object.keys(segments);
+  if (args.segment && !segments[args.segment]) {
+    throw new Error(`unknown segment: ${args.segment} (config has: ${Object.keys(segments).join(', ')})`);
+  }
+
+  log('INFO', `window=${minSoldDate}..${maxSoldDate} segments=${segKeys.join(',')} conc=${args.conc}${args.limit != null ? ` limit=${args.limit}` : ''}`);
+
+  const client = createClient();
+  await client.connect();
+  setSpendClient(client);   // D-09 / Pitfall 5: DB-atomic ceiling BEFORE any cachedFetch
+  try {
+    for (const k of segKeys) {
+      const seg = segments[k];
+      if (!seg) { log('ERROR', `unknown segment ${k} — skipping`); continue; }
+      const queue = await seedSegment(client, k, seg, minSoldDate, maxSoldDate, log, args.limit);
+      await runSegment(client, k, seg, queue, minSoldDate, maxSoldDate, args.conc, log);
+    }
+  } finally {
+    await client.end();
+  }
+}
+
+module.exports = { loadSegments, validateDate, parseArgs, addrCandidates, pickBest, cardBrief, deltasFor, persistMapped, matchOne, seedSegment, runSegment };
 
 if (require.main === module) {
   if (process.argv.includes('--smoke')) {
     runSmoke();
   } else {
-    console.error('FATAL not implemented');
-    process.exit(1);
+    main().catch((e) => { console.error('FATAL', e); process.exit(1); });
   }
 }
 
+// ---------------------------------------------------------------------------
+// --smoke self-test (offline — NO DB, NO network, NO createClient/connect).
+//   SCRAPE_FORCE_OXYLABS=1 node scripts/sold-match-run.js --smoke
+// ---------------------------------------------------------------------------
 function runSmoke() {
   const assert = require('assert');
   let pass = 0, fail = 0;
@@ -45,6 +294,7 @@ function runSmoke() {
     catch (e) { console.error(`SMOKE FAIL [${name}]: ${e.message}`); fail++; }
   }
 
+  // --- Task 1: scaffold ---
   check('loadSegments returns stockholm-apt (APARTMENT) and taby-villa (HOUSE)', () => {
     const segs = loadSegments();
     assert.ok(segs['stockholm-apt'], 'stockholm-apt present');
@@ -61,20 +311,32 @@ function runSmoke() {
     assert.strictEqual(a.conc, 4);
   });
 
+  check('parseArgs supports --flag=value form', () => {
+    const a = parseArgs(['--segment=stockholm-apt', '--conc=8', '--limit=5']);
+    assert.strictEqual(a.segment, 'stockholm-apt');
+    assert.strictEqual(a.conc, 8);
+    assert.strictEqual(a.limit, 5);
+  });
+
   check('default window: minSoldDate < maxSoldDate (monthly, CONFIG-02)', () => {
     const maxSoldDate = daysAgoISO(READ_TIME_EXCLUDE_DAYS);
     const minSoldDate = daysAgoISO(READ_TIME_EXCLUDE_DAYS + 30);
     assert.ok(minSoldDate < maxSoldDate, `${minSoldDate} should be < ${maxSoldDate}`);
   });
 
-  check('validateDate rejects malformed dates (ASVS V5)', () => {
+  check('validateDate rejects malformed dates, accepts real ones (ASVS V5)', () => {
     assert.strictEqual(validateDate('2026-13-99'), false);
     assert.strictEqual(validateDate('notadate'), false);
+    assert.strictEqual(validateDate('2026-02-30'), false); // rolls over → round-trip differs
     assert.strictEqual(validateDate('2026-01-01'), true);
   });
 
   check('parseArgs throws on malformed --min-sold-date', () => {
     assert.throws(() => parseArgs(['--min-sold-date', '2026-13-99']), /invalid --min-sold-date/);
+  });
+
+  check('parseArgs throws on malformed --max-sold-date', () => {
+    assert.throws(() => parseArgs(['--max-sold-date', 'notadate']), /invalid --max-sold-date/);
   });
 
   check('cardBrief(null) === null; cardBrief({slug,final_price}) has slug', () => {
