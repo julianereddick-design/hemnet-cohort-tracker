@@ -14,7 +14,17 @@ function countyToRegion(county) {
   if (norm === 'Stockholms') return 'Stockholm';
   if (norm === 'Skåne') return 'Skane';
   if (norm === 'Västra Götalands') return 'Gotenberg';
+  if (norm === 'Norrbottens') return 'Norrbotten';
+  if (norm === 'Dalarnas') return 'Dalarna';
   return 'Olland';
+}
+
+// District overlay drawn ON TOP of the county region (additive, like TOTAL — a pair counts
+// toward both its county line and its district line). Östermalm = Stockholm postcodes 11400–11599.
+function postcodeToDistrict(postcode) {
+  const pc = parseInt(postcode, 10);
+  if (Number.isFinite(pc) && pc >= 11400 && pc <= 11599) return 'Ostermalm';
+  return null;
 }
 
 function median(arr) {
@@ -24,14 +34,17 @@ function median(arr) {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-const REGIONS = ['TOTAL', 'Stockholm', 'Gotenberg', 'Skane', 'Olland'];
+const REGIONS = ['TOTAL', 'Stockholm', 'Gotenberg', 'Skane', 'Olland', 'Norrbotten', 'Dalarna', 'Ostermalm'];
 
 const REGION_STYLES = {
-  TOTAL:     { color: '#1565C0', dash: [],       width: 3 },
-  Stockholm: { color: '#E65100', dash: [8, 4],   width: 2 },
-  Gotenberg: { color: '#2E7D32', dash: [8, 4],   width: 2 },
-  Skane:     { color: '#90CAF9', dash: [2, 2],   width: 2 },
-  Olland:    { color: '#AD1457', dash: [2, 2],   width: 2 },
+  TOTAL:      { color: '#1565C0', dash: [],       width: 3 },
+  Stockholm:  { color: '#E65100', dash: [8, 4],   width: 2 },
+  Gotenberg:  { color: '#2E7D32', dash: [8, 4],   width: 2 },
+  Skane:      { color: '#90CAF9', dash: [2, 2],   width: 2 },
+  Olland:     { color: '#AD1457', dash: [2, 2],   width: 2 },
+  Norrbotten: { color: '#00838F', dash: [6, 3],   width: 2 },
+  Dalarna:    { color: '#6D4C41', dash: [6, 3],   width: 2 },
+  Ostermalm:  { color: '#F9A825', dash: [4, 4],   width: 2 },
 };
 
 async function run() {
@@ -40,26 +53,45 @@ async function run() {
 
   const args = process.argv.slice(2);
   let cohortId = null;
+  let cohortCount = null;   // --cohorts N pools the last N cohorts (for thin regions/districts)
   let maxDay = 21;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--cohort' && args[i + 1]) cohortId = args[i + 1];
+    if (args[i] === '--cohorts' && args[i + 1]) cohortCount = parseInt(args[i + 1]);
     if (args[i] === '--days' && args[i + 1]) maxDay = parseInt(args[i + 1]);
   }
 
-  if (!cohortId) {
-    const res = await client.query('SELECT DISTINCT cohort_id FROM cohort_pairs ORDER BY cohort_id DESC LIMIT 1');
-    cohortId = res.rows[0].cohort_id;
-    console.log(`Using latest cohort: ${cohortId}`);
+  // Resolve the set of cohorts to chart. Single cohort by default; --cohorts N pools the
+  // most recent N so thin regions (Östermalm, Norrbotten, Dalarna) clear the per-day sample
+  // floor. dayNum is relative to each pair's own listing date, so pooling weeks is sound.
+  let cohortIds;
+  let label;
+  if (cohortCount && cohortCount > 0) {
+    const res = await client.query(
+      'SELECT DISTINCT cohort_id FROM cohort_pairs ORDER BY cohort_id DESC LIMIT $1', [cohortCount]);
+    cohortIds = res.rows.map(r => r.cohort_id);
+    label = cohortIds.length > 1
+      ? `${cohortIds[cohortIds.length - 1]}_to_${cohortIds[0]}`
+      : (cohortIds[0] || 'none');
+    console.log(`Pooling ${cohortIds.length} cohort(s): ${cohortIds.join(', ')}`);
+  } else {
+    if (!cohortId) {
+      const res = await client.query('SELECT DISTINCT cohort_id FROM cohort_pairs ORDER BY cohort_id DESC LIMIT 1');
+      cohortId = res.rows[0].cohort_id;
+      console.log(`Using latest cohort: ${cohortId}`);
+    }
+    cohortIds = [cohortId];
+    label = cohortId;
   }
 
   // Get pairs with listing date and region
   const pairsRes = await client.query(`
-    SELECT id, booli_id, hemnet_id, street_address, municipality, county,
+    SELECT id, booli_id, hemnet_id, street_address, municipality, county, postcode,
            booli_listed::text AS booli_listed
     FROM cohort_pairs
-    WHERE cohort_id = $1
+    WHERE cohort_id = ANY($1::text[])
       AND removed_at IS NULL
-  `, [cohortId]);
+  `, [cohortIds]);
   const pairs = pairsRes.rows;
 
   // Get all view data
@@ -67,10 +99,10 @@ async function run() {
     SELECT dv.pair_id, dv.date::text AS date, dv.booli_views, dv.hemnet_views
     FROM cohort_daily_views dv
     JOIN cohort_pairs cp ON cp.id = dv.pair_id
-    WHERE cp.cohort_id = $1
+    WHERE cp.cohort_id = ANY($1::text[])
       AND cp.removed_at IS NULL
     ORDER BY dv.date
-  `, [cohortId]);
+  `, [cohortIds]);
 
   // Build viewMap
   const viewMap = new Map();
@@ -94,6 +126,7 @@ async function run() {
 
   for (const pair of pairs) {
     const region = countyToRegion(pair.county);
+    const district = postcodeToDistrict(pair.postcode);  // overlay line (e.g. Östermalm) or null
     const listedDate = pair.booli_listed;
 
     for (const d of dates) {
@@ -143,12 +176,17 @@ async function run() {
 
       if (skipped || filtered) continue;
 
-      // Add to both region and total
+      // Add to region, total, and (if applicable) the district overlay line.
       if (!regionDayData[region][dayNum]) regionDayData[region][dayNum] = [];
       regionDayData[region][dayNum].push(ratio);
 
       if (!regionDayData['TOTAL'][dayNum]) regionDayData['TOTAL'][dayNum] = [];
       regionDayData['TOTAL'][dayNum].push(ratio);
+
+      if (district) {
+        if (!regionDayData[district][dayNum]) regionDayData[district][dayNum] = [];
+        regionDayData[district][dayNum].push(ratio);
+      }
     }
   }
 
@@ -177,7 +215,7 @@ async function run() {
   const datasets = REGIONS.map(region => {
     const style = REGION_STYLES[region];
     return `{
-      label: '${region === 'Olland' ? 'Olland (350k pop County)' : region}',
+      label: '${region === 'Olland' ? 'Olland (350k pop County)' : region === 'Ostermalm' ? 'Östermalm (Sthlm district)' : region}',
       data: ${JSON.stringify(chartData[region].map(v => v !== null ? Math.round(v * 100) / 100 : null))},
       borderColor: '${style.color}',
       borderWidth: ${style.width},
@@ -191,7 +229,7 @@ async function run() {
   const html = `<!DOCTYPE html>
 <html>
 <head>
-  <title>H/B Ratio - ${cohortId}</title>
+  <title>H/B Ratio - ${label}</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; background: #fff; }
@@ -215,7 +253,7 @@ async function run() {
         plugins: {
           title: {
             display: true,
-            text: 'Views per day delta between HEM and Booli — ${cohortId}',
+            text: 'Views per day delta between HEM and Booli — ${label}',
             font: { size: 16 },
             align: 'start'
           },
@@ -246,7 +284,7 @@ async function run() {
 </html>`;
 
   const runDate = new Date().toISOString().slice(0, 10);
-  const outDir = path.join(__dirname, 'view-data', runDate, cohortId);
+  const outDir = path.join(__dirname, 'view-data', runDate, label);
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
   const outFile = path.join(outDir, 'hb-ratio-chart.html');
   fs.writeFileSync(outFile, html, 'utf8');
