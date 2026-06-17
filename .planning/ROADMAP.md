@@ -239,7 +239,7 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 17-01-PLAN.md — `config/sold-segments.json` (migrate SEGMENTS to JSON, D-01) + export `fetchBooliDetail`/`extractResidenceId` from `lib/sold-fetch-booli.js` [CONFIG-01, Wave 1]
+- [x] 17-01-PLAN.md — `config/sold-segments.json` (migrate SEGMENTS to JSON, D-01) + export `fetchBooliDetail`/`extractResidenceId` from `lib/sold-fetch-booli.js` [CONFIG-01, Wave 1] (2026-06-17; commits b7ed2e7, 9311701; config OK, exports OK, smoke 19/19, SEGMENTS const intact)
 
 **Wave 2** *(blocked on Wave 1)*
 - [ ] 17-02-PLAN.md — `scripts/sold-match-run.js` runner: config-loaded segments + rolling window → seed booli_sold → Hemnet search → adjudicate (apt fee-exact inline-detail / villa address-key) → persist verdict + per-segment summary [MATCH-01/03/04, CONFIG-02, Wave 2]
@@ -263,7 +263,7 @@ Plans:
 | 11. Daily market-totals capture + minimal report | v2.2 | 3/3 shipped | Live since 2026-05-28; 7-day soak running | - |
 | 15. Sold-data ingestion library | v3.0 | 5/5 | Complete    | 2026-06-17 |
 | 16. Sold-match DB schema + persistence | v3.0 | 3/3 | Complete | - |
-| 17. Match pipeline orchestration | v3.0 | 0/2 | Planned (2 plans, 2 waves) | - |
+| 17. Match pipeline orchestration | v3.0 | 1/2 | Executing (Wave 1 done) | - |
 
 ### Phase 12: Cohort match spot-check weekly QA gate
 

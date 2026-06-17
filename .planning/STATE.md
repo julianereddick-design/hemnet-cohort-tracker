@@ -3,32 +3,32 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Sold-match pipeline
 status: executing
-stopped_at: Completed 16-03-PLAN.md (Phase 16 complete)
-last_updated: "2026-06-17T04:02:00Z"
+stopped_at: Completed 17-01-PLAN.md — Phase 17 Wave 1 done (1/2 plans)
+last_updated: "2026-06-17T06:30:00.000Z"
 progress:
   total_phases: 14
   completed_phases: 5
-  total_plans: 33
-  completed_plans: 28
-  percent: 85
+  total_plans: 35
+  completed_plans: 29
+  percent: 83
 ---
 
 ## Current Position
 
-Phase: 16 (sold-match-db-schema-persistence) — COMPLETE (3/3 plans)
-Plan: 3 of 3 complete
-**Phase:** 16
-**Plan:** 03 complete — Phase 16 done
-**Status:** Phase 16 complete; next phase 17 (match pipeline orchestration)
-**Progress:** ██████████ 100% (3/3 plans complete in Phase 16)
+Phase: 17 (match-pipeline-orchestration) — EXECUTING (1/2 plans)
+Plan: 1 of 2 complete (Wave 1 done)
+**Phase:** 17
+**Plan:** 01 complete — Wave 2 (17-02 runner) next
+**Status:** Ready to execute 17-02
+**Progress:** █████░░░░░ 50% (1/2 plans complete in Phase 17)
 
 **Milestone v3.0 phases:**
 
 - [x] Phase 15 — Sold-data ingestion library (SOLD-01..05, MATCH-02, CONFIG-03) COMPLETE
 - [x] Phase 16 — Sold-match DB schema + persistence (DB-01..03) COMPLETE
-- [ ] Phase 17 — Match pipeline orchestration (MATCH-01/03/04, CONFIG-01/02)
+- [~] Phase 17 — Match pipeline orchestration (MATCH-01/03/04, CONFIG-01/02) — Wave 1 done (17-01), Wave 2 (17-02 runner) pending
 
-**Next:** `/gsd-execute-phase 17`
+**Next:** execute 17-02-PLAN.md (the runner)
 
 ## Accumulated Context
 
@@ -44,6 +44,14 @@ Plan: 3 of 3 complete
 - v3.0: Image-based matching (dHash/vision) does NOT apply — sold detail pages carry no gallery images on either platform. The Phase-14 image path is out of scope for sold-match.
 - v3.0: DB was unreachable during the spike (doctl auth expired); rebuild assumes DB access restored. Apartment matching >9 months back is a design limit (no unit signal remains), not a bug.
 - v3.0 finding that anchors scope: ~36% of Booli villa sold records are genuine non-Hemnet presence (hand-confirmed 0/25 on Hemnet), not slutpris suppression and not a matcher miss.
+
+### Decisions (Phase 17-01, 2026-06-17 — Wave 1 prerequisites, CONFIG-01 + OQ-2/OQ-3)
+
+- 17-01: config/sold-segments.json created (new config/ dir) with the two seed segments verbatim from the SEGMENTS const in the D-01 shape; UTF-8 preserved (Lägenhet / Täby). Adding a third segment is now a single-file data edit (CONFIG-01 met)
+- 17-01: SEGMENTS const in lib/sold-config.js deliberately LEFT in place (copy, not move) — Pitfall 7 backward-compat for existing Phase 15/16 smokes/scripts that import it; the Plan-02 runner reads the JSON via its own loadSegments(), it does NOT import SEGMENTS
+- 17-01: fetchBooliDetail + extractResidenceId added to lib/sold-fetch-booli.js module.exports (export-only, zero logic change — function bodies untouched at lines 108-143); unblocks the Plan-02 runner's inline apartment fee fetch (D-06 fix) without re-deriving the /bostad/(\d+) regex or the cachedFetch+extractApollo+parseBooliSoldDetail block
+- 17-01: two matching --smoke export assertions added (module exports fetchBooliDetail / extractResidenceId), smoke now 19/19 pass; no DB / no network / no new threat surface (threat register T-17-01/02 both accept)
+- 17-01: GSD SDK CLI still absent (no node_modules sdk / no gsd-sdk on PATH) — STATE.md + ROADMAP.md updated via direct edits, sequential executor on master (not a worktree)
 
 ### Decisions (Phase 16-03, 2026-06-17 — DB-backed atomic spend tally, DB-02/DB-03, closes CR-01)
 
@@ -117,6 +125,11 @@ Plan: 3 of 3 complete
 - 12-03: Vision called only for suspect/low-signal pairs (cost gate T-12-11); null return on any error/missing key → Mode A fallback for that pair (T-12-12)
 
 ### Last Session
+
+Stopped at: Completed 17-01-PLAN.md — Phase 17 Wave 1 done (1/2 plans)
+Resume: 17-01 done (commits b7ed2e7, 9311701). config/sold-segments.json (CONFIG-01 segments-as-data, stockholm-apt + taby-villa) + fetchBooliDetail/extractResidenceId exported from lib/sold-fetch-booli.js (export-only, smoke 19/19). Both Wave-1 prerequisites for the runner are in place; SEGMENTS const left untouched for backward compat. Next = 17-02-PLAN.md: build scripts/sold-match-run.js (config-loaded segments + rolling window → seed booli_sold → Hemnet search → adjudicate apt fee-exact inline-detail / villa address-key → persist verdict + per-segment summary). OPEN operator action (carried from Phase 16, still one run): on the droplet run `node migrate-sold-phase16.js` to create the four sold tables, then the runner's live DB persistence + setSpendClient ceiling are exercisable.
+
+### Prior Session
 
 Stopped at: Completed 16-03-PLAN.md — PHASE 16 COMPLETE (3/3 plans)
 Resume: 16-03 done (commits 3d4169e, 2e10695). lib/sold-spend.js (pluggable DB atomic spend tally + file fallback, closes CR-01) + lib/sold-transport.js wired + scripts/verf-sold-transport-load.js load probe. Next = Phase 17 (match pipeline orchestration: MATCH-01/03/04, CONFIG-01/02). OPEN operator action (carried from 16-01/16-02, still one run): on the droplet run `node migrate-sold-phase16.js` to create the four sold tables, then `node scripts/persist-sold.js --booli <seed.jsonl>` twice to confirm idempotency; the DB spend ceiling (setSpendClient) and live persistence are unblocked once that schema exists. Auto-mode blocked the live DDL/persist/ceiling runs; all offline smokes pass (sold-spend 6/6, load OK no-DB, fetcher 17/23).
