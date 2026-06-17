@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Sold-match pipeline
 status: planning
-stopped_at: Phase 15-05 COMPLETE 2026-06-17. lib/sold-fetch-hemnet.js + scripts/hemnet-sold.js shipped (commits f2c143c, 20dceb3). Per-property /salda SaleCard search with URL builder, early-stop pagination, within-run cache, house/apt opts, MATCH-02 normAddr. --smoke 23 pass. Phase 15 ALL 5 PLANS COMPLETE.
-last_updated: "2026-06-17T02:40:57.415Z"
+stopped_at: Phase 16 context gathered
+last_updated: "2026-06-17T03:08:24.455Z"
 progress:
   total_phases: 14
   completed_phases: 4
@@ -91,7 +91,7 @@ Plan: 5 of 5 (ALL COMPLETE)
 
 ### Last Session
 
-Stopped at: Phase 15-05 COMPLETE 2026-06-17. lib/sold-fetch-hemnet.js + scripts/hemnet-sold.js shipped (commits f2c143c, 20dceb3). Per-property /salda SaleCard search with URL builder, early-stop pagination, within-run cache, house/apt opts, MATCH-02 normAddr. --smoke 23 pass. Phase 15 ALL 5 PLANS COMPLETE.
+Stopped at: Phase 16 context gathered
 Resume: Phase 15 complete. Next = /gsd-execute-phase 16 (sold-match DB schema + persistence).
 
 ### Decisions (Phase 14, 2026-06-12 overnight)
