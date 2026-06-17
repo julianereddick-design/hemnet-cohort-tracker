@@ -3,32 +3,32 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Sold-match pipeline
 status: executing
-stopped_at: Phase 15-04 COMPLETE 2026-06-17. lib/sold-fetch-booli.js + scripts/booli-sold.js shipped. Paginated /slutpriser fetch with idempotent JSONL resume, D-01 detail gate (all-scope operator-guarded, deed-transfer skip), sold_in_advance from SoldProperty.soldAsUpcomingSale. parseBooliSoldDetail extended to return sold_in_advance (Rule 2 fix). --smoke 17 pass. Next = Plan 05 (sold-fetch-hemnet + sold-match).
-last_updated: "2026-06-17T15:30:00.000Z"
+stopped_at: Phase 15-05 COMPLETE 2026-06-17. lib/sold-fetch-hemnet.js + scripts/hemnet-sold.js shipped. Per-property /salda SaleCard search with filtered URL builder (price/area/rooms/item_type), paginated early-stop (address/short-page/window/ceiling), within-run searchCache dedup, house-vs-apartment opts, MATCH-02 normAddr from sold-addr. --smoke 23 pass. Phase 15 COMPLETE (5/5 plans). Next = Phase 16 (sold-match DB schema + persistence).
+last_updated: "2026-06-17T15:33:23.000Z"
 progress:
   total_phases: 14
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 30
-  completed_plans: 25
-  percent: 83
+  completed_plans: 26
+  percent: 87
 ---
 
 ## Current Position
 
-Phase: 15 (sold-data-ingestion-library) — EXECUTING
-Plan: 4 of 5
+Phase: 15 (sold-data-ingestion-library) — COMPLETE
+Plan: 5 of 5 (ALL COMPLETE)
 **Phase:** 15 — Sold-data ingestion library
-**Plan:** 15-04 COMPLETE — Booli fetch + detail enrichment (SOLD-01..04)
-**Status:** Executing Phase 15
-**Progress:** ████████░░ 80% (4/5 plans complete in Phase 15)
+**Plan:** 15-05 COMPLETE — Hemnet fetch (SOLD-05, MATCH-02)
+**Status:** Phase 15 COMPLETE. Next = Phase 16 (sold-match DB schema + persistence)
+**Progress:** ██████████ 100% (5/5 plans complete in Phase 15)
 
 **Milestone v3.0 phases:**
 
-- [ ] Phase 15 — Sold-data ingestion library (SOLD-01..05, MATCH-02, CONFIG-03)
+- [x] Phase 15 — Sold-data ingestion library (SOLD-01..05, MATCH-02, CONFIG-03) COMPLETE
 - [ ] Phase 16 — Sold-match DB schema + persistence (DB-01..03)
 - [ ] Phase 17 — Match pipeline orchestration (MATCH-01/03/04, CONFIG-01/02)
 
-**Next:** `/gsd-execute-phase 15`
+**Next:** `/gsd-execute-phase 16`
 
 ## Accumulated Context
 
@@ -44,6 +44,14 @@ Plan: 4 of 5
 - v3.0: Image-based matching (dHash/vision) does NOT apply — sold detail pages carry no gallery images on either platform. The Phase-14 image path is out of scope for sold-match.
 - v3.0: DB was unreachable during the spike (doctl auth expired); rebuild assumes DB access restored. Apartment matching >9 months back is a design limit (no unit signal remains), not a bug.
 - v3.0 finding that anchors scope: ~36% of Booli villa sold records are genuine non-Hemnet presence (hand-confirmed 0/25 on Hemnet), not slutpris suppression and not a matcher miss.
+
+### Decisions (Phase 15-05, 2026-06-17 — Hemnet fetch, SOLD-05 + MATCH-02)
+
+- 15-05: normAddr imported from lib/sold-addr (MATCH-02 single source of truth, not redefined in sold-fetch-hemnet)
+- 15-05: searchOptsFor HOUSE: priceBand=0.10, areaBand=0.15, dropRooms=true, dropItemType=true — street address is near-unique key; loose search avoids Booli/Hemnet rooms/subtype quirks; Täby density is low so 50-cap risk is low
+- 15-05: searchOptsFor APARTMENT: empty opts (tight defaults) — rooms+area+item_type keep dense building results under the 50-card page cap
+- 15-05: CeilingError caught in searchSoldPaged and returned cleanly as stopReason='ceiling'; drain guard at remainingCalls()<=40 returns partial as stopReason='ceiling-floor' (T-15-15)
+- 15-05: Within-run searchCache/searchInFlight are module-level Maps (process lifetime scope) — deduplicates concurrent Phase-17 worker calls for the same URL at zero extra Oxylabs cost
 
 ### Decisions (Phase 15-04, 2026-06-17 — Booli fetch + detail enrichment)
 
@@ -83,8 +91,8 @@ Plan: 4 of 5
 
 ### Last Session
 
-Stopped at: Phase 15-04 COMPLETE 2026-06-17. lib/sold-fetch-booli.js + scripts/booli-sold.js shipped (commits 7743f36, 2a614c8). Paginated /slutpriser fetch with JSONL resume, D-01 detail gate (all-scope runtime-guarded, deed-transfer skip), sold_in_advance from SoldProperty.soldAsUpcomingSale. parseBooliSoldDetail extended (Rule 2). --smoke 17 pass.
-Resume: Phase 15 plan 4 of 5 complete. Next = /gsd-execute-phase 15 plan 5 (sold-fetch-hemnet + sold-match).
+Stopped at: Phase 15-05 COMPLETE 2026-06-17. lib/sold-fetch-hemnet.js + scripts/hemnet-sold.js shipped (commits f2c143c, 20dceb3). Per-property /salda SaleCard search with URL builder, early-stop pagination, within-run cache, house/apt opts, MATCH-02 normAddr. --smoke 23 pass. Phase 15 ALL 5 PLANS COMPLETE.
+Resume: Phase 15 complete. Next = /gsd-execute-phase 16 (sold-match DB schema + persistence).
 
 ### Decisions (Phase 14, 2026-06-12 overnight)
 

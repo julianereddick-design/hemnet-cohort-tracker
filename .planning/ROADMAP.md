@@ -204,7 +204,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [x] 15-04-PLAN.md — `lib/sold-fetch-booli.js` (paginated /slutpriser seed, classify+retain Lagfart, recon-gated detail, sold_in_advance flag) + `scripts/booli-sold.js` wrapper [SOLD-01..04, Wave 3] (2026-06-17; commits 7743f36, 2a614c8; --smoke 17 pass; Rule 2: parseBooliSoldDetail extended for sold_in_advance)
-- [ ] 15-05-PLAN.md — `lib/sold-fetch-hemnet.js` (per-property /salda SaleCard search, no detail fetch, house/apt opts) + `scripts/hemnet-sold.js` wrapper [SOLD-05, Wave 3]
+- [x] 15-05-PLAN.md — `lib/sold-fetch-hemnet.js` (per-property /salda SaleCard search, no detail fetch, house/apt opts) + `scripts/hemnet-sold.js` wrapper [SOLD-05, Wave 3] (2026-06-17; commits f2c143c, 20dceb3; --smoke 23 pass; MATCH-02 normAddr imported from sold-addr)
 
 #### Phase 16: Sold-match DB schema + persistence
 **Goal**: A migrated sold-side schema (Booli-sold table, Hemnet-`/salda` table, match/verdict table — including enriched columns and the `sold_in_advance` flag) plus an idempotent upsert layer replaces the spike's DB-free JSON output, so re-runs converge without duplicate rows.
@@ -246,7 +246,7 @@ Plans:
 | 9. Production cutover — self-hosted scraper launch | v2.0 | 5/5 | Complete (cutover-complete) | 2026-05-26 |
 | 10. Self-hosted scraper hardening | v2.1 | 5/5 | Complete (repo + droplet) | 2026-06-12 |
 | 11. Daily market-totals capture + minimal report | v2.2 | 3/3 shipped | Live since 2026-05-28; 7-day soak running | - |
-| 15. Sold-data ingestion library | v3.0 | 3/5 | In Progress|  |
+| 15. Sold-data ingestion library | v3.0 | 5/5 | Complete | 2026-06-17 |
 | 16. Sold-match DB schema + persistence | v3.0 | 0/TBD | Not started | - |
 | 17. Match pipeline orchestration | v3.0 | 0/TBD | Not started | - |
 
