@@ -15,7 +15,7 @@ const { createClient } = require('./db');
 async function run() {
   const client = createClient();
   await client.connect();
-
+  try {
   // booli_sold: union of parseBooliSoldCards (lib/sold-parse.js:65-81) +
   // parseBooliSoldDetail (lib/sold-parse.js:94-113). segment/family/scraped_at are
   // on the fetcher JSONL record (lib/sold-fetch-booli.js) so a row is self-describing.
@@ -140,8 +140,11 @@ async function run() {
     [['booli_sold', 'hemnet_sold', 'sold_match', 'sold_spend']]
   );
   console.log('Tables present:', check.rows.map(r => r.table_name).join(', '));
-
-  await client.end();
+  } finally {
+    // WR-01: always release the client, even if a CREATE/SELECT above throws —
+    // a leaked connection otherwise lingers until process exit.
+    await client.end();
+  }
 }
 
 run().catch(err => {
