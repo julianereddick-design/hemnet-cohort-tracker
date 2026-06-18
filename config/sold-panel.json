@@ -1,0 +1,27 @@
+{
+  "_doc": "National population-weighted municipality panel for the fortnightly sold-match sample (v3.1). The sampler allocates the ~1000 target across these munis by population (capped at each muni's live 14-day volume), and within each muni splits Hus vs Lägenhet by the natural live volume ratio (no per-type editing). Each muni carries its Booli areaId + Hemnet location_id so the existing /salda-primary matcher works. v1 = 11 munis with both IDs resolved (probe 2026-06-18); expand by appending entries. See .planning/phases/19-.../19-PANEL-NOTES.md.",
+  "target_sample_size": 1000,
+  "lookback_days": 14,
+  "munis": [
+    { "name": "Stockholm",   "pop": 980, "booli_area_id": 1,   "hemnet_location_id": 18031, "region": "Stockholm" },
+    { "name": "Göteborg",    "pop": 590, "booli_area_id": 22,  "hemnet_location_id": 17920, "region": "Västra Götaland" },
+    { "name": "Malmö",       "pop": 360, "booli_area_id": 78,  "hemnet_location_id": 17989, "region": "Skåne" },
+    { "name": "Uppsala",     "pop": 240, "booli_area_id": 419, "hemnet_location_id": 17800, "region": "Uppsala" },
+    { "name": "Helsingborg", "pop": 150, "booli_area_id": 88,  "hemnet_location_id": 17932, "region": "Skåne" },
+    { "name": "Lund",        "pop": 130, "booli_area_id": 97,  "hemnet_location_id": 17987, "region": "Skåne" },
+    { "name": "Borås",       "pop": 115, "booli_area_id": 309, "hemnet_location_id": 17884, "region": "Västra Götaland" },
+    { "name": "Nacka",       "pop": 107, "booli_area_id": 76,  "hemnet_location_id": 17853, "region": "Stockholm" },
+    { "name": "Södertälje",  "pop": 100, "booli_area_id": 203, "hemnet_location_id": 17775, "region": "Stockholm" },
+    { "name": "Täby",        "pop": 73,  "booli_area_id": 20,  "hemnet_location_id": 17793, "region": "Stockholm" },
+    { "name": "Kungälv",     "pop": 47,  "booli_area_id": 229, "hemnet_location_id": 17973, "region": "Västra Götaland" }
+  ],
+  "_backfill_pending": {
+    "_note": "Resolved Booli areaId but Hemnet location_id still needed (live /locations/show endpoint is Cloudflare-dead via Oxylabs — needs a raw-Oxylabs JSON helper). Adds Östergötland/mid-Sweden/Värmland/Halland + a northern city.",
+    "booli_have_hemnet_need": {
+      "Linköping": 393, "Örebro": 334, "Västerås": 424, "Norrköping": 252,
+      "Eskilstuna": 206, "Halmstad": 438, "Sundsvall": 249, "Karlstad": 389
+    },
+    "_note2": "Need BOTH IDs (north + Småland + Gotland for full national spread):",
+    "both_need": ["Jönköping", "Umeå", "Gävle", "Växjö", "Luleå", "Kalmar", "Östersund", "Visby", "Falun", "Trollhättan(hemnet=17790, booli?)", "Kiruna"]
+  }
+}
