@@ -338,6 +338,26 @@ Job-specific failure modes:
 
   **Triage high false-match rate:** Open `VERDICTS-<cohort>.json` and review the `pairs` array. Mismatches have `verdict: 'CONFIRMED_MISMATCH'`. Check `deltas.price_pct_diff` and `deltas.area_pct_diff` — a cluster of mismatches in one county suggests a matching-logic drift (multi-unit address aliasing, address normalisation change). Reference `COHORT-SPOTCHECK.md §4` for root-cause framework.
 
+- **sold-match-batch.js (Phase 19 Sold match batch) status=warning** — `validate()` escalated. The orchestrator runs the whole sold-match pipeline in ONE process (national sampler → matchOne per sampled record → Phase-18 re-check drain) under ONE batch-wide Oxylabs ceiling. `validate()` escalates when ANY of: the **batch stopped on a ceiling** before completing (`batchStoppedBy='ceiling'`); a **fatal sampler/match error**; **`fetchFailures` over threshold** (`SOLD_BATCH_FETCH_FAIL_THRESHOLD`, default 5); or an **incomplete match pass** (`recordsMatched < recordsTotal`). Methodology is **Slutpris-only and unchanged** (D-01). An **OFF-WEEK skip on an odd ISO week is NORMAL and does NOT escalate** (`result_summary.skipped=true, reason='off-week'`, `validate()` returns null) — the cron line fires weekly but the batch acts fortnightly (even-week gate, D-14).
+
+  **Detect:** Slack channel `Hemnet Status` — `[WARNING] sold-match-batch: ...` (or `[FAILURE] sold-match-batch: ...`). Also `cron_job_log` (`node scripts/verify-cron-job-log.js`, filter `script_name = 'sold-match-batch'`) and `/var/log/hemnet/sold-match-batch.log`.
+
+  **Diagnose:** Read the last `cron_job_log` row's `result_summary`:
+  - If `skipped:true` (`reason:'off-week'`), it was an **odd-week no-op** — expected fortnightly, NOT a failure.
+  - Else inspect `batchStoppedBy` (`'ceiling'` vs `null`), the sample stats (`allocated` / `fetched` / `deedsExcluded` / `dupsExcluded` / `perMuni` / `window`), `recordsMatched` vs `recordsTotal`, `fetchFailures`, `oxylabsSpent` vs `MAX_OXY_CALLS`, and the re-check block (`enrolled` / `rechecked` / `lateMatched` / `stillPending` / `uncertain` / `settled`).
+  - A `ceiling` stop means `MAX_OXY_CALLS` was too low this fortnight → raise it, OR set `RECHECK_BRIDGE_FINAL_ONLY=1` (skip the SERP bridge on intermediate re-checks, ~9k → ~6k calls/month).
+
+  **Re-run:**
+  ```bash
+  # Re-run the whole batch (idempotent upserts per DB-03; same as cron):
+  node sold-match-batch.js
+  ```
+  The re-run is **idempotent** (`ON CONFLICT (booli_id)` upserts + the sampler de-dups against `booli_sold.booli_id`) and re-enrolls only un-enrolled `booli_only` rows, so a re-run after a ceiling stop **resumes safely**. The even-week gate is the ONLY cadence control — there is no week-parity override flag by default, so a manual catch-up run must be done on an EVEN ISO week (or the operator temporarily edits the panel/cron). The `--smoke` flag runs the offline self-test only (no DB, no Oxylabs).
+
+  **Panel + cost levers (D-13/D-16/D-17):** `config/sold-panel.json` is the **coverage lever** — the v1 11-muni panel is metro/south-heavy (no Norrland); appending munis from `config/sold-panel.json._backfill_pending` (8 need Hemnet IDs, the rest need both — a morning **backfill** task) widens national coverage with a one-line config edit, NOT a code change. `target_sample_size` (~1000) and `lookback_days` (14) also live in the panel. The Oxylabs **cost levers** are `MAX_OXY_CALLS` (the hard ceiling) and `RECHECK_BRIDGE_FINAL_ONLY` (skip the bridge on intermediate re-checks, ~9k → ~6k/mo).
+
+  **Go-live note:** the live DDL migration (Phase 18), the first Oxylabs wet run, and installing this crontab line on the droplet are **operator-gated go-live steps — NOT part of phase acceptance** (offline `--smoke` is). No Oxylabs run without explicit per-run operator go-ahead.
+
 - **spotcheck-reaction-poller.js (daily reaction poller) — Phase 13**
 
   **What it does:** reads emoji reactions (✅ / ❌ / ❓) posted by authorised reactors on open
