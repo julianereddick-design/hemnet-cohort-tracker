@@ -66,6 +66,20 @@ function isoWeekNumber(date) {
 }
 
 // ---------------------------------------------------------------------------
+// isoWeekKey(date) — the ISO-week-year-anchored key (e.g. "2026-W26") used to scope
+// the DB spend ceiling to a single fortnight (GL-01). The year is the Thursday's
+// calendar year (ISO-week-year) so week 52/53 of one year never collides with the
+// same week number of the next.
+// ---------------------------------------------------------------------------
+function isoWeekKey(date) {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);  // Thursday of this ISO week
+  const isoYear = d.getUTCFullYear();
+  return `${isoYear}-W${String(isoWeekNumber(date)).padStart(2, '0')}`;
+}
+
+// ---------------------------------------------------------------------------
 // main(client, log) — D-03..D-09. Returns the result_summary (JSONB in cron_job_log).
 // ---------------------------------------------------------------------------
 async function main(client, log) {
@@ -77,6 +91,18 @@ async function main(client, log) {
   if (isoWeek % 2 !== 0) {
     log('INFO', `off-week (ISO week ${isoWeek} is odd) — skipping fortnightly batch`);
     return { skipped: true, reason: 'off-week', isoWeek, slackMsg: null };
+  }
+
+  // GL-01: scope the DB spend ceiling to THIS fortnight. The DB tally keys on
+  // SOLD_SPEND_KEY (default 'sold-global') and NEVER resets — a fixed key would make
+  // `calls` accumulate across every fortnightly run and permanently jam at
+  // MAX_OXY_CALLS after ~1 month. A per-fortnight key gives each even-week run a fresh
+  // budget; a resume WITHIN the same fortnight (after a ceiling stop + raised
+  // MAX_OXY_CALLS) keeps counting toward the same key, so the idempotent re-run does
+  // not double-spend the ceiling. An operator-set SOLD_SPEND_KEY still overrides.
+  if (!process.env.SOLD_SPEND_KEY) {
+    process.env.SOLD_SPEND_KEY = `sold-batch-${isoWeekKey(nowDate)}`;
+    log('INFO', `spend ceiling scoped to key sold-batch-${isoWeekKey(nowDate)}`);
   }
 
   // D-06: ONE batch-wide ceiling. setSpendClient ONCE, BEFORE any sample/match work.
