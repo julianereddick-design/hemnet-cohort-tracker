@@ -3,26 +3,39 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Sold-match productionization
 status: executing
-stopped_at: Completed Phase 18 — Re-check state + slutpris-lag drain logic (4/4 plans); verified passed 5/5, WR-01 fix applied
-last_updated: "2026-06-18T00:00:00.000Z"
-last_activity: 2026-06-18 -- Phase 18 complete (re-check drain logic)
+stopped_at: Completed Phases 19 + 20 — v3.1 sold-match productionization OFFLINE-COMPLETE (national panel sampler reframe, scheduled batch orchestrator, reporting + trend). All offline smokes green; WR-01/WR-02 code-review fixes applied. Live go-live (DDL migrations, first Oxylabs wet run, crontab install, Hemnet-ID backfill) operator-gated for the morning.
+last_updated: "2026-06-18T22:30:00.000Z"
+last_activity: 2026-06-18 -- Phases 19+20 complete (overnight autonomous build)
 progress:
   total_phases: 17
-  completed_phases: 7
-  total_plans: 43
-  completed_plans: 34
-  percent: 79
+  completed_phases: 9
+  total_plans: 48
+  completed_plans: 39
+  percent: 81
 ---
 
 ## Current Position
 
-Phase: 18 — Re-check state + slutpris-lag drain logic (COMPLETE)
-Plan: 4/4 complete
-Status: Complete — verified passed (5/5 must-haves); code review issues_found (WR-01 fixed, rest advisory)
-Last activity: 2026-06-18 -- Phase 18 complete (re-check drain logic)
-Next: `/gsd-plan-phase 19` (Scheduled batch orchestrator — Sold match batch)
+Phase: 20 — Per-run reporting + decision-grade trend (COMPLETE) — v3.1 milestone code-complete
+Plan: Phase 19 (3/3) + Phase 20 (2/2) complete
+Status: Offline-complete — all smokes green (sold-sample 16, sold-match-batch 9, sold-match-report 13, sold-match-trend-chart 9; regressions 27/15/25/18); code review found no blockers (WR-01 fetch-failure + WR-02 over-allocation FIXED; WR-03 year-boundary parity + WR-04 dual-clock documented for go-live)
+Last activity: 2026-06-18 -- Phases 19+20 complete (overnight autonomous build)
+Next: OPERATOR GO-LIVE (see 19-PANEL-NOTES.md + deploy-instructions.md): run DDL migrations on droplet, resolve backfill Hemnet IDs, approve first Oxylabs wet run of `sold-match-batch.js`, install fortnightly crontab. Then consider loop #2 (`.planning/todos/pending/loop2-...`).
 
 ## Accumulated Context
+
+### Decisions (Phases 19+20, 2026-06-18 — overnight autonomous build)
+
+- **SAMPLE REFRAME (operator, mid-build):** v3.1 reporting is built on a **national population-weighted sample** (target ~1,000 non-deed Booli sold properties / fortnight, ≤14-day lookback, de-duped, natural villa:apt mix, no per-type editing) — NOT the original hand-picked-segment loop. Methodology FROZEN: Slutpris-only, NO Lagfart/matcher change (see memory `project_v3_1_scope_slutpris_only`).
+- **Panel (`config/sold-panel.json`):** v1 = **11 municipalities** with both Booli areaId + Hemnet location_id resolved (probe `scripts/probe-national-panel.js`, 73 Oxylabs calls, operator-approved): Stockholm, Göteborg, Malmö, Uppsala, Helsingborg, Lund, Borås, Nacka, Södertälje, Täby, Kungälv (~2,741 sold/14d → 1,000 is a 36% sample-down). Metro/south-heavy, NO Norrland — backfill munis documented in `config/sold-panel.json._backfill_pending` + `19-PANEL-NOTES.md` (the Hemnet `/locations/show` JSON endpoint is Cloudflare-dead via Oxylabs — needs a raw-Oxylabs JSON helper or operator paste).
+- **19-01 `lib/sold-sample.js`:** pure population-weighted `allocate` (capped at live volume + global remaining-budget cap so sum ≤ target — WR-02), per-muni×type 14-day fetch, deed-exclude, de-dup vs `booli_sold.booli_id`, per-record synthetic `seg` tagging (`segment` key = `"<muni>:<FAMILY>"`, FAMILY ∈ HOUSE|APARTMENT). Fetch-failure detection on the swallowed-error page signature so SCHED-02 escalation fires (WR-01). smoke 16/0.
+- **19-02 `sold-match-batch.js`:** `cron-wrapper.runJob` orchestrator — even-ISO-week fortnightly no-op gate, ONE batch-wide `setSpendClient` ceiling, sampler→`matchOne` loop, Phase-18 re-check drain, fail-safe `validate()`. + `RECHECK_BRIDGE_FINAL_ONLY` default-OFF cost lever (D-16) in sold-config/sold-recheck. smoke 9/0.
+- **19-03 `deploy-instructions.md`:** crontab `30 7 * * 1` (fortnightly via even-week gate), env (MAX_OXY_CALLS ~8000 batch ceiling, SOLD_MATCH_BRIDGE, RECHECK_BRIDGE_FINAL_ONLY), runbook + cost-lever notes.
+- **Cost model (given to operator):** ~3–6k Oxylabs calls/fortnightly run → ~7–13k/month (mid ~9k, ~$15–45/mo); re-check drain ~50% (always hits the bridge); the default-off lever cuts mid ~9k→~6k.
+- **20-01 `sold-match-report.js` + 20-02 `sold-match-trend-chart.js`:** per-segment/region/national Slack summary + committed-HTML Chart.js trend from `sold_match`. **Decision-grade headline = settled genuine-non-Hemnet rate** `genuine_non_hemnet/(matched+genuine_non_hemnet)` over terminal verdicts, reported DISTINCTLY from the raw lag-contaminated `booli_only` rate (REPORT-03). re-check-resolved-late = `matched AND first_unmatched_at IS NOT NULL`. Per-region trend lines deferred (national is the decision-grade line). smokes 13/0 + 9/0.
+- **OFFLINE-COMPLETE ONLY** (consistent with Phases 15–18): live DDL migrations, first Oxylabs wet run, crontab install, and the Hemnet-ID backfill are operator go-live steps, NOT acceptance. gsd-sdk absent → sequential executors on master, STATE/ROADMAP edited directly.
+- **Code review (`19-REVIEW.md`):** no blockers. WR-01 + WR-02 FIXED. Open/documented for go-live: WR-03 (ISO-week %2 parity drifts at a 53-week year boundary — switch to a continuous fortnight index or accept), WR-04 (dual-clock), 3 INFO.
+- **Deferred:** loop #2 Slutpris→Lagfart reclassification tracker (`.planning/todos/pending/loop2-...`, Model A test) — separate future build; Model B (Lagfart-only villas) denominator-bias is an accepted/noted gap.
 
 ### Roadmap Evolution
 

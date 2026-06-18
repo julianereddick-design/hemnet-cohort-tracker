@@ -11,9 +11,9 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (18+).
 
 ### Scheduling (SCHED)
 
-- [ ] **SCHED-01**: A scheduled orchestrator (under the `cron-wrapper.runJob` pattern, modeled on `cohort-spotcheck-gate.js`) runs the sold-match pipeline on a configured cadence on the droplet — driving `scripts/sold-match-run.js` across every configured segment with the rolling sold-date window, and logging the run to `cron_job_log`.
-- [ ] **SCHED-02**: The batch run enforces the Oxylabs spend ceiling across the whole multi-segment batch (not just per-segment) and fails safe — on budget exhaustion or persistent fetch failure it escalates rather than silently completing a partial run.
-- [ ] **SCHED-03**: The cron schedule, required env vars, and an operator runbook entry are documented in `deploy-instructions.md`, with the crontab line installable on the droplet.
+- [x] **SCHED-01**: A scheduled orchestrator (`sold-match-batch.js`, under `cron-wrapper.runJob`, modeled on `cohort-spotcheck-gate.js`) runs the sold-match pipeline fortnightly — driving the matcher across a national population-weighted sample (reframed from hand-picked segments to `config/sold-panel.json` + `lib/sold-sample.js`, 14-day window), and logging to `cron_job_log`. _(Phase 19; offline-complete — live wet run operator-gated)_
+- [x] **SCHED-02**: The batch enforces ONE Oxylabs spend ceiling across the whole batch (`setSpendClient` once) and fails safe — `validate()` escalates on ceiling/fetch-failure/incomplete rather than silently completing a partial run. _(Phase 19; WR-01 fix makes the fetch-failure escalation fire on real Booli outages)_
+- [x] **SCHED-03**: The crontab line (`30 7 * * 1`, fortnightly via even-week gate), env vars, and an operator runbook entry are documented in `deploy-instructions.md`. _(Phase 19; crontab install operator-gated)_
 
 ### Re-check pass (RECHECK)
 
@@ -24,9 +24,9 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (18+).
 
 ### Reporting (REPORT)
 
-- [ ] **REPORT-01**: Each scheduled run emits a Slack/report summary, per segment, of `matched / booli_only / re-check-resolved-late / settled-non-Hemnet` counts and rates, reusing the spot-check Slack patterns (`lib/spotcheck-slack-bot.js` + cron-wrapper escalation).
-- [ ] **REPORT-02**: A graphical over-time trend output (committed HTML chart generated from the DB, in the `market-totals-chart.html` / `chart-hb-ratio.js` family) shows the match rate and the settled genuine-non-Hemnet rate week-over-week, per segment.
-- [ ] **REPORT-03**: The settled (post-re-check) genuine-non-Hemnet rate is surfaced as the decision-grade headline metric, reported distinctly from the raw/instantaneous `booli_only` rate so lag-contamination is never mistaken for genuine non-Hemnet presence.
+- [x] **REPORT-01**: `sold-match-report.js` emits a per-segment (+region+national) Slack summary of `matched / booli_only / re-check-resolved-late / settled-non-Hemnet` counts and rates via `lib/spotcheck-slack-bot.js` `postInfoMessage`. _(Phase 20; offline-smoke against fixtures)_
+- [x] **REPORT-02**: `sold-match-trend-chart.js` writes a committed-HTML Chart.js-4 trend (national match rate + settled genuine-non-Hemnet rate per fortnight) to `view-data/<date>/sold-match/trend.html`, served by `view-data-server.js`. _(Phase 20; per-region lines deferred — national line is the decision-grade output)_
+- [x] **REPORT-03**: The settled (post-re-check) genuine-non-Hemnet rate `= genuine_non_hemnet/(matched+genuine_non_hemnet)` over terminal verdicts is the lead headline, reported on a distinct line/series from the raw `booli_only` rate (labelled preliminary/lag-contaminated). _(Phase 20; asserted in both smokes)_
 
 ## Future Requirements (deferred to later milestones)
 
@@ -49,16 +49,16 @@ Which phases cover which requirements. Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCHED-01 | Phase 19 | Pending |
-| SCHED-02 | Phase 19 | Pending |
-| SCHED-03 | Phase 19 | Pending |
+| SCHED-01 | Phase 19 | Complete (offline; live wet run gated) |
+| SCHED-02 | Phase 19 | Complete (offline) |
+| SCHED-03 | Phase 19 | Complete (crontab install gated) |
 | RECHECK-01 | Phase 18 | Complete |
 | RECHECK-02 | Phase 18 | Complete |
 | RECHECK-03 | Phase 18 | Complete |
 | RECHECK-04 | Phase 18 | Complete |
-| REPORT-01 | Phase 20 | Pending |
-| REPORT-02 | Phase 20 | Pending |
-| REPORT-03 | Phase 20 | Pending |
+| REPORT-01 | Phase 20 | Complete (offline) |
+| REPORT-02 | Phase 20 | Complete (offline) |
+| REPORT-03 | Phase 20 | Complete (offline) |
 
 **Coverage:**
 - v1 requirements: 10 total

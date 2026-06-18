@@ -266,8 +266,8 @@ Plans:
 | 16. Sold-match DB schema + persistence | v3.0 | 3/3 | Complete | - |
 | 17. Match pipeline orchestration | v3.0 | 2/2 | Complete | 2026-06-17 |
 | 18. Re-check state + slutpris-lag drain logic | v3.1 | 4/4 | Complete | 2026-06-18 |
-| 19. Scheduled batch orchestrator (Sold match batch) | v3.1 | 0/0 | Not started | - |
-| 20. Per-run reporting + decision-grade trend | v3.1 | 0/0 | Not started | - |
+| 19. Scheduled batch orchestrator (Sold match batch) | v3.1 | 3/3 | Complete (offline; national panel sampler reframe) | 2026-06-18 |
+| 20. Per-run reporting + decision-grade trend | v3.1 | 2/2 | Complete (offline) | 2026-06-18 |
 
 ### Phase 12: Cohort match spot-check weekly QA gate
 
@@ -389,11 +389,13 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 19-01-PLAN.md — lib/sold-sample.js national population-weighted sampler: panel fetch + deed-exclude + booli_id de-dup + pure population-weighted allocation (capped at live volume, natural type ratio) + per-record seg tagging; offline --smoke [SCHED-01]
+- [x] 19-01-PLAN.md — lib/sold-sample.js national population-weighted sampler: panel fetch + deed-exclude + booli_id de-dup + pure population-weighted allocation (capped at live volume + global budget cap, natural type ratio) + per-record seg tagging; offline --smoke [SCHED-01] (2026-06-18; commits d59b9cd + WR-01/02 fix; smoke 16/0)
 **Wave 2**
-- [ ] 19-02-PLAN.md — sold-match-batch.js orchestrator: even-week gate, sampler-driven matchOne loop, batch-wide Oxylabs ceiling, Phase-18 re-check drain, fail-safe validate(), + RECHECK_BRIDGE_FINAL_ONLY default-off lever; offline --smoke [SCHED-01, SCHED-02]
+- [x] 19-02-PLAN.md — sold-match-batch.js orchestrator: even-week gate, sampler-driven matchOne loop, batch-wide Oxylabs ceiling, Phase-18 re-check drain, fail-safe validate(), + RECHECK_BRIDGE_FINAL_ONLY default-off lever; offline --smoke [SCHED-01, SCHED-02] (2026-06-18; commits 64a6216, 10daa0f; smoke 9/0)
 **Wave 3**
-- [ ] 19-03-PLAN.md — deploy-instructions.md: weekly crontab line (Mon 07:30 UTC, fortnightly even-week effect), env vars (MAX_OXY_CALLS ~8000, RECHECK_BRIDGE_FINAL_ONLY), operator runbook + panel/backfill cost levers [SCHED-03]
+- [x] 19-03-PLAN.md — deploy-instructions.md: crontab line (Mon 07:30 UTC, fortnightly even-week effect), env vars (MAX_OXY_CALLS ~8000, RECHECK_BRIDGE_FINAL_ONLY), operator runbook + panel/backfill cost levers [SCHED-03] (2026-06-18; commits 9823c9d, 528144d)
+
+**PHASE 19 COMPLETE (3/3, offline)** — code review `19-REVIEW.md` no blockers (WR-01 fetch-failure + WR-02 over-allocation fixed). Live wet run + crontab install + Hemnet-ID backfill operator-gated.
 
 #### Phase 20: Per-run reporting + decision-grade trend
 **Goal**: Each scheduled run emits a per-segment Slack summary (`matched / booli_only / re-check-resolved-late / settled-non-Hemnet`) reusing the spot-check Slack patterns, and a committed-HTML over-time trend chart (in the `market-totals-chart.html` / `chart-hb-ratio.js` family) plots match rate and the settled genuine-non-Hemnet rate week-over-week per segment. The settled (post-re-check) genuine-non-Hemnet rate is surfaced distinctly from the raw/instantaneous `booli_only` rate, so lag-contamination is never mistaken for genuine non-Hemnet presence.
@@ -404,8 +406,11 @@ Plans:
   2. A committed HTML trend chart generated from the DB plots match rate and the settled genuine-non-Hemnet rate week-over-week, per segment, in the existing chart family (no new dashboard/BI stack)
   3. The settled (post-re-check) genuine-non-Hemnet rate is reported as the decision-grade headline, visually/labelled distinctly from the raw `booli_only` rate so lag-contamination can't be read as genuine non-Hemnet presence
   4. The Slack summary renderer and the chart generator run offline against fixture/DB data with no Oxylabs spend
-**Plans**: TBD
+**Plans**: 2 plans (planned + executed 2026-06-18)
 **UI hint**: yes
 
 Plans:
-- [ ] TBD — planned via `/gsd-plan-phase 20`
+- [x] 20-01-PLAN.md — sold-match-report.js: per-segment/region/national Slack summary from sold_match (matched / booli_only / re-check-resolved-late / settled-non-Hemnet); settled genuine-non-Hemnet rate as the decision-grade headline, distinct from raw booli_only; postInfoMessage; offline --smoke [REPORT-01, REPORT-03] (2026-06-18; commit c04b5aa; smoke 13/0)
+- [x] 20-02-PLAN.md — sold-match-trend-chart.js: committed-HTML Chart.js-4 trend from sold_match (national match rate + settled-non-Hemnet rate per fortnight; settled series distinct from raw) → view-data/<date>/sold-match/trend.html; offline --smoke [REPORT-02, REPORT-03] (2026-06-18; commit 3c5b7af; smoke 9/0)
+
+**PHASE 20 COMPLETE (2/2, offline)** — settled-non-Hemnet headline distinct from raw booli_only verified in both smokes. Per-region trend lines deferred (national line is the decision-grade output). v3.1 milestone code-complete; go-live operator-gated.
