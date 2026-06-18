@@ -16,11 +16,18 @@ progress:
 
 ## Current Position
 
-Phase: 20 — Per-run reporting + decision-grade trend (COMPLETE) — v3.1 milestone code-complete
+Phase: 20 — Per-run reporting + decision-grade trend (COMPLETE) — v3.1 milestone code-complete; GO-LIVE in progress
 Plan: Phase 19 (3/3) + Phase 20 (2/2) complete
-Status: Offline-complete — all smokes green (sold-sample 16, sold-match-batch 9, sold-match-report 13, sold-match-trend-chart 9; regressions 27/15/25/18); code review found no blockers (WR-01 fetch-failure + WR-02 over-allocation FIXED; WR-03 year-boundary parity + WR-04 dual-clock documented for go-live)
-Last activity: 2026-06-18 -- Phases 19+20 complete (overnight autonomous build)
-Next: OPERATOR GO-LIVE (see 19-PANEL-NOTES.md + deploy-instructions.md): run DDL migrations on droplet, resolve backfill Hemnet IDs, approve first Oxylabs wet run of `sold-match-batch.js`, install fortnightly crontab. Then consider loop #2 (`.planning/todos/pending/loop2-...`).
+Status: LIVE-DEPLOYED + first wet run GREEN (2026-06-19). Droplet at c89979e; both migrations run (4 sold tables + 3 recheck cols); GL-01 found+fixed+validated. Scoped wet run clean: sampler 114 fetched/20 allocated, matchOne 18 matched/2 booli_only (90%), recheck enrolled 41, ONE ceiling 48/250 calls, validate()=null. ~2.4 Oxylabs calls/record live.
+Last activity: 2026-06-19 -- go-live: deploy + migrate + GL-01 fix + first wet run (this session)
+Next: RECURRING-SPEND DECISION (operator): install fortnightly crontab `30 7 * * 1 node sold-match-batch.js` + set MAX_OXY_CALLS=8000 in .env → first full national run auto-fires Mon 2026-06-22 (ISO week 26, even). Deferred: Hemnet-ID backfill (panel North/Småland expansion), wire sold-match-report/trend crons, loop #2.
+
+### Decisions (Go-live, 2026-06-19 — this session)
+
+- **DEPLOYED**: pushed master a8ac486→c89979e, droplet `git pull` FF; ran `migrate-sold-phase16.js` (booli_sold/hemnet_sold/sold_match/sold_spend) + `migrate-sold-recheck-phase18.js` (first_unmatched_at/recheck_until/next_recheck_at). Both idempotent. (sold_match already held ~114 rows from the 06-17 Kungälv first-live-test — the migrate "Created table" line is just the IF-NOT-EXISTS print, not proof of empty.)
+- **GL-01 (found+fixed this session, commit c89979e)**: the DB spend tally keys on `SOLD_SPEND_KEY` (default fixed `'sold-global'`) and NEVER resets — `calls` accumulates across every fortnightly run → permanent jam at MAX_OXY_CALLS after ~1mo. CONFIRMED live: the `sold-global` row was already at 159 from pre-fix tests. Fix: `sold-match-batch.js` main() sets `SOLD_SPEND_KEY=sold-batch-<isoWeekYear>` (e.g. `sold-batch-2026-W26`) before setSpendClient → fresh budget per fortnight; resume-within-fortnight still works (same key) by raising MAX_OXY_CALLS. Operator override honored. Offline smoke unchanged (9/9). The offline smoke missed it (mock client, no cross-run state).
+- **FIRST WET RUN (scoped validation, ~$0.35)**: throwaway root wrapper exercised the REAL main() on a 2-muni mini-panel (Kungälv+Täby, target 20) with even-week clock injected to pass the fortnightly gate (smoke technique), MAX_OXY_CALLS=250, distinct spend key `wetrun-2026-06-19-validation` (48 calls, isolated from prod counter). Clean end-to-end: real sampler + matchOne (90% match) + recheck enroll (41) + single ceiling + validate()=null. Wrapper deleted after. Per-record live cost ~2.4 calls → a full 1000-record run ≈ ~2400 match calls + recheck drain, consistent with the ~3–6k/run cost model (low end).
+- **OPEN (recurring-spend, operator's call)**: install the fortnightly crontab line + set MAX_OXY_CALLS=8000 in .env (currently UNSET → defaults to 4000, too low for a full fortnight per deploy doc). Doing both → first full national run auto-fires Mon 2026-06-22 (even week). Reporting crons (sold-match-report.js, trend chart) not yet wired. Hemnet-ID backfill deferred.
 
 ## Accumulated Context
 
