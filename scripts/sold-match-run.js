@@ -189,6 +189,18 @@ async function tryBridge(client, record, seg, segKey, minSoldDate, maxSoldDate, 
       logger: log,
       fetch: (u) => cachedFetch(u, { logger: log }),  // /bostad GET: counted + disk-cached + Oxylabs-forced
       reserve: reserveOxylabsCall,                     // SERP POST: count against the same ceiling
+      serpVariants: parseInt(process.env.SOLD_MATCH_SERP_VARIANTS || '1', 10), // 1=full query only (broadening off by default)
+      // Apartments: lazy Booli-rent fetch for the fee gate — invoked by the bridge ONLY
+      // after it finds an exact-address /bostad candidate (not for every apt booli_only).
+      // record.rent (set on the Path-A apt-mismatch branch) short-circuits this.
+      fetchBooliFee: seg.family === 'APARTMENT'
+        ? async () => {
+          const url = extractDetailUrl(record);
+          if (!url) return null;
+          const d = await (deps.fetchBooliDetail || fetchBooliDetail)(url, { logger: log });
+          return d ? d.rent : null;
+        }
+        : undefined,
     });
   } catch (e) {
     if (e instanceof CeilingError) throw e;
@@ -329,6 +341,9 @@ async function matchOne(client, record, seg, segKey, minSoldDate, maxSoldDate, l
     fee: { booli_rent: booliRent, hemnet_fee: feeChosen.fee, exact: booliRent != null && feeChosen.fee != null && booliRent === feeChosen.fee },
   };
   if (v === 'booli_only') {
+    // Expose the inline-fetched Booli fee to the bridge so its apartment gate can
+    // fee-exact match against the Hemnet /bostad avgift (strongest unit signal).
+    if (booliRent != null) record.rent = booliRent;
     const bridged = await tryBridge(client, record, seg, segKey, minSoldDate, maxSoldDate, log, aptEv, deps);
     if (bridged) return bridged;
   }
