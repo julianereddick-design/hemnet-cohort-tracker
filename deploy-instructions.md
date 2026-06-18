@@ -32,6 +32,15 @@ Phase 13 vars (required for the image-confirmation + review-loop go-live):
 - `SLACK_ALLOWED_REACTORS=U0……` — comma-separated Slack user id(s) authorised to confirm removals via emoji reaction. **REQUIRED before trusting auto-removal.** Without it, the poller falls back to accepting reactions from ALL users (documented first-run fallback only). Set to the operator's own Slack user id at go-live.
 - `DHASH_THRESHOLD=6` — (default: 6) dHash distance threshold for auto-confirming a shared-image match. Do not raise without reviewing the per-pair minDist distribution from several gate runs (see Phase 13 runbook below).
 
+Phase 19 (v3.1) — Sold match batch vars (for `sold-match-batch.js`):
+- `DATABASE_URL` — already required (above); the batch reuses the cron-wrapper pg client. No separate var.
+- `OXYLABS_USERNAME` / `OXYLABS_PASSWORD` — already required (above); the batch forces the Oxylabs transport (`SCRAPE_FORCE_OXYLABS=1` is the orchestrator's first line). No separate var.
+- `MAX_OXY_CALLS` — the **batch-wide Oxylabs ceiling** (one `setSpendClient` governs the whole run). Cost model: ~1000 sampled records + the re-check drain (~50% reaching the SERP bridge) ≈ ~3–6k calls/run → ~7–13k/month (mid ~9k). Set **`MAX_OXY_CALLS=8000`** — high enough to complete a full fortnight, low enough to be a real hard cap (D-17). NOTE: the `lib/sold-transport.js` DEFAULT is **4000** (too low for the full batch) → set it explicitly in `.env`.
+- `SOLD_MATCH_BRIDGE` — **default-on**; the orchestrator sets it to `'1'` itself (D-05), so both the first-pass match and the re-check `matchOne` use the SERP /bostad bridge. Document the opt-out as `SOLD_MATCH_BRIDGE=0` (disables the bridge entirely — only for debugging).
+- `RECHECK_BRIDGE_FINAL_ONLY` — **default OFF** cost lever (D-16). When `=1`, the re-check drain skips the SERP bridge on INTERMEDIATE re-attempts and runs it only on the FINAL attempt before settle (~mid 9k → ~6k calls/month). Leave **OFF** for the full-fidelity drain; flip to `1` only as a deliberate cost lever. Validated by `boolEnv` (only `1`/`true`/`0`/`false` honored; a typo falls back to OFF).
+- `SOLD_BATCH_FETCH_FAIL_THRESHOLD` — (default: 5) optional. Number of sampler fetch failures above which `validate()` escalates to Slack. Raise only if transient Booli fetch noise is expected.
+- `SLACK_WEBHOOK_URL` — already documented (above); the batch's `validate()` escalations post here via cron-wrapper (the **same webhook** as Phase 12 — NOT the `SLACK_BOT_TOKEN`).
+
 To set the Slack webhook:
 ```bash
 ssh root@<droplet>
@@ -56,6 +65,17 @@ All times are UTC. Schedule respects:
 # false-match rate + Wilson 95% CI by county, writes VERDICTS + SUMMARY artifacts, and logs to
 # cron_job_log. Escalates to Slack if rate > 5% OR if any Hemnet fetch failed.
 30 6 * * 1  cd /opt/hemnet-cohort-tracker && node cohort-spotcheck-gate.js     >> /var/log/hemnet/spotcheck-gate.log 2>&1
+
+# === Phase 19 (v3.1) — Sold match batch (weekly cron, FORTNIGHTLY effect, Mon 07:30 UTC) ===
+# sold-match-batch.js runs the whole sold-match pipeline in ONE process: calls the national
+# population-weighted sampler (config/sold-panel.json) for a de-duped ~1000-record 14-day sample,
+# matches each record against Hemnet, then runs the Phase-18 re-check drain, all under ONE
+# batch-wide Oxylabs ceiling (MAX_OXY_CALLS). The line fires WEEKLY but the orchestrator no-ops
+# on ODD ISO weeks (even-week gate) → effective FORTNIGHTLY cadence. Fails safe: validate()
+# escalates to Slack on ceiling/fatal/incomplete rather than logging a partial run as success.
+# Slot 07:30 UTC clears cohort-create (06:00), cohort-spotcheck-gate (06:30), Job B (03:00),
+# market-totals (08:30). Logs to cron_job_log + the log file below.
+30 7 * * 1  cd /opt/hemnet-cohort-tracker && node sold-match-batch.js        >> /var/log/hemnet/sold-match-batch.log 2>&1
 
 0 8 * * *   cd /opt/hemnet-cohort-tracker && node sfpl-region-snapshot.js       >> /var/log/hemnet/sfpl.log 2>&1
 
