@@ -384,11 +384,12 @@ Plans:
   2. The Oxylabs spend ceiling is enforced across the whole multi-segment batch (not just per-segment); on budget exhaustion or persistent fetch failure the run escalates via Slack rather than silently completing a partial run
   3. The cron schedule, required env vars, and an operator runbook entry (how to detect, diagnose, and re-run after a failure) are documented in `deploy-instructions.md`, with the crontab line installable on the droplet
   4. The orchestrator runs end-to-end offline (`--smoke` / stubbed fetch + mock DB client) with zero Oxylabs spend; any live wet run is gated on explicit per-run operator go-ahead
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: no
 
 Plans:
-- [ ] TBD — planned via `/gsd-plan-phase 19`
+- [ ] 19-01-PLAN.md — sold-match-batch.js orchestrator: in-process multi-segment loop, batch-wide Oxylabs ceiling, Phase-18 re-check drain, fail-safe validate(), offline --smoke [SCHED-01, SCHED-02]
+- [ ] 19-02-PLAN.md — deploy-instructions.md: weekly crontab line (Mon 07:30 UTC), env vars, operator runbook entry [SCHED-03]
 
 #### Phase 20: Per-run reporting + decision-grade trend
 **Goal**: Each scheduled run emits a per-segment Slack summary (`matched / booli_only / re-check-resolved-late / settled-non-Hemnet`) reusing the spot-check Slack patterns, and a committed-HTML over-time trend chart (in the `market-totals-chart.html` / `chart-hb-ratio.js` family) plots match rate and the settled genuine-non-Hemnet rate week-over-week per segment. The settled (post-re-check) genuine-non-Hemnet rate is surfaced distinctly from the raw/instantaneous `booli_only` rate, so lag-contamination is never mistaken for genuine non-Hemnet presence.
