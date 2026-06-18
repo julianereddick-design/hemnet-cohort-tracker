@@ -17,10 +17,10 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (18+).
 
 ### Re-check pass (RECHECK)
 
-- [ ] **RECHECK-01**: Unmatched `booli_only` sold records are persisted with re-check scheduling state (e.g. `first_unmatched_at`, `recheck_until`, `next_recheck_at`) so they can be revisited on subsequent scheduled runs.
-- [ ] **RECHECK-02**: Each scheduled run re-attempts the Hemnet `/salda` search for still-unmatched `booli_only` records that are due and within their re-check window; a late match flips the verdict to `matched` with the supporting evidence (matched Hemnet slug, agreeing signals) and removes it from the re-check queue.
-- [ ] **RECHECK-03**: A `booli_only` record still unmatched after its re-check window (~4 weeks) settles to a terminal `genuine non-Hemnet` verdict and exits the re-check queue — no further Hemnet searches are spent on it.
-- [ ] **RECHECK-04**: The re-check window length is configuration (default ~4 weeks) and adjustable without code changes.
+- [x] **RECHECK-01**: Unmatched `booli_only` sold records are persisted with re-check scheduling state (e.g. `first_unmatched_at`, `recheck_until`, `next_recheck_at`) so they can be revisited on subsequent scheduled runs. _(Phase 18: migration + enrollRecheck/enrollUnmatched)_
+- [x] **RECHECK-02**: Each scheduled run re-attempts the Hemnet `/salda` search for still-unmatched `booli_only` records that are due and within their re-check window; a late match flips the verdict to `matched` with the supporting evidence (matched Hemnet slug, agreeing signals) and removes it from the re-check queue. _(Phase 18: runRecheck/fetchDueRecheck/clearRecheck; cadence wiring in Phase 19)_
+- [x] **RECHECK-03**: A `booli_only` record still unmatched after its re-check window (~4 weeks) settles to a terminal `genuine non-Hemnet` verdict and exits the re-check queue — no further Hemnet searches are spent on it. _(Phase 18: settleExpired/settleNonHemnet)_
+- [x] **RECHECK-04**: The re-check window length is configuration (default ~4 weeks) and adjustable without code changes. _(Phase 18: RECHECK_WINDOW_DAYS/INTERVAL_DAYS env-overridable)_
 
 ### Reporting (REPORT)
 
@@ -52,10 +52,10 @@ Which phases cover which requirements. Populated during roadmap creation.
 | SCHED-01 | Phase 19 | Pending |
 | SCHED-02 | Phase 19 | Pending |
 | SCHED-03 | Phase 19 | Pending |
-| RECHECK-01 | Phase 18 | Pending |
-| RECHECK-02 | Phase 18 | Pending |
-| RECHECK-03 | Phase 18 | Pending |
-| RECHECK-04 | Phase 18 | Pending |
+| RECHECK-01 | Phase 18 | Complete |
+| RECHECK-02 | Phase 18 | Complete |
+| RECHECK-03 | Phase 18 | Complete |
+| RECHECK-04 | Phase 18 | Complete |
 | REPORT-01 | Phase 20 | Pending |
 | REPORT-02 | Phase 20 | Pending |
 | REPORT-03 | Phase 20 | Pending |

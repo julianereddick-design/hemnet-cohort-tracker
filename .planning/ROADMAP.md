@@ -265,7 +265,7 @@ Plans:
 | 15. Sold-data ingestion library | v3.0 | 5/5 | Complete    | 2026-06-17 |
 | 16. Sold-match DB schema + persistence | v3.0 | 3/3 | Complete | - |
 | 17. Match pipeline orchestration | v3.0 | 2/2 | Complete | 2026-06-17 |
-| 18. Re-check state + slutpris-lag drain logic | v3.1 | 0/0 | Not started | - |
+| 18. Re-check state + slutpris-lag drain logic | v3.1 | 4/4 | Complete | 2026-06-18 |
 | 19. Scheduled batch orchestrator (Sold match batch) | v3.1 | 0/0 | Not started | - |
 | 20. Per-run reporting + decision-grade trend | v3.1 | 0/0 | Not started | - |
 
@@ -365,10 +365,15 @@ Plans:
 **UI hint**: no
 
 Plans:
-- [ ] 18-01-PLAN.md — migration: re-check scheduling columns on sold_match [RECHECK-01]
-- [ ] 18-02-PLAN.md — configurable RECHECK_WINDOW_DAYS/INTERVAL_DAYS in lib/sold-config.js [RECHECK-04]
-- [ ] 18-03-PLAN.md — store-layer scheduling helpers in lib/sold-store.js (enroll/fetchDue/advance/settle/clear) [RECHECK-01/02/03]
-- [ ] 18-04-PLAN.md — lib/sold-recheck.js drain orchestration (clock-injected, reuses matchOne) + offline smoke [RECHECK-01/02/03/04]
+**Wave 1**
+- [x] 18-01-PLAN.md — migration: re-check scheduling columns on sold_match [RECHECK-01]
+- [x] 18-02-PLAN.md — configurable RECHECK_WINDOW_DAYS/INTERVAL_DAYS in lib/sold-config.js [RECHECK-04]
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [x] 18-03-PLAN.md — store-layer scheduling helpers in lib/sold-store.js (enroll/fetchDue/advance/settle/clear) [RECHECK-01/02/03]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [x] 18-04-PLAN.md — lib/sold-recheck.js drain orchestration (clock-injected, reuses matchOne) + offline smoke [RECHECK-01/02/03/04]
 
 #### Phase 19: Scheduled batch orchestrator (Sold match batch)
 **Goal**: A `cron-wrapper.runJob` orchestrator ("Sold match batch", modeled on `cohort-spotcheck-gate.js`) runs the whole sold-match pipeline on a configured cadence on the droplet — driving `scripts/sold-match-run.js` across every configured segment over the rolling window, running the Phase-18 re-check pass inside the same run, enforcing the Oxylabs spend ceiling across the entire multi-segment batch, and failing safe with escalation rather than silently completing a partial run. The cron line, env vars, and a runbook entry are documented and installable.

@@ -2,24 +2,25 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Sold-match productionization
-status: roadmapped
+status: executing
+stopped_at: Completed Phase 18 — Re-check state + slutpris-lag drain logic (4/4 plans); verified passed 5/5, WR-01 fix applied
 last_updated: "2026-06-18T00:00:00.000Z"
-last_activity: 2026-06-18
+last_activity: 2026-06-18 -- Phase 18 complete (re-check drain logic)
 progress:
-  total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 17
+  completed_phases: 7
+  total_plans: 43
+  completed_plans: 34
+  percent: 79
 ---
 
 ## Current Position
 
-Phase: 18 — Re-check state + slutpris-lag drain logic (next to plan)
-Plan: —
-Status: Roadmap created — 3 phases (18–20), 10/10 v3.1 requirements mapped
-Last activity: 2026-06-18 — v3.1 roadmap created (Phases 18 → 19 → 20)
-Next: `/gsd-plan-phase 18`
+Phase: 18 — Re-check state + slutpris-lag drain logic (COMPLETE)
+Plan: 4/4 complete
+Status: Complete — verified passed (5/5 must-haves); code review issues_found (WR-01 fixed, rest advisory)
+Last activity: 2026-06-18 -- Phase 18 complete (re-check drain logic)
+Next: `/gsd-plan-phase 19` (Scheduled batch orchestrator — Sold match batch)
 
 ## Accumulated Context
 
@@ -28,6 +29,15 @@ Next: `/gsd-plan-phase 18`
 - Milestone v3.1 (Sold-match productionization) roadmap created 2026-06-18: turn the v3.0 code-complete runner into a scheduled, self-draining, observable pipeline. 3 phases (18–20), 10 v1 requirements (SCHED ×3, RECHECK ×4, REPORT ×3), all mapped. Phase 18 = re-check state + ~4-week slutpris-lag drain (the genuinely-new logic); Phase 19 = `cron-wrapper.runJob` batch orchestrator ("Sold match batch", runs the re-check pass inside it, batch-wide spend ceiling + fail-safe); Phase 20 = per-segment Slack summary + committed-HTML trend chart + decision-grade settled non-Hemnet headline. RECHECK precedes SCHED because the re-check pass executes inside the scheduled orchestrator; REPORT last because it depends on re-check verdicts existing. SUPPRESS (listing-stage suppression test) stays deferred. Sequential: 18 → 19 → 20.
 - Milestone v3.0 (Sold-match pipeline) defined 2026-06-17: productionize the validated `spike/sold-match-feasibility` spike into reusable `lib/` modules + DB persistence. 3 phases (15–17), 15 v1 requirements, all mapped. v2 deferred: SCHED (cron scheduling), REPORT (Slack/reporting), SUPPRESS (listing-stage suppression test).
 - Phase 12 added: Cohort match spot-check weekly QA gate (verify Booli↔Hemnet pairs are the same property; spec in repo `COHORT-SPOTCHECK.md`)
+
+### Decisions (Phase 18, 2026-06-18 — re-check state + slutpris-lag drain, RECHECK-01..04)
+
+- 18 COMPLETE (4/4 plans), verified passed 5/5 must-haves. The drain is OFFLINE-COMPLETE only — live DDL (`migrate-sold-recheck-phase18.js`) + live drain are operator/Phase-19-gated, deliberately NOT part of acceptance (consistent with Phases 15–17). gsd-sdk CLI still absent; STATE/ROADMAP updated via direct edits, sequential executors on master (no worktrees).
+- 18-01: `migrate-sold-recheck-phase18.js` adds three nullable TIMESTAMPTZ cols to `sold_match` (`first_unmatched_at`, `recheck_until`, `next_recheck_at`) via `ADD COLUMN IF NOT EXISTS` ×3 + parameterized read-back, mirroring migrate-sold-phase16.js (commits 0bd6463, 91ff47d).
+- 18-02: `lib/sold-config.js` exports `RECHECK_WINDOW_DAYS` (default 28 ~4wk) + `RECHECK_INTERVAL_DAYS` (default 7), each env-overridable via a validated `posIntEnv` helper (non-positive/non-numeric → default). RECHECK-04 met without code edit (commits 6f905e1, ba1ce6f, 7f9126a).
+- 18-03: `lib/sold-store.js` gains 5 parameterized client-first scheduling helpers — `enrollRecheck` (idempotent via `first_unmatched_at IS NULL`), `fetchDueRecheck` (booli_only + due `next_recheck_at<=now` + in-window `recheck_until>=now` + enrolled; structurally excludes terminal/matched/uncertain), `advanceRecheck`, `settleNonHemnet` (→`genuine_non_hemnet`, NULLs next_recheck_at), `clearRecheck` (commits cf26a45, 15a8935, cc36428).
+- 18-04: `lib/sold-recheck.js` — `enrollUnmatched`/`runRecheck`/`settleExpired` over an INJECTED clock; `runRecheck` re-runs the SAME Phase-17 `matchOne` (deps-injected, lazily required so the Oxylabs-forcing runner never loads under --smoke). Whole drain runs offline (mock clock + stubbed search + mock pg client), zero Oxylabs/zero live DB (SC-5) (commits 6aa2898, b70244c, 4868e6c, 580b0fc).
+- 18 code-review (advisory): WR-01 was a REAL correctness bug — `runRecheck` only handled `matched`/else, but `matchOne` has a third return `uncertain`; an uncertain re-check flips the row off `booli_only`, leaving stale scheduling cols in non-terminal limbo (all queue helpers are booli_only-guarded). FIXED (commit 34df402): uncertain now `clearRecheck`s + counts in new `summary.uncertain` bucket (uncertain → human review, NEVER auto-settled — identity-model convention). Also folded in WR-03 (`clearRecheck` now guarded `verdict <> 'booli_only'`) + IN-02 (stillPending counted from advanceRecheck rowCount). recheck smoke 12/12, store 25/25, runner regression 18/18. WR-02 (matchOne stamps adjudicated_at off wall-clock on the still-pending path) + remaining info items left as documented advisory (out-of-scope: would require threading a clock into Phase-17 persistMapped).
 
 ### Decisions (v3.0, 2026-06-17 — anchored by the spike)
 
