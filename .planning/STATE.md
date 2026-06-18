@@ -1,39 +1,31 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
-milestone_name: Sold-match pipeline
-status: executing
-stopped_at: Completed 17-02-PLAN.md — Phase 17 COMPLETE (2/2 plans); v3.0 code-complete
-last_updated: "2026-06-17T07:15:00.000Z"
+milestone: v3.1
+milestone_name: Sold-match productionization
+status: roadmapped
+last_updated: "2026-06-18T00:00:00.000Z"
+last_activity: 2026-06-18
 progress:
-  total_phases: 14
-  completed_phases: 6
-  total_plans: 35
-  completed_plans: 30
-  percent: 86
+  total_phases: 3
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 ## Current Position
 
-Phase: 17 (match-pipeline-orchestration) — COMPLETE (2/2 plans)
-Plan: 2 of 2 complete (Wave 1 + Wave 2 done)
-**Phase:** 17
-**Plan:** 02 complete — PHASE 17 COMPLETE; v3.0 (Phases 15–17) code-complete
-**Status:** Milestone v3.0 code-complete; operator one-time droplet run remaining
-**Progress:** ██████████ 100% (2/2 plans complete in Phase 17)
-
-**Milestone v3.0 phases:**
-
-- [x] Phase 15 — Sold-data ingestion library (SOLD-01..05, MATCH-02, CONFIG-03) COMPLETE
-- [x] Phase 16 — Sold-match DB schema + persistence (DB-01..03) COMPLETE
-- [x] Phase 17 — Match pipeline orchestration (MATCH-01/03/04, CONFIG-01/02) COMPLETE
-
-**Next:** Milestone v3.0 code-complete. Operator action: on the droplet run `node migrate-sold-phase16.js` (if tables not already live per Phase 16) then a first manual `node scripts/sold-match-run.js` run to populate sold_match.
+Phase: 18 — Re-check state + slutpris-lag drain logic (next to plan)
+Plan: —
+Status: Roadmap created — 3 phases (18–20), 10/10 v3.1 requirements mapped
+Last activity: 2026-06-18 — v3.1 roadmap created (Phases 18 → 19 → 20)
+Next: `/gsd-plan-phase 18`
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
+- Milestone v3.1 (Sold-match productionization) roadmap created 2026-06-18: turn the v3.0 code-complete runner into a scheduled, self-draining, observable pipeline. 3 phases (18–20), 10 v1 requirements (SCHED ×3, RECHECK ×4, REPORT ×3), all mapped. Phase 18 = re-check state + ~4-week slutpris-lag drain (the genuinely-new logic); Phase 19 = `cron-wrapper.runJob` batch orchestrator ("Sold match batch", runs the re-check pass inside it, batch-wide spend ceiling + fail-safe); Phase 20 = per-segment Slack summary + committed-HTML trend chart + decision-grade settled non-Hemnet headline. RECHECK precedes SCHED because the re-check pass executes inside the scheduled orchestrator; REPORT last because it depends on re-check verdicts existing. SUPPRESS (listing-stage suppression test) stays deferred. Sequential: 18 → 19 → 20.
 - Milestone v3.0 (Sold-match pipeline) defined 2026-06-17: productionize the validated `spike/sold-match-feasibility` spike into reusable `lib/` modules + DB persistence. 3 phases (15–17), 15 v1 requirements, all mapped. v2 deferred: SCHED (cron scheduling), REPORT (Slack/reporting), SUPPRESS (listing-stage suppression test).
 - Phase 12 added: Cohort match spot-check weekly QA gate (verify Booli↔Hemnet pairs are the same property; spec in repo `COHORT-SPOTCHECK.md`)
 

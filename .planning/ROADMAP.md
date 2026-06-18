@@ -7,6 +7,7 @@
 - ✅ **v2.1 Self-hosted scraper hardening** — Phase 10 (cleanup of observation-week carry-forwards; production-stable) — COMPLETE 2026-06-12 (repo + droplet; the two Pool & Flow tables intentionally retained)
 - 🚧 **v2.2 Market supply pulse** — Phase 11 (new data product: daily nationwide listing totals; runs in parallel to v2.1)
 - 🚧 **v3.0 Sold-match pipeline (Booli-sold → Hemnet-sold), DB-backed** — Phases 15–17 (productionize the validated `spike/sold-match-feasibility` spike into reusable `lib/` modules + DB persistence + config-driven segments; planning 2026-06-17)
+- 🚧 **v3.1 Sold-match productionization** — Phases 18–20 (turn the v3.0 code-complete runner into a scheduled, self-draining, observable pipeline: cron batch + ~4-week re-check drain + Slack/trend reporting; planning 2026-06-18)
 
 ## Phases
 
@@ -246,7 +247,7 @@ Plans:
 
 ## Progress
 
-**Execution Order:** Phases 1–10 executed in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 7.1 → 8 → 9 → 10. Phase 11 (v2.2) runs in parallel to Phase 10 (v2.1) — the two milestones are orthogonal. v3.0 (Phases 15 → 16 → 17) runs sequentially after the v2.x streams: 15 (ingestion lib) → 16 (DB schema/persistence) → 17 (orchestration); 16 depends on 15, 17 depends on both.
+**Execution Order:** Phases 1–10 executed in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 7.1 → 8 → 9 → 10. Phase 11 (v2.2) runs in parallel to Phase 10 (v2.1) — the two milestones are orthogonal. v3.0 (Phases 15 → 16 → 17) runs sequentially after the v2.x streams: 15 (ingestion lib) → 16 (DB schema/persistence) → 17 (orchestration); 16 depends on 15, 17 depends on both. v3.1 (Phases 18 → 19 → 20) runs sequentially after v3.0: 18 (re-check state + drain) → 19 (scheduled batch orchestrator, which runs the re-check pass inside it) → 20 (reporting + trend); 19 depends on 18, 20 depends on both.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -264,6 +265,9 @@ Plans:
 | 15. Sold-data ingestion library | v3.0 | 5/5 | Complete    | 2026-06-17 |
 | 16. Sold-match DB schema + persistence | v3.0 | 3/3 | Complete | - |
 | 17. Match pipeline orchestration | v3.0 | 2/2 | Complete | 2026-06-17 |
+| 18. Re-check state + slutpris-lag drain logic | v3.1 | 0/0 | Not started | - |
+| 19. Scheduled batch orchestrator (Sold match batch) | v3.1 | 0/0 | Not started | - |
+| 20. Per-run reporting + decision-grade trend | v3.1 | 0/0 | Not started | - |
 
 ### Phase 12: Cohort match spot-check weekly QA gate
 
@@ -335,3 +339,60 @@ Plans:
 Plans:
 - [x] 14-01-PLAN.md — sizing/trust probe (W23, 288 pairs) + dHash primitives + unit-field extraction (fee/floor/apartmentNumber + Hemnet Apollo image labels); DECISION in 14-01-SUMMARY.md [D-01, D-08, D-10, D-11, D-12] (2026-06-12)
 - [x] 14-02/03/04 — folded into the overnight implementation per D-13: identity-model adjudicator (fee-first; fee/floor contradictions → human-review conflict, never auto-mismatch; floor ±0.5 halvtrappa tolerance; D-04 challenge flag), label-based floorplan exclusion in dHash + vision, gate rework (multi-unit SQL stamp, dHash as verdict INPUT — promotion loop deleted, vision on first-pass-UNCERTAIN residue w/ VISION_MAX_CALLS cap, --max 6→20, artifact image cleanup, stale-cohort guard off-by-one-week fix) — commits 79911f0..e7d1ffe [D-02..D-05, D-09] (2026-06-12)
+
+
+### 🚧 v3.1 Sold-match productionization (Planning — 2026-06-18)
+
+**Milestone Goal:** Turn the code-complete v3.0 sold-match runner (`scripts/sold-match-run.js` + `lib/` matcher modules + sold-side DB) into a **scheduled, self-draining, observable** production pipeline. A cron batch runs the runner across every configured segment; unmatched `booli_only` records are **re-checked for ~4 weeks** to drain slutpris-lag before settling as genuine non-Hemnet; and each run reports per-segment results to Slack plus a graphical over-time trend — so the headline "how much sold data Booli holds beyond Hemnet's `/salda`" becomes a decision-grade number tracked over time, not a one-off spike figure.
+
+**Background:** v3.0 (Phases 15–17) is code-complete. The runner is config-driven (`config/sold-segments.json`, rolling sold-date window), persists via `lib/sold-store.js` (schema from `migrate-sold-phase16.js`), and reuses Phase-14 `adjudicatePair`. Scheduling reuses the existing `cron-wrapper.runJob` + crontab pattern (model: `cohort-spotcheck-gate.js` from Phases 12/13). Reporting reuses `lib/spotcheck-slack-bot.js` + cron-wrapper Slack escalation; the trend chart follows the committed-HTML-chart-from-DB pattern (`market-totals-chart.html` / `chart-hb-ratio.js`). The genuinely-new logic is the **re-check pass**: scheduling state on unmatched `booli_only` rows + a drain loop inside the scheduled orchestrator.
+
+**Operator constraints (apply across this milestone):** no Oxylabs/paid runs without an explicit per-run operator go-ahead (offline smokes + existing CSVs are free); validation samples default to N=200+; real job names only ("Sold match batch", never Job A/B/C). The re-check window is configuration (default ~4 weeks), set by operator decision 2026-06-18.
+
+**Deferred:** listing-stage suppression test (SUPPRESS-01) — Hemnet `/salda` indexes only priced sales, so suppression can't be measured from sold pages alone; needs its own for-sale→sold tracking method.
+
+#### Phase 18: Re-check state + slutpris-lag drain logic
+**Goal**: Unmatched `booli_only` sold records carry re-check scheduling state and are re-attempted against Hemnet `/salda` until a configurable ~4-week window expires — late matches flip to `matched` with evidence, records still unmatched at window-end settle to a terminal `genuine non-Hemnet` verdict and stop consuming Hemnet searches. This drains slutpris-lag contamination out of the raw `booli_only` rate.
+**Depends on**: Phase 17 (the v3.0 runner, `lib/sold-store.js` persistence, and `adjudicatePair` it re-checks against)
+**Requirements**: RECHECK-01, RECHECK-02, RECHECK-03, RECHECK-04
+**Success Criteria** (what must be TRUE):
+  1. An unmatched `booli_only` record persists re-check scheduling state (`first_unmatched_at`, `recheck_until`, `next_recheck_at`) and is queryable as "due for re-check" on a later run — verifiable offline against the migrated sold-match schema
+  2. A re-check pass re-runs the Hemnet `/salda` search for a due, in-window `booli_only` record; a late match flips the verdict to `matched` with supporting evidence (matched Hemnet slug, agreeing signals) and removes it from the re-check queue
+  3. A `booli_only` record still unmatched after its `recheck_until` settles to a terminal `genuine non-Hemnet` verdict, exits the queue, and is never re-searched again (no further Oxylabs calls spent on it)
+  4. The re-check window length is read from configuration (default ~4 weeks) and changes behavior with no code edit
+  5. The drain logic is exercised by an offline smoke (mocked clock + stubbed search) with no live Oxylabs spend and no live DB writes
+**Plans**: TBD
+**UI hint**: no
+
+Plans:
+- [ ] TBD — planned via `/gsd-plan-phase 18`
+
+#### Phase 19: Scheduled batch orchestrator (Sold match batch)
+**Goal**: A `cron-wrapper.runJob` orchestrator ("Sold match batch", modeled on `cohort-spotcheck-gate.js`) runs the whole sold-match pipeline on a configured cadence on the droplet — driving `scripts/sold-match-run.js` across every configured segment over the rolling window, running the Phase-18 re-check pass inside the same run, enforcing the Oxylabs spend ceiling across the entire multi-segment batch, and failing safe with escalation rather than silently completing a partial run. The cron line, env vars, and a runbook entry are documented and installable.
+**Depends on**: Phase 18 (the re-check pass executes inside this orchestrator; state + drain logic must exist first)
+**Requirements**: SCHED-01, SCHED-02, SCHED-03
+**Success Criteria** (what must be TRUE):
+  1. A single orchestrator run, under `cron-wrapper.runJob`, drives the runner across every configured segment with the rolling sold-date window, runs the re-check pass for due records, and logs the run to `cron_job_log` with a per-segment result summary
+  2. The Oxylabs spend ceiling is enforced across the whole multi-segment batch (not just per-segment); on budget exhaustion or persistent fetch failure the run escalates via Slack rather than silently completing a partial run
+  3. The cron schedule, required env vars, and an operator runbook entry (how to detect, diagnose, and re-run after a failure) are documented in `deploy-instructions.md`, with the crontab line installable on the droplet
+  4. The orchestrator runs end-to-end offline (`--smoke` / stubbed fetch + mock DB client) with zero Oxylabs spend; any live wet run is gated on explicit per-run operator go-ahead
+**Plans**: TBD
+**UI hint**: no
+
+Plans:
+- [ ] TBD — planned via `/gsd-plan-phase 19`
+
+#### Phase 20: Per-run reporting + decision-grade trend
+**Goal**: Each scheduled run emits a per-segment Slack summary (`matched / booli_only / re-check-resolved-late / settled-non-Hemnet`) reusing the spot-check Slack patterns, and a committed-HTML over-time trend chart (in the `market-totals-chart.html` / `chart-hb-ratio.js` family) plots match rate and the settled genuine-non-Hemnet rate week-over-week per segment. The settled (post-re-check) genuine-non-Hemnet rate is surfaced distinctly from the raw/instantaneous `booli_only` rate, so lag-contamination is never mistaken for genuine non-Hemnet presence.
+**Depends on**: Phase 18 (settled vs late-resolved verdicts must exist), Phase 19 (the scheduled run is what emits each summary)
+**Requirements**: REPORT-01, REPORT-02, REPORT-03
+**Success Criteria** (what must be TRUE):
+  1. Each scheduled run posts a Slack/report summary, per segment, of `matched / booli_only / re-check-resolved-late / settled-non-Hemnet` counts and rates, via `lib/spotcheck-slack-bot.js` + cron-wrapper escalation
+  2. A committed HTML trend chart generated from the DB plots match rate and the settled genuine-non-Hemnet rate week-over-week, per segment, in the existing chart family (no new dashboard/BI stack)
+  3. The settled (post-re-check) genuine-non-Hemnet rate is reported as the decision-grade headline, visually/labelled distinctly from the raw `booli_only` rate so lag-contamination can't be read as genuine non-Hemnet presence
+  4. The Slack summary renderer and the chart generator run offline against fixture/DB data with no Oxylabs spend
+**Plans**: TBD
+**UI hint**: yes
+
+Plans:
+- [ ] TBD — planned via `/gsd-plan-phase 20`

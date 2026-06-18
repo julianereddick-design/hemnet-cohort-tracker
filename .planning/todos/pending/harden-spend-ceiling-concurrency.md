@@ -2,7 +2,7 @@
 type: todo
 status: pending
 created: 2026-06-17
-resolves_phase: 16
+resolves_phase: 19
 source: 15-REVIEW.md (CR-01, WR-05, WR-06/07)
 severity: blocker-for-concurrency
 ---
