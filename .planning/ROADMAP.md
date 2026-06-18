@@ -376,7 +376,7 @@ Plans:
 - [x] 18-04-PLAN.md — lib/sold-recheck.js drain orchestration (clock-injected, reuses matchOne) + offline smoke [RECHECK-01/02/03/04]
 
 #### Phase 19: Scheduled batch orchestrator (Sold match batch)
-**Goal**: A `cron-wrapper.runJob` orchestrator ("Sold match batch", modeled on `cohort-spotcheck-gate.js`) runs the whole sold-match pipeline on a configured cadence on the droplet — driving `scripts/sold-match-run.js` across every configured segment over the rolling window, running the Phase-18 re-check pass inside the same run, enforcing the Oxylabs spend ceiling across the entire multi-segment batch, and failing safe with escalation rather than silently completing a partial run. The cron line, env vars, and a runbook entry are documented and installable.
+**Goal**: A `cron-wrapper.runJob` orchestrator ("Sold match batch", modeled on `cohort-spotcheck-gate.js`) runs the whole sold-match pipeline fortnightly on the droplet — calling a national population-weighted sampler (`config/sold-panel.json` -> `lib/sold-sample.js`) for a de-duped ~1000-record 14-day sample, matching each record against Hemnet via the existing `matchOne`, running the Phase-18 re-check pass inside the same run, enforcing ONE Oxylabs spend ceiling across the whole batch, no-opping on odd ISO weeks, and failing safe with escalation rather than silently completing a partial run. The cron line, env vars, and a runbook entry are documented and installable.
 **Depends on**: Phase 18 (the re-check pass executes inside this orchestrator; state + drain logic must exist first)
 **Requirements**: SCHED-01, SCHED-02, SCHED-03
 **Success Criteria** (what must be TRUE):
@@ -384,12 +384,16 @@ Plans:
   2. The Oxylabs spend ceiling is enforced across the whole multi-segment batch (not just per-segment); on budget exhaustion or persistent fetch failure the run escalates via Slack rather than silently completing a partial run
   3. The cron schedule, required env vars, and an operator runbook entry (how to detect, diagnose, and re-run after a failure) are documented in `deploy-instructions.md`, with the crontab line installable on the droplet
   4. The orchestrator runs end-to-end offline (`--smoke` / stubbed fetch + mock DB client) with zero Oxylabs spend; any live wet run is gated on explicit per-run operator go-ahead
-**Plans**: 2 plans
+**Plans**: 3 plans (replanned 2026-06-18 — national-panel sampler reframe)
 **UI hint**: no
 
 Plans:
-- [ ] 19-01-PLAN.md — sold-match-batch.js orchestrator: in-process multi-segment loop, batch-wide Oxylabs ceiling, Phase-18 re-check drain, fail-safe validate(), offline --smoke [SCHED-01, SCHED-02]
-- [ ] 19-02-PLAN.md — deploy-instructions.md: weekly crontab line (Mon 07:30 UTC), env vars, operator runbook entry [SCHED-03]
+**Wave 1**
+- [ ] 19-01-PLAN.md — lib/sold-sample.js national population-weighted sampler: panel fetch + deed-exclude + booli_id de-dup + pure population-weighted allocation (capped at live volume, natural type ratio) + per-record seg tagging; offline --smoke [SCHED-01]
+**Wave 2**
+- [ ] 19-02-PLAN.md — sold-match-batch.js orchestrator: even-week gate, sampler-driven matchOne loop, batch-wide Oxylabs ceiling, Phase-18 re-check drain, fail-safe validate(), + RECHECK_BRIDGE_FINAL_ONLY default-off lever; offline --smoke [SCHED-01, SCHED-02]
+**Wave 3**
+- [ ] 19-03-PLAN.md — deploy-instructions.md: weekly crontab line (Mon 07:30 UTC, fortnightly even-week effect), env vars (MAX_OXY_CALLS ~8000, RECHECK_BRIDGE_FINAL_ONLY), operator runbook + panel/backfill cost levers [SCHED-03]
 
 #### Phase 20: Per-run reporting + decision-grade trend
 **Goal**: Each scheduled run emits a per-segment Slack summary (`matched / booli_only / re-check-resolved-late / settled-non-Hemnet`) reusing the spot-check Slack patterns, and a committed-HTML over-time trend chart (in the `market-totals-chart.html` / `chart-hb-ratio.js` family) plots match rate and the settled genuine-non-Hemnet rate week-over-week per segment. The settled (post-re-check) genuine-non-Hemnet rate is surfaced distinctly from the raw/instantaneous `booli_only` rate, so lag-contamination is never mistaken for genuine non-Hemnet presence.
