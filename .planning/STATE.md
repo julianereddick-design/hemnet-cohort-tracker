@@ -20,7 +20,16 @@ Phase: 20 — Per-run reporting + decision-grade trend (COMPLETE) — v3.1 miles
 Plan: Phase 19 (3/3) + Phase 20 (2/2) complete
 Status: LIVE-DEPLOYED + first wet run GREEN (2026-06-19). Droplet at c89979e; both migrations run (4 sold tables + 3 recheck cols); GL-01 found+fixed+validated. Scoped wet run clean: sampler 114 fetched/20 allocated, matchOne 18 matched/2 booli_only (90%), recheck enrolled 41, ONE ceiling 48/250 calls, validate()=null. ~2.4 Oxylabs calls/record live.
 Last activity: 2026-06-19 -- go-live: deploy + migrate + GL-01 fix + first wet run (this session)
-Next: RECURRING-SPEND DECISION (operator): install fortnightly crontab `30 7 * * 1 node sold-match-batch.js` + set MAX_OXY_CALLS=8000 in .env → first full national run auto-fires Mon 2026-06-22 (ISO week 26, even). Deferred: Hemnet-ID backfill (panel North/Småland expansion), wire sold-match-report/trend crons, loop #2.
+Next: First full national batch auto-fires Mon 2026-06-22 (even week); reporting layer (Slack report + chart + xlsx) wired weekly Mon 10:00 UTC and will populate with that data. Deferred: Hemnet-ID backfill (panel North/Småland expansion), loop #2.
+
+### Decisions (Reporting layer + Östermalm overlay, 2026-06-19 — this session, commit c88c859)
+
+- **Slack report (sold-match-report.js):** added apartments-vs-villas rollup + free label-based **Stockholm overlays** (innerstad + Östermalm) via a `booli_sold.descriptive_area` join (additive — overlay rows ALSO stay in muni/region/type totals, the accepted double-count). Fixed a latent `job_name`→`script_name` cron_job_log bug. Posts to `SLACK_REVIEW_CHANNEL` (C0B9X2WDC4C, reused per operator) — live Slack delivery confirmed 2026-06-19.
+- **Östermalm = FREE overlay, NO dedicated pull (operator-approved reversal):** probe (scripts/probe-ostermalm-cluster.js, ~66 Oxylabs calls ≈ $0.50) found Booli area **143 "Stockholms innerstad"** = 626 apt sales/14d ≈ 53% of Stockholm apartments → the national Stockholm sample already carries ~160 inner-city rows/cohort for free. So no dedicated scrape; overlays are pure report attribution by descriptive_area label set (config/sold-panel.json `overlays[]`). Östermalm-proper ≈ 25/cohort (also free). Resolution lesson: Booli district areaIds are `userDefined`/`suburb` Area_V3 nodes with `parent="Stockholm"`; blind name-scan hits namesakes in other towns — disambiguate by parent.
+- **Chart (sold-match-trend-chart.js):** reworked line→**per-cohort STACKED BAR** — matched-first-pull + found-later-via-recheck = % of cohort Booli properties on Hemnet. National only (no Östermalm in chart, per operator). Committed-HTML at view-data/<date>/sold-match/trend.html, served on :3800.
+- **Excel (sold-match-xlsx.js, NEW):** per-cohort auditable workbook (ExcelJS) — property detail + Booli/Hemnet hyperlinks, one file per window_end cohort under view-data/<date>/sold-match/.
+- **Cron wiring:** report+chart+xlsx weekly Mon 10:00/10:05/10:10 UTC (after the 07:30 batch). DB-only, NO Oxylabs cost. Smokes: report 16, chart 9, xlsx 6.
+- **Cosmetic carry:** legacy Kungälv test rows use the old `kungalv-apt` segment key → bucket as region 'Unknown' in the report; the Phase-19 sampler's `Kungälv:APARTMENT` format parses correctly, so real data buckets right. Test rows age out of the 21-day report window by ~2026-07-06.
 
 ### Decisions (Go-live, 2026-06-19 — this session)
 
