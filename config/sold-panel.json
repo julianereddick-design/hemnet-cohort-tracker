@@ -15,6 +15,26 @@
     { "name": "Täby",        "pop": 73,  "booli_area_id": 20,  "hemnet_location_id": 17793, "region": "Stockholm" },
     { "name": "Kungälv",     "pop": 47,  "booli_area_id": 229, "hemnet_location_id": 17973, "region": "Västra Götaland" }
   ],
+  "_overlays_doc": "REPORT-ONLY additive overlays (no scraping, no sampler change). Each overlay re-buckets sold_match rows whose booli_sold.municipality = match_muni AND descriptive_area ∈ descriptive_areas, as an EXTRA data point in the weekly Slack report (these rows ALSO stay in their muni/region totals — the accepted double-count). Booli area 143 'Stockholms innerstad' = 626 apt sales/14d ≈ 53% of Stockholm apartments, so the national Stockholm sample already carries ~160 inner-city rows/cohort for free. descriptive_areas are Booli descriptiveAreaName labels (refine from area-143 feed as needed). NOT charted.",
+  "overlays": [
+    {
+      "name": "Stockholm innerstad",
+      "match_muni": "Stockholm",
+      "descriptive_areas": [
+        "Östermalm", "Gärdet", "Djurgården", "Hjorthagen", "Ladugårdsgärdet", "Norra Djurgården",
+        "Norrmalm", "City", "Vasastan", "Vasastaden",
+        "Kungsholmen", "Fredhäll", "Stadshagen", "Kungsholms Strand", "Marieberg",
+        "Lilla Essingen", "Stora Essingen", "Reimersholme",
+        "Södermalm", "Södermalm Sofia", "Maria", "Katarina", "Långholmen",
+        "Gamla Stan", "Riddarholmen", "Skeppsholmen"
+      ]
+    },
+    {
+      "name": "Östermalm",
+      "match_muni": "Stockholm",
+      "descriptive_areas": ["Östermalm", "Gärdet", "Djurgården", "Hjorthagen", "Ladugårdsgärdet", "Norra Djurgården"]
+    }
+  ],
   "_backfill_pending": {
     "_note": "Resolved Booli areaId but Hemnet location_id still needed (live /locations/show endpoint is Cloudflare-dead via Oxylabs — needs a raw-Oxylabs JSON helper). Adds Östergötland/mid-Sweden/Värmland/Halland + a northern city.",
     "booli_have_hemnet_need": {

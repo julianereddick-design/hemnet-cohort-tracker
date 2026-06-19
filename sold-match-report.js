@@ -23,6 +23,15 @@ const { createClient } = require('./db');
 const { postInfoMessage } = require('./lib/spotcheck-slack-bot');
 const panel = require('./config/sold-panel.json');
 
+// REPORT-ONLY additive overlays (config/sold-panel.json overlays[]): each re-buckets rows whose
+// booli_sold.municipality === match_muni AND descriptive_area ∈ descriptive_areas as an extra
+// data point. Normalize the area sets once (lowercased) for matching.
+const OVERLAYS = (panel.overlays || []).map((o) => ({
+  name: o.name,
+  matchMuni: String(o.match_muni || '').toLowerCase(),
+  areas: new Set((o.descriptive_areas || []).map((a) => String(a).toLowerCase())),
+}));
+
 // ---------------------------------------------------------------------------
 // muni→region lookup from the national panel (lowercase muni name → region).
 // Built once at load. config/sold-panel.json munis each carry their own `region`.
@@ -178,6 +187,52 @@ function rollupRegion(perSegment) {
 }
 
 // ---------------------------------------------------------------------------
+// rollupFamily(perSegment, segMeta) — PURE. Sum segment buckets by family
+// (APARTMENT vs HOUSE), so the report can show the apartments-vs-villas cut. A
+// segment whose family is unparseable buckets under 'Unknown'.
+// ---------------------------------------------------------------------------
+function rollupFamily(perSegment, segMeta) {
+  const byFamily = {};
+  for (const segKey of Object.keys(perSegment || {})) {
+    const meta = (segMeta && segMeta[segKey]) || segmentToMuniRegion(segKey);
+    const fam = meta.family || 'Unknown';
+    if (!byFamily[fam]) byFamily[fam] = emptyBucket();
+    addBucket(byFamily[fam], perSegment[segKey]);
+  }
+  return byFamily;
+}
+
+// ---------------------------------------------------------------------------
+// bucketOverlays(rows, overlays) — PURE. Re-bucket RAW rows (not segments) by overlay
+// membership: a row joins overlay O iff lower(municipality) === O.matchMuni AND
+// lower(descriptive_area) ∈ O.areas. Rows carry { verdict, was_enrolled,
+// first_unmatched_at, municipality, descriptive_area }. Returns { [overlayName]: bucket }.
+// These rows ALSO remain in their muni/region totals (additive overlay — accepted double-count).
+// ---------------------------------------------------------------------------
+function bucketOverlays(rows, overlays) {
+  const out = {};
+  for (const o of (overlays || [])) out[o.name] = emptyBucket();
+  for (const r of (rows || [])) {
+    const muni = r.municipality == null ? '' : String(r.municipality).toLowerCase();
+    const area = r.descriptive_area == null ? '' : String(r.descriptive_area).toLowerCase();
+    for (const o of (overlays || [])) {
+      if (muni !== o.matchMuni || !o.areas.has(area)) continue;
+      const b = out[o.name];
+      b.total++;
+      const wasEnrolled = r.was_enrolled === true || r.was_enrolled === 't' || (r.first_unmatched_at != null);
+      switch (r.verdict) {
+        case 'matched': b.matched++; if (wasEnrolled) b.lateResolved++; break;
+        case 'booli_only': b.booliOnly++; break;
+        case 'genuine_non_hemnet': b.settled++; break;
+        case 'uncertain': b.uncertain++; break;
+        default: break;
+      }
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // Formatting helpers (copied from the market-totals-weekly-report.js analog).
 // ---------------------------------------------------------------------------
 function lpad(s, w) { return (' '.repeat(w) + s).slice(-w); }
@@ -238,6 +293,34 @@ function renderReport(perSegment, opts = {}) {
   }
   lines.push('');
 
+  // By type (apartments vs villas) block.
+  const byFamily = rollupFamily(perSegment, segMeta);
+  lines.push('By type (apartments vs villas):');
+  for (const fam of ['APARTMENT', 'HOUSE', 'Unknown']) {
+    const b = byFamily[fam];
+    if (!b || b.total === 0) continue;
+    const label = fam === 'APARTMENT' ? 'Apartments' : fam === 'HOUSE' ? 'Villas/houses' : 'Unknown type';
+    lines.push(renderSegmentRow(label, b));
+    lines.push(`${rpad('', 22)}   settled=${pct(settledRate(b))}  raw booli_only=${pct(rawBooliOnlyRate(b))}`);
+  }
+  lines.push('');
+
+  // Focus-area overlays block (additive — these rows ALSO counted in the muni/region/type
+  // totals above). Only when raw rows are available (live run); skipped in pure-perSegment calls.
+  if (opts.rows && OVERLAYS.length) {
+    const overlays = bucketOverlays(opts.rows, OVERLAYS);
+    const shown = OVERLAYS.filter((o) => overlays[o.name] && overlays[o.name].total > 0);
+    if (shown.length) {
+      lines.push('Focus areas (Stockholm overlays — also counted above):');
+      for (const o of shown) {
+        const b = overlays[o.name];
+        lines.push(renderSegmentRow(o.name, b));
+        lines.push(`${rpad('', 22)}   settled=${pct(settledRate(b))}  raw booli_only=${pct(rawBooliOnlyRate(b))}`);
+      }
+      lines.push('');
+    }
+  }
+
   // Per-segment block.
   lines.push('By segment:');
   const segKeys = Object.keys(perSegment).sort();
@@ -258,10 +341,12 @@ function renderReport(perSegment, opts = {}) {
 // ---------------------------------------------------------------------------
 async function fetchRows(client, sinceDate) {
   const res = await client.query(
-    `SELECT verdict, segment, (first_unmatched_at IS NOT NULL) AS was_enrolled,
-            to_char(window_end, 'YYYY-MM-DD') AS window_end
-       FROM sold_match
-      WHERE window_end >= $1::date`,
+    `SELECT sm.verdict, sm.segment, (sm.first_unmatched_at IS NOT NULL) AS was_enrolled,
+            to_char(sm.window_end, 'YYYY-MM-DD') AS window_end,
+            bs.descriptive_area, bs.municipality
+       FROM sold_match sm
+       LEFT JOIN booli_sold bs ON bs.booli_id = sm.booli_id
+      WHERE sm.window_end >= $1::date`,
     [sinceDate],
   );
   return res.rows;
@@ -277,7 +362,7 @@ async function fetchRunSummary(client) {
     const res = await client.query(
       `SELECT result_summary
          FROM cron_job_log
-        WHERE job_name = 'sold-match-batch'
+        WHERE script_name = 'sold-match-batch'
         ORDER BY started_at DESC NULLS LAST, id DESC
         LIMIT 1`,
     );
@@ -315,7 +400,7 @@ async function run() {
   }
 
   const perSegment = bucketRows(rows);
-  let message = renderReport(perSegment, { date: new Date().toISOString().slice(0, 10) });
+  let message = renderReport(perSegment, { date: new Date().toISOString().slice(0, 10), rows });
 
   if (fromRun && runSummary && runSummary.recheck) {
     const r = runSummary.recheck;
@@ -338,7 +423,8 @@ async function run() {
 }
 
 module.exports = {
-  bucketRows, settledRate, rawBooliOnlyRate, rollupRegion, segmentToMuniRegion, renderReport,
+  bucketRows, settledRate, rawBooliOnlyRate, rollupRegion, rollupFamily, bucketOverlays,
+  segmentToMuniRegion, renderReport,
 };
 
 // ---------------------------------------------------------------------------
@@ -493,6 +579,41 @@ function runSmoke() {
       ]);
       const text = renderReport(per, { date: '2026-06-18' });
       assert.ok(/n\/a/.test(text), 'null settled rate rendered as n/a');
+    });
+
+    // 10. rollupFamily sums segment buckets by family (apartments vs villas).
+    check('rollupFamily: APARTMENT total 21, HOUSE total 6 (from fixture segments)', () => {
+      const per = bucketRows(fixtureRows());
+      const { segMeta } = rollupRegion(per);
+      const byFam = rollupFamily(per, segMeta);
+      assert.ok(byFam.APARTMENT && byFam.APARTMENT.total === 21, `apt total 21, got ${byFam.APARTMENT && byFam.APARTMENT.total}`);
+      assert.ok(byFam.HOUSE && byFam.HOUSE.total === 6, `house total 6, got ${byFam.HOUSE && byFam.HOUSE.total}`);
+    });
+
+    // 11. bucketOverlays joins by municipality + descriptive_area; wrong-muni & non-area excluded.
+    check('bucketOverlays: Stockholm inner-city rows join overlays; other-muni/area excluded', () => {
+      const rows = [
+        { verdict: 'matched', municipality: 'Stockholm', descriptive_area: 'Östermalm' },
+        { verdict: 'booli_only', municipality: 'Stockholm', descriptive_area: 'Södermalm' },
+        { verdict: 'matched', municipality: 'Stockholm', descriptive_area: 'Bromma' },   // not innerstad
+        { verdict: 'matched', municipality: 'Göteborg', descriptive_area: 'Östermalm' },  // wrong muni
+      ];
+      const ov = bucketOverlays(rows, OVERLAYS);
+      assert.strictEqual(ov['Stockholm innerstad'].total, 2, `innerstad total 2, got ${ov['Stockholm innerstad'].total}`);
+      assert.strictEqual(ov['Östermalm'].total, 1, `Östermalm total 1, got ${ov['Östermalm'].total}`);
+      assert.strictEqual(ov['Stockholm innerstad'].matched, 1);
+      assert.strictEqual(ov['Stockholm innerstad'].booliOnly, 1);
+    });
+
+    // 12. renderReport with rows shows the By-type + Focus-area overlay blocks.
+    check('renderReport: shows apt-vs-villa + overlay blocks when rows provided', () => {
+      const per = bucketRows(fixtureRows());
+      const rows = [{ verdict: 'matched', segment: 'Stockholm:APARTMENT', municipality: 'Stockholm', descriptive_area: 'Östermalm' }];
+      const text = renderReport(per, { date: '2026-06-19', rows });
+      assert.ok(/By type \(apartments vs villas\)/.test(text), 'has apt-vs-villa block');
+      assert.ok(/Apartments/.test(text), 'has Apartments row');
+      assert.ok(/Focus areas/.test(text), 'has Focus areas block');
+      assert.ok(/Stockholm innerstad/.test(text) && /Östermalm/.test(text), 'has both overlays');
     });
 
     // 9. with no token, postInfoMessage returns null (no post, no throw).

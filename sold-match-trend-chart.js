@@ -40,18 +40,29 @@ function isoWeekKey(dateStr) {
 }
 
 // ---------------------------------------------------------------------------
-// emptyPeriod() — per-period verdict counts.
+// emptyPeriod() — per-cohort counts. A "cohort" = one fortnightly batch window
+// (keyed by window_end's ISO week). firstPull = matched at the cohort's initial pass
+// (never enrolled for re-check). incremental = matched LATER via the re-check drain
+// (was enrolled — first_unmatched_at set). total = all sampled Booli properties.
 // ---------------------------------------------------------------------------
 function emptyPeriod() {
-  return { matched: 0, booliOnly: 0, settled: 0, uncertain: 0, total: 0 };
+  return { total: 0, firstPull: 0, incremental: 0 };
+}
+
+// rowEnrolled(r) — was this row ever enrolled in the re-check drain? (first_unmatched_at set)
+function rowEnrolled(r) {
+  return r.was_enrolled === true || r.was_enrolled === 't' || (r.first_unmatched_at != null);
 }
 
 // ---------------------------------------------------------------------------
-// buildSeries(rows) — PURE. Group sold_match rows by isoWeekKey(window_end) and compute
-// per period the three rates. Rows carry { verdict, window_end }.
-//   Returns { periods: [...sorted week keys], settled: [...], match: [...], rawBooliOnly: [...] }
-//   with null entries for periods with no terminal verdicts (settled/match) — spanGaps.
-//   rawBooliOnly is null only when total === 0.
+// buildSeries(rows) — PURE. Group sold_match rows by isoWeekKey(window_end) into cohorts and
+// compute, per cohort, the two STACKED on-Hemnet shares (% of that cohort's Booli properties):
+//   firstPull    = matched AND NOT enrolled  / total   (found on Hemnet at the first pass)
+//   incremental  = matched AND enrolled      / total   (found on Hemnet later, via re-check)
+// The two stack to the cohort's cumulative on-Hemnet match rate; the headroom to 100% is the
+// still-not-on-Hemnet remainder. Rows carry { verdict, window_end, was_enrolled }.
+//   Returns { periods:[...sorted week keys], firstPull:[...0..1], incremental:[...0..1],
+//             totals:[...counts] }.
 // ---------------------------------------------------------------------------
 function buildSeries(rows) {
   const byPeriod = {};
@@ -61,83 +72,58 @@ function buildSeries(rows) {
     if (!byPeriod[key]) byPeriod[key] = emptyPeriod();
     const p = byPeriod[key];
     p.total++;
-    switch (r.verdict) {
-      case 'matched': p.matched++; break;
-      case 'booli_only': p.booliOnly++; break;
-      case 'genuine_non_hemnet': p.settled++; break;
-      case 'uncertain': p.uncertain++; break;
-      default:
-        console.warn(`WARN: unknown verdict "${r.verdict}" in period ${key} — counted only in total`);
-        break;
+    if (r.verdict === 'matched') {
+      if (rowEnrolled(r)) p.incremental++;
+      else p.firstPull++;
     }
   }
 
   const periods = Object.keys(byPeriod).sort(); // 'YYYY-Www' strings sort chronologically
-  const settled = [];
-  const match = [];
-  const rawBooliOnly = [];
+  const firstPull = [];
+  const incremental = [];
+  const totals = [];
   for (const key of periods) {
     const p = byPeriod[key];
-    const terminal = p.matched + p.settled;
-    settled.push(terminal === 0 ? null : p.settled / terminal);
-    match.push(terminal === 0 ? null : p.matched / terminal);
-    rawBooliOnly.push(p.total === 0 ? null : p.booliOnly / p.total);
+    firstPull.push(p.total === 0 ? 0 : p.firstPull / p.total);
+    incremental.push(p.total === 0 ? 0 : p.incremental / p.total);
+    totals.push(p.total);
   }
-  return { periods, settled, match, rawBooliOnly };
+  return { periods, firstPull, incremental, totals };
 }
 
 // ---------------------------------------------------------------------------
-// renderHtml(series, opts) — PURE. Self-contained Chart.js-4 line chart string.
-// Datasets (data embedded inline via JSON.stringify — no external data file):
-//   (1) Settled non-Hemnet rate — decision-grade, solid prominent (#1565C0, width 3)
-//   (2) Match rate — solid (#2E7D32, width 2)
-//   (3) Raw booli_only (preliminary, lag-contaminated) — dashed + muted (#B0BEC5)
-// Rates scaled to percent (0..100). spanGaps:true for null periods.
+// renderHtml(series, opts) — PURE. Self-contained Chart.js-4 STACKED BAR string. One bar per
+// cohort (x = fortnightly window). Each bar is two stacked segments (% of that cohort's Booli
+// sold properties on Hemnet):
+//   (1) Matched first pull        — solid blue  (#1565C0)
+//   (2) Found later via re-check  — lighter blue (#90CAF9), the incremental top-up
+// The bar total = cumulative on-Hemnet %; the headroom to 100% is still-not-on-Hemnet. As a
+// cohort matures its incremental segment grows (the re-check drain finding late Hemnet matches).
+// Values embedded inline via JSON.stringify — no external data file.
 // ---------------------------------------------------------------------------
 function renderHtml(series, opts = {}) {
   const date = opts.date || new Date().toISOString().slice(0, 10);
-  const toPct = (arr) => arr.map((v) => (v == null ? null : Math.round(v * 1000) / 10));
+  const toPct = (arr) => arr.map((v) => (v == null ? 0 : Math.round(v * 1000) / 10));
 
   const datasets = [
-    {
-      label: 'Settled non-Hemnet rate (decision-grade)',
-      data: toPct(series.settled),
-      borderColor: '#1565C0', borderWidth: 3, borderDash: [], pointRadius: 2,
-      tension: 0.3, spanGaps: true,
-    },
-    {
-      label: 'Match rate',
-      data: toPct(series.match),
-      borderColor: '#2E7D32', borderWidth: 2, borderDash: [], pointRadius: 2,
-      tension: 0.3, spanGaps: true,
-    },
-    {
-      label: 'Raw booli_only (preliminary, lag-contaminated)',
-      data: toPct(series.rawBooliOnly),
-      borderColor: '#B0BEC5', borderWidth: 2, borderDash: [6, 3], pointRadius: 2,
-      tension: 0.3, spanGaps: true,
-    },
+    { label: 'Matched first pull', data: toPct(series.firstPull), backgroundColor: '#1565C0' },
+    { label: 'Found later (re-check)', data: toPct(series.incremental), backgroundColor: '#90CAF9' },
   ];
-
   const datasetsJson = datasets.map((d) => `{
       label: ${JSON.stringify(d.label)},
       data: ${JSON.stringify(d.data)},
-      borderColor: '${d.borderColor}',
-      borderWidth: ${d.borderWidth},
-      borderDash: [${d.borderDash.join(',')}],
-      pointRadius: ${d.pointRadius},
-      tension: 0.3,
-      spanGaps: true
+      backgroundColor: '${d.backgroundColor}',
+      stack: 'onHemnet'
     }`);
 
-  const title = 'Sold-match trend — settled genuine-non-Hemnet rate (decision-grade) '
-    + 'vs raw booli_only (preliminary)';
+  const title = 'Sold-match by cohort — % of Booli sold properties found on Hemnet '
+    + '(first pull + later re-check)';
 
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Sold-match trend — ${date}</title>
+  <title>Sold-match by cohort — ${date}</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; background: #fff; }
@@ -150,15 +136,15 @@ function renderHtml(series, opts = {}) {
     <canvas id="chart"></canvas>
   </div>
   <p class="note">
-    The <b>settled</b> non-Hemnet rate (solid blue) = genuine_non_hemnet / (matched +
-    genuine_non_hemnet) over TERMINAL verdicts only — the decision-grade headline. The
-    <b>raw booli_only</b> rate (dashed grey) = booli_only / total is preliminary and
-    lag-contaminated (drains over ~4 weeks of re-checks); never read it as genuine
-    non-Hemnet presence.
+    Each bar is one fortnightly cohort. <b>Matched first pull</b> (solid blue) = the share of that
+    cohort's Booli sold properties found on Hemnet at the initial match; <b>Found later</b> (light
+    blue) = the additional share found on Hemnet by subsequent re-check pulls. The two stack to the
+    cohort's cumulative on-Hemnet rate; the gap up to 100% is still-not-on-Hemnet (still draining
+    over ~4 weeks of re-checks). Older cohorts' light-blue segment grows as late matches resolve.
   </p>
   <script>
     new Chart(document.getElementById('chart'), {
-      type: 'line',
+      type: 'bar',
       data: {
         labels: ${JSON.stringify(series.periods)},
         datasets: [${datasetsJson.join(',\n          ')}]
@@ -176,8 +162,8 @@ function renderHtml(series, opts = {}) {
           legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 30 } }
         },
         scales: {
-          x: { title: { display: true, text: 'Fortnightly period (window_end ISO week)' }, grid: { display: false } },
-          y: { min: 0, max: 100, title: { display: true, text: 'Rate (%)' }, grid: { color: '#eee' } }
+          x: { stacked: true, title: { display: true, text: 'Cohort (fortnightly window_end ISO week)' }, grid: { display: false } },
+          y: { stacked: true, min: 0, max: 100, title: { display: true, text: '% of cohort Booli properties on Hemnet' }, grid: { color: '#eee' } }
         }
       }
     });
@@ -206,7 +192,8 @@ function writeChart(series, opts = {}) {
 // ---------------------------------------------------------------------------
 async function fetchRows(client) {
   const res = await client.query(
-    `SELECT verdict, segment, to_char(window_end, 'YYYY-MM-DD') AS window_end
+    `SELECT verdict, (first_unmatched_at IS NOT NULL) AS was_enrolled,
+            to_char(window_end, 'YYYY-MM-DD') AS window_end
        FROM sold_match
       WHERE window_end IS NOT NULL
       ORDER BY window_end`,
@@ -232,10 +219,12 @@ async function run() {
   const outFile = writeChart(series, { date: new Date().toISOString().slice(0, 10) });
 
   console.log(`Chart: ${outFile}`);
-  console.log('period      settled   match     raw booli_only');
+  console.log('cohort       n   firstPull  +later   = onHemnet');
   for (let i = 0; i < series.periods.length; i++) {
-    const fmt = (v) => (v == null ? '   n/a' : `${(v * 100).toFixed(1)}%`);
-    console.log(`${series.periods[i]}  ${fmt(series.settled[i]).padStart(7)}  ${fmt(series.match[i]).padStart(7)}  ${fmt(series.rawBooliOnly[i]).padStart(7)}`);
+    const fp = series.firstPull[i] || 0;
+    const inc = series.incremental[i] || 0;
+    const fmt = (v) => `${(v * 100).toFixed(1)}%`;
+    console.log(`${series.periods[i]}  ${String(series.totals[i]).padStart(4)}  ${fmt(fp).padStart(8)}  ${fmt(inc).padStart(6)}  ${fmt(fp + inc).padStart(8)}`);
   }
 }
 
@@ -265,20 +254,22 @@ function runSmoke() {
     catch (e) { console.error(`SMOKE FAIL [${name}]: ${e.message}`); fail++; }
   }
 
-  // FIXTURE: rows across two fortnightly periods (distinct window_end ISO weeks).
-  //   Period A (window_end 2026-06-10 → 2026-W24): matched=8 (one late-resolved),
-  //     settled=2, booli_only=10, uncertain=1 → settled 2/10=20%, match 8/10=80%, raw 10/21.
-  //   Period B (window_end 2026-05-27 → 2026-W22): matched=3, settled=1, booli_only=2.
+  // FIXTURE: rows across two fortnightly cohorts (distinct window_end ISO weeks).
+  //   Cohort A (window_end 2026-06-10 → 2026-W24): 7 matched first-pull + 1 matched late
+  //     (was_enrolled) + 2 settled + 10 booli_only + 1 uncertain → total 21,
+  //     firstPull 7/21, incremental 1/21, onHemnet 8/21.
+  //   Cohort B (window_end 2026-05-27 → 2026-W22): 3 matched first-pull + 1 settled + 2 booli_only
+  //     → total 6, firstPull 3/6=0.5, incremental 0.
   function fixtureRows() {
     const rows = [];
     const A = '2026-06-10'; // ISO week 2026-W24
     const B = '2026-05-27'; // ISO week 2026-W22
-    for (let i = 0; i < 7; i++) rows.push({ verdict: 'matched', window_end: A });
-    rows.push({ verdict: 'matched', window_end: A, first_unmatched_at: '2026-06-01T00:00:00Z' });
+    for (let i = 0; i < 7; i++) rows.push({ verdict: 'matched', was_enrolled: false, window_end: A });
+    rows.push({ verdict: 'matched', was_enrolled: true, window_end: A, first_unmatched_at: '2026-06-01T00:00:00Z' });
     for (let i = 0; i < 2; i++) rows.push({ verdict: 'genuine_non_hemnet', window_end: A });
     for (let i = 0; i < 10; i++) rows.push({ verdict: 'booli_only', window_end: A });
     rows.push({ verdict: 'uncertain', window_end: A });
-    for (let i = 0; i < 3; i++) rows.push({ verdict: 'matched', window_end: B });
+    for (let i = 0; i < 3; i++) rows.push({ verdict: 'matched', was_enrolled: false, window_end: B });
     rows.push({ verdict: 'genuine_non_hemnet', window_end: B });
     for (let i = 0; i < 2; i++) rows.push({ verdict: 'booli_only', window_end: B });
     return rows;
@@ -296,63 +287,66 @@ function runSmoke() {
     assert.strictEqual(isoWeekKey('2025-12-31'), '2026-W01');
   });
 
-  // 2. buildSeries: settled excludes in-recheck booli_only — three DISTINCT numbers.
-  check('buildSeries: period A settled=2/10=0.20, match=8/10=0.80, raw=10/21', () => {
+  // 2. buildSeries: per-cohort firstPull + incremental shares (stacked on-Hemnet %).
+  check('buildSeries: cohort A firstPull=7/21, incremental=1/21; cohort B firstPull=3/6', () => {
     const s = buildSeries(fixtureRows());
-    const i = s.periods.indexOf('2026-W24');
-    assert.ok(i >= 0, '2026-W24 present');
-    assert.ok(Math.abs(s.settled[i] - 0.2) < 1e-9, `settled expected 0.20 got ${s.settled[i]}`);
-    assert.ok(Math.abs(s.match[i] - 0.8) < 1e-9, `match expected 0.80 got ${s.match[i]}`);
-    assert.ok(Math.abs(s.rawBooliOnly[i] - (10 / 21)) < 1e-9, `raw expected 10/21 got ${s.rawBooliOnly[i]}`);
-    assert.notStrictEqual(s.settled[i], s.rawBooliOnly[i], 'settled and raw must differ');
+    const a = s.periods.indexOf('2026-W24');
+    const b = s.periods.indexOf('2026-W22');
+    assert.ok(a >= 0 && b >= 0, 'both cohorts present');
+    assert.ok(Math.abs(s.firstPull[a] - (7 / 21)) < 1e-9, `A firstPull 7/21 got ${s.firstPull[a]}`);
+    assert.ok(Math.abs(s.incremental[a] - (1 / 21)) < 1e-9, `A incremental 1/21 got ${s.incremental[a]}`);
+    assert.strictEqual(s.totals[a], 21, 'A total 21');
+    assert.ok(Math.abs(s.firstPull[b] - 0.5) < 1e-9, `B firstPull 0.5 got ${s.firstPull[b]}`);
+    assert.strictEqual(s.incremental[b], 0, 'B incremental 0');
+    // first-pull + incremental = cumulative on-Hemnet match rate (8/21 for A).
+    assert.ok(Math.abs((s.firstPull[a] + s.incremental[a]) - (8 / 21)) < 1e-9, 'A onHemnet 8/21');
   });
 
-  // 3. multi-period ordering is chronological regardless of input order.
-  check('buildSeries: periods returned chronologically regardless of input order', () => {
+  // 3. multi-cohort ordering is chronological regardless of input order.
+  check('buildSeries: cohorts returned chronologically regardless of input order', () => {
     const rows = fixtureRows();
-    rows.reverse(); // shuffle: B-rows now precede A-rows? reverse keeps mix; assert sort anyway
+    rows.reverse();
     const s = buildSeries(rows);
     const sorted = [...s.periods].sort();
     assert.deepStrictEqual(s.periods, sorted, 'periods must be sorted');
     assert.deepStrictEqual(s.periods, ['2026-W22', '2026-W24'], 'expected W22 before W24');
   });
 
-  // 4. period with no terminal verdicts → null settled/match (spanGaps).
-  check('buildSeries: period with only booli_only/uncertain → null settled & match', () => {
+  // 4. cohort with no matched rows → firstPull & incremental both 0 (empty bar, full headroom).
+  check('buildSeries: cohort with only booli_only/uncertain → firstPull & incremental 0', () => {
     const s = buildSeries([
       { verdict: 'booli_only', window_end: '2026-06-10' },
       { verdict: 'uncertain', window_end: '2026-06-10' },
     ]);
     const i = s.periods.indexOf('2026-W24');
-    assert.strictEqual(s.settled[i], null, 'settled null with no terminal verdicts');
-    assert.strictEqual(s.match[i], null, 'match null with no terminal verdicts');
-    assert.ok(Math.abs(s.rawBooliOnly[i] - 0.5) < 1e-9, 'raw = 1/2 still computed');
+    assert.strictEqual(s.firstPull[i], 0, 'firstPull 0 with no matches');
+    assert.strictEqual(s.incremental[i], 0, 'incremental 0 with no matches');
+    assert.strictEqual(s.totals[i], 2, 'total still 2');
   });
 
-  // 5. renderHtml: chart.js@4 + distinct settled/raw labels, distinct embedded values.
-  check('renderHtml: chart.js@4, settled label distinct from raw booli_only label', () => {
+  // 5. renderHtml: stacked BAR with both segment labels + the incremental top-up embedded.
+  check('renderHtml: stacked bar, first-pull + found-later labels, distinct values', () => {
     const s = buildSeries(fixtureRows());
     const html = renderHtml(s, { date: '2026-06-18' });
     assert.ok(html.includes('cdn.jsdelivr.net/npm/chart.js@4'), 'loads chart.js@4 from CDN');
-    assert.ok(html.includes('Settled non-Hemnet'), 'has Settled non-Hemnet label');
-    assert.ok(/booli_only.*preliminary|preliminary.*booli_only/i.test(html), 'has distinct raw booli_only/preliminary label');
-    assert.ok(html.includes('lag-contaminated'), 'raw labelled lag-contaminated');
-    // embedded values: settled 20.0 distinct from raw ~47.6 for period A.
-    assert.ok(html.includes('20'), 'embedded settled pct present');
-    // The settled and raw datasets must hold different arrays.
-    const settledIdx = html.indexOf('Settled non-Hemnet');
-    const rawIdx = html.indexOf('Raw booli_only');
-    assert.ok(settledIdx >= 0 && rawIdx >= 0 && settledIdx < rawIdx, 'both datasets present, settled first');
+    assert.ok(html.includes("type: 'bar'"), 'bar chart type');
+    assert.ok(/stacked:\s*true/.test(html), 'stacked scales');
+    assert.ok(html.includes('Matched first pull'), 'has first-pull segment label');
+    assert.ok(html.includes('Found later (re-check)'), 'has found-later segment label');
+    const fpIdx = html.indexOf('Matched first pull');
+    const incIdx = html.indexOf('Found later (re-check)');
+    assert.ok(fpIdx >= 0 && incIdx >= 0 && fpIdx < incIdx, 'first-pull dataset before incremental');
   });
 
-  // 6. renderHtml: type 'line'.
-  check('renderHtml: line chart', () => {
+  // 6. renderHtml: both datasets share one stack ('onHemnet') so they stack into one bar.
+  check('renderHtml: datasets share stack onHemnet', () => {
     const html = renderHtml(buildSeries(fixtureRows()), { date: '2026-06-18' });
-    assert.ok(html.includes("type: 'line'"), 'line chart type');
+    const stacks = (html.match(/stack:\s*'onHemnet'/g) || []).length;
+    assert.strictEqual(stacks, 2, `both datasets stacked, got ${stacks}`);
   });
 
   // 7. writeChart: writes view-data/<date>/sold-match/trend.html; file exists + both labels.
-  check('writeChart: writes self-contained trend.html with both labels', () => {
+  check('writeChart: writes self-contained trend.html with both bar labels', () => {
     const smokeDate = '2026-06-18-smoke';
     const s = buildSeries(fixtureRows());
     const outFile = writeChart(s, { date: smokeDate });
@@ -360,8 +354,8 @@ function runSmoke() {
     assert.ok(outFile.replace(/\\/g, '/').endsWith(`view-data/${smokeDate}/sold-match/trend.html`),
       `unexpected path ${outFile}`);
     const back = fs.readFileSync(outFile, 'utf8');
-    assert.ok(back.includes('Settled non-Hemnet'), 'written HTML has settled label');
-    assert.ok(back.includes('Raw booli_only'), 'written HTML has raw booli_only label');
+    assert.ok(back.includes('Matched first pull'), 'written HTML has first-pull label');
+    assert.ok(back.includes('Found later (re-check)'), 'written HTML has found-later label');
     assert.ok(back.includes('cdn.jsdelivr.net/npm/chart.js@4'), 'written HTML loads chart.js@4');
     console.log(`smoke wrote: ${outFile}`);
   });
