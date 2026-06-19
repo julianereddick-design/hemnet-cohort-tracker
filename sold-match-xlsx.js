@@ -28,8 +28,25 @@ function booliUrl(r) {
   }
   return `https://www.booli.se/bostad/${r.booli_id}`;
 }
-function hemnetUrl(slug) {
-  return slug ? `https://www.hemnet.se/bostad/${slug}` : null;
+function hemnetUrl(slug, matchMethod) {
+  if (!slug) return null;
+  // Sold matches come from Hemnet /salda SaleCards (address_key / fee_exact) → /salda/<slug>.
+  // Only the SERP bridge (bostad_bridge) yields an active /bostad listing. /bostad 404s for
+  // sold properties (verified live 2026-06-19), so default to /salda.
+  const base = matchMethod === 'bostad_bridge' ? 'bostad' : 'salda';
+  return `https://www.hemnet.se/${base}/${slug}`;
+}
+// hemnetSearchUrl — for UNMATCHED rows (pending re-check / uncertain): a precise manual-check
+// link that surfaces the property's Hemnet page if it exists. Hemnet's own search only resolves
+// areas (not street addresses) and blocks scripted access, so this is a search scoped to
+// hemnet.se by address + area — the same site:hemnet.se approach the matcher's bridge uses. The
+// exact Hemnet /bostad page ranks first when the property IS on Hemnet. Null without an address.
+function hemnetSearchUrl(r) {
+  const addr = (r.street_address || '').trim();
+  const area = (r.descriptive_area || r.municipality || '').trim();
+  if (!addr) return null;
+  const q = `site:hemnet.se "${addr}" ${area}`.trim();
+  return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
 }
 function wasEnrolled(r) {
   return r.was_enrolled === true || r.was_enrolled === 't' || (r.first_unmatched_at != null);
@@ -70,7 +87,10 @@ function buildAuditRows(rows) {
     match_method: r.match_method || '',
     window: r.window_end || '',
     booliUrl: booliUrl(r),
-    hemnetUrl: hemnetUrl(r.matched_hemnet_slug),
+    hemnetUrl: hemnetUrl(r.matched_hemnet_slug, r.match_method),
+    // For unmatched (pending re-check / uncertain) rows: a site:hemnet.se address search so
+    // the row can be hand-checked. Matched rows have the direct link instead.
+    hemnetSearch: r.matched_hemnet_slug ? null : hemnetSearchUrl(r),
   }));
 }
 
@@ -91,6 +111,7 @@ const COLUMNS = [
   { header: 'Cohort (window_end)', key: 'window', width: 18 },
   { header: 'Booli link', key: 'booli_link', width: 12 },
   { header: 'Hemnet link', key: 'hemnet_link', width: 12 },
+  { header: 'Check on Hemnet', key: 'hemnet_search', width: 16 },
 ];
 
 // ---------------------------------------------------------------------------
@@ -124,6 +145,11 @@ function buildWorkbook(auditRows, meta = {}) {
       const hCell = row.getCell('hemnet_link');
       hCell.value = { text: 'Hemnet ↗', hyperlink: r.hemnetUrl };
       hCell.font = LINK_FONT;
+    }
+    if (r.hemnetSearch) {
+      const sCell = row.getCell('hemnet_search');
+      sCell.value = { text: 'Search Hemnet ↗', hyperlink: r.hemnetSearch };
+      sCell.font = LINK_FONT;
     }
   }
   return wb;
@@ -242,9 +268,17 @@ function runSmoke() {
       assert.strictEqual(booliUrl({ residence_url: '/bostad/4240148', booli_id: 4240148 }), 'https://www.booli.se/bostad/4240148');
       assert.strictEqual(booliUrl({ residence_url: null, booli_id: 555 }), 'https://www.booli.se/bostad/555');
     });
-    check('hemnetUrl builds slug link, null when unmatched', () => {
-      assert.strictEqual(hemnetUrl('lagenhet-2rum-x'), 'https://www.hemnet.se/bostad/lagenhet-2rum-x');
-      assert.strictEqual(hemnetUrl(null), null);
+    check('hemnetUrl: /salda for SaleCard matches, /bostad only for bridge, null unmatched', () => {
+      assert.strictEqual(hemnetUrl('x-123', 'address_key'), 'https://www.hemnet.se/salda/x-123');
+      assert.strictEqual(hemnetUrl('x-123', 'fee_exact'), 'https://www.hemnet.se/salda/x-123');
+      assert.strictEqual(hemnetUrl('x-123', 'bostad_bridge'), 'https://www.hemnet.se/bostad/x-123');
+      assert.strictEqual(hemnetUrl(null, 'address_key'), null);
+    });
+    check('hemnetSearchUrl: site:hemnet.se address search, null without address', () => {
+      const u = hemnetSearchUrl({ street_address: 'Storgatan 1', descriptive_area: 'Östermalm', municipality: 'Stockholm' });
+      assert.ok(u.startsWith('https://www.google.com/search?q='), 'is a search URL');
+      assert.ok(/hemnet\.se/.test(decodeURIComponent(u)) && /Storgatan/.test(decodeURIComponent(u)), 'scoped to hemnet.se + has address');
+      assert.strictEqual(hemnetSearchUrl({ street_address: '', municipality: 'X' }), null, 'null without address');
     });
 
     // 2. status labels.
@@ -258,12 +292,14 @@ function runSmoke() {
     });
 
     // 3. buildAuditRows maps fields + links.
-    check('buildAuditRows maps fields and links', () => {
+    check('buildAuditRows maps fields, /salda links, and a search link for pending rows', () => {
       const a = buildAuditRows(fixtureRows());
       assert.strictEqual(a.length, 3);
       assert.strictEqual(a[0].booliUrl, 'https://www.booli.se/bostad/4240148');
-      assert.strictEqual(a[0].hemnetUrl, 'https://www.hemnet.se/bostad/villa-6rum-taby-9d-4872888');
-      assert.strictEqual(a[2].hemnetUrl, null, 'booli_only has no Hemnet link');
+      assert.strictEqual(a[0].hemnetUrl, 'https://www.hemnet.se/salda/villa-6rum-taby-9d-4872888', 'address_key → /salda');
+      assert.strictEqual(a[0].hemnetSearch, null, 'matched row has no search link');
+      assert.strictEqual(a[2].hemnetUrl, null, 'booli_only has no direct Hemnet link');
+      assert.ok(a[2].hemnetSearch && /hemnet\.se/.test(decodeURIComponent(a[2].hemnetSearch)), 'booli_only has a Check-on-Hemnet search link');
       assert.strictEqual(a[0].on_hemnet, 'YES');
       assert.strictEqual(a[1].found_via, 'later (re-check)');
     });
@@ -278,9 +314,11 @@ function runSmoke() {
       // Booli link cell is a hyperlink object.
       const bCell = ws.getRow(2).getCell(COLUMNS.findIndex((c) => c.key === 'booli_link') + 1);
       assert.ok(bCell.value && bCell.value.hyperlink && /booli\.se/.test(bCell.value.hyperlink), 'booli hyperlink set');
-      // Row 4 (booli_only) has no Hemnet hyperlink.
+      // Row 4 (booli_only) has no direct Hemnet hyperlink, but DOES have a Check-on-Hemnet search.
       const hCellEmpty = ws.getRow(4).getCell(COLUMNS.findIndex((c) => c.key === 'hemnet_link') + 1);
-      assert.ok(!hCellEmpty.value || !hCellEmpty.value.hyperlink, 'unmatched row has no Hemnet link');
+      assert.ok(!hCellEmpty.value || !hCellEmpty.value.hyperlink, 'unmatched row has no direct Hemnet link');
+      const sCell = ws.getRow(4).getCell(COLUMNS.findIndex((c) => c.key === 'hemnet_search') + 1);
+      assert.ok(sCell.value && sCell.value.hyperlink && /hemnet\.se/.test(decodeURIComponent(sCell.value.hyperlink)), 'unmatched row has a search link');
     });
 
     // 5. workbook writes to disk and is a non-empty .xlsx.
