@@ -132,6 +132,10 @@ async function main(client, log) {
   // 2) Match loop — matchOne per sampled record using record.seg. CeilingError stops the
   //    batch; a non-ceiling error counts as an error verdict (belt-and-suspenders —
   //    matchOne already returns booli_only on its own internal errors).
+  // Window the sampler actually drew (lib/sold-sample.js stats.window) — pass it into matchOne so
+  // verdict rows carry window_end. Without this, batch rows get window_end=NULL and the standard
+  // report/xlsx/chart (which filter `WHERE window_end >= date`) silently drop all batch output.
+  const win = (sampleStats && sampleStats.window) || {};
   const totals = { matched: 0, booli_only: 0, uncertain: 0, error: 0 };
   let recordsMatched = 0;
   const recordsTotal = queue.length;
@@ -140,7 +144,7 @@ async function main(client, log) {
       if (batchStoppedBy) break;
       try {
         const v = await deps.matchOne(
-          client, record, record.seg, record.segment, null, null, log,
+          client, record, record.seg, record.segment, win.minSoldDate || null, win.maxSoldDate || null, log,
         );
         if (v === 'matched' || v === 'booli_only' || v === 'uncertain') totals[v]++;
         else totals.error++;

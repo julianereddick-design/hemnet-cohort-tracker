@@ -221,7 +221,7 @@ async function run() {
   console.log(`Wrote ${auditRows.length} rows (${matched} on Hemnet) → ${file}`);
 }
 
-module.exports = { booliUrl, hemnetUrl, onHemnet, foundVia, buildAuditRows, buildWorkbook, COLUMNS };
+module.exports = { booliUrl, hemnetUrl, hemnetSearchUrl, onHemnet, foundVia, buildAuditRows, buildWorkbook, COLUMNS };
 
 // ---------------------------------------------------------------------------
 // Entry gate: --smoke runs the offline self-test; otherwise run().

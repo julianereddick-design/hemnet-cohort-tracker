@@ -234,6 +234,12 @@ async function matchOne(client, record, seg, segKey, minSoldDate, maxSoldDate, l
   const detailFetch = deps.fetchBooliDetail || fetchBooliDetail;
   const opts = searchOptsFor(seg);
 
+  // Persist the Booli sold record up front so EVERY sampled record — houses included, not just
+  // fee-enriched apartments — lands in booli_sold with address/price (export completeness). The
+  // national batch's sampler does NOT seed booli_sold, so without this houses have no stored
+  // address. Idempotent (ON CONFLICT booli_id); the apartment branch re-upserts with rent/detail.
+  await upsertBooliSold(client, { ...record, segment: segKey, family: seg.family });
+
   // 1) Per-record narrowed Hemnet /salda search. CeilingError re-throws (worker
   //    catches); any other error → a booli_only verdict tagged search-failed.
   let searchResult;
