@@ -39,6 +39,7 @@ Phase 19 (v3.1) — Sold match batch vars (for `sold-match-batch.js`):
 - `SOLD_MATCH_BRIDGE` — **default-on**; the orchestrator sets it to `'1'` itself (D-05), so both the first-pass match and the re-check `matchOne` use the SERP /bostad bridge. Document the opt-out as `SOLD_MATCH_BRIDGE=0` (disables the bridge entirely — only for debugging).
 - `RECHECK_BRIDGE_FINAL_ONLY` — **default OFF** cost lever (D-16). When `=1`, the re-check drain skips the SERP bridge on INTERMEDIATE re-attempts and runs it only on the FINAL attempt before settle (~mid 9k → ~6k calls/month). Leave **OFF** for the full-fidelity drain; flip to `1` only as a deliberate cost lever. Validated by `boolEnv` (only `1`/`true`/`0`/`false` honored; a typo falls back to OFF).
 - `SOLD_BATCH_FETCH_FAIL_THRESHOLD` — (default: 5) optional. Number of sampler fetch failures above which `validate()` escalates to Slack. Raise only if transient Booli fetch noise is expected.
+- `SOLD_BATCH_CONC` — (default: 6) optional. Concurrency of the batch match-loop worker pool. The match work is I/O-bound on Oxylabs latency; a sequential loop made the ~1000-record national run take ~4h, so the loop is now a bounded pool (workers share the one pg client + the DB-atomic ceiling — only the Oxylabs fetching runs concurrently → ~40-60 min). Lower it if Oxylabs rate-limits; raising past ~8 yields little (DB queries serialise on the single client).
 - `SLACK_WEBHOOK_URL` — already documented (above); the batch's `validate()` escalations post here via cron-wrapper (the **same webhook** as Phase 12 — NOT the `SLACK_BOT_TOKEN`).
 
 To set the Slack webhook:
@@ -76,6 +77,16 @@ All times are UTC. Schedule respects:
 # Slot 07:30 UTC clears cohort-create (06:00), cohort-spotcheck-gate (06:30), Job B (03:00),
 # market-totals (08:30). Logs to cron_job_log + the log file below.
 30 7 * * 1  cd /opt/hemnet-cohort-tracker && node sold-match-batch.js        >> /var/log/hemnet/sold-match-batch.log 2>&1
+
+# === Phase 19/20 — Sold-match reporting trio (Mon 11:00 UTC, AFTER the batch) ===
+# DB-only (no scraping): read sold_match and render the Slack report + trend chart + audit xlsx.
+# Slotted 11:00 so it runs AFTER the batch (07:30; parallel worker pool ~40-60 min, ~2h worst
+# case) — moved from 10:00 (2026-06-21) because a sequential batch could still be running then.
+# Clear of the 12:00 reaction poller. NOTE these read `WHERE window_end >= <lookback>`, so the
+# batch must populate window_end (it now passes the sampler window into matchOne) for rows to show.
+0 11 * * 1   cd /opt/hemnet-cohort-tracker && node sold-match-report.js       >> /var/log/hemnet/sold-match-report.log 2>&1
+5 11 * * 1   cd /opt/hemnet-cohort-tracker && node sold-match-trend-chart.js  >> /var/log/hemnet/sold-match-chart.log 2>&1
+10 11 * * 1  cd /opt/hemnet-cohort-tracker && node sold-match-xlsx.js          >> /var/log/hemnet/sold-match-xlsx.log 2>&1
 
 0 8 * * *   cd /opt/hemnet-cohort-tracker && node sfpl-region-snapshot.js       >> /var/log/hemnet/sfpl.log 2>&1
 

@@ -139,27 +139,39 @@ async function main(client, log) {
   const totals = { matched: 0, booli_only: 0, uncertain: 0, error: 0 };
   let recordsMatched = 0;
   const recordsTotal = queue.length;
+  // Bounded worker pool (mirrors runSegment in scripts/sold-match-run.js). The match work is
+  // I/O-bound on Oxylabs latency, so a sequential loop made the ~1000-record national run take
+  // ~4h. Workers share the ONE pg client (node-pg serialises its queries internally) and the
+  // DB-atomic spend ceiling, so only the Oxylabs fetching runs concurrently — cutting the run to
+  // ~40-60 min. Concurrency via SOLD_BATCH_CONC (default 6). On a CeilingError the flag stops the
+  // pool; up to CONC in-flight matches may finish first (harmless — matchOne re-throws cleanly).
+  const CONC = Math.max(1, parseInt(process.env.SOLD_BATCH_CONC || '6', 10));
   if (!batchStoppedBy && !fatalError) {
-    for (const record of queue) {
-      if (batchStoppedBy) break;
-      try {
-        const v = await deps.matchOne(
-          client, record, record.seg, record.segment, win.minSoldDate || null, win.maxSoldDate || null, log,
-        );
-        if (v === 'matched' || v === 'booli_only' || v === 'uncertain') totals[v]++;
-        else totals.error++;
-        recordsMatched++;
-      } catch (e) {
-        if (e instanceof CeilingError) {
-          batchStoppedBy = 'ceiling';
-          log('WARN', `match loop hit ceiling: ${e.message}`);
-          break;
+    let idx = 0;
+    const worker = async () => {
+      while (idx < queue.length) {
+        if (batchStoppedBy) return;
+        const record = queue[idx++];
+        try {
+          const v = await deps.matchOne(
+            client, record, record.seg, record.segment, win.minSoldDate || null, win.maxSoldDate || null, log,
+          );
+          if (v === 'matched' || v === 'booli_only' || v === 'uncertain') totals[v]++;
+          else totals.error++;
+          recordsMatched++;
+        } catch (e) {
+          if (e instanceof CeilingError) {
+            batchStoppedBy = 'ceiling';
+            log('WARN', `match loop hit ceiling: ${e.message}`);
+            return;
+          }
+          totals.error++;
+          recordsMatched++;
+          log('ERROR', `matchOne booli_id=${record && record.booli_id}: ${e && e.message}`);
         }
-        totals.error++;
-        recordsMatched++;
-        log('ERROR', `matchOne booli_id=${record && record.booli_id}: ${e && e.message}`);
       }
-    }
+    };
+    await Promise.all(Array.from({ length: CONC }, () => worker()));
   }
 
   // 3) Re-check drain — only on a clean match pass (not stopped, not fatal). Real clock.
@@ -456,6 +468,7 @@ function runSmoke() {
     // 7. ceiling mid-match stops the batch (2nd record not matched, drain skipped, escalate).
     await checkAsync('ceiling mid-match stops the batch', async () => {
       resetDeps();
+      process.env.SOLD_BATCH_CONC = '1'; // force a single worker so the stop is deterministic
       deps.now = EVEN_WEEK;
       deps.setSpendClient = () => {};
       deps.sampleNational = async () => ({ queue: sampleQueue(), stats: { fetchFailures: 0 } });
@@ -469,9 +482,10 @@ function runSmoke() {
       const c = mockClient();
       const s = await main(c, noLog);
       assert.strictEqual(s.batchStoppedBy, 'ceiling', "batchStoppedBy='ceiling'");
-      assert.strictEqual(matchCalls, 1, 'matchOne NOT called for the 2nd record');
+      assert.strictEqual(matchCalls, 1, 'matchOne NOT called for the 2nd record (conc=1)');
       assert.strictEqual(drainCalls, 0, 're-check drain skipped on ceiling stop');
       assert.ok(validate(s), 'validate escalates on ceiling stop');
+      delete process.env.SOLD_BATCH_CONC;
       resetDeps();
     });
 
