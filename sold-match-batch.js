@@ -93,6 +93,41 @@ async function main(client, log) {
     return { skipped: true, reason: 'off-week', isoWeek, slackMsg: null };
   }
 
+  // Fortnight idempotency interlock. PREVENTS a manual `run-now` catch-up AND the scheduled
+  // Monday cron from BOTH firing the SAME even ISO week. When that happens, the second run's
+  // sampler re-samples the first run's records (the de-dup keys on booli_sold, and any record
+  // the first run did not seed there is re-pulled), so first-pass re-matches and RE-COUNTS
+  // them — double-spending Oxylabs and making the per-run booli_only rate an unsound statistic
+  // (observed 2026-06-22, ISO week 26: RUN-now Sat + cron Mon, 431 records re-processed).
+  // Skip only if a prior sold-match-batch SUCCEEDED for this isoWeek recently — a ceiling stop
+  // is logged 'warning' (not 'success'), so a genuine resume is still allowed. SOLD_BATCH_FORCE=1
+  // overrides for a deliberate re-run. The check never aborts the run on its own error (the
+  // batch must still run if cron_job_log is unreadable). result_summary.isoWeek is written by
+  // this same main() (see return value below); the 20-day window disambiguates the yearly
+  // recurrence of the same ISO-week number.
+  if (process.env.SOLD_BATCH_FORCE !== '1') {
+    try {
+      const prior = await client.query(
+        `SELECT id, to_char(finished_at, 'YYYY-MM-DD HH24:MI') AS finished
+           FROM cron_job_log
+          WHERE script_name = 'sold-match-batch'
+            AND status = 'success'
+            AND (result_summary->>'isoWeek')::int = $1
+            AND finished_at > NOW() - INTERVAL '20 days'
+          ORDER BY id DESC LIMIT 1`,
+        [isoWeek],
+      );
+      if (prior.rows && prior.rows.length) {
+        const p = prior.rows[0];
+        log('WARN', `fortnight interlock: sold-match-batch already completed for ISO week ${isoWeek} `
+          + `(run id ${p.id} @ ${p.finished}) — skipping to avoid a double-run. Set SOLD_BATCH_FORCE=1 to override.`);
+        return { skipped: true, reason: 'already-ran-this-fortnight', isoWeek, priorRunId: p.id, slackMsg: null };
+      }
+    } catch (e) {
+      log('WARN', `fortnight interlock check failed (${e && e.message}) — proceeding with the run`);
+    }
+  }
+
   // GL-01: scope the DB spend ceiling to THIS fortnight. The DB tally keys on
   // SOLD_SPEND_KEY (default 'sold-global') and NEVER resets — a fixed key would make
   // `calls` accumulate across every fortnightly run and permanently jam at
@@ -364,6 +399,46 @@ function runSmoke() {
       assert.strictEqual(sampleCalls, 1, 'sampler called once');
       assert.strictEqual(matchCalls, 2, 'matchOne called once per queued record');
       assert.strictEqual(summary.skipped, false, 'not skipped on even week');
+      resetDeps();
+    });
+
+    // 1b. fortnight interlock — a prior SUCCESS for this isoWeek skips the run (no sampler/match).
+    await checkAsync('fortnight interlock: prior success for isoWeek -> skipped (no sampler)', async () => {
+      resetDeps();
+      delete process.env.SOLD_BATCH_FORCE;
+      let sampleCalls = 0;
+      deps.now = EVEN_WEEK;
+      deps.sampleNational = async () => { sampleCalls++; return { queue: sampleQueue(), stats: {} }; };
+      deps.setSpendClient = () => {};
+      const c = mockClient();
+      c.rowsToReturn = [{ id: 661, finished: '2026-06-20 04:13' }]; // interlock SELECT returns a prior success
+      const summary = await main(c, noLog);
+      assert.strictEqual(summary.skipped, true, 'skipped when a prior success exists for this isoWeek');
+      assert.strictEqual(summary.reason, 'already-ran-this-fortnight', "reason 'already-ran-this-fortnight'");
+      assert.strictEqual(summary.priorRunId, 661, 'carries the prior run id');
+      assert.strictEqual(sampleCalls, 0, 'sampler NOT called when the interlock trips');
+      resetDeps();
+    });
+
+    // 1c. fortnight interlock — SOLD_BATCH_FORCE=1 overrides the skip and runs.
+    await checkAsync('fortnight interlock: SOLD_BATCH_FORCE=1 overrides -> runs', async () => {
+      resetDeps();
+      process.env.SOLD_BATCH_FORCE = '1';
+      let sampleCalls = 0;
+      deps.now = EVEN_WEEK;
+      deps.sampleNational = async () => { sampleCalls++; return { queue: sampleQueue(), stats: { fetchFailures: 0 } }; };
+      deps.matchOne = async () => 'matched';
+      deps.setSpendClient = () => {};
+      deps.spentCallsAsync = async () => 0;
+      deps.enrollUnmatched = async () => ({ enrolled: 0 });
+      deps.runRecheck = async () => ({ rechecked: 0, lateMatched: 0, stillPending: 0, uncertain: 0 });
+      deps.settleExpired = async () => ({ settledNonHemnet: 0 });
+      const c = mockClient();
+      c.rowsToReturn = [{ id: 661, finished: '2026-06-20 04:13' }];
+      const summary = await main(c, noLog);
+      assert.strictEqual(summary.skipped, false, 'FORCE overrides the interlock');
+      assert.strictEqual(sampleCalls, 1, 'sampler runs under SOLD_BATCH_FORCE=1');
+      delete process.env.SOLD_BATCH_FORCE;
       resetDeps();
     });
 
