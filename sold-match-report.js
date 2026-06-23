@@ -268,18 +268,37 @@ function renderReport(perSegment, opts = {}) {
   const date = opts.date || new Date().toISOString().slice(0, 10);
   const { byRegion, national, segMeta } = rollupRegion(perSegment);
 
-  const settledNat = settledRate(national);
+  // #4 fix: the SETTLED decision-grade rate is computed over the LIFECYCLE-TO-DATE population
+  // (opts.settle — every adjudicated row, NO window_end filter) rather than the recent sold-window.
+  // window_end is frozen at sample date and never refreshed on settle, while a booli_only row
+  // settles 28–182d later — so on the recent-window filter a settled row is ALWAYS aged out at the
+  // instant it settles, pinning the settle rate at ~0% forever (the drain's output is invisible).
+  // The preliminary booli_only line below stays on the recent window (recency is meaningful for the
+  // lag-contaminated raw number). Fallback to `national` keeps the pure --smoke working (it calls
+  // renderReport without opts.settle).
+  const settleNat = (opts.settle && opts.settle.national) || national;
+  const settledNat = settledRate(settleNat);
+  const terminalNat = settleNat.matched + settleNat.settled;
   const rawNat = rawBooliOnlyRate(national);
-  const terminalNat = national.matched + national.settled;
+  const sinceLabel = opts.since ? ` since ${opts.since}` : '';
 
   const lines = [];
   lines.push(`Sold-match run — ${date}`);
   lines.push('');
-  // LEAD: settled headline (decision-grade), terminal verdicts only.
-  lines.push(`SETTLED genuine-non-Hemnet (decision-grade): ${pct(settledNat)}`
-    + `  (${national.settled}/${terminalNat} terminal verdicts)`);
-  // SEPARATE labelled line: raw booli_only (preliminary / lag-contaminated).
-  lines.push(`preliminary booli_only (lag-contaminated, draining ~4wk): ${pct(rawNat)}`
+  // LEAD: settled headline (decision-grade), terminal verdicts only, over all adjudicated rows.
+  lines.push(`SETTLED genuine-non-Hemnet (decision-grade, lifecycle-to-date): ${pct(settledNat)}`
+    + `  (${settleNat.settled}/${terminalNat} terminal verdicts)`);
+  // apt/villa lifecycle-to-date settled cuts (houses settle firmer than apartments).
+  if (opts.settle && opts.settle.byFamily) {
+    for (const fam of ['APARTMENT', 'HOUSE']) {
+      const b = opts.settle.byFamily[fam];
+      if (!b || (b.matched + b.settled) === 0) continue;
+      const label = fam === 'APARTMENT' ? 'Apartments' : 'Villas/houses';
+      lines.push(`  ${rpad(label, 14)}settled=${pct(settledRate(b))}  (${b.settled}/${b.matched + b.settled})`);
+    }
+  }
+  // SEPARATE labelled line: raw booli_only (preliminary / lag-contaminated), recent window only.
+  lines.push(`preliminary booli_only (recent${sinceLabel}, lag-contaminated): ${pct(rawNat)}`
     + `  (${national.booliOnly}/${national.total})`);
   lines.push('');
 
@@ -353,6 +372,25 @@ async function fetchRows(client, sinceDate) {
 }
 
 // ---------------------------------------------------------------------------
+// fetchSettleRows(client) — #4 fix. The SETTLED decision-grade rate must be computed over the
+// FULL lifecycle-to-date population, NOT the recent sold-window. window_end is frozen at sample
+// date and never refreshed when a row settles (settleNonHemnet/advanceRecheck/clearRecheck in
+// lib/sold-store.js leave window_end untouched), while a booli_only row settles 28–182d later —
+// so a settled genuine_non_hemnet row's window_end is ALWAYS far older than the report's
+// `window_end >= today-21d` filter at the instant it settles. Filtering the settle rate on
+// window_end therefore pins it at ~0% forever (the drain's terminal verdicts are structurally
+// invisible to the headline). This query has NO window_end filter: the settle headline counts
+// every adjudicated row regardless of sample age. (The raw/preliminary booli_only rate stays on
+// the recent window via fetchRows — recency IS meaningful for that lag-contaminated number.)
+async function fetchSettleRows(client) {
+  const res = await client.query(
+    `SELECT sm.verdict, sm.segment, (sm.first_unmatched_at IS NOT NULL) AS was_enrolled
+       FROM sold_match sm`,
+  );
+  return res.rows;
+}
+
+// ---------------------------------------------------------------------------
 // fetchRunSummary(client) — OPTIONAL --from-run support (D-06). Reads the most
 // recent sold-match-batch cron_job_log row and returns its result_summary recheck
 // block, or null. Defensive: never throws (the shape may not exist yet).
@@ -391,16 +429,26 @@ async function run() {
   await client.connect();
 
   let rows;
+  let settleRows;
   let runSummary = null;
   try {
     rows = await fetchRows(client, since);
+    settleRows = await fetchSettleRows(client);
     if (fromRun) runSummary = await fetchRunSummary(client);
   } finally {
     await client.end();
   }
 
   const perSegment = bucketRows(rows);
-  let message = renderReport(perSegment, { date: new Date().toISOString().slice(0, 10), rows });
+  // #4: the settled headline is computed over the full lifecycle-to-date population (no window_end
+  // filter), so settled rows are not aged out by the recent-window filter used for the raw rate.
+  const settleSeg = bucketRows(settleRows);
+  const settleRollup = rollupRegion(settleSeg);
+  const settleByFamily = rollupFamily(settleSeg, settleRollup.segMeta);
+  let message = renderReport(perSegment, {
+    date: new Date().toISOString().slice(0, 10), rows, since,
+    settle: { national: settleRollup.national, byFamily: settleByFamily },
+  });
 
   if (fromRun && runSummary && runSummary.recheck) {
     const r = runSummary.recheck;
@@ -424,7 +472,7 @@ async function run() {
 
 module.exports = {
   bucketRows, settledRate, rawBooliOnlyRate, rollupRegion, rollupFamily, bucketOverlays,
-  segmentToMuniRegion, renderReport,
+  segmentToMuniRegion, renderReport, fetchSettleRows,
 };
 
 // ---------------------------------------------------------------------------
@@ -569,6 +617,43 @@ function runSmoke() {
       assert.ok(text.includes('44.4%'), `expected national raw 44.4% (12/27) in:\n${text}`);
       assert.ok(text.includes('(3/14 terminal verdicts)'), 'settled denominator is terminal-only');
       assert.ok(text.includes('(12/27)'), 'raw denominator is total');
+    });
+
+    // 7b. #4 fix: fetchSettleRows queries ALL rows (NO window_end filter) so settled rows
+    //     (window_end frozen months earlier) are not aged out of the settle decision rate.
+    await checkAsync('fetchSettleRows: no window_end filter (settle pop = lifecycle-to-date)', async () => {
+      let sql = '';
+      const mockClient = { query: async (q) => { sql = q; return { rows: [] }; } };
+      const out = await fetchSettleRows(mockClient);
+      assert.ok(/FROM sold_match/.test(sql), 'selects from sold_match');
+      assert.ok(!/window_end/.test(sql), 'must NOT filter on window_end');
+      assert.deepStrictEqual(out, [], 'returns the query rows');
+    });
+
+    // 7c. #4 fix: with opts.settle, the LEAD settled rate uses the all-time settle population,
+    //     while the preliminary booli_only rate still comes from the recent perSegment. Here the
+    //     recent window has ONLY booli_only (settled would be n/a), but the lifecycle pop has
+    //     3 matched + 1 settled → the headline must read 1/4 = 25.0%, NOT n/a.
+    check('renderReport: opts.settle drives settled headline; raw stays recent-window', () => {
+      const recent = bucketRows([
+        { verdict: 'booli_only', segment: 'Stockholm:APARTMENT', was_enrolled: true },
+        { verdict: 'booli_only', segment: 'Stockholm:APARTMENT', was_enrolled: true },
+      ]);
+      const settleSeg = bucketRows([
+        { verdict: 'matched', segment: 'Stockholm:APARTMENT', was_enrolled: false },
+        { verdict: 'matched', segment: 'Stockholm:APARTMENT', was_enrolled: false },
+        { verdict: 'matched', segment: 'Stockholm:APARTMENT', was_enrolled: false },
+        { verdict: 'genuine_non_hemnet', segment: 'Stockholm:APARTMENT', was_enrolled: true },
+      ]);
+      const sr = rollupRegion(settleSeg);
+      const text = renderReport(recent, {
+        date: '2026-06-18',
+        settle: { national: sr.national, byFamily: rollupFamily(settleSeg, sr.segMeta) },
+      });
+      assert.ok(text.includes('(1/4 terminal verdicts)'), `settle denom from all-time pop in:\n${text}`);
+      assert.ok(text.includes('25.0%'), 'lead settled = lifecycle 1/4 = 25.0%');
+      assert.ok(text.includes('(2/2)'), 'raw booli_only denominator from the recent window');
+      assert.ok(/lifecycle-to-date/.test(text), 'settled headline labelled lifecycle-to-date');
     });
 
     // 8. renderReport tolerates a null-rate cell (no terminal verdicts) → 'n/a', no crash.
