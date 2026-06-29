@@ -1,6 +1,6 @@
 # Project: Hemnet Cohort Tracker
 
-**Last updated:** 2026-06-18
+**Last updated:** 2026-06-29
 
 ## What This Is
 
@@ -18,26 +18,33 @@ Quantify the Swedish housing funnel — pool (what's for sale / sold) and flow (
 - ✅ **v2.2 Market supply pulse** — Phase 11. Daily nationwide listing totals (Till salu + Kommande) from `__NEXT_DATA__`.
 - ✅ **Spot-check QA stream** — Phases 12–14.1. Cohort match spot-check gate, image confirmation + human review loop, Phase-14 identity-model adjudication (`adjudicatePair`: fee-first verdicts, label-filtered dHash, vision fallback).
 - ✅ **v3.0 Sold-match pipeline** — Phases 15–17 (code-complete 2026-06-17). Productionized the `spike/sold-match-feasibility` spike into reusable `lib/` matcher modules + sold-side DB schema/persistence + the config-driven `scripts/sold-match-run.js` runner (Booli `/slutpriser` → Hemnet `/salda`, fee-exact apartments / address-key villas, title-transfer excluded-but-retained). Operator one-time droplet populate run remaining.
+- ✅ **v3.1 Sold-match productionization** — Phases 18–20 (shipped/live 2026-06-19). Scheduled fortnightly batch orchestrator (`sold-match-batch.js`), ~4-week `booli_only` re-check drain, per-run Slack report + committed-HTML trend + xlsx. National population-weighted panel sampler. Live cron firing (first full national run W26, fortnight interlock added).
 
-## Current Milestone: v3.1 Sold-match productionization
+## Current Milestone: v4.0 Hemnet Price-Scraper Droplet — Audit, Consolidate & Right-size
 
-**Goal:** Turn the code-complete v3.0 sold-match runner into a scheduled, self-draining, observable production pipeline — running on a cron batch, re-checking unmatched `booli_only` records for ~4 weeks to drain slutpris-lag, and reporting per-run results (Slack summary + a graphical over-time trend) so the headline "genuine non-Hemnet" rate becomes a decision-grade number.
+> **Note:** This milestone is *infrastructure/ops* for a **separate** system — the standalone Hemnet+Booli price-scraper droplet `170.64.181.89` (`ubuntu-s-1vcpu-2gb-syd1-01`, syd1), repo `github.com/tt7676/hem-bol-scrapers`, run by the team (Illia/raymond/vitaliy). It is NOT the cohort-tracker codebase in this repo, but it feeds the same Hemnet pricing thesis, so it is tracked here as a milestone. Most changes land in the team repo + droplet ops, not this repo's source.
+
+**Goal:** Take durable control of the price-scraper droplet, understand everything running on it, fix its Hemnet fetch so it stops getting 403-blocked, strip it to just the price scraper, and resize it down from the ~$100/mo `s-8vcpu-16gb` slug.
 
 **Target features:**
-- **Scheduling (SCHED):** wrap `scripts/sold-match-run.js` in a `cron-wrapper.runJob` orchestrator (modeled on `cohort-spotcheck-gate.js`) + crontab entry + env vars + operator runbook. Config-driven segments (`config/sold-segments.json`) and the rolling sold-date window already exist.
-- **Re-check pass (RE-CHECK):** persist unmatched `booli_only` records and re-attempt the Hemnet `/salda` search on subsequent scheduled runs for **~4 weeks**; late matches flip to `matched`, records still unmatched after the window settle as `genuine non-Hemnet`. Drains slutpris-lag contamination out of the booli_only rate.
-- **Reporting (REPORT):** per-run Slack/report summary by segment (`matched / booli_only / re-check-resolved-late / settled-non-Hemnet`) reusing `lib/spotcheck-slack-bot.js` + cron-wrapper Slack escalation, **plus a graphical over-time trend output** (committed HTML chart from the DB, in the `market-totals-chart.html` / `chart-hb-ratio.js` family) showing how match rate and the genuine-non-Hemnet rate move week over week per segment.
+- **Consistent access (ACCESS):** durable, documented SSH/DO access that survives reboots/rebuilds — no more per-session DO-console key pastes.
+- **Deep-dive audit (AUDIT):** inventory every app (`hemnet`, `booli`, `spotify`, `procore`, `block_inc`, `core`), data flows, Postgres/Metabase/Redis, on-disk logs, the Celery-beat schedule + queues, and a real resource/cost baseline. Understand before touching; produce keep/kill recommendations with dependency evidence.
+- **Fix Hemnet capability (FETCH):** route the Hemnet listing/search fetch through the Oxylabs path already in the repo (`apps/core/webscraper.py` / proxy creds) instead of direct local headless Chromium → kills the 403s; retire self-hosted Playwright.
+- **Cleanup (CLEAN):** remove the unrelated apps once the audit clears them; reclaim oversized logs/disk; leave the Hemnet price scraper as the primary workload.
+- **Right-size (SIZE):** shrink the droplet slug to match the post-cleanup footprint and cut monthly cost.
 
-**Deferred (decide later):** listing-stage suppression test (SUPPRESS).
+**Approach (decided):** clean-up & resize **in place** (not a rebuild); **audit-before-kill** (remove nothing until the audit confirms it's safe). Booli keep/kill is decided during the audit.
 
-## Spike Findings That Anchor This Milestone
+**Investigation provenance (2026-06-29):** droplet found via a DO account sweep; Hemnet fetch confirmed direct-Chromium → live 403 on `/bostader?price_max=100000`; Oxylabs path exists but unused for the Hemnet search flow; actual size is `s-8vcpu-16gb` (~$96–126/mo) despite the legacy name. Full account map in memory `project_droplet_inventory`.
+
+## Spike Findings (v3.0/v3.1 sold-match)
 
 - Matching is **feasible and precise**: fee-exact for apartments, address-key for villas. Stockholm apt ~61%, Täby villa ~64% (stable across time windows).
 - The headline: **~36% of Booli villa sold records are genuine non-Hemnet presence** (hand-confirmed 0/25 on Hemnet), not slutpris suppression and not a matcher miss. Booli holds materially more sold data than Hemnet's public `/salda`.
 - Apartment fee/broker are stripped from Booli records older than ~9 months → apartments are fee-confirmable only ≤~6–9mo back; houses match at any age (address = unique key).
 - Hemnet `/salda` shows only PRICED sales → suppressed sales are absent from the browsable index (can't be detected via sold pages alone — hence the deferred listing-stage test).
 
-## Key Decisions
+## Key Decisions (sold-match v3.x)
 
 - Sold-match reuses the cohort per-property search pattern and the Phase-14 `adjudicatePair` logic; no new matching paradigm.
 - Image-based matching (dHash/vision) does **not** apply to sold pages — sold detail carries no gallery images on either platform.
@@ -64,4 +71,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Project context for milestone v3.1, defined 2026-06-18.*
+*Project context for milestone v4.0, defined 2026-06-29.*

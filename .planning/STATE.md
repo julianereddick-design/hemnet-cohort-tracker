@@ -1,26 +1,29 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.1
-milestone_name: Sold-match productionization
-status: executing
-stopped_at: Completed Phases 19 + 20 — v3.1 sold-match productionization OFFLINE-COMPLETE (national panel sampler reframe, scheduled batch orchestrator, reporting + trend). All offline smokes green; WR-01/WR-02 code-review fixes applied. Live go-live (DDL migrations, first Oxylabs wet run, crontab install, Hemnet-ID backfill) operator-gated for the morning.
-last_updated: "2026-06-18T22:30:00.000Z"
-last_activity: 2026-06-18 -- Phases 19+20 complete (overnight autonomous build)
+milestone: v4.0
+milestone_name: Hemnet Price-Scraper Droplet — Audit, Consolidate & Right-size
+status: planning
+stopped_at: Milestone v4.0 initialized 2026-06-29 — PROJECT.md/REQUIREMENTS.md/ROADMAP.md written (phases 21–25). Next = /gsd-discuss-phase 21 (or /gsd-plan-phase 21). v3.1 sold-match preserved (shipped/live 2026-06-19); no phase dirs cleared, numbering continued at 21.
+last_updated: "2026-06-29T00:00:00.000Z"
+last_activity: 2026-06-29 -- Milestone v4.0 started (droplet audit/consolidate/right-size)
 progress:
-  total_phases: 17
-  completed_phases: 9
-  total_plans: 48
-  completed_plans: 39
-  percent: 81
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 ## Current Position
 
-Phase: 20 — Per-run reporting + decision-grade trend (COMPLETE) — v3.1 milestone code-complete; GO-LIVE in progress
-Plan: Phase 19 (3/3) + Phase 20 (2/2) complete
-Status: LIVE-DEPLOYED + first wet run GREEN (2026-06-19). Droplet at c89979e; both migrations run (4 sold tables + 3 recheck cols); GL-01 found+fixed+validated. Scoped wet run clean: sampler 114 fetched/20 allocated, matchOne 18 matched/2 booli_only (90%), recheck enrolled 41, ONE ceiling 48/250 calls, validate()=null. ~2.4 Oxylabs calls/record live.
-Last activity: 2026-06-19 -- go-live: deploy + migrate + GL-01 fix + first wet run (this session)
-Next: First full national batch auto-fires Mon 2026-06-22 (even week); reporting layer (Slack report + chart + xlsx) wired weekly Mon 10:00 UTC and will populate with that data. Deferred: Hemnet-ID backfill (panel North/Småland expansion), loop #2.
+Phase: Not started (defining requirements complete; roadmap created)
+Plan: —
+Status: Planning — v4.0 milestone initialized; ready to plan Phase 21 (Consistent access)
+Last activity: 2026-06-29 — Milestone v4.0 started
+Next: `/gsd-discuss-phase 21` (gather context) or `/gsd-plan-phase 21` (plan directly). Phases 21→22→23, 24 gated on 22+23, 25 gated on 24.
+
+### v3.1 carry-over (shipped/live — do not lose)
+sold-match v3.1 (Phases 18–20) is LIVE-DEPLOYED + first wet run green (2026-06-19); full national batch fires fortnightly (first W26). The detailed v3.1 go-live + reporting decisions are preserved verbatim below in Accumulated Context. v4.0 is additive infra/ops on a SEPARATE droplet and does not touch the sold-match code.
 
 ### Decisions (Reporting layer + Östermalm overlay, 2026-06-19 — this session, commit c88c859)
 

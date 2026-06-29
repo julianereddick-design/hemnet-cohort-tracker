@@ -8,6 +8,7 @@
 - 🚧 **v2.2 Market supply pulse** — Phase 11 (new data product: daily nationwide listing totals; runs in parallel to v2.1)
 - 🚧 **v3.0 Sold-match pipeline (Booli-sold → Hemnet-sold), DB-backed** — Phases 15–17 (productionize the validated `spike/sold-match-feasibility` spike into reusable `lib/` modules + DB persistence + config-driven segments; planning 2026-06-17)
 - 🚧 **v3.1 Sold-match productionization** — Phases 18–20 (turn the v3.0 code-complete runner into a scheduled, self-draining, observable pipeline: cron batch + ~4-week re-check drain + Slack/trend reporting; planning 2026-06-18)
+- 🚧 **v4.0 Hemnet Price-Scraper Droplet — Audit, Consolidate & Right-size** — Phases 21–25 (infra/ops for the SEPARATE price-scraper droplet `170.64.181.89` / repo `tt7676/hem-bol-scrapers`: consistent access + deep-dive audit + Oxylabs fetch fix + cleanup + right-size from ~$100/mo; planning 2026-06-29)
 
 ## Phases
 
@@ -414,3 +415,66 @@ Plans:
 - [x] 20-02-PLAN.md — sold-match-trend-chart.js: committed-HTML Chart.js-4 trend from sold_match (national match rate + settled-non-Hemnet rate per fortnight; settled series distinct from raw) → view-data/<date>/sold-match/trend.html; offline --smoke [REPORT-02, REPORT-03] (2026-06-18; commit 3c5b7af; smoke 9/0)
 
 **PHASE 20 COMPLETE (2/2, offline)** — settled-non-Hemnet headline distinct from raw booli_only verified in both smokes. Per-region trend lines deferred (national line is the decision-grade output). v3.1 milestone code-complete; go-live operator-gated.
+
+---
+
+### 🚧 v4.0 Hemnet Price-Scraper Droplet — Audit, Consolidate & Right-size (In Progress)
+
+**Milestone Goal:** Take durable control of the SEPARATE Hemnet+Booli price-scraper droplet `170.64.181.89` (`ubuntu-s-1vcpu-2gb-syd1-01`, syd1; repo `github.com/tt7676/hem-bol-scrapers`, team-run), understand everything on it, fix its Hemnet fetch so it stops getting 403-blocked, strip it to just the price scraper, and resize it down from the ~$100/mo `s-8vcpu-16gb` slug. **Infra/ops milestone** — most work is droplet ops + the team repo, not this repo's source. Approach: clean-up & resize **in place** (not rebuild); **audit-before-kill**.
+
+> **Provenance (2026-06-29):** droplet found via a DO account sweep; Hemnet fetch confirmed direct headless-Chromium (no proxy) → live 403 on `/bostader?price_max=100000`; Oxylabs path (`apps/core/webscraper.py` + proxy creds) exists but unused for the Hemnet search flow; actual size `s-8vcpu-16gb` despite the legacy name. 8 Docker containers up ~2 months. Account map in memory `project_droplet_inventory`.
+
+#### Phase 21: Consistent access
+**Goal**: Durable, documented operator/Claude access to the droplet that survives reboots and (ideally) rebuilds — replacing the fragile one-off DO-console key paste.
+**Requirements**: ACCESS-01, ACCESS-02, ACCESS-03
+**Success Criteria** (what must be TRUE):
+  1. Operator can SSH into `170.64.181.89` with a persisted key after a reboot, with no DO-console intervention
+  2. A known SSH key is registered at the DO account level (visible via `doctl compute ssh-key list`) and present in the droplet's `authorized_keys`
+  3. A committed runbook documents the access model — user, key, how to add/revoke, and the `IdentitiesOnly`/`MaxAuthTries` connection gotcha
+**Plans**: TBD — run `/gsd-plan-phase 21`
+**UI hint**: no
+
+#### Phase 22: Deep-dive audit
+**Goal**: A complete, evidence-based understanding of everything running on the droplet, with keep/kill recommendations — so nothing is removed blind. **Gates Phase 24.**
+**Depends on**: Phase 21 (need stable access to audit thoroughly)
+**Requirements**: AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04, AUDIT-05
+**Success Criteria** (what must be TRUE):
+  1. An audit doc inventories every app (`hemnet`, `booli`, `spotify`, `procore`, `block_inc`, `core`) with purpose, owner, and last-active evidence
+  2. Data + storage are mapped: Postgres DB(s)/tables, Metabase, Redis, Docker volumes, and large on-disk logs (sizes noted, incl. the 4.6 GB `kill.log`)
+  3. All scheduled/triggered work is enumerated — Celery beat schedule, queues, restart scripts — with cadence
+  4. A real resource + cost baseline is captured (actual CPU/mem/disk vs the `s-8vcpu-16gb` allocation)
+  5. Each non-Hemnet-price app (incl. Booli) has a keep/kill recommendation backed by dependency evidence
+**Plans**: TBD — run `/gsd-plan-phase 22`
+**UI hint**: no
+
+#### Phase 23: Fix Hemnet capability (Oxylabs fetch)
+**Goal**: Route the Hemnet listing/search fetch through the Oxylabs path already in the repo instead of direct local Chromium, ending the 403 blocking and removing self-hosted Playwright as a resource driver.
+**Depends on**: Phase 21
+**Requirements**: FETCH-01, FETCH-02, FETCH-03
+**Success Criteria** (what must be TRUE):
+  1. The Hemnet listing/search fetch routes through the Oxylabs `webscraper.py` / proxy path (not local Chromium), verifiable in code + run logs
+  2. A verification crawl of Hemnet pricing pages returns ~0 403s
+  3. Self-hosted Playwright / headless Chromium is removed or gated off and no longer runs as a container/process
+**Plans**: TBD — run `/gsd-plan-phase 23`
+**UI hint**: no
+
+#### Phase 24: Cleanup (gated on audit)
+**Goal**: Remove the unrelated apps the audit cleared, reclaim disk, and reduce the running set to the price-scraper essentials.
+**Depends on**: Phase 22 (keep/kill evidence), Phase 23 (Playwright retired)
+**Requirements**: CLEAN-01, CLEAN-02, CLEAN-03
+**Success Criteria** (what must be TRUE):
+  1. Apps the audit cleared (spotify/procore/block_inc, and Booli if confirmed redundant) are removed/disabled with nothing dependent broken
+  2. Oversized logs are rotated/removed and disk reclaimed (multi-GB logs gone); the container set is reduced to essentials
+  3. End-state — the Hemnet price scraper is the primary workload running on the droplet
+**Plans**: TBD — run `/gsd-plan-phase 24`
+**UI hint**: no
+
+#### Phase 25: Right-size
+**Goal**: Resize the droplet down to a slug matched to the post-cleanup footprint and verify the price scraper still works, cutting monthly cost from ~$100.
+**Depends on**: Phase 24 (footprint must shrink before resizing)
+**Requirements**: SIZE-01, SIZE-02
+**Success Criteria** (what must be TRUE):
+  1. The droplet is resized to a smaller slug matched to the post-cleanup footprint; monthly cost reduced from ~$100 (verify new slug via `doctl`)
+  2. Post-resize, the price scraper runs correctly and reaches Hemnet via Oxylabs (verification run green)
+**Plans**: TBD — run `/gsd-plan-phase 25`
+**UI hint**: no
