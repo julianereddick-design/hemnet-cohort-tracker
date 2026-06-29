@@ -449,7 +449,11 @@ Plans:
   3. All scheduled/triggered work is enumerated — Celery beat schedule, queues, restart scripts — with cadence
   4. A real resource + cost baseline is captured (actual CPU/mem/disk vs the `s-8vcpu-16gb` allocation)
   5. Each non-Hemnet-price app (incl. Booli) has a keep/kill recommendation backed by dependency evidence
-**Plans**: TBD — run `/gsd-plan-phase 22`
+**Plans**: 2 plans
+
+Plans:
+- [ ] 22-01-PLAN.md — read-only SSH evidence sweep into 22-EVIDENCE.md (app inventory, data+storage, scheduled work, resource baseline, dependency evidence)
+- [ ] 22-02-PLAN.md — synthesize docs/price-scraper-droplet-audit.md (5 cited sections + per-app keep/kill verdicts + hygiene notes)
 **UI hint**: no
 
 #### Phase 23: Fix Hemnet capability (Oxylabs fetch)
