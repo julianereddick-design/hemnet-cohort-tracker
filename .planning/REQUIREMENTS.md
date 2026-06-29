@@ -24,14 +24,15 @@
 - [ ] **AUDIT-05**: For each non-Hemnet-price app (incl. Booli), a keep/kill recommendation backed by dependency evidence (what breaks if removed).
 
 ### Fix Hemnet capability (FETCH)
-- [ ] **FETCH-01**: The Hemnet listing/search fetch routes through the Oxylabs path (`apps/core/webscraper.py` / proxy creds) instead of direct local headless Chromium.
-- [ ] **FETCH-02**: On a verification run, the Hemnet pricing-page 403 block rate drops to ~0.
-- [ ] **FETCH-03**: Self-hosted Playwright / headless Chromium is retired (or gated off) once the Oxylabs path is proven, removing it as a resource driver.
+- [x] **FETCH-01**: The Hemnet listing/search fetch routes through the Oxylabs path (`apps/core/webscraper.py` / proxy creds) instead of direct local headless Chromium.
+- [x] **FETCH-02**: On a verification run, the Hemnet pricing-page 403 block rate drops to ~0.
+- [x] **FETCH-03**: Self-hosted Playwright / headless Chromium is retired (or gated off) once the Oxylabs path is proven, removing it as a resource driver.
 
 ### Cleanup (CLEAN) — gated on AUDIT
 - [ ] **CLEAN-01**: Apps the audit clears as unused (spotify/procore/block_inc, and Booli if confirmed redundant) are removed/disabled.
 - [ ] **CLEAN-02**: Oversized logs are rotated/removed and disk is reclaimed; the container set is reduced to the price-scraper essentials.
 - [ ] **CLEAN-03**: End-state — the Hemnet price scraper is the primary workload running on the droplet.
+- [ ] **CLEAN-04**: The Kinsing/`kdevtmpfsi` cryptominer is remediated in place — root-cause persistence removed, the entry vector closed (network/host-layer, no team-repo edit), and the per-minute `kill.sh` whack-a-mole retired — and the host is verified clean over an observation window. (Folded into Phase 24 by operator decision 2026-06-30; this is the standing prerequisite for porting Oxylabs creds back onto the box.)
 
 ### Right-size (SIZE)
 - [ ] **SIZE-01**: The droplet is resized down to a slug matched to the post-cleanup footprint, reducing monthly cost from ~$100.
@@ -52,5 +53,5 @@
 | ACCESS-01, ACCESS-02, ACCESS-03 | 21 |
 | AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04, AUDIT-05 | 22 |
 | FETCH-01, FETCH-02, FETCH-03 | 23 |
-| CLEAN-01, CLEAN-02, CLEAN-03 | 24 |
+| CLEAN-01, CLEAN-02, CLEAN-03, CLEAN-04 | 24 |
 | SIZE-01, SIZE-02 | 25 |

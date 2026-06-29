@@ -452,8 +452,9 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 22-01-PLAN.md — read-only SSH evidence sweep into 22-EVIDENCE.md (app inventory, data+storage, scheduled work, resource baseline, dependency evidence)
-- [ ] 22-02-PLAN.md — synthesize docs/price-scraper-droplet-audit.md (5 cited sections + per-app keep/kill verdicts + hygiene notes)
+- [x] 22-01-PLAN.md — read-only SSH evidence sweep into 22-EVIDENCE.md (app inventory, data+storage, scheduled work, resource baseline, dependency evidence)
+- [x] 22-02-PLAN.md — synthesize docs/price-scraper-droplet-audit.md (5 cited sections + per-app keep/kill verdicts + hygiene notes)
+**Status**: COMPLETE 2026-06-29 (verifier passed 5/5). Deliverable: `docs/price-scraper-droplet-audit.md`. Key reframes: "6 apps" = Django modules in ONE hemnet project (only hemnet image runs); DB is a SHARED managed Postgres (defaultdb 55GB, ~49GB simple_history bloat); all scrape beat-tasks DISABLED (only backend_cleanup); slug confirmed s-8vcpu-16gb (CPU idle, RAM driven by 6.2GB playwright). Keep: hemnet/booli/core. Kill (audit-cleared): block_inc/procore/spotify. 🚨 Kinsing/kdevtmpfsi malware suppressed per-minute by kill.sh (→ escalate). Gates Phase 24.
 **UI hint**: no
 
 #### Phase 23: Fix Hemnet capability (Oxylabs fetch)
@@ -464,18 +465,29 @@ Plans:
   1. The Hemnet listing/search fetch routes through the Oxylabs `webscraper.py` / proxy path (not local Chromium), verifiable in code + run logs
   2. A verification crawl of Hemnet pricing pages returns ~0 403s
   3. Self-hosted Playwright / headless Chromium is removed or gated off and no longer runs as a container/process
-**Plans**: TBD — run `/gsd-plan-phase 23`
+**Plans**: 3 plans (sequential, waves 1-3)
+- [x] 23-01-PLAN.md — Snapshot current routing + re-wire Hemnet fetch to Oxylabs webscraper on a feature branch (FETCH-01, FETCH-03 routing)
+- [x] 23-02-PLAN.md — Rebuild hemnet image, restart targeted worker, run ~200-page verification crawl proving ~0 403s + report Oxylabs cost (FETCH-01, FETCH-02)
+- [x] 23-03-PLAN.md — Reversibly gate off the hemnet-crawler-playwright container, free ~6.2 GB RAM, document revert recipe (FETCH-03)
 **UI hint**: no
 
 #### Phase 24: Cleanup (gated on audit)
-**Goal**: Remove the unrelated apps the audit cleared, reclaim disk, and reduce the running set to the price-scraper essentials.
+**Goal**: Remediate the Kinsing/`kdevtmpfsi` cryptominer in place, remove the unrelated apps the audit cleared, reclaim disk, reduce the running set to the price-scraper essentials, and durably harden the box at the source. (Reframed 2026-06-30 — operator folded in-place malware remediation INTO this phase. **Ownership clarified: the operator owns the DO droplet AND the scraper repo `tt7676/hem-bol-scrapers`** — so repo edits are permitted and the durable root-cause hardening (D-08) is folded in as a final wave. D-02 still keeps cleared-app cleanup to confirm-disabled + orphan/image reclaim only — no DB-table drops; the ~49 GB simple_history DB bloat is deferred.)
 **Depends on**: Phase 22 (keep/kill evidence), Phase 23 (Playwright retired)
-**Requirements**: CLEAN-01, CLEAN-02, CLEAN-03
+**Requirements**: CLEAN-01, CLEAN-02, CLEAN-03, CLEAN-04
 **Success Criteria** (what must be TRUE):
-  1. Apps the audit cleared (spotify/procore/block_inc, and Booli if confirmed redundant) are removed/disabled with nothing dependent broken
-  2. Oversized logs are rotated/removed and disk reclaimed (multi-GB logs gone); the container set is reduced to essentials
-  3. End-state — the Hemnet price scraper is the primary workload running on the droplet
-**Plans**: TBD — run `/gsd-plan-phase 24`
+  1. Apps the audit cleared (spotify/procore/block_inc) are confirmed disabled (beat tasks `last_run=None`) with nothing dependent broken — per D-02 no DB tables are dropped and no team-repo modules are removed
+  2. Oversized logs are rotated/removed and disk reclaimed (multi-GB logs gone); the stale orphan container is removed and dangling images reclaimed; the container set is reduced to essentials
+  3. End-state — the Hemnet price scraper is the primary workload running on the droplet (6 hemnet containers Up + Playwright intentionally Stopped per Phase 23)
+  4. The Kinsing/`kdevtmpfsi` malware is remediated in place (persistence removed, entry vector contained at the firewall AND fixed durably at the source, `kill.sh` retired) and the host is verified clean over an observation window — the standing prerequisite for porting Oxylabs creds back onto the box (CLEAN-04)
+  5. The box is durably hardened: the diagnosed entry vector is closed at the source in the repo, `django runserver`/DEBUG is replaced (or :8000 firewalled), Metabase v0.47.1 is upgraded (or :3000 firewalled), and exposed `.env` secrets are rotated — each reversible, with the scraper re-verified green (CLEAN-04 / D-08)
+**Plans**: 5 plans (strictly sequential waves — security-IR sequencing per D-07; 24-05 added 2026-06-30 after ownership clarification)
+Plans:
+- [ ] 24-01-PLAN.md — read-only reversibility snapshot + persistence/entry-vector recon (R0-R3) into 24-VERIFICATION.md
+- [ ] 24-02-PLAN.md — remediate in place: decloak, contain entry vector at firewall, remove persistence, kill+disable kill.sh, observe clean window (R1,R3-R6)
+- [ ] 24-03-PLAN.md — retire kill.sh + delete kill.log, confirm apps disabled, remove orphan container, reclaim ~21 GB images+logs (R7, CLEAN-01/02)
+- [ ] 24-04-PLAN.md — authorized_keys hygiene, full verification table, off-box backup, remediation record (CLEAN-03)
+- [ ] 24-05-PLAN.md — durable hardening (D-08): close vector at source in repo, replace runserver/DEBUG, upgrade Metabase, rotate .env secrets, rebuild/redeploy reversibly + re-verify scraper green (CLEAN-04)
 **UI hint**: no
 
 #### Phase 25: Right-size

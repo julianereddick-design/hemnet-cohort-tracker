@@ -1,5 +1,6 @@
 {
   "workflow": {
-    "research": false
+    "research": false,
+    "nyquist_validation": false
   }
 }

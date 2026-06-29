@@ -2,29 +2,38 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Hemnet Price-Scraper Droplet — Audit, Consolidate & Right-size
-status: planning
-stopped_at: Milestone v4.0 initialized 2026-06-29 — PROJECT.md/REQUIREMENTS.md/ROADMAP.md written (phases 21–25). Next = /gsd-discuss-phase 21 (or /gsd-plan-phase 21). v3.1 sold-match preserved (shipped/live 2026-06-19); no phase dirs cleared, numbering continued at 21.
-last_updated: "2026-06-29T00:00:00.000Z"
-last_activity: 2026-06-29 -- Milestone v4.0 started (droplet audit/consolidate/right-size)
+status: Phase 24 PLANNED (5 plans) — ready to execute
+stopped_at: Planned Phase 24 (Cleanup + in-place malware remediation + durable hardening) — 5 plans, plan-checker PASSED both rounds (0 blockers; all warnings fixed inline). 24-05 durable-hardening wave added after ownership clarification (operator owns host+repo)
+last_updated: "2026-06-30"
+last_activity: 2026-06-30
 progress:
-  total_phases: 5
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 20
+  total_phases: 22
+  completed_phases: 12
+  total_plans: 55
+  completed_plans: 45
+  percent: 82
 ---
 
 ## Current Position
 
-Phase: 21 — Consistent access (COMPLETE 2026-06-29)
-Plan: 21-01 (1/1 complete) — verified durable access by construction + wrote access runbook
-Status: PHASE 21 COMPLETE. ACCESS-01/02/03 satisfied. Verified read-only (NO reboot): fresh keyed SSH = SSH_OK, our key on persistent /dev/vda1 authorized_keys, sshd pubkey on, account key 55446611 confirmed via doctl. Runbook docs/price-scraper-droplet-runbook.md committed (14/14 acceptance gates). Findings carried forward: dead RSA key blob in authorized_keys (→P24 cleanup), droplet is actually s-8vcpu-16gb ~$100/mo (→P25), Raymond RSA key is droplet-only (access governance).
-Last activity: 2026-06-29 — executed Phase 21 (inline; gsd-sdk absent → direct-edit pattern)
-Next: `/gsd-plan-phase 22` (deep-dive audit — the core of the milestone) or `/gsd-discuss-phase 22` first. 23 (Oxylabs fetch fix) can run in parallel after; 24 (cleanup) gated on 22+23; 25 (right-size) gated on 24.
+Phase: 24 (next) — Phase 23 COMPLETE + VERIFIED 2026-06-29 (3/3 plans, status: passed; 23-VERIFICATION.md)
+Phase 23 (Fix Hemnet capability — Oxylabs fetch) executed INLINE overnight by orchestrator on Opus (operator delegated full chain). All on live team droplet 170.64.181.89, reversible-first, no team `main` touched.
+  • 23-01: re-wired the Hemnet HTML fetch to Oxylabs `WebScraper` on branch `feat/hemnet-oxylabs-fetch` (commit 7d0fe7c). tasks.py: new `fetch_via_webscraper()` replaces 4 `run_async(get_page_source())` (local-Chromium) call sites. base.py (NEEDED beyond stated files_modified — routing lives in settings): repointed search_listings_2 / search_pre_market_listings_2 / scrape_listing_2 `playwright_queue → default`. `search_ad_cost_2` (GraphQL POST, default queue) left unchanged (not the 403/Chromium path — documented). main untouched @ ff397e9, 0 secrets.
+  • 23-02: rebuilt ONLY the `hemnet` image (cached; via the `django` buildable service) → recreated ONLY `hemnet-crawler` (default-queue eventlet worker now runs the fetch); clean boot, nothing else disturbed. Verification crawl: 200/200 Hemnet pricing pages OK, **0 HTTP-403, 0.00% block rate** (23-VERIFICATION-CRAWL.md). Build spiked disk to 1.9GB free → reclaimed build cache → 8.5GB.
+  • 23-03: `docker stop hemnet-crawler-playwright` (reversible) → **~6.0 GiB RAM freed** (used 8.6→2.6 GiB); compose service + Chromium code intact; `docker start` reverts. Unblocks Phase 25 right-size.
 
-progress note: v4.0 completed_phases now 1/5.
+🚨 ESCALATION (operator action — open): the droplet's OWN Oxylabs Web Scraper API creds return **HTTP 401** (stale; the local-Chromium path never used the API). Code re-wire is correct + approach proven, but **production Hemnet scraping on the droplet won't run until the TEAM refreshes the droplet's Oxylabs API creds.** The verification crawl was run OFF-box on Decade's Oxylabs account (200 pages, ~$0.49 list / ~$0 marginal) — both because the droplet creds are dead AND to avoid exposing good creds on the malware-compromised host. Branch NOT merged to team main (per scope) — upstreaming/cred-refresh = separate team coordination.
+
+Carried-forward audit findings (still relevant for P24/P25): 🚨 Kinsing/kdevtmpfsi malware suppressed per-minute by kill.sh (escalate w/ P24); shared external managed PG defaultdb ~49GB simple_history bloat; all scrape beat tasks DISABLED; disk pressure on the box (P24 reclaim: kill.log 4.4G + scraper_log_export 6.6G + docker images). KEEP hemnet+booli+core; KILL block_inc/procore/spotify. See docs/price-scraper-droplet-audit.md + 22-EVIDENCE.md.
+
+Artifacts NOT committed yet (commit_docs off; per guidance commit on request). The 23-* .planning docs + ROADMAP/STATE/REQUIREMENTS edits are staged in the working tree, ready to commit on request. (Droplet code IS committed — on the feature branch only.)
+Last activity: 2026-06-30 — Phase 24 PLANNED (cleanup + in-place malware remediation)
+Next: EXECUTE Phase 24 → `/gsd-execute-phase 24`. Phase 24 PLANNED 2026-06-30 (5 sequential plans). **OWNERSHIP CLARIFIED 2026-06-30: there is no separate host-owning team — the operator owns the DO droplet AND the scraper repo `tt7676/hem-bol-scrapers` (Illia/Raymond are the operator's devs). So repo edits are permitted and the durable hardening is folded INTO P24 (no external escalation needed; the "team notification" becomes the operator's own remediation record).** Operator decisions 2026-06-30 (24-CONTEXT.md): (1) **remediate Kinsing/kdevtmpfsi IN P24** — not just escalate (req CLEAN-04); (2) cleared apps = **confirm-disabled + orphan/dangling-image reclaim ONLY** — no DB-table drops (modules/tables stay; removal is a possible follow-up); (3) ~49 GB simple_history DB bloat **deferred**; (4) NEW **D-08 durable hardening** wave (24-05). Plans: 24-01 recon (R0-R3) → 24-02 remediate+observe + firewall containment (R1,R3-R6) → 24-03 retire kill.sh + reclaim ~21 GB (R7) → 24-04 keys + verification table + remediation record → **24-05 durable hardening (close vector at source in repo, replace runserver/DEBUG, upgrade Metabase, rotate .env secrets, rebuild/redeploy reversibly + re-verify scraper green)**. All waves operator-gated destructive droplet actions. CAVEATS: (a) DB-cred rotation NOT unilateral — `defaultdb` is SHARED with this cohort-tracker repo (coordinate-or-defer); (b) still do NOT port working Oxylabs creds until verified clean, then a DEDICATED rotatable sub-user. 24-05 has an escape hatch to split to a follow-up phase if rebuild risks destabilizing the scraper pre-resize. Phase 25 (right-size) gated on 24; ~6 GB Playwright RAM already freed (P23). Planning artifacts staged — commit on request (commit_docs off).
+
+progress note: v4.0 completed_phases 3/5; Phases 22 + 23 complete+verified.
 
 ### v3.1 carry-over (shipped/live — do not lose)
+
 sold-match v3.1 (Phases 18–20) is LIVE-DEPLOYED + first wet run green (2026-06-19); full national batch fires fortnightly (first W26). The detailed v3.1 go-live + reporting decisions are preserved verbatim below in Accumulated Context. v4.0 is additive infra/ops on a SEPARATE droplet and does not touch the sold-match code.
 
 ### Decisions (Reporting layer + Östermalm overlay, 2026-06-19 — this session, commit c88c859)
