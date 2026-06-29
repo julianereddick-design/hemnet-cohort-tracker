@@ -8,19 +8,21 @@ last_updated: "2026-06-29T00:00:00.000Z"
 last_activity: 2026-06-29 -- Milestone v4.0 started (droplet audit/consolidate/right-size)
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 20
 ---
 
 ## Current Position
 
-Phase: 21 — Consistent access (PLANNED, ready to execute)
-Plan: 21-01 (1 plan, 1 wave, autonomous) — verify durable access by construction + write access runbook
-Status: Phase 21 planned 2026-06-29 (CONTEXT + PLAN written; plan-check passed inline). ACCESS-01/02 already true by construction; plan verifies them read-only (NO reboot of live scraper) + writes docs/price-scraper-droplet-runbook.md (ACCESS-03).
-Last activity: 2026-06-29 — planned Phase 21 (gsd-planner; gsd-sdk absent → direct-edit pattern)
-Next: `/gsd-execute-phase 21`. Then phases 22 (audit) → 23 (Oxylabs fetch fix); 24 (cleanup) gated on 22+23; 25 (right-size) gated on 24.
+Phase: 21 — Consistent access (COMPLETE 2026-06-29)
+Plan: 21-01 (1/1 complete) — verified durable access by construction + wrote access runbook
+Status: PHASE 21 COMPLETE. ACCESS-01/02/03 satisfied. Verified read-only (NO reboot): fresh keyed SSH = SSH_OK, our key on persistent /dev/vda1 authorized_keys, sshd pubkey on, account key 55446611 confirmed via doctl. Runbook docs/price-scraper-droplet-runbook.md committed (14/14 acceptance gates). Findings carried forward: dead RSA key blob in authorized_keys (→P24 cleanup), droplet is actually s-8vcpu-16gb ~$100/mo (→P25), Raymond RSA key is droplet-only (access governance).
+Last activity: 2026-06-29 — executed Phase 21 (inline; gsd-sdk absent → direct-edit pattern)
+Next: `/gsd-plan-phase 22` (deep-dive audit — the core of the milestone) or `/gsd-discuss-phase 22` first. 23 (Oxylabs fetch fix) can run in parallel after; 24 (cleanup) gated on 22+23; 25 (right-size) gated on 24.
+
+progress note: v4.0 completed_phases now 1/5.
 
 ### v3.1 carry-over (shipped/live — do not lose)
 sold-match v3.1 (Phases 18–20) is LIVE-DEPLOYED + first wet run green (2026-06-19); full national batch fires fortnightly (first W26). The detailed v3.1 go-live + reporting decisions are preserved verbatim below in Accumulated Context. v4.0 is additive infra/ops on a SEPARATE droplet and does not touch the sold-match code.

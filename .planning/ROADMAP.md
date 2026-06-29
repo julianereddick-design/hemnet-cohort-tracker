@@ -431,8 +431,13 @@ Plans:
   1. Operator can SSH into `170.64.181.89` with a persisted key after a reboot, with no DO-console intervention
   2. A known SSH key is registered at the DO account level (visible via `doctl compute ssh-key list`) and present in the droplet's `authorized_keys`
   3. A committed runbook documents the access model — user, key, how to add/revoke, and the `IdentitiesOnly`/`MaxAuthTries` connection gotcha
-**Plans**: TBD — run `/gsd-plan-phase 21`
+**Plans**: 1 plan
 **UI hint**: no
+
+Plans:
+- [x] 21-01-PLAN.md — verify durable access by construction (read-only, no reboot) + write `docs/price-scraper-droplet-runbook.md` [ACCESS-01/02/03] (2026-06-29; commit 297591e plan, executed this session; 14/14 acceptance gates green)
+
+**PHASE 21 COMPLETE (1/1)** — ACCESS-01/02 true by construction (verified read-only: fresh keyed SSH, key on persistent /dev/vda1, sshd pubkey on, account key 55446611); ACCESS-03 runbook committed. Findings for later: dead RSA key blob in authorized_keys (cleanup P24), droplet is actually s-8vcpu-16gb (~$100/mo, confirms P25 target).
 
 #### Phase 22: Deep-dive audit
 **Goal**: A complete, evidence-based understanding of everything running on the droplet, with keep/kill recommendations — so nothing is removed blind. **Gates Phase 24.**
