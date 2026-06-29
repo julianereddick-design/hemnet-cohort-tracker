@@ -16,11 +16,11 @@ progress:
 
 ## Current Position
 
-Phase: Not started (defining requirements complete; roadmap created)
-Plan: —
-Status: Planning — v4.0 milestone initialized; ready to plan Phase 21 (Consistent access)
-Last activity: 2026-06-29 — Milestone v4.0 started
-Next: `/gsd-discuss-phase 21` (gather context) or `/gsd-plan-phase 21` (plan directly). Phases 21→22→23, 24 gated on 22+23, 25 gated on 24.
+Phase: 21 — Consistent access (PLANNED, ready to execute)
+Plan: 21-01 (1 plan, 1 wave, autonomous) — verify durable access by construction + write access runbook
+Status: Phase 21 planned 2026-06-29 (CONTEXT + PLAN written; plan-check passed inline). ACCESS-01/02 already true by construction; plan verifies them read-only (NO reboot of live scraper) + writes docs/price-scraper-droplet-runbook.md (ACCESS-03).
+Last activity: 2026-06-29 — planned Phase 21 (gsd-planner; gsd-sdk absent → direct-edit pattern)
+Next: `/gsd-execute-phase 21`. Then phases 22 (audit) → 23 (Oxylabs fetch fix); 24 (cleanup) gated on 22+23; 25 (right-size) gated on 24.
 
 ### v3.1 carry-over (shipped/live — do not lose)
 sold-match v3.1 (Phases 18–20) is LIVE-DEPLOYED + first wet run green (2026-06-19); full national batch fires fortnightly (first W26). The detailed v3.1 go-live + reporting decisions are preserved verbatim below in Accumulated Context. v4.0 is additive infra/ops on a SEPARATE droplet and does not touch the sold-match code.
