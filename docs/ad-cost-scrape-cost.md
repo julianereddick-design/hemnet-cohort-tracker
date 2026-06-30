@@ -1,22 +1,27 @@
 # Hemnet ad-cost scrape — recurring-cost evidence (FEAS-03)
 
 **Date:** 2026-06-30 · **Phase:** 26 (ad-cost-scrape-feasibility) · **Requirement:** FEAS-03
-**Source docs:** `26-DIRECT-TEST-RESULT.md` (direct path), `26-OXYLABS-PROBE-RESULT.md` (Oxylabs probe), `23-VERIFICATION-CRAWL.md` (flat-plan marginal-cost framing).
+**Source docs:** `26-DIRECT-TEST-RESULT.md` (direct path), `26-OXYLABS-PROBE-RESULT.md` (Oxylabs POST probe), `26-GET-FEASIBILITY-PROBE.md` (GET reuse), `26-RENDER-FEASIBILITY-PROBE.md` (headless render), `23-VERIFICATION-CRAWL.md` (flat-plan marginal-cost framing).
 
 > Carries only call counts, dollar figures, and crawl sizes from the result docs — **never** any Oxylabs/DB credential values (T-26-08).
 
 ---
 
-## TL;DR — cost is NOT the obstacle; transport capability is
+## TL;DR — usage is pennies, but the cheapest WORKING transport has a ~$45/mo plan floor
 
-The recurring **dollar** cost of resuming the weekly `AdCostV2` ad-package-price crawl is **trivial** — at the list rate a full weekly pass is **~$0.29/run** (~$1.26/mo), and **≈$0 marginal** on Decade's flat $249/mo Oxylabs Advanced plan. That is far below the sold-match recurring spend benchmark (~$15–45/mo).
+Two cost numbers, don't conflate them:
 
-**But neither fetch path has actually landed a fresh row yet.** After the Phase-26 feasibility work:
+1. **Usage cost** of the weekly `AdCostV2` crawl is genuinely **trivial** — ~120 calls/run ≈ **~$0.29/run** (~$1.26/mo) at list, **≈$0 marginal** on the existing flat $249/mo Web Scraper API plan, **~16 MB/month** of traffic.
+2. **But no existing-creds path can actually carry the request**, and the cheapest *working* transport — Oxylabs **Web Unblocker** — has a **flat ~$45/mo entry-plan floor** (8 GB included; we'd use ~0.2% of it). At our volume the floor *is* the cost: **~$45/mo ≈ $540/yr**, which is **roughly equal to the entire sold-match recurring spend** (~$15–45/mo) for a ~50-cell/week dataset. So the real recurring number for the working path is **~$45/mo**, not ~$1.26/mo — **a genuine value call, not a rounding error.**
 
-- **Direct path (26-01): BLOCKED.** The direct GraphQL POST from the droplet IP gets an HTTP 403 Cloudflare "Just a moment…" challenge on the first request. `VERDICT: DIRECT_BLOCKED`.
-- **Oxylabs borrowed-creds path (26-02): BLOCKED at the transport layer (D-04).** Oxylabs reliably defeats Hemnet's Cloudflare, but the borrowed cohort-tracker **Web Scraper API** creds parse-then-ignore the GraphQL POST body, so **0 `AdCostV2` rows landed**. Probe spend: **18 calls / $0.05**, no rows.
+**Every existing-creds path is exhausted (all proven, ~$0.05 total spend):**
 
-So the figures below describe what the recurring cost **would** be once a body-capable transport exists — they are the answer to FEAS-03 — while the actual blocker is a **credentials / product-scope decision**, not money. See [Current status](#current-status-blocked-on-transport-capability) for the three unblock options the operator must choose between.
+- **Direct POST (26-01): BLOCKED** — droplet IP gets HTTP 403 Cloudflare on the first request. `VERDICT: DIRECT_BLOCKED`.
+- **Oxylabs Web Scraper API POST (26-02): BLOCKED (D-04)** — defeats Cloudflare but **parses-then-drops the POST body** → "Must provide query string". 18 calls / $0.05, 0 rows.
+- **GET + `__NEXT_DATA__` reuse (this repo's method): BLOCKED** — `hemnet.se/priser` is the new Next.js App Router build; prices are fetched client-side after hydration, never server-rendered. `VERDICT: GET_BLOCKED`.
+- **`render:'html'` + browser_instructions: ONE interaction short** — render runs the client JS; `input`/`click`/`wait` work and it typed the price + opened the autocomplete to the exact "Göteborgs kommun" option, but react-select won't commit (no keyboard/Enter/mousedown action exists; `click` doesn't fire it) so the price query never runs. `VERDICT: RENDER_PARTIAL`.
+
+**Next step (chosen 2026-06-30): a free Oxylabs support inquiry** before committing the $45/mo floor — hunting the two ~$0 paths (a render action that commits the react-select → works on the existing plan; or a no-floor/PAYG body-capable option). See [Current status](#current-status-blocked-on-transport-capability). Provision Web Unblocker (~$45/mo) only if the inquiry dead-ends.
 
 ---
 
@@ -54,17 +59,19 @@ A full weekly pass of `apps/hemnet/tasks.py::search_ad_cost_2`:
 
 The real decision is **not** cost — it is **which body-capable transport to provision**. `search_ad_cost_2` is a body-bearing GraphQL POST; the borrowed Web Scraper API creds (Advanced plan) defeat Cloudflare but **silently drop the POST body** (proven across every integration method in 26-02: universal `context.content` base64 validated-then-emptied → "Must provide query string"; proxy endpoint strips the body; Web Unblocker 401; residential/DC proxy 407; GraphQL-over-GET 404). Unblock options:
 
-| Option | What it is | Carries POST body? | Recurring cost note |
-|--------|------------|--------------------|---------------------|
-| **A. Oxylabs Web Unblocker** (`unblock.oxylabs.io:60000`) | Add/provision the Unblocker product; preserves POST bodies + beats Cloudflare. webscraper.py gains a small proxy-POST helper. | Yes | Usage-priced separately from the $249/mo Advanced plan (still tiny at ~120 calls/wk) |
-| **B. Oxylabs residential/DC proxy creds** (`pr.oxylabs.io:7777`) | Raw proxy forwards the literal POST (method + body + headers); a residential IP likely clears Cloudflare as the GET rewire did. webscraper.py gains a thin proxy path. | Yes | Residential GB-priced (small at this volume) |
+| Option | What it is | Carries POST body? | Recurring cost |
+|--------|------------|--------------------|----------------|
+| **0. Free inquiry first** ← chosen next step | Ask Oxylabs (a) for a render action that commits a react-select (Enter/mousedown/JS injection) so the existing `render:'html'` path works on the current $249/mo plan, and (b) whether any no-floor/PAYG body-capable option exists | — | **$0** — could unblock at $0 if (a) lands |
+| **A. Oxylabs Web Unblocker** (`unblock.oxylabs.io:60000`) | Add/provision the Unblocker product; preserves POST bodies + beats Cloudflare in one. webscraper.py gains a small proxy-POST helper. | Yes | **~$45/mo flat** (entry plan, 8 GB; we'd use ~0.2%). The floor dominates — usage itself is pennies. **Recommended product IF we provision** (solves body + Cloudflare together) |
+| **B. Oxylabs residential/DC proxy creds** (`pr.oxylabs.io:7777`) | Raw proxy forwards the literal POST (method + body + headers); a residential IP *might* clear Cloudflare (not managed/guaranteed). webscraper.py gains a thin proxy path. | Yes | PAYG GB-priced (cents at this volume) **if no floor and if it clears Cloudflare** — both unconfirmed; DC variant likely still 403s |
 | **C. Refresh the droplet's OWN Web Scraper API creds** AND confirm the plan tier transmits POST bodies | v4.0 carry-over — the droplet's own creds are dead (HTTP 401). Only unblocks if that plan tier actually delivers POST bodies, which the current borrowed Advanced plan does **not** (proven). | Unknown — must verify first | Within whatever plan; verify body delivery before committing |
-| ~~D. Re-express queries as GET~~ | ~~GraphQL-over-GET~~ | **No** — Hemnet Apollo returns 404 for GET on `/graphql` (method 7); not available | — |
+| ~~D. Re-express queries as GET~~ | ~~GraphQL-over-GET~~ / GET-page `__NEXT_DATA__` | **No** — Hemnet Apollo returns 404 for GET on `/graphql`; and `/priser` renders prices client-side only (GET probe). | — |
+| ~~E. Headless render form automation~~ | ~~`render:'html'` + browser_instructions drive the calculator~~ | **No** (as shipped) — react-select can't be committed with the available actions (render probe). Reopens to viable **at $0** if inquiry option (a) yields a commit action. | $0 if unblocked |
 
 Once a body-capable transport exists, the remaining build is **small** — Cloudflare bypass, the `search_ad_cost_2` recon, and the `AdCostV2` write path are all already solved. This is a **credentials / product-scope decision**, not an engineering blocker.
 
-**Recommendation:** provision a body-preserving Oxylabs product — **Option A (Web Unblocker) or Option B (residential/DC proxy)** — then enable Phase 27. The recurring dollar cost is negligible either way (~$1.26/mo list, ≈$0 marginal, vs the ~$15–45/mo sold-match benchmark); the operator's real call is whether to provision the transport + accept the borrowed-creds coupling (deferred dedicated sub-user cleanup), not whether the spend is affordable.
+**Recommendation:** run the **free Oxylabs inquiry (Option 0)** before paying anything — it targets two ~$0 unblocks. If both dead-end, the cheapest *reliable* working transport is **Web Unblocker (A) at ~$45/mo**, and the operator's call becomes a value judgment: is fresh weekly ad-cost data worth ~$45/mo (≈ the whole sold-match budget) for ~50 cells/week? Inquiry pending → `26-OXYLABS-INQUIRY.md` (draft for the operator to send).
 
 ---
 
-*Phase 26-03 · 2026-06-30 · FEAS-03 evidence. Cost quantified = trivial; the phase gate is a transport-capability (creds/product-scope) decision, handed to the operator as the single Phase-26 checkpoint (Task 2).*
+*Phase 26-03 · 2026-06-30 (updated post-checkpoint). FEAS-03 evidence. Usage cost trivial (~$1.26/mo) but the cheapest working transport (Web Unblocker) floors at ~$45/mo; the phase gate is a transport-capability (creds/product-scope) value decision. All free existing-creds paths exhausted; free Oxylabs inquiry is the chosen next step before any provisioning.*
