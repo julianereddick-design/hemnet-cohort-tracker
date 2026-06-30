@@ -271,7 +271,7 @@ Plans:
 | 19. Scheduled batch orchestrator (Sold match batch) | v3.1 | 3/3 | Complete (offline; national panel sampler reframe) | 2026-06-18 |
 | 20. Per-run reporting + decision-grade trend | v3.1 | 2/2 | Complete (offline) | 2026-06-18 |
 | 26. Ad-cost scrape feasibility (gates milestone) | v5.0 | ✅ 3/3 | COMPLETE 2026-06-30 — checkpoint resolved GO. Direct blocked (CF 403); Oxylabs WSA can't carry POST body (D-04); droplet DC IP CF-blocked too. **Data IS capturable via residential/managed browser + quiet in-page `fetch('/graphql')`** (not form automation → trips Turnstile). Egress: Oxylabs render+`execute_javascript` $0 (inquiry pending) OR Steel.dev validated ~$0.50/mo (+$10 floor). Build spec → `26-PHASE27-HANDOFF.md` | 2026-06-30 |
-| 27. Resume weekly scrape | v5.0 | 0/? | Not started | - |
+| 27. Resume weekly scrape | v5.0 | 1/4 | EXECUTING — 27-01 COMPLETE 2026-06-30: GraphQL contract pinned (10 munis, 6 prices, 7 codes, both query strings) from droplet recon; in-page-fetch crawler built (Steel default + Oxylabs-render stub seam); TDD smoke gate 24/24 assertions green. | 2026-06-30 |
 | 28. Weekly reporting suite (Slack + chart + xlsx) | v5.0 | 0/? | Not started | - |
 | 29. Weekly scheduling | v5.0 | 0/? | Not started | - |
 
@@ -561,7 +561,20 @@ Plans:
   1. The dormant "Scrape hemnet.se ad cost" `PeriodicTask` (cron `0 6 * * 1`, Australia/Sydney) is re-enabled on the droplet and scheduled to fire on its weekly cadence
   2. A first resumed crawl completes and writes fresh `AdCostV2` rows with current `crawled` dates across the expected ~10 municipalities and the BASIC/PLUS/PREMIUM/MAX/TOPLISTING tiers
   3. The ~3.5-month Mar-16→resume gap is left as a visible forward hole — not backfilled (ad prices are current-only) — and documented so downstream reports render it honestly
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+**Wave 1**
+- [x] 27-01-PLAN.md — Lock the ad-cost GraphQL contract (read-only droplet recon) + build the provider-agnostic in-page-fetch crawler in this repo, offline-smoke green (Steel default adapter, Oxylabs-render drop-in stub) — COMPLETE 2026-06-30
+
+**Wave 2** *(blocked on Wave 1)*
+- [ ] 27-02-PLAN.md — Bounded LIVE validation of the crawler via Steel residential (gated paid run ~$0.50) -> local JSON capture proving the in-page-fetch loop lands parseable rows for >=8 munis x 5 tiers, before any droplet change
+
+**Wave 3** *(blocked on Wave 2)*
+- [ ] 27-03-PLAN.md — Wire the validated crawler into the droplet's `search_ad_cost_2` on a team FEATURE BRANCH (never team main); install STEEL_API_KEY into the gitignored droplet .env; rebuild only the hemnet image; PeriodicTask stays disabled (gated droplet mutation)
+
+**Wave 4** *(blocked on Wave 3)*
+- [ ] 27-04-PLAN.md — Bounded on-box validation crawl lands fresh `AdCostV2` rows in defaultdb -> re-enable the weekly "Scrape hemnet.se ad cost" PeriodicTask (0 6 * * 1, Australia/Sydney) only after rows verified -> document the Mar-16->resume forward gap (no backfill) for Phase 28 (gated)
 **UI hint**: no
 
 #### Phase 28: Weekly reporting suite (in this repo)
