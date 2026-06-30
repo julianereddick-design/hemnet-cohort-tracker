@@ -36,6 +36,8 @@ Two cost numbers, don't conflate them:
 
 **Next step: send the Oxylabs inquiry** — its (revised) Q1 "does render support `execute_javascript` / an in-page fetch returning its result?" is now the **highest-leverage free question**: a YES means a $0 solution on the plan we already pay for. Pursue rank 2/3 only if it's NO.
 
+**UPDATE 2026-06-30 — rank 2 (hosted scraping browser) VALIDATED live on Steel.dev** (`26-STEEL-VALIDATION.md`). Steel residential sessions (`useProxy`+`solveCaptcha`) **cleared Hemnet's Cloudflare** repeatedly (the droplet's DC IP can't) and **rendered the ad-cost prices** (Bas 6 820 / Plus 10 900 / Premium 15 300 kr) — so hosted scraping browsers DO residential IP rotation like Oxylabs, confirmed. **Real cost: ~$10 one-time floor** (Steel gates residential/CAPTCHA behind a $10 paid balance; the $30 free credit doesn't cover them) **+ ~$0.50/mo** — still ≪ $45 Web Unblocker / $300 Oxylabs browser. **Production technique learned:** drive it via a **quiet in-page `fetch('/graphql')` after Cloudflare clears, NOT form automation** — scripted clicking/typing triggers a mid-session Turnstile re-challenge ~half the time, whereas a single in-page fetch (the page's own request) doesn't. Same in-page-fetch code works for Oxylabs render+`execute_javascript` (track 1) too — only the session provider differs. Feasibility is now fully proven on two independent paths; the in-page-fetch build is Phase 27.
+
 ---
 
 ## Crawl shape (from 26-01 recon, unchanged)
