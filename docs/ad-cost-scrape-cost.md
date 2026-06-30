@@ -23,7 +23,18 @@ Two cost numbers, don't conflate them:
 
 **UPDATE 2026-06-30 (post-`claude -p` reframe + live browser test) — the $45/mo Web Unblocker is now LAST-RESORT, not the plan.** An independent review pointed out the whole transport fight was downstream of a wrong assumption (replay a bare POST, or drive the UI via a proxy). The right unit of work is *"a real browser that has cleared Cloudflare."* A **live in-browser test proved it**: a real Chrome at `hemnet.se/priser` passed Cloudflare automatically, committed the react-select (Göteborg), and rendered the prices (Bas 6 820 / Plus 10 900 / Premium 15 300 / Max 21 200 kr @ 5M; add-ons Raketen 1 580 / Förnya 6 210 kr) — the full grid, parameterizable, **$0**. See `26-BROWSER-RENDER-PROBE-RESULT.md`.
 
-**Recommended path now: headless browser automation on the existing droplet (~$0)** — Playwright/Puppeteer reading the rendered prices or doing an in-page `fetch('/graphql')` after Cloudflare clears. **One open question:** does headless Chromium pass Cloudflare from the droplet's *datacenter* IP (the live test used a residential IP)? Next free test = run headless Playwright from the droplet. Fallbacks if the DC IP is challenged, all **< $45/mo**: a cheap residential proxy in front of the browser (~$2–10/mo), a hosted scraping-browser free tier (Browserbase/Steel/Bright Data, ~pennies/week), or Oxylabs render `execute_javascript` if confirmed (existing $249 plan). The free Oxylabs inquiry (`26-OXYLABS-INQUIRY.md`, Q1 revised to ask about in-page JS execution) is now optional insurance, not the critical path.
+**UPDATE 2026-06-30 (open question now ANSWERED — droplet-as-is path is dead).** Tested the box's own in-image headless Chromium against `/priser` from the droplet IP: **HTTP 403, "Just a moment…" Cloudflare challenge** (`26-DROPLET-CHROMIUM-TEST.md`). This confirms the droplet recon's negative signal — their original local-headless Hemnet scrape was Cloudflare-blocked from this same Sydney DC IP, which is why P23 moved to Oxylabs. **The blocker is the datacenter IP, not the browser.** The ~$0 "headless on the droplet as-is" path is ruled out.
+
+**Every viable path needs a residential/managed egress.** Ranked by cost:
+
+| Rank | Path | Cost | Status |
+|------|------|------|--------|
+| 1 | **Oxylabs render + `execute_javascript`** (in-page `/graphql` fetch on the rendered `/priser`) | **$0 extra** (existing $249 plan) | Oxylabs render already clears Cloudflare + loads `/priser` (proven in `26-RENDER-FEASIBILITY-PROBE`); only missing piece is firing the query, which a JS-eval action solves. **Pivotal free question → `26-OXYLABS-INQUIRY.md` Q1.** |
+| 2 | **Hosted scraping browser** (Browserbase / Steel / Bright Data) | ~pennies/week | Residential IP + managed anti-bot + CDP endpoint; drive a real browser (commits react-select, reads prices). Needs operator to sign up for a (free-tier) account. |
+| 3 | **Droplet's existing Chromium image + residential proxy front** | ~$2–10/mo | Reuse the dormant in-image Chromium (no reinstall), route its egress through a residential proxy so it presents a residential IP + the browser solves the JS challenge. |
+| 4 | **Oxylabs Web Unblocker** | ~$45/mo | Works (residential + managed) but flat floor; **last-resort**. |
+
+**Next step: send the Oxylabs inquiry** — its (revised) Q1 "does render support `execute_javascript` / an in-page fetch returning its result?" is now the **highest-leverage free question**: a YES means a $0 solution on the plan we already pay for. Pursue rank 2/3 only if it's NO.
 
 ---
 
