@@ -270,7 +270,7 @@ Plans:
 | 18. Re-check state + slutpris-lag drain logic | v3.1 | 4/4 | Complete | 2026-06-18 |
 | 19. Scheduled batch orchestrator (Sold match batch) | v3.1 | 3/3 | Complete (offline; national panel sampler reframe) | 2026-06-18 |
 | 20. Per-run reporting + decision-grade trend | v3.1 | 2/2 | Complete (offline) | 2026-06-18 |
-| 26. Ad-cost scrape feasibility (gates milestone) | v5.0 | 2/3 | Operator checkpoint (26-01 DIRECT_BLOCKED; 26-02 ran → D-04: Oxylabs beats Cloudflare but borrowed Web Scraper API creds cannot POST a body — needs body-preserving Oxylabs product) | - |
+| 26. Ad-cost scrape feasibility (gates milestone) | v5.0 | 2/3 (+03 cost doc) | Operator checkpoint (26-01 DIRECT_BLOCKED; 26-02 → D-04 POST-body wall; 26-03 Task 1 done → FEAS-03 cost quantified = trivial ~$1.26/mo list / ≈$0 marginal in docs/ad-cost-scrape-cost.md; Task 2 go/no-go = provision body-preserving Oxylabs product A/B/C, handed to orchestrator) | - |
 | 27. Resume weekly scrape | v5.0 | 0/? | Not started | - |
 | 28. Weekly reporting suite (Slack + chart + xlsx) | v5.0 | 0/? | Not started | - |
 | 29. Weekly scheduling | v5.0 | 0/? | Not started | - |
