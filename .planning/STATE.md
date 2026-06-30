@@ -2,23 +2,29 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Hemnet Price-Scraper Droplet — Audit, Consolidate & Right-size
-status: Ready to plan
-stopped_at: Completed 17-02-PLAN.md — PHASE 17 COMPLETE (2/2 plans); v3.0 (Phases 15–17) code-complete
-last_updated: "2026-06-30T01:32:41.461Z"
-last_activity: 2026-06-30
+status: Phase 25 complete — v4.0 milestone complete
+stopped_at: Phase 25 complete (SIZE-01 + SIZE-02 verified GREEN)
+last_updated: "2026-06-30T04:05:00.000Z"
+last_activity: 2026-06-30 -- Phase 25 executed + verified (droplet right-sized to s-1vcpu-2gb)
 progress:
   total_phases: 22
-  completed_phases: 13
-  total_plans: 55
-  completed_plans: 50
-  percent: 91
+  completed_phases: 14
+  total_plans: 63
+  completed_plans: 54
+  percent: 86
 ---
 
 ## Current Position
 
-Phase: 25
-Plan: Not started
-Phase 23 (Fix Hemnet capability — Oxylabs fetch) executed INLINE overnight by orchestrator on Opus (operator delegated full chain). All on live team droplet 170.64.181.89, reversible-first, no team `main` touched.
+Phase: 25 — COMPLETE (4/4 plans, verified GREEN 2026-06-30). v4.0 milestone (Phases 21–25) COMPLETE.
+
+**Phase 25 result (executed inline by orchestrator, operator-gated):** Right-sized the price-scraper droplet `357087018` / `170.64.181.89` from **`s-8vcpu-16gb` → `s-1vcpu-2gb`** (CPU/RAM-only reversible resize, 50 G disk preserved) — **~$96/mo → ~$12/mo** (SIZE-01). Verified GREEN (SIZE-02): 205-page Oxylabs crawl 0% HTTP-403, peak 733 MiB, no OOM; loopback bind (`ed7192c`) survived the reboot (3000/8000 closed off-box). 25-01 D-07 pre-flight + Metabase gate; 25-02 peak-RAM profile (1033 MiB) → slug confirmed; 25-03 power-cycle resize (operator provisioned a write-scoped doctl token — the default token is read-only); 25-04 health + verification crawl.
+  • **KEY FINDING / durable fix:** the `docker stop` gate (D-02, and P23's Playwright gate) is NOT reboot-persistent on this box — `hemnet.service`→`bin/restart.sh` re-runs `docker compose up` on boot AND the Docker daemon auto-restarts `on-failure` containers. First 2 GB boot OOM-crash-looped (Metabase ~1 GiB + Playwright celery `--concurrency=8` ~600 MiB, no swap). Fixed durably for BOTH `hemnet-metabase` and `hemnet-crawler-playwright`: untracked `/var/www/apps/hemnet/docker-compose.override.yml` profiles them `ondemand` (boot compose-up skips) + `docker update --restart=no <name>` (daemon won't restart). Validated reboot-persistent. Lean steady state now = 5 scraper containers (redis/django/beat/crawler/writer) Up, ~630 MiB used / ~1.1 GiB free. Metabase on-demand: `docker compose --profile ondemand up -d metabase` (UI via `ssh -L 3000:localhost:3000`).
+  • **Reversible rollback exercised as designed:** to recover the OOM box, re-resized UP to 4 GB, applied the gate fix, rolled back to 2 GB — possible because the disk was preserved.
+
+**OPEN operator follow-through:** (1) **revoke the write-scoped doctl token** (T-25-07 — provisioned for the resize, no longer needed; the default read-only token remains). (2) Optional: gate doc/code — the override is untracked on the droplet only. (3) Deferred (own phase): managed-Postgres `simple_history` ~49 GB retention/cleanup; dedicated rotatable Oxylabs sub-user (droplet still borrows cohort-tracker creds).
+
+**Prior v4.0 phases (context):** Phase 23 (Fix Hemnet capability — Oxylabs fetch) executed INLINE overnight by orchestrator on Opus (operator delegated full chain). All on live team droplet 170.64.181.89, reversible-first, no team `main` touched.
   • 23-01: re-wired the Hemnet HTML fetch to Oxylabs `WebScraper` on branch `feat/hemnet-oxylabs-fetch` (commit 7d0fe7c). tasks.py: new `fetch_via_webscraper()` replaces 4 `run_async(get_page_source())` (local-Chromium) call sites. base.py (NEEDED beyond stated files_modified — routing lives in settings): repointed search_listings_2 / search_pre_market_listings_2 / scrape_listing_2 `playwright_queue → default`. `search_ad_cost_2` (GraphQL POST, default queue) left unchanged (not the 403/Chromium path — documented). main untouched @ ff397e9, 0 secrets.
   • 23-02: rebuilt ONLY the `hemnet` image (cached; via the `django` buildable service) → recreated ONLY `hemnet-crawler` (default-queue eventlet worker now runs the fetch); clean boot, nothing else disturbed. Verification crawl: 200/200 Hemnet pricing pages OK, **0 HTTP-403, 0.00% block rate** (23-VERIFICATION-CRAWL.md). Build spiked disk to 1.9GB free → reclaimed build cache → 8.5GB.
   • 23-03: `docker stop hemnet-crawler-playwright` (reversible) → **~6.0 GiB RAM freed** (used 8.6→2.6 GiB); compose service + Chromium code intact; `docker start` reverts. Unblocks Phase 25 right-size.
@@ -28,8 +34,9 @@ Phase 23 (Fix Hemnet capability — Oxylabs fetch) executed INLINE overnight by 
 Carried-forward audit findings (still relevant for P24/P25): 🚨 Kinsing/kdevtmpfsi malware suppressed per-minute by kill.sh (escalate w/ P24); shared external managed PG defaultdb ~49GB simple_history bloat; all scrape beat tasks DISABLED; disk pressure on the box (P24 reclaim: kill.log 4.4G + scraper_log_export 6.6G + docker images). KEEP hemnet+booli+core; KILL block_inc/procore/spotify. See docs/price-scraper-droplet-audit.md + 22-EVIDENCE.md.
 
 Artifacts NOT committed yet (commit_docs off; per guidance commit on request). The 23-* .planning docs + ROADMAP/STATE/REQUIREMENTS edits are staged in the working tree, ready to commit on request. (Droplet code IS committed — on the feature branch only.)
-Last activity: 2026-06-30
-Next: EXECUTE Phase 24 → `/gsd-execute-phase 24`. Phase 24 PLANNED 2026-06-30 (5 sequential plans). **OWNERSHIP CLARIFIED 2026-06-30: there is no separate host-owning team — the operator owns the DO droplet AND the scraper repo `tt7676/hem-bol-scrapers` (Illia/Raymond are the operator's devs). So repo edits are permitted and the durable hardening is folded INTO P24 (no external escalation needed; the "team notification" becomes the operator's own remediation record).** Operator decisions 2026-06-30 (24-CONTEXT.md): (1) **remediate Kinsing/kdevtmpfsi IN P24** — not just escalate (req CLEAN-04); (2) cleared apps = **confirm-disabled + orphan/dangling-image reclaim ONLY** — no DB-table drops (modules/tables stay; removal is a possible follow-up); (3) ~49 GB simple_history DB bloat **deferred**; (4) NEW **D-08 durable hardening** wave (24-05). Plans: 24-01 recon (R0-R3) → 24-02 remediate+observe + firewall containment (R1,R3-R6) → 24-03 retire kill.sh + reclaim ~21 GB (R7) → 24-04 keys + verification table + remediation record → **24-05 durable hardening (close vector at source in repo, replace runserver/DEBUG, upgrade Metabase, rotate .env secrets, rebuild/redeploy reversibly + re-verify scraper green)**. All waves operator-gated destructive droplet actions. CAVEATS: (a) DB-cred rotation NOT unilateral — `defaultdb` is SHARED with this cohort-tracker repo (coordinate-or-defer); (b) still do NOT port working Oxylabs creds until verified clean, then a DEDICATED rotatable sub-user. 24-05 has an escape hatch to split to a follow-up phase if rebuild risks destabilizing the scraper pre-resize. Phase 25 (right-size) gated on 24; ~6 GB Playwright RAM already freed (P23). Planning artifacts staged — commit on request (commit_docs off).
+Last activity: 2026-06-30 -- Phase 25 executed + verified GREEN (droplet right-sized to s-1vcpu-2gb, ~$12/mo)
+Next: v4.0 milestone COMPLETE (Phases 21–25 all done). Suggested: `/gsd-complete-milestone` to archive v4.0, or pick up the deferred managed-Postgres retention/cleanup as its own phase. Operator action: revoke the write-scoped doctl token (T-25-07).
+(Historical) Phase 24 PLANNED 2026-06-30 (5 sequential plans). **OWNERSHIP CLARIFIED 2026-06-30: there is no separate host-owning team — the operator owns the DO droplet AND the scraper repo `tt7676/hem-bol-scrapers` (Illia/Raymond are the operator's devs). So repo edits are permitted and the durable hardening is folded INTO P24 (no external escalation needed; the "team notification" becomes the operator's own remediation record).** Operator decisions 2026-06-30 (24-CONTEXT.md): (1) **remediate Kinsing/kdevtmpfsi IN P24** — not just escalate (req CLEAN-04); (2) cleared apps = **confirm-disabled + orphan/dangling-image reclaim ONLY** — no DB-table drops (modules/tables stay; removal is a possible follow-up); (3) ~49 GB simple_history DB bloat **deferred**; (4) NEW **D-08 durable hardening** wave (24-05). Plans: 24-01 recon (R0-R3) → 24-02 remediate+observe + firewall containment (R1,R3-R6) → 24-03 retire kill.sh + reclaim ~21 GB (R7) → 24-04 keys + verification table + remediation record → **24-05 durable hardening (close vector at source in repo, replace runserver/DEBUG, upgrade Metabase, rotate .env secrets, rebuild/redeploy reversibly + re-verify scraper green)**. All waves operator-gated destructive droplet actions. CAVEATS: (a) DB-cred rotation NOT unilateral — `defaultdb` is SHARED with this cohort-tracker repo (coordinate-or-defer); (b) still do NOT port working Oxylabs creds until verified clean, then a DEDICATED rotatable sub-user. 24-05 has an escape hatch to split to a follow-up phase if rebuild risks destabilizing the scraper pre-resize. Phase 25 (right-size) gated on 24; ~6 GB Playwright RAM already freed (P23). Planning artifacts staged — commit on request (commit_docs off).
 
 progress note: v4.0 completed_phases 3/5; Phases 22 + 23 complete+verified.
 
@@ -184,7 +191,7 @@ sold-match v3.1 (Phases 18–20) is LIVE-DEPLOYED + first wet run green (2026-06
 
 ### Last Session
 
-Stopped at: Completed 17-02-PLAN.md — PHASE 17 COMPLETE (2/2 plans); v3.0 (Phases 15–17) code-complete
+Stopped at: Phase 25 context gathered
 Resume: 17-02 done (commits c7df895/ba6a5a9 Task 1, b1c1503/6dca0e4 Task 2). scripts/sold-match-run.js — the config-driven end-to-end runner replacing scripts/spike-hemnet-match.js: loadSegments() from config/sold-segments.json + rolling monthly window (default ~90d ago, --min/max-sold-date override, validated) → seedSegment (fetchBooliSoldPage + upsertBooliSold page-by-page) → per non-transfer record searchSoldPaged → matchOne (HOUSE address-key shortcut / APARTMENT inline-fetchBooliDetail fee-exact via adjudicatePair) → persistVerdictForRecord with object evidence (D-02 gate inside) → D-04 per-segment summary, all under setSpendClient DB-atomic ceiling + ~6-worker pool + CeilingError early-stop. Offline --smoke 14/14 (mock client + injected deps, six matchOne behaviors green), node -c OK, all grep gates pass. Phase 17 closes MATCH-01/03/04 + CONFIG-02 (CONFIG-01 closed by 17-01); v3.0 is now code-complete. OPEN operator action (carried from Phase 16, still one run): on the droplet run `node migrate-sold-phase16.js` to create the four sold tables IF not already live (per 17-RESEARCH, Phase 16 commit 466cfe7 already confirmed them on prod — verify first), then a first manual `SCRAPE_FORCE_OXYLABS=1 node scripts/sold-match-run.js --segment taby-villa --limit 50` seeds booli_sold + populates sold_match for the first time and prints the per-segment summary; re-run upserts with no duplicate rows (DB-03).
 
 ### Session before this

@@ -490,12 +490,24 @@ Plans:
 - [x] 24-05-PLAN.md — durable hardening (D-08): close vector at source in repo, replace runserver/DEBUG, upgrade Metabase, rotate .env secrets, rebuild/redeploy reversibly + re-verify scraper green (CLEAN-04)
 **UI hint**: no
 
-#### Phase 25: Right-size
+#### Phase 25: Right-size ✓ COMPLETE (2026-06-30)
 **Goal**: Resize the droplet down to a slug matched to the post-cleanup footprint and verify the price scraper still works, cutting monthly cost from ~$100.
 **Depends on**: Phase 24 (footprint must shrink before resizing)
 **Requirements**: SIZE-01, SIZE-02
 **Success Criteria** (what must be TRUE):
-  1. The droplet is resized to a smaller slug matched to the post-cleanup footprint; monthly cost reduced from ~$100 (verify new slug via `doctl`)
-  2. Post-resize, the price scraper runs correctly and reaches Hemnet via Oxylabs (verification run green)
-**Plans**: TBD — run `/gsd-plan-phase 25`
+  1. ✓ The droplet is resized to a smaller slug matched to the post-cleanup footprint; monthly cost reduced from ~$100 (verify new slug via `doctl`) — **s-8vcpu-16gb → s-1vcpu-2gb, ~$96/mo → ~$12/mo**, disk preserved at 50 G, `doctl` confirms 2048/1/50/active
+  2. ✓ Post-resize, the price scraper runs correctly and reaches Hemnet via Oxylabs (verification run green) — **205-page crawl 0% HTTP-403, peak 733 MiB, no OOM**; bind survived reboot; both Metabase + Playwright gated reboot-persistently
+**Plans**: 4 plans (strictly sequential waves — infra/ops with operator gates at each stage) — ALL COMPLETE
+Plans:
+**Wave 1**
+- [x] 25-01-PLAN.md — D-07 pre-flight (confirm 127.0.0.1 loopback bind is the running state) + gate Metabase off, capture steady-state RAM (SIZE-01)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [x] 25-02-PLAN.md — D-03 operator-approved peak-RAM Oxylabs profiling crawl + slug decision (s-1vcpu-2gb vs s-2vcpu-4gb) (SIZE-01)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [x] 25-03-PLAN.md — reversible CPU/RAM-only resize via write-scoped doctl token (power-off → resize keep-50G-disk → power-on), confirm new slug (SIZE-01)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [x] 25-04-PLAN.md — post-resize infra health + bind-survival + operator-approved Oxylabs verification crawl (0% 403), GREEN/rollback verdict (SIZE-02)
 **UI hint**: no
