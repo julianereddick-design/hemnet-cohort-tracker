@@ -65,8 +65,11 @@ async function main() {
   const gqlBodies = [];
   let exitCode = 5;
   try {
-    console.log('Creating Steel session (useProxy + solveCaptcha)…');
-    session = await client.sessions.create({
+    const noProxy = process.env.PROBE_NO_PROXY === '1';
+    console.log('Creating Steel session' + (noProxy ? ' (NO proxy/captcha — free pipeline check)…' : ' (useProxy + solveCaptcha)…'));
+    session = await client.sessions.create(noProxy ? {
+      sessionTimeout: 300000,
+    } : {
       useProxy: true,        // residential proxy — the residential egress we need
       solveCaptcha: true,    // managed anti-bot / Cloudflare / Turnstile
       sessionTimeout: 300000,
