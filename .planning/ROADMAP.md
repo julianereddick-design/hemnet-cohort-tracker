@@ -270,7 +270,7 @@ Plans:
 | 18. Re-check state + slutpris-lag drain logic | v3.1 | 4/4 | Complete | 2026-06-18 |
 | 19. Scheduled batch orchestrator (Sold match batch) | v3.1 | 3/3 | Complete (offline; national panel sampler reframe) | 2026-06-18 |
 | 20. Per-run reporting + decision-grade trend | v3.1 | 2/2 | Complete (offline) | 2026-06-18 |
-| 26. Ad-cost scrape feasibility (gates milestone) | v5.0 | 1/3 | Executing (26-01 DIRECT_BLOCKED — 403 Cloudflare; 26-02 Oxylabs rewire activated) | - |
+| 26. Ad-cost scrape feasibility (gates milestone) | v5.0 | 2/3 | Operator checkpoint (26-01 DIRECT_BLOCKED; 26-02 ran → D-04: Oxylabs beats Cloudflare but borrowed Web Scraper API creds cannot POST a body — needs body-preserving Oxylabs product) | - |
 | 27. Resume weekly scrape | v5.0 | 0/? | Not started | - |
 | 28. Weekly reporting suite (Slack + chart + xlsx) | v5.0 | 0/? | Not started | - |
 | 29. Weekly scheduling | v5.0 | 0/? | Not started | - |
@@ -544,10 +544,10 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 26-01-PLAN.md — Direct-first `search_ad_cost_2` test on the droplet (smoke→all-10 muni); verdict + AdCostV2 evidence (FEAS-01, FEAS-02)
+- [x] 26-01-PLAN.md — Direct-first `search_ad_cost_2` test on the droplet; `VERDICT: DIRECT_BLOCKED` (first POST → HTTP 403 Cloudflare from the droplet IP); FEAS-01 answered, FEAS-02 deferred to 26-02 (2026-06-30; commit 36a2290)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 26-02-PLAN.md — CONDITIONAL: Oxylabs rewire of the GraphQL POST + borrowed creds + bounded probe (≤$0.49) if direct is blocked (FEAS-02)
+- [~] 26-02-PLAN.md — CONDITIONAL Oxylabs rewire: RAN (26-01 blocked). **D-04 escape hatch hit** — Oxylabs defeats Cloudflare but the borrowed Web Scraper API creds **cannot deliver a POST body** to `hemnet.se/graphql` across all integration methods (universal source drops body; proxy:60000 strips body; Web Unblocker 401; residential/DC proxy 407; GraphQL-over-GET 404). No working path / no fresh AdCostV2 rows; **no droplet mutation made**. Spend $0.05 / 18 calls (cap 200/$0.49). Operator checkpoint: provision a body-preserving Oxylabs product (Web Unblocker or residential proxy). See `26-OXYLABS-PROBE-RESULT.md` (FEAS-02 BLOCKED-pending-creds) (2026-06-30)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 26-03-PLAN.md — Recurring-cost write-up (per-run/week/month) + single operator go/no-go checkpoint (FEAS-03)

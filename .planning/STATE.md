@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: Hemnet Ad-Pricing — Resume Scrape + Weekly Reporting
-status: executing
-stopped_at: Phase 26 plan 01 complete (DIRECT_BLOCKED)
+status: blocked
+stopped_at: Phase 26 plan 02 ran — D-04 escape hatch (Oxylabs POST-body wall); operator checkpoint needed
 last_updated: "2026-06-30T00:00:00.000Z"
-last_activity: 2026-06-30 -- 26-01 complete: direct ad-cost path BLOCKED (403 Cloudflare); 26-02 Oxylabs rewire activated
+last_activity: 2026-06-30 -- 26-02 RAN: Oxylabs defeats Cloudflare but borrowed Web Scraper API creds cannot deliver a GraphQL POST body; D-04 escape hatch; no droplet mutation; $0.05/18 calls; needs body-preserving Oxylabs product
 progress:
   total_phases: 26
   completed_phases: 14
@@ -16,10 +16,12 @@ progress:
 
 ## Current Position
 
-Phase: 26 (ad-cost-scrape-feasibility) — EXECUTING
-Plan: 2 of 3 (26-01 done)
-Status: Executing Phase 26 — 26-01 DIRECT_BLOCKED, 26-02 (Oxylabs rewire) next
-Last activity: 2026-06-30 -- 26-01 complete: direct ad-cost path BLOCKED (403 Cloudflare); 26-02 Oxylabs rewire activated
+Phase: 26 (ad-cost-scrape-feasibility) — OPERATOR CHECKPOINT (D-04)
+Plan: 26-02 ran (26-01 done; 26-03 blocked on operator decision)
+Status: Phase 26 paused at an informed checkpoint — 26-02 hit the D-04 escape hatch (Oxylabs POST-body wall); needs a body-preserving Oxylabs product before FEAS-02 can be delivered
+Last activity: 2026-06-30 -- 26-02 RAN: Oxylabs beats Cloudflare but borrowed Web Scraper API creds cannot deliver a GraphQL POST body; D-04; no droplet mutation; $0.05/18 calls
+
+**26-02 result (2026-06-30):** Plan 26-02 ACTIVATED (26-01 `DIRECT_BLOCKED`, re-confirmed line 1 as Task-0 gate). Operator gave explicit go-ahead for the prod feature-branch edit + borrowed-creds install + bounded Oxylabs probe (cap 200 calls/$0.49). The bounded probe was used to validate the Oxylabs transport BEFORE any droplet mutation — and exposed a hard D-04 wall: **Oxylabs reliably defeats Hemnet's Cloudflare block** (every reachable method returned an origin-level 404/GraphQL-error, never a 403 challenge) **BUT the borrowed cohort-tracker Web Scraper API creds cannot transmit the GraphQL POST body.** Proven across all integration methods: (1) universal `/v1/queries` top-level `http_method`/`content` = silently does GET (graphql 404, httpbin 405); (2) universal via `context:[http_method,content-base64,headers]` = real POST (httpbin 200) but body dropped (Hemnet "Must provide query string", httpbin `data:""`) — the plan validates base64 `content` then ignores it; (3) scraper proxy `realtime.oxylabs.io:60000` = POST but body stripped (browser-navigation rewrite); (4) Web Unblocker `unblock.oxylabs.io:60000` = 401 (not subscribed); (5/6) residential `pr.oxylabs.io:7777` / datacenter `dc.oxylabs.io:8001` = 407 (creds scoped to Web Scraper API only); (7) GraphQL-over-GET = Hemnet 404 (Apollo GET disabled). `search_ad_cost_2` is a body-bearing POST, unlike the P23 GET rewire — the "D-04 may be large" risk materialised as a creds/product-scope wall, not code size. **No droplet mutation made** (no branch, no creds on box, no image rebuild — correct reversible-first call, avoids needless secret exposure on the malware-remediated box); **0 fresh AdCostV2 rows**; **$0.05 / 18 Oxylabs calls** (list rate; ≈$0 marginal on the flat $249/mo Advanced plan), well under cap. Full evidence + operator options in `.planning/phases/26-ad-cost-scrape-feasibility/26-OXYLABS-PROBE-RESULT.md`. **Operator checkpoint (the single FEAS go/no-go, now creds-shaped):** to deliver FEAS-02, provision a body-preserving Oxylabs product — **(A) Web Unblocker** or **(B) residential/DC proxy creds** (recommended; small build once a body-capable transport exists — Cloudflare/recon/write-path already solved), or **(C)** refresh the droplet's own creds AND confirm its plan tier transmits POST bodies (the current Advanced borrow does not). Cost is not the obstacle (~$0.29/run list, ≈$0 marginal for a full 120-call pass) — transport capability is.
 
 **26-01 result (2026-06-30):** Direct `search_ad_cost_2` GraphQL POST tested on the price-scraper droplet `170.64.181.89` (container `hemnet-django`). The first POST (`AutocompleteLocations` → `https://www.hemnet.se/graphql`) returns **HTTP 403 Cloudflare "Just a moment…"** from the droplet IP → `VERDICT: DIRECT_BLOCKED` (`.planning/phases/26-ad-cost-scrape-feasibility/26-DIRECT-TEST-RESULT.md`, commit 36a2290). 0 `AdCostV2` rows written (blocked before write); zero Oxylabs spend; weekly + adhoc ad-cost PeriodicTasks still DISABLED. Confirms the post-May-2026 Cloudflare block now covers the GraphQL POST endpoint P23 had left direct. **FEAS-01 answered (direct = blocked); FEAS-02 deferred to 26-02** = build the Oxylabs rewire (P23 `apps/core/webscraper.py` pattern, borrowed cohort-tracker creds per D-07 since droplet's own Oxylabs creds are dead 401), bounded probe + FEAS-03 cost go/no-go. Recon facts for 26-02: endpoint `hemnet.se/graphql`, two-step POST (autocomplete→`SellerMarketingProductPrices`), 60 price points (10 munis × 6 prices), 7 productCodes, `AdCostV2` fields `{property_municipality, property_price, ad_type, ad_price, valid_until, crawled}`.
 
