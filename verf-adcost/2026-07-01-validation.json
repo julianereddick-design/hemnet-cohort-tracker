@@ -1,0 +1,3306 @@
+[
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 2000000,
+    "ad_type": "BASIC",
+    "ad_price": 5120,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 2000000,
+    "ad_type": "PLUS",
+    "ad_price": 8090,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 2000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 11380,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 2000000,
+    "ad_type": "MAX",
+    "ad_price": 15930,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 2000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 4730,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1400,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1860,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 5000000,
+    "ad_type": "BASIC",
+    "ad_price": 6820,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 5000000,
+    "ad_type": "PLUS",
+    "ad_price": 10900,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 5000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 15300,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 5000000,
+    "ad_type": "MAX",
+    "ad_price": 21200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 5000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 6210,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1580,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2050,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 7500000,
+    "ad_type": "BASIC",
+    "ad_price": 7690,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 7500000,
+    "ad_type": "PLUS",
+    "ad_price": 12290,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 7500000,
+    "ad_type": "PREMIUM",
+    "ad_price": 17440,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 7500000,
+    "ad_type": "MAX",
+    "ad_price": 23940,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 7500000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 7100,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1670,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2230,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 10000000,
+    "ad_type": "BASIC",
+    "ad_price": 8300,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 10000000,
+    "ad_type": "PLUS",
+    "ad_price": 13390,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 10000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 18910,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 10000000,
+    "ad_type": "MAX",
+    "ad_price": 25980,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 10000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 7590,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2330,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 15000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 15000000,
+    "ad_type": "PLUS",
+    "ad_price": 14850,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 15000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 21020,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 15000000,
+    "ad_type": "MAX",
+    "ad_price": 29380,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 15000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2420,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 20000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 20000000,
+    "ad_type": "PLUS",
+    "ad_price": 15000,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 20000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 21360,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 20000000,
+    "ad_type": "MAX",
+    "ad_price": 29630,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 20000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Göteborgs kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2420,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 2000000,
+    "ad_type": "BASIC",
+    "ad_price": 4590,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 2000000,
+    "ad_type": "PLUS",
+    "ad_price": 6920,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 2000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 9990,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 2000000,
+    "ad_type": "MAX",
+    "ad_price": 13960,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 2000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 4240,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1120,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1490,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 5000000,
+    "ad_type": "BASIC",
+    "ad_price": 6180,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 5000000,
+    "ad_type": "PLUS",
+    "ad_price": 9410,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 5000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 13490,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 5000000,
+    "ad_type": "MAX",
+    "ad_price": 18770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 5000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 5720,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1400,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1860,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 7500000,
+    "ad_type": "BASIC",
+    "ad_price": 7210,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 7500000,
+    "ad_type": "PLUS",
+    "ad_price": 10930,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 7500000,
+    "ad_type": "PREMIUM",
+    "ad_price": 15970,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 7500000,
+    "ad_type": "MAX",
+    "ad_price": 21940,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 7500000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 6600,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1490,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1950,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 10000000,
+    "ad_type": "BASIC",
+    "ad_price": 7890,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 10000000,
+    "ad_type": "PLUS",
+    "ad_price": 12080,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 10000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 17510,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 10000000,
+    "ad_type": "MAX",
+    "ad_price": 24130,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 10000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 7200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1490,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2050,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 15000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 15000000,
+    "ad_type": "PLUS",
+    "ad_price": 14090,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 15000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 20480,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 15000000,
+    "ad_type": "MAX",
+    "ad_price": 28750,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 15000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1580,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2140,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 20000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 20000000,
+    "ad_type": "PLUS",
+    "ad_price": 14230,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 20000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 20800,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 20000000,
+    "ad_type": "MAX",
+    "ad_price": 29000,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 20000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1580,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Krokoms kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2140,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 5000000,
+    "ad_type": "BASIC",
+    "ad_price": 6820,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 5000000,
+    "ad_type": "PLUS",
+    "ad_price": 10900,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 5000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 15300,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 5000000,
+    "ad_type": "MAX",
+    "ad_price": 21200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 5000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 6210,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1400,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1860,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 7500000,
+    "ad_type": "BASIC",
+    "ad_price": 7690,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 7500000,
+    "ad_type": "PLUS",
+    "ad_price": 12290,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 7500000,
+    "ad_type": "PREMIUM",
+    "ad_price": 17440,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 7500000,
+    "ad_type": "MAX",
+    "ad_price": 23940,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 7500000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 7100,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1490,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1950,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 10000000,
+    "ad_type": "BASIC",
+    "ad_price": 8300,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 10000000,
+    "ad_type": "PLUS",
+    "ad_price": 13390,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 10000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 18910,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 10000000,
+    "ad_type": "MAX",
+    "ad_price": 25980,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 10000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 7590,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1490,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2050,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 15000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 15000000,
+    "ad_type": "PLUS",
+    "ad_price": 14850,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 15000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 21020,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 15000000,
+    "ad_type": "MAX",
+    "ad_price": 29380,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 15000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1580,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2140,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 20000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 20000000,
+    "ad_type": "PLUS",
+    "ad_price": 15000,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 20000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 21360,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 20000000,
+    "ad_type": "MAX",
+    "ad_price": 29630,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 20000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1580,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Lunds kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2140,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 2000000,
+    "ad_type": "BASIC",
+    "ad_price": 5120,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 2000000,
+    "ad_type": "PLUS",
+    "ad_price": 8090,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 2000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 11380,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 2000000,
+    "ad_type": "MAX",
+    "ad_price": 15930,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 2000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 4730,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1400,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1860,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 5000000,
+    "ad_type": "BASIC",
+    "ad_price": 6820,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 5000000,
+    "ad_type": "PLUS",
+    "ad_price": 10900,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 5000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 15300,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 5000000,
+    "ad_type": "MAX",
+    "ad_price": 21200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 5000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 6210,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1580,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2050,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 7500000,
+    "ad_type": "BASIC",
+    "ad_price": 7690,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 7500000,
+    "ad_type": "PLUS",
+    "ad_price": 12290,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 7500000,
+    "ad_type": "PREMIUM",
+    "ad_price": 17440,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 7500000,
+    "ad_type": "MAX",
+    "ad_price": 23940,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 7500000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 7100,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1670,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2230,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 10000000,
+    "ad_type": "BASIC",
+    "ad_price": 8300,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 10000000,
+    "ad_type": "PLUS",
+    "ad_price": 13390,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 10000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 18910,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 10000000,
+    "ad_type": "MAX",
+    "ad_price": 25980,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 10000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 7590,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2330,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 15000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 15000000,
+    "ad_type": "PLUS",
+    "ad_price": 14850,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 15000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 21020,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 15000000,
+    "ad_type": "MAX",
+    "ad_price": 29380,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 15000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2420,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 20000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 20000000,
+    "ad_type": "PLUS",
+    "ad_price": 15000,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 20000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 21360,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 20000000,
+    "ad_type": "MAX",
+    "ad_price": 29630,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 20000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Malmö kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2420,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 2000000,
+    "ad_type": "BASIC",
+    "ad_price": 4590,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 2000000,
+    "ad_type": "PLUS",
+    "ad_price": 6920,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 2000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 9990,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 2000000,
+    "ad_type": "MAX",
+    "ad_price": 13960,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 2000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 4240,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1120,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1490,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 5000000,
+    "ad_type": "BASIC",
+    "ad_price": 6180,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 5000000,
+    "ad_type": "PLUS",
+    "ad_price": 9410,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 5000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 13490,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 5000000,
+    "ad_type": "MAX",
+    "ad_price": 18770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 5000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 5720,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1400,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1860,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 7500000,
+    "ad_type": "BASIC",
+    "ad_price": 7210,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 7500000,
+    "ad_type": "PLUS",
+    "ad_price": 10930,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 7500000,
+    "ad_type": "PREMIUM",
+    "ad_price": 15970,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 7500000,
+    "ad_type": "MAX",
+    "ad_price": 21940,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 7500000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 6600,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1490,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1950,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 10000000,
+    "ad_type": "BASIC",
+    "ad_price": 7890,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 10000000,
+    "ad_type": "PLUS",
+    "ad_price": 12080,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 10000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 17510,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 10000000,
+    "ad_type": "MAX",
+    "ad_price": 24130,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 10000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 7200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1490,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2050,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 15000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 15000000,
+    "ad_type": "PLUS",
+    "ad_price": 14090,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 15000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 20480,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 15000000,
+    "ad_type": "MAX",
+    "ad_price": 28750,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 15000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1580,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2140,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 20000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 20000000,
+    "ad_type": "PLUS",
+    "ad_price": 14230,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 20000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 20800,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 20000000,
+    "ad_type": "MAX",
+    "ad_price": 29000,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 20000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1580,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Sandvikens kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2140,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 2000000,
+    "ad_type": "BASIC",
+    "ad_price": 5120,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 2000000,
+    "ad_type": "PLUS",
+    "ad_price": 8090,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 2000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 11380,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 2000000,
+    "ad_type": "MAX",
+    "ad_price": 15930,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 2000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 4730,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1400,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1860,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 5000000,
+    "ad_type": "BASIC",
+    "ad_price": 6820,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 5000000,
+    "ad_type": "PLUS",
+    "ad_price": 10900,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 5000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 15300,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 5000000,
+    "ad_type": "MAX",
+    "ad_price": 21200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 5000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 6210,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1580,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2050,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 7500000,
+    "ad_type": "BASIC",
+    "ad_price": 7690,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 7500000,
+    "ad_type": "PLUS",
+    "ad_price": 12290,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 7500000,
+    "ad_type": "PREMIUM",
+    "ad_price": 17440,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 7500000,
+    "ad_type": "MAX",
+    "ad_price": 23940,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 7500000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 7100,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1670,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2230,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 10000000,
+    "ad_type": "BASIC",
+    "ad_price": 8300,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 10000000,
+    "ad_type": "PLUS",
+    "ad_price": 13390,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 10000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 18910,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 10000000,
+    "ad_type": "MAX",
+    "ad_price": 25980,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 10000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 7590,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2330,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 15000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 15000000,
+    "ad_type": "PLUS",
+    "ad_price": 14850,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 15000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 21020,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 15000000,
+    "ad_type": "MAX",
+    "ad_price": 29380,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 15000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2420,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 20000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 20000000,
+    "ad_type": "PLUS",
+    "ad_price": 15000,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 20000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 21360,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 20000000,
+    "ad_type": "MAX",
+    "ad_price": 29630,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 20000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Stockholms kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2420,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 2000000,
+    "ad_type": "BASIC",
+    "ad_price": 5120,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 2000000,
+    "ad_type": "PLUS",
+    "ad_price": 8090,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 2000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 11380,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 2000000,
+    "ad_type": "MAX",
+    "ad_price": 15930,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 2000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 4730,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1400,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1860,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 5000000,
+    "ad_type": "BASIC",
+    "ad_price": 6820,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 5000000,
+    "ad_type": "PLUS",
+    "ad_price": 10900,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 5000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 15300,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 5000000,
+    "ad_type": "MAX",
+    "ad_price": 21200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 5000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 6210,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1580,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2050,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 7500000,
+    "ad_type": "BASIC",
+    "ad_price": 7690,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 7500000,
+    "ad_type": "PLUS",
+    "ad_price": 12290,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 7500000,
+    "ad_type": "PREMIUM",
+    "ad_price": 17440,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 7500000,
+    "ad_type": "MAX",
+    "ad_price": 23940,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 7500000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 7100,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1670,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2230,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 10000000,
+    "ad_type": "BASIC",
+    "ad_price": 8300,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 10000000,
+    "ad_type": "PLUS",
+    "ad_price": 13390,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 10000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 18910,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 10000000,
+    "ad_type": "MAX",
+    "ad_price": 25980,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 10000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 7590,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2330,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 15000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 15000000,
+    "ad_type": "PLUS",
+    "ad_price": 14850,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 15000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 21020,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 15000000,
+    "ad_type": "MAX",
+    "ad_price": 29380,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 15000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2420,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 20000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 20000000,
+    "ad_type": "PLUS",
+    "ad_price": 15000,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 20000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 21360,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 20000000,
+    "ad_type": "MAX",
+    "ad_price": 29630,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 20000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Uppsala kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2420,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 2000000,
+    "ad_type": "BASIC",
+    "ad_price": 4590,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 2000000,
+    "ad_type": "PLUS",
+    "ad_price": 6920,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 2000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 9990,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 2000000,
+    "ad_type": "MAX",
+    "ad_price": 13960,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 2000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 4240,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 840,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1120,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 5000000,
+    "ad_type": "BASIC",
+    "ad_price": 6180,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 5000000,
+    "ad_type": "PLUS",
+    "ad_price": 9410,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 5000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 13490,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 5000000,
+    "ad_type": "MAX",
+    "ad_price": 18770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 5000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 5720,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1020,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1300,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 7500000,
+    "ad_type": "BASIC",
+    "ad_price": 7210,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 7500000,
+    "ad_type": "PLUS",
+    "ad_price": 10930,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 7500000,
+    "ad_type": "PREMIUM",
+    "ad_price": 15970,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 7500000,
+    "ad_type": "MAX",
+    "ad_price": 21940,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 7500000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 6600,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1120,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1490,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 10000000,
+    "ad_type": "BASIC",
+    "ad_price": 7890,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 10000000,
+    "ad_type": "PLUS",
+    "ad_price": 12080,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 10000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 17510,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 10000000,
+    "ad_type": "MAX",
+    "ad_price": 24130,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 10000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 7200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1120,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1490,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 15000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 15000000,
+    "ad_type": "PLUS",
+    "ad_price": 14090,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 15000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 20480,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 15000000,
+    "ad_type": "MAX",
+    "ad_price": 28750,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 15000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1210,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1580,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 20000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 20000000,
+    "ad_type": "PLUS",
+    "ad_price": 14230,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 20000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 20800,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 20000000,
+    "ad_type": "MAX",
+    "ad_price": 29000,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 20000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1210,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Vadstena kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1580,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 2000000,
+    "ad_type": "BASIC",
+    "ad_price": 4880,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 2000000,
+    "ad_type": "PLUS",
+    "ad_price": 7530,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 2000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 10710,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 2000000,
+    "ad_type": "MAX",
+    "ad_price": 14970,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 2000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 4440,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1400,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1860,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 5000000,
+    "ad_type": "BASIC",
+    "ad_price": 6440,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 5000000,
+    "ad_type": "PLUS",
+    "ad_price": 9990,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 5000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 14180,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 5000000,
+    "ad_type": "MAX",
+    "ad_price": 19660,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 5000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 5910,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1580,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2050,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 7500000,
+    "ad_type": "BASIC",
+    "ad_price": 7500,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 7500000,
+    "ad_type": "PLUS",
+    "ad_price": 11770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 7500000,
+    "ad_type": "PREMIUM",
+    "ad_price": 16700,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 7500000,
+    "ad_type": "MAX",
+    "ad_price": 22950,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 7500000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 6900,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1670,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2230,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 10000000,
+    "ad_type": "BASIC",
+    "ad_price": 8120,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 10000000,
+    "ad_type": "PLUS",
+    "ad_price": 12760,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 10000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 18170,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 10000000,
+    "ad_type": "MAX",
+    "ad_price": 24990,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 10000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 7500,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2330,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 15000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 15000000,
+    "ad_type": "PLUS",
+    "ad_price": 14530,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 15000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 20700,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 15000000,
+    "ad_type": "MAX",
+    "ad_price": 29020,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 15000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2420,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 20000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 20000000,
+    "ad_type": "PLUS",
+    "ad_price": 14680,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 20000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 21020,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 20000000,
+    "ad_type": "MAX",
+    "ad_price": 29270,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 20000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 1770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Varbergs kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 2420,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 2000000,
+    "ad_type": "BASIC",
+    "ad_price": 4200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 2000000,
+    "ad_type": "PLUS",
+    "ad_price": 6110,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 2000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 8650,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 2000000,
+    "ad_type": "MAX",
+    "ad_price": 12140,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 2000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 3840,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 650,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 2000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 840,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 5000000,
+    "ad_type": "BASIC",
+    "ad_price": 5890,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 5000000,
+    "ad_type": "PLUS",
+    "ad_price": 8580,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 5000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 12220,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 5000000,
+    "ad_type": "MAX",
+    "ad_price": 17050,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 5000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 5420,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 740,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 5000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1020,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 7500000,
+    "ad_type": "BASIC",
+    "ad_price": 6720,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 7500000,
+    "ad_type": "PLUS",
+    "ad_price": 9890,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 7500000,
+    "ad_type": "PREMIUM",
+    "ad_price": 14060,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 7500000,
+    "ad_type": "MAX",
+    "ad_price": 19400,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 7500000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 6210,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 840,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 7500000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1120,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 10000000,
+    "ad_type": "BASIC",
+    "ad_price": 7210,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 10000000,
+    "ad_type": "PLUS",
+    "ad_price": 10640,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 10000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 15170,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 10000000,
+    "ad_type": "MAX",
+    "ad_price": 21010,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 10000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 6600,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 840,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 10000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1120,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 15000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 15000000,
+    "ad_type": "PLUS",
+    "ad_price": 13570,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 15000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 19420,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 15000000,
+    "ad_type": "MAX",
+    "ad_price": 27330,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 15000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 840,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 15000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1120,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 20000000,
+    "ad_type": "BASIC",
+    "ad_price": 9200,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 20000000,
+    "ad_type": "PLUS",
+    "ad_price": 13690,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 20000000,
+    "ad_type": "PREMIUM",
+    "ad_price": 19710,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 20000000,
+    "ad_type": "MAX",
+    "ad_price": 27550,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 20000000,
+    "ad_type": "PAID_REPUBLISH",
+    "ad_price": 8770,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING",
+    "ad_price": 840,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  },
+  {
+    "property_municipality": "Ydre kommun",
+    "property_price": 20000000,
+    "ad_type": "TOPLISTING_5_DAYS",
+    "ad_price": 1120,
+    "valid_until": null,
+    "crawled": "2026-06-30T20:16:59.514Z"
+  }
+]

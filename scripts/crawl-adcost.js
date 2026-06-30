@@ -34,6 +34,8 @@ const {
   MUNICIPALITIES,
   ASKING_PRICES,
   PRODUCT_CODES,
+  OFFER_SLUGS,
+  COMPOSE_UPGRADES_WITH_BASIC,
   GRAPHQL_URL,
   USER_AGENT,
   AUTOCOMPLETE_QUERY,
@@ -222,15 +224,19 @@ async function resolveLocationId(page, municipality, cache) {
 // ---------------------------------------------------------------------------
 
 /**
- * runCrawl(provider) → Array<AdCostV2Row>
+ * runCrawl(provider, outPath?) → Array<AdCostV2Row>
  * Opens a session, clears Cloudflare, crawls the full 60-point grid.
+ * @param {string} provider  - session provider key ('steel' | 'oxylabs-render')
+ * @param {string} [outPath] - custom output path (supports --out flag from CLI)
  */
-async function runCrawl(provider) {
+async function runCrawl(provider, outPath) {
   const grid = buildGrid(MUNICIPALITIES, ASKING_PRICES);
   const crawledISO = new Date().toISOString();
   const allRows = [];
   let sessionHandle = null;
-  let callCount = 0;
+  let callCount = 0;       // total in-page GraphQL fetches (autocomplete + price)
+  let sessionCount = 0;    // Steel sessions opened (for spend estimate)
+  const STEEL_RATE_PER_CALL = 0.0042; // ~$0.50 / 120 calls (Steel Launch, per plan context)
 
   try {
     let cleared = false;
@@ -240,6 +246,7 @@ async function runCrawl(provider) {
         `\n=== Attempt ${attempt}/${MAX_ATTEMPTS}: opening ${provider} session ===`
       );
       sessionHandle = await makeSession(provider);
+      sessionCount++;
       const { page, release } = sessionHandle;
 
       console.log('Navigating to https://www.hemnet.se/priser …');
@@ -278,8 +285,12 @@ async function runCrawl(provider) {
     for (const { municipality, askingPrice } of grid) {
       let locationId;
       try {
+        // Pre-check cache BEFORE resolveLocationId sets it, to accurately count
+        // autocomplete network calls (Rule 1 fix: original check was always false
+        // because resolveLocationId sets the cache before we checked).
+        const wasCached = locationCache.has(municipality.fullName);
         locationId = await resolveLocationId(page, municipality, locationCache);
-        if (!locationCache.has(municipality.fullName) || callCount === 0) callCount++;
+        if (!wasCached) callCount++; // count each unique autocomplete call
       } catch (e) {
         console.error(`  autocomplete failed for ${municipality.fullName}: ${e.message}`);
         continue;
@@ -290,7 +301,8 @@ async function runCrawl(provider) {
         priceRes = await inPageFetch(page, PRODUCT_PRICES_QUERY, {
           locationId,
           askingPrice,
-          productCodes: PRODUCT_CODES,
+          offerSlugs: OFFER_SLUGS,
+          composeUpgradesWithBasic: COMPOSE_UPGRADES_WITH_BASIC,
         });
         callCount++;
       } catch (e) {
@@ -320,16 +332,23 @@ async function runCrawl(provider) {
         .join(' | ');
       console.log(`  ${muni}: ${line}`);
     }
-    console.log(
-      `\nTotal rows: ${allRows.length} | Steel/session calls: ~${callCount} (${
-        locationCache.size
-      } munis cached + ${grid.length} price queries)`
-    );
+
+    // Spend estimation: based on Steel Launch rate (~$0.50 / 120 calls per plan context).
+    const estimatedSpend = (callCount * STEEL_RATE_PER_CALL).toFixed(2);
+    console.log('\n=== Run telemetry ===');
+    console.log(`Total rows: ${allRows.length}`);
+    console.log(`Sessions opened: ${sessionCount}`);
+    console.log(`STEEL_CALLS: ${callCount}  (${locationCache.size} autocomplete + ${grid.length} price fetches attempted)`);
+    console.log(`EXACT_SPEND_USD: ~${estimatedSpend}  (${callCount} calls x $${STEEL_RATE_PER_CALL}/call; see app.steel.dev for invoice)`);
 
     // Write JSON output for Plan 27-02
-    const outDir = path.join(process.cwd(), 'verf-adcost');
-    fs.mkdirSync(outDir, { recursive: true });
-    const outFile = path.join(outDir, `adcost-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+    let outFile;
+    if (outPath) {
+      outFile = path.isAbsolute(outPath) ? outPath : path.join(process.cwd(), outPath);
+    } else {
+      outFile = path.join(process.cwd(), 'verf-adcost', `adcost-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+    }
+    fs.mkdirSync(path.dirname(outFile), { recursive: true });
     fs.writeFileSync(outFile, JSON.stringify(allRows, null, 2));
     console.log(`\nOutput written to: ${outFile}`);
 
@@ -377,19 +396,26 @@ function runSmoke() {
   );
 
   // --- Test 2: parseProductPrices ---
-  // Embedded fixture — no network required.
+  // Embedded fixture — no network required. Shape matches the live
+  // webPricingCalculator response (captured 2026-07-01): one package per
+  // offerSlug, amount in CENTS under prices.PAY_NOW.total.amountInCents.
   const fixtureResponse = {
     data: {
-      sellerMarketingProductPrices: {
-        formattedValidThrough: '2026-07-07',
-        prices: PRODUCT_CODES.map((code, i) => ({
-          code,
-          price: { amount: 1000 * (i + 1), formatted: `${1000 * (i + 1)} kr`, __typename: 'Price' },
-          immediatePrice: null,
-          __typename: 'PackagePrice',
-        })),
-        __typename: 'SellerMarketingProductPrices',
-      },
+      pricingCalculator: OFFER_SLUGS.map((slug, i) => ({
+        offerSlug: slug,
+        prices: {
+          PAY_NOW: {
+            total: {
+              amountInCents: 100000 * (i + 1), // → 1000*(i+1) kr after /100
+              amountBeforeDiscountInCents: 100000 * (i + 1),
+              __typename: 'PricingTotal',
+            },
+            __typename: 'PaymentMethodPrice',
+          },
+          __typename: 'PackagePrices',
+        },
+        __typename: 'PricingPackage',
+      })),
     },
   };
   const parsed = parseProductPrices(fixtureResponse);
@@ -419,44 +445,29 @@ function runSmoke() {
     );
   }
 
-  // --- Test 3: applyBasicSum ---
-  const basicAmount = parsed.find((r) => r.code === 'BASIC') ? parsed.find((r) => r.code === 'BASIC').amount : 0;
+  // --- Test 3: applyBasicSum (NO-OP under webPricingCalculator) ---
+  // composeUpgradesWithBasic:true means PLUS/PREMIUM/MAX arrive already composed
+  // with BASIC server-side, so applyBasicSum must NOT re-add BASIC. It is now an
+  // identity passthrough; assert every tier is left unchanged.
   const summed = applyBasicSum(parsed);
-  const plusRow = summed.find((r) => r.code === 'PLUS');
-  const plusOrig = parsed.find((r) => r.code === 'PLUS');
-  const premRow = summed.find((r) => r.code === 'PREMIUM');
-  const premOrig = parsed.find((r) => r.code === 'PREMIUM');
-  const maxRow = summed.find((r) => r.code === 'MAX');
-  const maxOrig = parsed.find((r) => r.code === 'MAX');
-  const basicRow = summed.find((r) => r.code === 'BASIC');
-  const basicOrig = parsed.find((r) => r.code === 'BASIC');
-  const topRow = summed.find((r) => r.code === 'TOPLISTING');
-  const topOrig = parsed.find((r) => r.code === 'TOPLISTING');
-
+  let allUnchanged = summed.length === parsed.length;
+  for (const orig of parsed) {
+    const after = summed.find((r) => r.code === orig.code);
+    if (!after || after.amount !== orig.amount) allUnchanged = false;
+  }
   assert(
-    `applyBasicSum: PLUS increased by BASIC amount (${basicAmount})`,
-    plusRow && plusOrig && plusRow.amount === plusOrig.amount + basicAmount,
-    `plusOrig=${plusOrig && plusOrig.amount} summed=${plusRow && plusRow.amount}`
+    'applyBasicSum: identity — every tier unchanged (server composes via composeUpgradesWithBasic)',
+    allUnchanged,
+    `orig=${JSON.stringify(parsed.map((r) => [r.code, r.amount]))} after=${JSON.stringify(summed.map((r) => [r.code, r.amount]))}`
   );
   assert(
-    `applyBasicSum: PREMIUM increased by BASIC amount`,
-    premRow && premOrig && premRow.amount === premOrig.amount + basicAmount,
-    `premOrig=${premOrig && premOrig.amount} summed=${premRow && premRow.amount}`
-  );
-  assert(
-    `applyBasicSum: MAX increased by BASIC amount`,
-    maxRow && maxOrig && maxRow.amount === maxOrig.amount + basicAmount,
-    `maxOrig=${maxOrig && maxOrig.amount} summed=${maxRow && maxRow.amount}`
-  );
-  assert(
-    'applyBasicSum: BASIC unchanged',
-    basicRow && basicOrig && basicRow.amount === basicOrig.amount,
-    `orig=${basicOrig && basicOrig.amount} after=${basicRow && basicRow.amount}`
-  );
-  assert(
-    'applyBasicSum: TOPLISTING unchanged',
-    topRow && topOrig && topRow.amount === topOrig.amount,
-    `orig=${topOrig && topOrig.amount} after=${topRow && topRow.amount}`
+    'applyBasicSum: PLUS > BASIC (PLUS already includes BASIC component)',
+    (() => {
+      const plus = summed.find((r) => r.code === 'PLUS');
+      const basic = summed.find((r) => r.code === 'BASIC');
+      return plus && basic && plus.amount > basic.amount;
+    })(),
+    ''
   );
 
   // --- Test 4: toAdCostV2Rows ---
@@ -531,9 +542,23 @@ if (isSmoke) {
   // Production run — opens a real session. Never triggered on require or --smoke.
   const providerArg = args.find((a) => a.startsWith('--provider='));
   const provider = providerArg ? providerArg.slice('--provider='.length) : 'steel';
+
+  // --out <path> or --out=<path>  (supports the plan-spec'd --out flag)
+  let outPath;
+  const outArgEq = args.find((a) => a.startsWith('--out='));
+  if (outArgEq) {
+    outPath = outArgEq.slice('--out='.length);
+  } else {
+    const outIdx = args.indexOf('--out');
+    if (outIdx !== -1 && args[outIdx + 1] && !args[outIdx + 1].startsWith('-')) {
+      outPath = args[outIdx + 1];
+    }
+  }
+
   console.log(`Starting ad-cost crawl with provider: ${provider}`);
+  if (outPath) console.log(`Output path: ${outPath}`);
   console.log(`Grid: ${MUNICIPALITIES.length} munis × ${ASKING_PRICES.length} prices = ${MUNICIPALITIES.length * ASKING_PRICES.length} pairs`);
-  runCrawl(provider).then(() => process.exit(0)).catch((e) => {
+  runCrawl(provider, outPath).then(() => process.exit(0)).catch((e) => {
     console.error('Crawl error:', e.message || e);
     process.exit(1);
   });

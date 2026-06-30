@@ -41,17 +41,52 @@ const MUNICIPALITIES = [
 const ASKING_PRICES = [2000000, 5000000, 7500000, 10000000, 15000000, 20000000];
 
 // ---------------------------------------------------------------------------
-// Product codes — 7 tiers, exact from search_ad_cost_2 productCodes array.
+// Offer slugs — the CURRENT webPricingCalculator $offerSlugs values, captured
+// LIVE 2026-07-01 from the hemnet.se/priser page's own GraphQL request.
+//
+// The old SellerMarketingProductPrices operation + its productCodes
+// (BASIC/PLUS/PREMIUM/MAX/PAID_REPUBLISH/TOPLISTING/TOPLISTING_5_DAYS) were
+// REMOVED from the public schema — that dead contract is why the weekly scrape
+// stopped landing rows (~Mar 16). See 27-GRAPHQL-CONTRACT.md.
+//
+// SLUG_TO_AD_TYPE maps each current slug back to the historical AdCostV2.ad_type
+// label so resumed rows stay drop-in comparable to pre-Mar-16 history.
+// NOTE: RAKETEN_* (the "Raketen" boost) is a newer product than the old
+// "toplistning" — treated as its historical analogue, but the product evolved.
 // ---------------------------------------------------------------------------
-const PRODUCT_CODES = [
-  'BASIC',
+const OFFER_SLUGS = [
+  'BAS',
   'PLUS',
   'PREMIUM',
   'MAX',
-  'PAID_REPUBLISH',
-  'TOPLISTING',
-  'TOPLISTING_5_DAYS',
+  'FORNYA_ANNONS',
+  'RAKETEN_3_DAGAR',
+  'RAKETEN_5_DAGAR',
 ];
+
+const SLUG_TO_AD_TYPE = {
+  BAS: 'BASIC',
+  PLUS: 'PLUS',
+  PREMIUM: 'PREMIUM',
+  MAX: 'MAX',
+  FORNYA_ANNONS: 'PAID_REPUBLISH',
+  RAKETEN_3_DAGAR: 'TOPLISTING',
+  RAKETEN_5_DAGAR: 'TOPLISTING_5_DAYS',
+};
+
+// composeUpgradesWithBasic:true → the server returns PLUS/PREMIUM/MAX already
+// composed WITH the BASIC component, matching the historical AdCostV2 semantics
+// where PLUS/PREMIUM/MAX stored the summed value. The old client-side
+// applyBasicSum is therefore NO LONGER applied (it would double-count).
+const COMPOSE_UPGRADES_WITH_BASIC = true;
+
+// Which of the 3 payment methods the AdCostV2 ad_price represents. PAY_NOW is
+// the standard upfront ad cost (the historical single price per tier).
+const PAYMENT_METHOD = 'PAY_NOW';
+
+// Legacy alias — kept so existing references don't break; equals the historical
+// ad_type label set (the VALUES stored in AdCostV2.ad_type).
+const PRODUCT_CODES = OFFER_SLUGS.map((s) => SLUG_TO_AD_TYPE[s]);
 
 // ---------------------------------------------------------------------------
 // GraphQL endpoint — from constants.py GRAPHQL_URL
@@ -101,30 +136,46 @@ const AUTOCOMPLETE_QUERY = `query webAutocompleteLocations($query: String!, $lim
 // ---------------------------------------------------------------------------
 // PRODUCT_PRICES_QUERY
 //
-// Operation name: "SellerMarketingProductPrices" — verbatim from the Django
-// task (search_ad_cost_2, tasks.py L1716).
+// Operation name: "webPricingCalculator" — captured LIVE 2026-07-01 from the
+// hemnet.se/priser page's own /graphql request (the page-origin op, per D2).
+// This REPLACES the dead "SellerMarketingProductPrices" operation.
 //
-// Variables: { locationId: <string>, askingPrice: <int>, productCodes: PRODUCT_CODES }
-// Response path:  data.sellerMarketingProductPrices.prices[].{ code, price.amount }
+// Variables: { locationId: <string>, askingPrice: <int>,
+//              offerSlugs: OFFER_SLUGS, composeUpgradesWithBasic: true }
+// Response path: data.pricingCalculator[].{ offerSlug,
+//              prices.PAY_NOW.total.amountInCents }  (amount is in CENTS/öre)
 // ---------------------------------------------------------------------------
-const PRODUCT_PRICES_QUERY = `query SellerMarketingProductPrices($locationId: ID!, $askingPrice: Int, $housingFormGroup: HousingFormGroup, $livingAreaInSqm: Float, $productCodes: [PackagePurchase!]!) {
-  sellerMarketingProductPrices(
+const PRODUCT_PRICES_QUERY = `query webPricingCalculator($locationId: ID!, $askingPrice: Int, $housingFormGroup: HousingFormGroup, $livingAreaInSqm: Float, $offerSlugs: [OfferSlug!]!, $composeUpgradesWithBasic: Boolean) {
+  pricingCalculator(
     locationId: $locationId
     askingPrice: $askingPrice
-    productCodes: $productCodes
+    offerSlugs: $offerSlugs
     housingFormGroup: $housingFormGroup
     livingAreaInSqm: $livingAreaInSqm
+    composeUpgradesWithBasic: $composeUpgradesWithBasic
   ) {
-    formattedValidThrough
+    offerSlug
     prices {
-      code
-      price {
-        amount
-        formatted
+      PAY_NOW {
+        total {
+          amountInCents
+          amountBeforeDiscountInCents
+          __typename
+        }
         __typename
       }
-      immediatePrice {
-        amount
+      PAY_WHEN_LISTING_IS_REMOVED {
+        total {
+          amountInCents
+          __typename
+        }
+        __typename
+      }
+      PAY_ONLY_IF_SOLD {
+        total {
+          amountInCents
+          __typename
+        }
         __typename
       }
       __typename
@@ -149,6 +200,10 @@ module.exports = {
   MUNICIPALITIES,
   ASKING_PRICES,
   PRODUCT_CODES,
+  OFFER_SLUGS,
+  SLUG_TO_AD_TYPE,
+  COMPOSE_UPGRADES_WITH_BASIC,
+  PAYMENT_METHOD,
   GRAPHQL_URL,
   USER_AGENT,
   AUTOCOMPLETE_QUERY,

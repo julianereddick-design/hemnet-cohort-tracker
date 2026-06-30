@@ -1,6 +1,21 @@
 # Phase 27 — Hemnet Ad-Cost GraphQL Contract Reference
 
+> ## ⚠️ CONTRACT CHANGED — corrected 2026-07-01 (Plan 27-02 live validation)
+>
+> The price operation pinned from the droplet's Django task (`SellerMarketingProductPrices`)
+> was **removed from the public Hemnet schema** — it now returns
+> `GRAPHQL_VALIDATION_FAILED: Cannot query field "sellerMarketingProductPrices"`.
+> **This is the root cause of the weekly scrape going dark (~Mar 16).**
+>
+> The current operation, captured LIVE on 2026-07-01 from the page's own request, is
+> **`webPricingCalculator`** (field `pricingCalculator`). See **Operation 2** below for the
+> live contract. The autocomplete operation (Operation 1) is unchanged and still works.
+>
+> Consequence for Plan 27-03: porting the droplet's `search_ad_cost_2` is a **GraphQL
+> code-port** (new op + new parse semantics), not just an egress swap.
+
 **Extracted:** 2026-06-30 via read-only SSH recon (docker exec hemnet-django, no writes).
+Price operation **corrected 2026-07-01** against the live schema (see warning above).
 **Source files on droplet:**
 - `/var/www/apps/hemnet/apps/hemnet/tasks.py` L1716–L1809 (`search_ad_cost_2`)
 - `/var/www/apps/hemnet/apps/hemnet/constants.py` L1–3 (`GRAPHQL_URL`, `USER_AGENT`)
@@ -72,43 +87,43 @@ Cache the `locationId` per municipality — it is stable across price points.
 
 ---
 
-## Operation 2: SellerMarketingProductPrices
+## Operation 2: webPricingCalculator  ✅ CURRENT (captured live 2026-07-01)
 
 **Purpose:** Fetch ad-package prices for a (municipality, asking-price) pair.
 
-**Operation name:** `SellerMarketingProductPrices` (same in page and Django task)
+**Operation name:** `webPricingCalculator` (field `pricingCalculator`).
+Replaces the dead `SellerMarketingProductPrices`. Captured from the page's own
+`/graphql` POST when the calculator computes a price, so in-page fetches are authentic.
 
 **Variables:**
 ```json
 {
   "locationId": "<string from autocomplete>",
   "askingPrice": 5000000,
-  "productCodes": ["BASIC","PLUS","PREMIUM","MAX","PAID_REPUBLISH","TOPLISTING","TOPLISTING_5_DAYS"]
+  "offerSlugs": ["BAS","PLUS","PREMIUM","MAX","FORNYA_ANNONS","RAKETEN_3_DAGAR","RAKETEN_5_DAGAR"],
+  "composeUpgradesWithBasic": true
 }
 ```
+> The page itself also requests the upgrade-only slugs
+> `PLUS_UPPGRADERING / PREMIUM_UPPGRADERING / MAX_UPPGRADERING`; we omit them because
+> `composeUpgradesWithBasic:true` already returns PLUS/PREMIUM/MAX fully composed.
 
 **Query string:**
 ```graphql
-query SellerMarketingProductPrices($locationId: ID!, $askingPrice: Int, $housingFormGroup: HousingFormGroup, $livingAreaInSqm: Float, $productCodes: [PackagePurchase!]!) {
-  sellerMarketingProductPrices(
+query webPricingCalculator($locationId: ID!, $askingPrice: Int, $housingFormGroup: HousingFormGroup, $livingAreaInSqm: Float, $offerSlugs: [OfferSlug!]!, $composeUpgradesWithBasic: Boolean) {
+  pricingCalculator(
     locationId: $locationId
     askingPrice: $askingPrice
-    productCodes: $productCodes
+    offerSlugs: $offerSlugs
     housingFormGroup: $housingFormGroup
     livingAreaInSqm: $livingAreaInSqm
+    composeUpgradesWithBasic: $composeUpgradesWithBasic
   ) {
-    formattedValidThrough
+    offerSlug
     prices {
-      code
-      price {
-        amount
-        formatted
-        __typename
-      }
-      immediatePrice {
-        amount
-        __typename
-      }
+      PAY_NOW { total { amountInCents amountBeforeDiscountInCents __typename } __typename }
+      PAY_WHEN_LISTING_IS_REMOVED { total { amountInCents __typename } __typename }
+      PAY_ONLY_IF_SOLD { total { amountInCents __typename } __typename }
       __typename
     }
     __typename
@@ -116,8 +131,27 @@ query SellerMarketingProductPrices($locationId: ID!, $askingPrice: Int, $housing
 }
 ```
 
-**Response path:** `data.sellerMarketingProductPrices.prices[]`
-Each element: `{ code: "PLUS", price: { amount: 10900, formatted: "10 900 kr" }, ... }`
+**Response path:** `data.pricingCalculator[]`
+Each element: `{ offerSlug: "PLUS", prices: { PAY_NOW: { total: { amountInCents: 1090000 } }, ... } }`
+
+**Parse semantics (locked Plan 27-02):**
+- **Unit:** `amountInCents / 100` → SEK (matches historical `AdCostV2.ad_price`).
+- **Payment method:** use `PAY_NOW` (upfront price = the historical single ad cost).
+  The boost slugs (`RAKETEN_*`, `FORNYA_ANNONS`) have no `PAY_ONLY_IF_SOLD`.
+- **No client-side BASIC-sum:** `composeUpgradesWithBasic:true` returns PLUS/PREMIUM/MAX
+  already composed with BASIC server-side (the old `applyBasicSum` is now a no-op).
+
+**Slug → historical `ad_type` map** (so resumed rows stay comparable to pre-Mar-16 data):
+
+| offerSlug | AdCostV2 ad_type | Note |
+|-----------|------------------|------|
+| `BAS` | `BASIC` | base package |
+| `PLUS` | `PLUS` | composed w/ BASIC |
+| `PREMIUM` | `PREMIUM` | composed w/ BASIC |
+| `MAX` | `MAX` | composed w/ BASIC |
+| `FORNYA_ANNONS` | `PAID_REPUBLISH` | renew listing |
+| `RAKETEN_3_DAGAR` | `TOPLISTING` | ⚠ "Raketen" boost is a newer product than old toplistning |
+| `RAKETEN_5_DAGAR` | `TOPLISTING_5_DAYS` | ⚠ same caveat |
 
 ---
 
@@ -153,48 +187,44 @@ autocomplete is cached per municipality → effectively 10 + 60 = 70 calls if ca
 
 ---
 
-## Product Codes (7 tiers)
+## Offer Slugs (7 — current) → stored ad_type
 
-```
-["BASIC", "PLUS", "PREMIUM", "MAX", "PAID_REPUBLISH", "TOPLISTING", "TOPLISTING_5_DAYS"]
-```
+Sent as `$offerSlugs`: `["BAS","PLUS","PREMIUM","MAX","FORNYA_ANNONS","RAKETEN_3_DAGAR","RAKETEN_5_DAGAR"]`
+(see the slug→ad_type map under Operation 2).
 
-Phase-26 live capture confirmed prices for BASIC/PLUS/PREMIUM/MAX (Göteborg @ 5M):
-- Bas (BASIC): 6 820 kr
-- Plus (PLUS): 10 900 kr  ← already includes BASIC per BASIC-sum rule
-- Premium (PREMIUM): 15 300 kr  ← already includes BASIC
-- Max (MAX): 21 200 kr  ← already includes BASIC
+Live capture 2026-07-01 (Stockholm @ 5M, PAY_NOW):
+- BAS (BASIC): 6 820 kr
+- PLUS: 10 900 kr  ← already includes BASIC (composeUpgradesWithBasic)
+- PREMIUM: 15 300 kr  ← already includes BASIC
+- MAX: 21 200 kr  ← already includes BASIC
+- FORNYA_ANNONS (PAID_REPUBLISH): 6 210 kr
+- RAKETEN_3_DAGAR (TOPLISTING): 1 580 kr
+- RAKETEN_5_DAGAR (TOPLISTING_5_DAYS): 2 050 kr
 
----
-
-## BASIC-Sum Rule
-
-Verbatim from `search_ad_cost_2` (tasks.py L1786–L1792):
-
-```python
-if "PLUS" in prices:
-    prices["PLUS"] += prices.get("BASIC", 0)
-if "PREMIUM" in prices:
-    prices["PREMIUM"] += prices.get("BASIC", 0)
-if "MAX" in prices:
-    prices["MAX"] += prices.get("BASIC", 0)
-```
-
-BASIC and TOPLISTING* are stored as-is. PLUS/PREMIUM/MAX stored as (tier_amount + BASIC_amount).
-The `AdCostV2.ad_price` column holds the summed value — raw tier amounts from the API
-are never written directly to PLUS/PREMIUM/MAX rows.
+Full validation crawl (413 rows, 10 munis × 6 prices × 7 tiers minus 1 transient miss):
+`verf-adcost/2026-07-01-validation.json`.
 
 ---
 
-## AdCostV2 Field Map
+## BASIC-Sum Rule — SUPERSEDED
+
+The old `search_ad_cost_2` summed BASIC into PLUS/PREMIUM/MAX client-side. Under
+`webPricingCalculator` with `composeUpgradesWithBasic:true`, the **server** returns those
+tiers already composed, so the client-side sum is **dropped** (re-adding would double-count).
+The net stored values still match the historical "summed" semantics. The droplet port
+(27-03) must remove the Python BASIC-sum block when it switches to the new op.
+
+---
+
+## AdCostV2 Field Map (current op)
 
 | Column | Source |
 |--------|--------|
 | `property_municipality` | FK to Municipality (matched via `fullName`) |
 | `property_price` | askingPrice integer (SEK) |
-| `ad_type` | `prices[i].code` (e.g., "PLUS") |
-| `ad_price` | `prices[i].price.amount` after BASIC-sum rule applied |
-| `valid_until` | None (not returned by this API path; `formattedValidThrough` is a string) |
+| `ad_type` | `SLUG_TO_AD_TYPE[pricingCalculator[i].offerSlug]` (e.g. BAS→"BASIC") |
+| `ad_price` | `pricingCalculator[i].prices.PAY_NOW.total.amountInCents / 100` (SEK) |
+| `valid_until` | None (not returned by this API path) |
 | `crawled` | ISO 8601 datetime of the crawl run |
 
 ---

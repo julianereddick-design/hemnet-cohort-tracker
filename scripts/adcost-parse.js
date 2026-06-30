@@ -12,7 +12,11 @@
  *   BASIC + TOPLISTING* are written as-is (no addition).
  */
 
-const { ADCOSTV2_FIELDS } = require('./lib/adcost-contract');
+const {
+  ADCOSTV2_FIELDS,
+  SLUG_TO_AD_TYPE,
+  PAYMENT_METHOD,
+} = require('./lib/adcost-contract');
 
 /**
  * buildGrid(munis, prices) → Array<{ municipality, askingPrice }>
@@ -31,43 +35,52 @@ function buildGrid(munis, prices) {
 /**
  * parseProductPrices(gqlJson) → Array<{ code, amount }>
  *
- * Reads data.sellerMarketingProductPrices.prices[].{ code, price.amount }
- * from a SellerMarketingProductPrices GraphQL response.
- * Returns one entry per code with a numeric amount (coerced, 0 if absent).
+ * Reads data.pricingCalculator[].{ offerSlug, prices[PAYMENT_METHOD].total.amountInCents }
+ * from a webPricingCalculator GraphQL response (captured live 2026-07-01).
  *
- * T-27-03: reads only expected fields (code, price.amount); numeric coercion
- * + >=0 guard; no eval of response content.
+ * - offerSlug is translated to the historical AdCostV2 ad_type via SLUG_TO_AD_TYPE
+ *   (e.g. BAS → BASIC, RAKETEN_3_DAGAR → TOPLISTING) so resumed rows stay
+ *   comparable to pre-Mar-16 history. Unknown slugs fall back to the raw slug.
+ * - amountInCents is converted to SEK (kronor) by dividing by 100, matching the
+ *   historical AdCostV2.ad_price unit.
+ * - PAYMENT_METHOD (PAY_NOW) selects the upfront price. Packages without that
+ *   payment method are skipped (amount unavailable).
+ *
+ * T-27-03: reads only expected fields (offerSlug, total.amountInCents); numeric
+ * coercion + >=0 guard; no eval of response content.
  */
 function parseProductPrices(gqlJson) {
-  const prices =
-    (gqlJson &&
-      gqlJson.data &&
-      gqlJson.data.sellerMarketingProductPrices &&
-      gqlJson.data.sellerMarketingProductPrices.prices) ||
-    [];
-  return prices.map((p) => ({
-    code: String(p.code || ''),
-    amount: Number((p.price && p.price.amount) || 0),
-  }));
+  const packages =
+    (gqlJson && gqlJson.data && gqlJson.data.pricingCalculator) || [];
+  const rows = [];
+  for (const pkg of packages) {
+    const slug = String((pkg && pkg.offerSlug) || '');
+    if (!slug) continue;
+    const pm = pkg.prices && pkg.prices[PAYMENT_METHOD];
+    const cents = pm && pm.total ? pm.total.amountInCents : undefined;
+    if (cents == null) continue; // payment method unavailable for this package
+    rows.push({
+      code: SLUG_TO_AD_TYPE[slug] || slug,
+      amount: Number(cents) / 100,
+    });
+  }
+  return rows;
 }
 
 /**
  * applyBasicSum(rows) → Array<{ code, amount }>
  *
- * Adds the BASIC amount into PLUS, PREMIUM, and MAX per the BASIC-sum rule.
- * BASIC and TOPLISTING* rows are left unchanged.
- * Returns a new array (does not mutate input).
+ * NO-OP passthrough (kept for pipeline/back-compat).
+ *
+ * The current webPricingCalculator operation is called with
+ * composeUpgradesWithBasic:true, so PLUS/PREMIUM/MAX are ALREADY returned
+ * composed with the BASIC component server-side — matching the historical
+ * AdCostV2 stored semantics. Re-adding BASIC here would double-count, so this
+ * function now returns rows unchanged. (Under the old
+ * SellerMarketingProductPrices op it summed BASIC into PLUS/PREMIUM/MAX.)
  */
 function applyBasicSum(rows) {
-  const basicRow = rows.find((r) => r.code === 'BASIC');
-  const basicAmount = basicRow ? basicRow.amount : 0;
-  const SUMMED_INTO = new Set(['PLUS', 'PREMIUM', 'MAX']);
-  return rows.map((r) => {
-    if (SUMMED_INTO.has(r.code)) {
-      return { code: r.code, amount: r.amount + basicAmount };
-    }
-    return { code: r.code, amount: r.amount };
-  });
+  return rows.map((r) => ({ code: r.code, amount: r.amount }));
 }
 
 /**
