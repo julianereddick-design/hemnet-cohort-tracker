@@ -1,0 +1,9 @@
+CONTAINER ID   IMAGE                       COMMAND                  CREATED        STATUS                    PORTS                                       NAMES
+f06f81f07962   hemnet                      "celery -A config.ce…"   10 hours ago   Up 10 hours                                                           hemnet-crawler
+51a50344eb8b   84f261d04e6d                "celery -A config.ce…"   2 months ago   Exited (0) 10 hours ago                                               hemnet-crawler-playwright
+dd3a195007b6   84f261d04e6d                "celery -A config.ce…"   2 months ago   Up 2 months                                                           hemnet-beat
+8a953dd299c4   84f261d04e6d                "celery -A config.ce…"   2 months ago   Up 2 months                                                           hemnet-writer
+7e717aa81ab5   84f261d04e6d                "python -Wall ./mana…"   2 months ago   Up 2 months               0.0.0.0:8000->8000/tcp, :::8000->8000/tcp   hemnet-django
+f755fd510a70   redis:7-alpine              "docker-entrypoint.s…"   2 months ago   Up 2 months               6379/tcp                                    hemnet-redis
+28763a0cf0dc   metabase/metabase:v0.47.1   "/app/run_metabase.sh"   2 months ago   Up 2 months               0.0.0.0:3000->3000/tcp, :::3000->3000/tcp   hemnet-metabase
+b5bd95d491f8   84f261d04e6d                "./manage.py shell"      7 months ago   Up 7 months                                                           hemnet-django-run-e2e3a39dc795

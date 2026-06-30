@@ -1,0 +1,184 @@
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S     2025   0:07 [kthreadd]
+root           3  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [rcu_gp]
+root           4  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [rcu_par_gp]
+root           5  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [slub_flushwq]
+root           6  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [netns]
+root           8  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [kworker/0:0H-events_highpri]
+root          10  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [mm_percpu_wq]
+root          11  0.0  0.0      0     0 ?        I     2025   0:00  \_ [rcu_tasks_kthread]
+root          12  0.0  0.0      0     0 ?        I     2025   0:00  \_ [rcu_tasks_rude_kthread]
+root          13  0.0  0.0      0     0 ?        I     2025   0:00  \_ [rcu_tasks_trace_kthread]
+root          14  0.0  0.0      0     0 ?        S     2025 177:31  \_ [ksoftirqd/0]
+root          15  0.1  0.0      0     0 ?        I     2025 426:32  \_ [rcu_preempt]
+root          16  0.0  0.0      0     0 ?        S     2025   1:38  \_ [migration/0]
+root          17  0.0  0.0      0     0 ?        S     2025   0:00  \_ [idle_inject/0]
+root          19  0.0  0.0      0     0 ?        S     2025   0:00  \_ [cpuhp/0]
+root          20  0.0  0.0      0     0 ?        S     2025   0:00  \_ [cpuhp/1]
+root          21  0.0  0.0      0     0 ?        S     2025   0:00  \_ [idle_inject/1]
+root          22  0.0  0.0      0     0 ?        S     2025   1:37  \_ [migration/1]
+root          23  0.0  0.0      0     0 ?        S     2025 195:19  \_ [ksoftirqd/1]
+root          25  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [kworker/1:0H-events_highpri]
+root          26  0.0  0.0      0     0 ?        S     2025   0:00  \_ [cpuhp/2]
+root          27  0.0  0.0      0     0 ?        S     2025   0:00  \_ [idle_inject/2]
+root          28  0.0  0.0      0     0 ?        S     2025   1:30  \_ [migration/2]
+root          29  0.0  0.0      0     0 ?        S     2025 177:29  \_ [ksoftirqd/2]
+root          31  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [kworker/2:0H-kblockd]
+root          32  0.0  0.0      0     0 ?        S     2025   0:00  \_ [cpuhp/3]
+root          33  0.0  0.0      0     0 ?        S     2025   0:00  \_ [idle_inject/3]
+root          34  0.0  0.0      0     0 ?        S     2025   1:30  \_ [migration/3]
+root          35  0.0  0.0      0     0 ?        S     2025 191:20  \_ [ksoftirqd/3]
+root          37  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [kworker/3:0H-events_highpri]
+root          38  0.0  0.0      0     0 ?        S     2025   0:00  \_ [cpuhp/4]
+root          39  0.0  0.0      0     0 ?        S     2025   0:00  \_ [idle_inject/4]
+root          40  0.0  0.0      0     0 ?        S     2025   1:30  \_ [migration/4]
+root          41  0.0  0.0      0     0 ?        S     2025 178:15  \_ [ksoftirqd/4]
+root          43  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [kworker/4:0H-kblockd]
+root          44  0.0  0.0      0     0 ?        S     2025   0:00  \_ [cpuhp/5]
+root          45  0.0  0.0      0     0 ?        S     2025   0:00  \_ [idle_inject/5]
+root          46  0.0  0.0      0     0 ?        S     2025   1:29  \_ [migration/5]
+root          47  0.0  0.0      0     0 ?        S     2025 179:05  \_ [ksoftirqd/5]
+root          49  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [kworker/5:0H-kblockd]
+root          50  0.0  0.0      0     0 ?        S     2025   0:00  \_ [cpuhp/6]
+root          51  0.0  0.0      0     0 ?        S     2025   0:00  \_ [idle_inject/6]
+root          52  0.0  0.0      0     0 ?        S     2025   1:34  \_ [migration/6]
+root          53  0.0  0.0      0     0 ?        S     2025 208:42  \_ [ksoftirqd/6]
+root          55  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [kworker/6:0H-events_highpri]
+root          56  0.0  0.0      0     0 ?        S     2025   0:00  \_ [cpuhp/7]
+root          57  0.0  0.0      0     0 ?        S     2025   0:00  \_ [idle_inject/7]
+root          58  0.0  0.0      0     0 ?        S     2025   1:35  \_ [migration/7]
+root          59  0.0  0.0      0     0 ?        S     2025 227:29  \_ [ksoftirqd/7]
+root          61  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [kworker/7:0H]
+root          62  0.0  0.0      0     0 ?        S     2025   0:00  \_ [kdevtmpfs]
+root          63  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [inet_frag_wq]
+root          64  0.0  0.0      0     0 ?        S     2025   0:00  \_ [kauditd]
+root          65  0.0  0.0      0     0 ?        S     2025   0:34  \_ [khungtaskd]
+root          67  0.0  0.0      0     0 ?        S     2025   0:00  \_ [oom_reaper]
+root          69  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [writeback]
+root          70  0.7  0.0      0     0 ?        S     2025 2529:44  \_ [kcompactd0]
+root          71  0.0  0.0      0     0 ?        SN    2025   0:00  \_ [ksmd]
+root          72  0.0  0.0      0     0 ?        SN    2025   7:02  \_ [khugepaged]
+root          73  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [kintegrityd]
+root          74  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [kblockd]
+root          75  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [blkcg_punt_bio]
+root          76  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [tpm_dev_wq]
+root          77  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [ata_sff]
+root          78  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [md]
+root          79  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [edac-poller]
+root          80  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [devfreq_wq]
+root          81  0.0  0.0      0     0 ?        S     2025   0:00  \_ [watchdogd]
+root          83  0.0  0.0      0     0 ?        I<    2025 135:13  \_ [kworker/0:1H-kblockd]
+root          85  2.6  0.0      0     0 ?        S     2025 8865:39  \_ [kswapd0]
+root          86  0.0  0.0      0     0 ?        S     2025   0:00  \_ [ecryptfs-kthread]
+root          97  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [kthrotld]
+root         102  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [acpi_thermal_pm]
+root         103  0.0  0.0      0     0 ?        S     2025   0:00  \_ [xenbus_probe]
+root         104  0.0  0.0      0     0 ?        S     2025   0:00  \_ [scsi_eh_0]
+root         105  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [scsi_tmf_0]
+root         106  0.0  0.0      0     0 ?        S     2025   0:00  \_ [scsi_eh_1]
+root         107  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [scsi_tmf_1]
+root         108  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [vfio-irqfd-clea]
+root         110  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [mld]
+root         111  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [ipv6_addrconf]
+root         116  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [kstrp]
+root         122  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [zswap-shrink]
+root         123  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [kworker/u17:0]
+root         169  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [charger_manager]
+root         226  0.0  0.0      0     0 ?        I<    2025 140:48  \_ [kworker/1:1H-kblockd]
+root         227  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [cryptd]
+root         243  0.0  0.0      0     0 ?        I<    2025 138:17  \_ [kworker/4:1H-kblockd]
+root         245  0.0  0.0      0     0 ?        S     2025   0:00  \_ [scsi_eh_2]
+root         246  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [scsi_tmf_2]
+root         249  0.0  0.0      0     0 ?        I<    2025 140:16  \_ [kworker/2:1H-kblockd]
+root         250  0.0  0.0      0     0 ?        I<    2025 137:28  \_ [kworker/5:1H-kblockd]
+root         260  0.0  0.0      0     0 ?        I<    2025 139:44  \_ [kworker/3:1H-kblockd]
+root         264  0.0  0.0      0     0 ?        I<    2025 135:36  \_ [kworker/6:1H-kblockd]
+root         298  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [raid5wq]
+root         344  0.0  0.0      0     0 ?        S     2025  66:05  \_ [jbd2/vda1-8]
+root         345  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [ext4-rsv-conver]
+root         402  0.0  0.0      0     0 ?        I<    2025 140:39  \_ [kworker/7:1H-kblockd]
+root         455  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [kaluad]
+root         458  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [kmpath_rdacd]
+root         461  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [kmpathd]
+root         462  0.0  0.0      0     0 ?        I<    2025   0:00  \_ [kmpath_handlerd]
+root     3948886  0.0  0.0      0     0 ?        I    Jun28   0:03  \_ [kworker/7:1-events]
+root     3967468  0.0  0.0      0     0 ?        I    11:47   0:00  \_ [kworker/4:1-cgroup_destroy]
+root     3971829  0.0  0.0      0     0 ?        I    11:48   0:02  \_ [kworker/0:33-cgroup_destroy]
+root     3972033  0.0  0.0      0     0 ?        I    11:49   0:00  \_ [kworker/3:0-cgroup_destroy]
+root     3976767  0.0  0.0      0     0 ?        I    11:54   0:01  \_ [kworker/1:2-events]
+root     3977411  0.0  0.0      0     0 ?        I    12:10   0:00  \_ [kworker/6:0-events]
+root     3977413  0.0  0.0      0     0 ?        I    12:10   0:01  \_ [kworker/3:1-mm_percpu_wq]
+root     3977503  0.0  0.0      0     0 ?        I    12:11   0:00  \_ [kworker/6:1-events]
+root     3978017  0.0  0.0      0     0 ?        I    12:18   0:00  \_ [kworker/5:1-cgroup_destroy]
+root     3979478  0.0  0.0      0     0 ?        I    13:49   0:00  \_ [kworker/1:0-cgroup_destroy]
+root     3982318  0.0  0.0      0     0 ?        I    16:50   0:00  \_ [kworker/0:2-events]
+root     3983085  0.0  0.0      0     0 ?        I    17:17   0:00  \_ [kworker/4:0-events]
+root     3984566  0.0  0.0      0     0 ?        I    19:07   0:00  \_ [kworker/2:1-events]
+root     3984567  0.0  0.0      0     0 ?        I    19:07   0:00  \_ [kworker/2:3-events]
+root     3985264  0.0  0.0      0     0 ?        I    20:03   0:00  \_ [kworker/5:2-events]
+root     3986168  0.0  0.0      0     0 ?        I    21:11   0:00  \_ [kworker/7:2-events]
+root     3986374  0.0  0.0      0     0 ?        I    21:28   0:00  \_ [kworker/u16:2-loop1]
+root     3986484  0.0  0.0      0     0 ?        I    21:33   0:00  \_ [kworker/u16:0-events_unbound]
+root     3986705  0.0  0.0      0     0 ?        I    21:53   0:00  \_ [kworker/u16:3-events_power_efficient]
+root     3986743  0.0  0.0      0     0 ?        I    21:55   0:00  \_ [kworker/u16:4-flush-252:0]
+root     3986813  0.0  0.0      0     0 ?        I    22:01   0:00  \_ [kworker/5:0-cgroup_destroy]
+root     3986893  0.0  0.0      0     0 ?        I    22:01   0:00  \_ [kworker/0:0-events]
+root     3986894  0.0  0.0      0     0 ?        I    22:01   0:00  \_ [kworker/5:3-events]
+root     3986895  0.0  0.0      0     0 ?        I    22:01   0:00  \_ [kworker/4:2-events]
+root           1  0.0  0.0 169296 11988 ?        Ss    2025  22:03 /sbin/init
+root         463  0.0  0.1 289152 26956 ?        SLsl  2025  34:06 /sbin/multipathd -d -s
+systemd+     600  0.0  0.0  89472  3592 ?        Ssl   2025   1:50 /lib/systemd/systemd-timesyncd
+systemd+     690  0.0  0.0  17496  5552 ?        Ss    2025   0:44 /lib/systemd/systemd-networkd
+systemd+     738  0.1  0.0  19460  4484 ?        Ss    2025 516:11 /lib/systemd/systemd-resolved
+root         762  0.0  0.0  11516  5092 ?        Ss    2025   0:51 /lib/systemd/systemd-udevd
+root         823  0.0  0.0   7156  2372 ?        Ss    2025   6:28 /usr/sbin/cron -f -P
+message+     825  0.0  0.0   9740  5020 ?        Ss    2025   0:19 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+root         836  0.0  0.0  82772  2596 ?        Ssl   2025  18:24 /usr/sbin/irqbalance --foreground
+syslog       840  0.0  0.0 222236  3868 ?        Ssl   2025  14:21 /usr/sbin/rsyslogd -n -iNONE
+root         854  0.0  0.0  16636  6076 ?        Ss    2025   0:45 /lib/systemd/systemd-logind
+root         861  0.2  0.1 1727348 25368 ?       Ssl   2025 957:08 /usr/bin/containerd
+root         890  0.0  0.0   6064   768 ttyS0    Ss+   2025   0:00 /sbin/agetty -o -p -- \u --keep-baud 115200,57600,38400,9600 - vt220
+root         895  0.0  0.0 109552 11432 ?        Ssl   2025   0:00 /usr/bin/python3 /usr/share/unattended-upgrades/unattended-upgrade-shutdown --wait-for-signal
+root         905  0.0  0.0   6020   820 tty1     Ss+   2025   0:00 /sbin/agetty -o -p -- \u --noclear - linux
+root         938  0.4  0.4 2630560 76280 ?       Ssl   2025 1594:39 /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+root     1229660  0.0  0.0 1599912 3212 ?        Sl   Apr18   2:52  \_ /usr/bin/docker-proxy -proto tcp -host-ip 0.0.0.0 -host-port 3000 -container-ip 172.19.0.3 -container-port 3000
+root     1229666  0.0  0.0 1600424 3592 ?        Sl   Apr18   3:09  \_ /usr/bin/docker-proxy -proto tcp -host-ip :: -host-port 3000 -container-ip 172.19.0.3 -container-port 3000
+root     1229824  0.0  0.0 1303576 3232 ?        Sl   Apr18   0:16  \_ /usr/bin/docker-proxy -proto tcp -host-ip 0.0.0.0 -host-port 8000 -container-ip 172.19.0.4 -container-port 8000
+root     1229831  0.0  0.0 1230100 3388 ?        Sl   Apr18   0:15  \_ /usr/bin/docker-proxy -proto tcp -host-ip :: -host-port 8000 -container-ip 172.19.0.4 -container-port 8000
+root        3270  0.0  0.0  14848  5768 ?        Ss    2025  19:38 sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups
+root     3987200  0.0  0.0  17500 11156 ?        Ss   22:01   0:00  \_ sshd: root@notty
+root     3987243  0.0  0.0   7644  3324 ?        Ss   22:01   0:00      \_ bash -c df -h / > /root/24-backup/disk-before.txt; ps auxf > /root/24-backup/ps-before.txt; ss -tlnp > /root/24-backup/listening-before.txt
+root     3987245  0.0  0.0  11776  4064 ?        R    22:01   0:00          \_ ps auxf
+root       23648  0.0  0.0 296420  8480 ?        Ssl   2025   4:11 /usr/libexec/packagekitd
+root       23657  0.0  0.0 233856  4884 ?        Ssl   2025   0:01 /usr/libexec/polkitd --no-debug
+root     2006090  0.0  0.0 720760  4388 ?        Sl    2025  29:52 /usr/bin/containerd-shim-runc-v2 -namespace moby -id b5bd95d491f8b81309278f382cbd3a38b6411452b7c43b6412e3ffcad2dcf621 -address /run/containerd/containerd.sock
+root     2006110  0.0  0.3  93260 49856 ?        Ss+   2025   0:00  \_ python ./manage.py shell
+root     3258592  0.0  0.0  56380  1912 ?        Ss   Jan23   0:00 nginx: master process /usr/sbin/nginx -g daemon on; master_process on;
+www-data 3258593  0.0  0.0  57436  4400 ?        S    Jan23   0:27  \_ nginx: worker process
+www-data 3258594  0.0  0.0  57512  5472 ?        S    Jan23   0:26  \_ nginx: worker process
+www-data 3258595  0.0  0.0  57368  4268 ?        S    Jan23   0:26  \_ nginx: worker process
+www-data 3258596  0.0  0.0  57788  4512 ?        S    Jan23   0:42  \_ nginx: worker process
+www-data 3258597  0.0  0.0  57544  4284 ?        S    Jan23   0:32  \_ nginx: worker process
+www-data 3258598  0.0  0.0  57496  4976 ?        S    Jan23   0:40  \_ nginx: worker process
+www-data 3258599  0.0  0.0  57368  5188 ?        S    Jan23   0:32  \_ nginx: worker process
+www-data 3258600  0.0  0.0  57656  5228 ?        S    Jan23   0:30  \_ nginx: worker process
+root     1724570  0.0  0.2  76080 37028 ?        S<s  Mar11  68:05 /lib/systemd/systemd-journald
+root     1229689  0.0  0.0 720504  4392 ?        Sl   Apr18   7:49 /usr/bin/containerd-shim-runc-v2 -namespace moby -id f755fd510a70cf4b27ed143850700ef12812b94792561695690e73a1d95a9544 -address /run/containerd/containerd.sock
+lxd      1229734  0.4  0.0 108384  7740 ?        Ssl  Apr18 447:29  \_ redis-server *:6379
+root     1229690  0.0  0.0 720760  4328 ?        Sl   Apr18   7:48 /usr/bin/containerd-shim-runc-v2 -namespace moby -id 28763a0cf0dc61f10d6f250ea91cf77779d776c798fb4f646d040d1fd88280ec -address /run/containerd/containerd.sock
+2000     1229730  1.1 10.2 6149288 1677392 ?     Ssl  Apr18 1150:06  \_ java -XX:+IgnoreUnrecognizedVMOptions -Dfile.encoding=UTF-8 -Dlogfile.path=target/log -XX:+CrashOnOutOfMemoryError -server -jar /app/metabase.jar
+root     1229846  0.0  0.0 720760  6936 ?        Sl   Apr18   8:07 /usr/bin/containerd-shim-runc-v2 -namespace moby -id 7e717aa81ab5f2d882b7fbd59c22b5f11bd633b31ed1c4f637c844eb29139f95 -address /run/containerd/containerd.sock
+root     1229867  0.0  0.3  96924 56320 ?        Ss   Apr18   0:00  \_ python -Wall ./manage.py runserver 0.0.0.0:8000
+root     3966669  2.1  0.4 251576 76336 ?        Sl   11:42  13:05      \_ /usr/local/bin/python -Wall ./manage.py runserver 0.0.0.0:8000
+root     1229938  0.0  0.0 720504  4764 ?        Sl   Apr18   7:14 /usr/bin/containerd-shim-runc-v2 -namespace moby -id dd3a195007b64ed1e48769938cb670c82b02ab095d3ad58ee82b60fd53c16fa3 -address /run/containerd/containerd.sock
+root     1229983  0.1  0.4 122204 80180 ?        Ss   Apr18 132:28  \_ /usr/local/bin/python3 /usr/local/bin/celery -A config.celery beat --loglevel=INFO
+root     1230039  0.0  0.0 720760  5920 ?        Sl   Apr18   8:22 /usr/bin/containerd-shim-runc-v2 -namespace moby -id 8a953dd299c4c925526c9fb82d297fbb0e47d8d6e125c47ef2f2473ee0396113 -address /run/containerd/containerd.sock
+root     1230082  0.2  0.5 124020 83108 ?        Ss   Apr18 224:34  \_ /usr/local/bin/python3 /usr/local/bin/celery -A config.celery worker -Q writer_queue --concurrency 2 --loglevel=INFO
+root     1230225  0.0  0.5 124348 82580 ?        S    Apr18   0:00      \_ /usr/local/bin/python3 /usr/local/bin/celery -A config.celery worker -Q writer_queue --concurrency 2 --loglevel=INFO
+root     1230227  0.0  0.8 188852 146396 ?       S    Apr18   0:31      \_ /usr/local/bin/python3 /usr/local/bin/celery -A config.celery worker -Q writer_queue --concurrency 2 --loglevel=INFO
+root     2773672  0.0  0.1 2295532 31396 ?       Ssl  Apr24   5:17 /usr/lib/snapd/snapd
+root     3976584  0.0  0.0 720760  9824 ?        Sl   11:53   0:02 /usr/bin/containerd-shim-runc-v2 -namespace moby -id f06f81f07962815bd3f801c04562165556ff9ec39a1385fae77ab9ac31599baa -address /run/containerd/containerd.sock
+root     3976605  0.2  0.6 140524 106092 ?       Ss   11:53   1:23  \_ /usr/local/bin/python3 /usr/local/bin/celery -A config.celery worker -P eventlet --loglevel=INFO
+root     3983086  0.0  0.0 1240992 11556 ?       Ssl  17:17   0:00 /opt/digitalocean/bin/droplet-agent
+root     3986899  2.2  0.0  18540 10492 ?        Ss   22:01   0:00 /lib/systemd/systemd --user
+root     3986900  0.0  0.0 170408  5412 ?        S    22:01   0:00  \_ (sd-pam)

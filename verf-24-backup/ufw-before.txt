@@ -1,0 +1,11 @@
+Status: active
+
+     To                         Action      From
+     --                         ------      ----
+[ 1] Nginx HTTP                 ALLOW IN    Anywhere                  
+[ 2] Nginx HTTPS                ALLOW IN    Anywhere                  
+[ 3] OpenSSH                    ALLOW IN    Anywhere                  
+[ 4] Nginx HTTP (v6)            ALLOW IN    Anywhere (v6)             
+[ 5] Nginx HTTPS (v6)           ALLOW IN    Anywhere (v6)             
+[ 6] OpenSSH (v6)               ALLOW IN    Anywhere (v6)             
+

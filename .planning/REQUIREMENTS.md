@@ -29,10 +29,10 @@
 - [x] **FETCH-03**: Self-hosted Playwright / headless Chromium is retired (or gated off) once the Oxylabs path is proven, removing it as a resource driver.
 
 ### Cleanup (CLEAN) — gated on AUDIT
-- [ ] **CLEAN-01**: Apps the audit clears as unused (spotify/procore/block_inc, and Booli if confirmed redundant) are removed/disabled.
-- [ ] **CLEAN-02**: Oversized logs are rotated/removed and disk is reclaimed; the container set is reduced to the price-scraper essentials.
-- [ ] **CLEAN-03**: End-state — the Hemnet price scraper is the primary workload running on the droplet.
-- [ ] **CLEAN-04**: The Kinsing/`kdevtmpfsi` cryptominer is remediated in place — root-cause persistence removed, the entry vector closed (network/host-layer, no team-repo edit), and the per-minute `kill.sh` whack-a-mole retired — and the host is verified clean over an observation window. (Folded into Phase 24 by operator decision 2026-06-30; this is the standing prerequisite for porting Oxylabs creds back onto the box.)
+- [x] **CLEAN-01**: Apps the audit clears as unused (spotify/procore/block_inc, and Booli if confirmed redundant) are removed/disabled.
+- [x] **CLEAN-02**: Oversized logs are rotated/removed and disk is reclaimed; the container set is reduced to the price-scraper essentials.
+- [x] **CLEAN-03**: End-state — the Hemnet price scraper is the primary workload running on the droplet.
+- [x] **CLEAN-04**: The Kinsing/`kdevtmpfsi` cryptominer is remediated in place — root-cause persistence removed, the entry vector closed (network/host-layer, no team-repo edit), and the per-minute `kill.sh` whack-a-mole retired — and the host is verified clean over an observation window. (Folded into Phase 24 by operator decision 2026-06-30; this is the standing prerequisite for porting Oxylabs creds back onto the box.)
 
 ### Right-size (SIZE)
 - [ ] **SIZE-01**: The droplet is resized down to a slug matched to the post-cleanup footprint, reducing monthly cost from ~$100.

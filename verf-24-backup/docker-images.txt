@@ -1,0 +1,6 @@
+REPOSITORY          TAG        DIGEST                                                                    IMAGE ID       CREATED         SIZE
+hemnet              latest     <none>                                                                    549bc2ec0f41   10 hours ago    10.5GB
+<none>              <none>     <none>                                                                    84f261d04e6d   12 months ago   3.54GB
+metabase/metabase   v0.47.1    sha256:6536844df1533ebe3fb930f991b13e6956b53c67540b608e3733ddd1df479561   5ce2111e17c4   2 years ago     483MB
+metabase/metabase   v0.46.4    sha256:a899bb410e0546ed2ac0b0f8b5a20b43d197bae15717abfb3380774d7cefca37   537adb7b89bb   3 years ago     461MB
+redis               7-alpine   sha256:1f27b9eb680ffcf6c68966c0d5f578bb1b030ca7cd8ec4e758c429e7f72005a0   f37f9f678836   3 years ago     30.2MB

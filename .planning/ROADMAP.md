@@ -483,11 +483,11 @@ Plans:
   5. The box is durably hardened: the diagnosed entry vector is closed at the source in the repo, `django runserver`/DEBUG is replaced (or :8000 firewalled), Metabase v0.47.1 is upgraded (or :3000 firewalled), and exposed `.env` secrets are rotated — each reversible, with the scraper re-verified green (CLEAN-04 / D-08)
 **Plans**: 5 plans (strictly sequential waves — security-IR sequencing per D-07; 24-05 added 2026-06-30 after ownership clarification)
 Plans:
-- [ ] 24-01-PLAN.md — read-only reversibility snapshot + persistence/entry-vector recon (R0-R3) into 24-VERIFICATION.md
-- [ ] 24-02-PLAN.md — remediate in place: decloak, contain entry vector at firewall, remove persistence, kill+disable kill.sh, observe clean window (R1,R3-R6)
-- [ ] 24-03-PLAN.md — retire kill.sh + delete kill.log, confirm apps disabled, remove orphan container, reclaim ~21 GB images+logs (R7, CLEAN-01/02)
-- [ ] 24-04-PLAN.md — authorized_keys hygiene, full verification table, off-box backup, remediation record (CLEAN-03)
-- [ ] 24-05-PLAN.md — durable hardening (D-08): close vector at source in repo, replace runserver/DEBUG, upgrade Metabase, rotate .env secrets, rebuild/redeploy reversibly + re-verify scraper green (CLEAN-04)
+- [x] 24-01-PLAN.md — read-only reversibility snapshot + persistence/entry-vector recon (R0-R3) into 24-VERIFICATION.md
+- [x] 24-02-PLAN.md — remediate in place: decloak, contain entry vector at firewall, remove persistence, kill+disable kill.sh, observe clean window (R1,R3-R6)
+- [x] 24-03-PLAN.md — retire kill.sh + delete kill.log, confirm apps disabled, remove orphan container, reclaim ~21 GB images+logs (R7, CLEAN-01/02)
+- [x] 24-04-PLAN.md — authorized_keys hygiene, full verification table, off-box backup, remediation record (CLEAN-03)
+- [x] 24-05-PLAN.md — durable hardening (D-08): close vector at source in repo, replace runserver/DEBUG, upgrade Metabase, rotate .env secrets, rebuild/redeploy reversibly + re-verify scraper green (CLEAN-04)
 **UI hint**: no
 
 #### Phase 25: Right-size

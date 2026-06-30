@@ -1,0 +1,4 @@
+{
+  "_redacted": true,
+  "_note": "docker inspect of orphan container hemnet-django-run-e2e3a39dc795 (removed in 24-03). Original retained ON-BOX ONLY at /root/24-backup/orphan-inspect.json because its container env array contains the DB connection string + the Django secret key. Off-box/repo copy redacted per 24-04 guardrail (no secret values committed)."
+}
