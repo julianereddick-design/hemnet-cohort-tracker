@@ -409,6 +409,15 @@ function runSmoke() {
       PRODUCT_CODES.every((code) => parsed.some((r) => r.code === code)),
     `got codes: ${parsed.map((r) => r.code).join(',')}`
   );
+  // Explicit named checks for the 5 live-verified tiers + 2 others (Task 3 gate)
+  for (const tier of ['BASIC', 'PLUS', 'PREMIUM', 'MAX', 'TOPLISTING', 'PAID_REPUBLISH', 'TOPLISTING_5_DAYS']) {
+    const row = parsed.find((r) => r.code === tier);
+    assert(
+      `parseProductPrices: ${tier} present with amount > 0`,
+      row !== undefined && typeof row.amount === 'number' && row.amount > 0,
+      row ? `amount=${row.amount}` : 'missing'
+    );
+  }
 
   // --- Test 3: applyBasicSum ---
   const basicAmount = parsed.find((r) => r.code === 'BASIC') ? parsed.find((r) => r.code === 'BASIC').amount : 0;
@@ -481,6 +490,11 @@ function runSmoke() {
     'toAdCostV2Rows: crawled field is ISO string',
     v2Rows.length > 0 && v2Rows[0].crawled === testISO,
     v2Rows.length > 0 ? String(v2Rows[0].crawled) : 'empty'
+  );
+  assert(
+    'toAdCostV2Rows: valid_until is null (not returned by this API path)',
+    v2Rows.length > 0 && v2Rows[0].valid_until === null,
+    v2Rows.length > 0 ? String(v2Rows[0].valid_until) : 'empty'
   );
 
   // --- Test 5: both session providers are registered ---
