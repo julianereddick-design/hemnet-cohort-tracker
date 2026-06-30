@@ -270,7 +270,7 @@ Plans:
 | 18. Re-check state + slutpris-lag drain logic | v3.1 | 4/4 | Complete | 2026-06-18 |
 | 19. Scheduled batch orchestrator (Sold match batch) | v3.1 | 3/3 | Complete (offline; national panel sampler reframe) | 2026-06-18 |
 | 20. Per-run reporting + decision-grade trend | v3.1 | 2/2 | Complete (offline) | 2026-06-18 |
-| 26. Ad-cost scrape feasibility (gates milestone) | v5.0 | 2/3 (+03 cost doc) | Operator checkpoint (26-01 DIRECT_BLOCKED; 26-02 → D-04 POST-body wall; 26-03 Task 1 done → FEAS-03 cost quantified = trivial ~$1.26/mo list / ≈$0 marginal in docs/ad-cost-scrape-cost.md; Task 2 go/no-go = provision body-preserving Oxylabs product A/B/C, handed to orchestrator) | - |
+| 26. Ad-cost scrape feasibility (gates milestone) | v5.0 | ✅ 3/3 | COMPLETE 2026-06-30 — checkpoint resolved GO. Direct blocked (CF 403); Oxylabs WSA can't carry POST body (D-04); droplet DC IP CF-blocked too. **Data IS capturable via residential/managed browser + quiet in-page `fetch('/graphql')`** (not form automation → trips Turnstile). Egress: Oxylabs render+`execute_javascript` $0 (inquiry pending) OR Steel.dev validated ~$0.50/mo (+$10 floor). Build spec → `26-PHASE27-HANDOFF.md` | 2026-06-30 |
 | 27. Resume weekly scrape | v5.0 | 0/? | Not started | - |
 | 28. Weekly reporting suite (Slack + chart + xlsx) | v5.0 | 0/? | Not started | - |
 | 29. Weekly scheduling | v5.0 | 0/? | Not started | - |
@@ -550,7 +550,7 @@ Plans:
 - [~] 26-02-PLAN.md — CONDITIONAL Oxylabs rewire: RAN (26-01 blocked). **D-04 escape hatch hit** — Oxylabs defeats Cloudflare but the borrowed Web Scraper API creds **cannot deliver a POST body** to `hemnet.se/graphql` across all integration methods (universal source drops body; proxy:60000 strips body; Web Unblocker 401; residential/DC proxy 407; GraphQL-over-GET 404). No working path / no fresh AdCostV2 rows; **no droplet mutation made**. Spend $0.05 / 18 calls (cap 200/$0.49). Operator checkpoint: provision a body-preserving Oxylabs product (Web Unblocker or residential proxy). See `26-OXYLABS-PROBE-RESULT.md` (FEAS-02 BLOCKED-pending-creds) (2026-06-30)
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 26-03-PLAN.md — Recurring-cost write-up (per-run/week/month) + single operator go/no-go checkpoint (FEAS-03)
+- [x] 26-03-PLAN.md — Recurring-cost write-up + operator go/no-go (FEAS-03). COMPLETE 2026-06-30 → **GO**. Checkpoint reframed by post-checkpoint exploration: the A/B/C "provision a body-capable Oxylabs product" decision was resolved by a **residential/managed browser + in-page `fetch('/graphql')`** approach (droplet DC IP is CF-blocked; data captured live via Steel residential). Egress = Oxylabs render+`execute_javascript` $0 (inquiry pending) OR Steel ~$0.50/mo (validated). See `26-PHASE27-HANDOFF.md`, `26-STEEL-VALIDATION.md`, `26-BROWSER-RENDER-PROBE-RESULT.md` (2026-06-30)
 **UI hint**: no
 
 #### Phase 27: Resume weekly scrape
