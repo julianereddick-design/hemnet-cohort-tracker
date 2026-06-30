@@ -1,57 +1,65 @@
-# Requirements — Milestone v4.0: Hemnet Price-Scraper Droplet — Audit, Consolidate & Right-size
+# Requirements — Milestone v5.0: Hemnet Ad-Pricing — Resume Scrape + Weekly Reporting
 
-**Defined:** 2026-06-29
-**Scope:** The standalone Hemnet+Booli price-scraper droplet `170.64.181.89` (`ubuntu-s-1vcpu-2gb-syd1-01`, syd1; repo `github.com/tt7676/hem-bol-scrapers`). Infrastructure/ops milestone — most work is droplet ops + the team repo, not this repo's source.
+**Defined:** 2026-06-30
+**Scope:** Resume the dormant Hemnet advertising-package price scrape (`AdCostV2`, weekly task disabled since 2026-03-16) on the price-scraper droplet `170.64.181.89`, and build a weekly Slack + Chart.js + Excel reporting suite **in this cohort-tracker repo** mirroring the sold-match suite. Spans two systems: the scrape lives in `github.com/tt7676/hem-bol-scrapers` (operator-owned droplet); the reporting is new Node scripts here.
 
-**Approach:** clean-up & resize **in place** (not rebuild); **audit-before-kill**.
+**Approach:** feasibility-test first (the GraphQL ad-cost path is un-rerouted and untested post-May-2026 blocking) → resume scrape → build reports → wire weekly cron. Absolute kronor (not take-rate %). Reuse `cron-wrapper.runJob` + Slack + chart + xlsx infra.
 
-> Prior milestone (v3.1 sold-match productionization) requirements are preserved in git history and traced in `MILESTONES`/PROJECT history.
-
----
-
-## v4.0 Requirements
-
-### Consistent access (ACCESS)
-- [ ] **ACCESS-01**: Operator has durable SSH access to the droplet that survives reboots (key in `authorized_keys`, not a one-off console paste).
-- [ ] **ACCESS-02**: A known SSH key is registered at the DigitalOcean account level so droplet rebuilds/recreations retain access.
-- [ ] **ACCESS-03**: Access model is documented in a runbook — who has access, which key, how to add/revoke, and the `IdentitiesOnly` connection gotcha.
-
-### Deep-dive audit (AUDIT)
-- [ ] **AUDIT-01**: Every app on the droplet (`hemnet`, `booli`, `spotify`, `procore`, `block_inc`, `core`) is inventoried with purpose, owner, and last-active evidence.
-- [ ] **AUDIT-02**: Data + storage are mapped — Postgres DB(s)/tables, Metabase, Redis, Docker volumes, and on-disk logs (incl. the 4.6 GB `kill.log` / 121 MB blocking log).
-- [ ] **AUDIT-03**: All scheduled/triggered work is enumerated — Celery beat schedule, queues, restart scripts — with cadence.
-- [ ] **AUDIT-04**: A real resource + cost baseline is captured (CPU/mem/disk actually used vs the `s-8vcpu-16gb` allocation) to inform right-sizing.
-- [ ] **AUDIT-05**: For each non-Hemnet-price app (incl. Booli), a keep/kill recommendation backed by dependency evidence (what breaks if removed).
-
-### Fix Hemnet capability (FETCH)
-- [x] **FETCH-01**: The Hemnet listing/search fetch routes through the Oxylabs path (`apps/core/webscraper.py` / proxy creds) instead of direct local headless Chromium.
-- [x] **FETCH-02**: On a verification run, the Hemnet pricing-page 403 block rate drops to ~0.
-- [x] **FETCH-03**: Self-hosted Playwright / headless Chromium is retired (or gated off) once the Oxylabs path is proven, removing it as a resource driver.
-
-### Cleanup (CLEAN) — gated on AUDIT
-- [x] **CLEAN-01**: Apps the audit clears as unused (spotify/procore/block_inc, and Booli if confirmed redundant) are removed/disabled.
-- [x] **CLEAN-02**: Oversized logs are rotated/removed and disk is reclaimed; the container set is reduced to the price-scraper essentials.
-- [x] **CLEAN-03**: End-state — the Hemnet price scraper is the primary workload running on the droplet.
-- [x] **CLEAN-04**: The Kinsing/`kdevtmpfsi` cryptominer is remediated in place — root-cause persistence removed, the entry vector closed (network/host-layer, no team-repo edit), and the per-minute `kill.sh` whack-a-mole retired — and the host is verified clean over an observation window. (Folded into Phase 24 by operator decision 2026-06-30; this is the standing prerequisite for porting Oxylabs creds back onto the box.)
-
-### Right-size (SIZE)
-- [ ] **SIZE-01**: The droplet is resized down to a slug matched to the post-cleanup footprint, reducing monthly cost from ~$100.
-- [ ] **SIZE-02**: Post-resize verification confirms the price scraper still runs correctly (and reaches Hemnet via Oxylabs) at the smaller size.
+> Prior milestone (v4.0 price-scraper droplet audit/right-size) requirements are preserved in git history and traced in PROJECT history.
 
 ---
 
-## Out of Scope (v4.0)
-- **Clean rebuild / migration to a fresh droplet** — operator chose in-place cleanup + resize. (Revisit only if the audit shows the box is unsalvageable.)
-- **Consolidating onto the cohort-tracker droplet** — rejected; different stack, would destabilize a working production box. "One page" is a later data/reporting-layer concern, not this milestone.
-- **Refactoring the team's scraper beyond the Oxylabs fetch switch** — feature work in `hem-bol-scrapers` stays with the team.
-- **The other locked droplets** (`hemnetnews`, `snapshot-runner`, `Decade-Internal-Skill-Site`) — separate follow-up if needed.
+## v5.0 Requirements
+
+### Ad-cost scrape feasibility (FEAS)
+- [x] **FEAS-01**: A cheap, operator-approved test crawl confirms whether the Hemnet ad-cost GraphQL POST path (`search_ad_cost_2`) still works directly post-May-2026-blocking, or is blocked. — **Answered 2026-06-30 (26-01): BLOCKED.** Direct POST returns HTTP 403 Cloudflare from the droplet IP; see `.planning/phases/26-ad-cost-scrape-feasibility/26-DIRECT-TEST-RESULT.md`.
+- [ ] **FEAS-02**: A working ad-cost fetch path is established — kept direct if it still works, else rerouted through Oxylabs (mirroring P23) — producing fresh `AdCostV2` rows.
+- [ ] **FEAS-03**: The recurring scrape cost (direct ≈ free vs Oxylabs ≈ small per run) is quantified and surfaced to the operator before any recurring scraping is enabled (recurring-cost decision is the operator's).
+
+### Resume weekly scrape (SCRAPE)
+- [ ] **SCRAPE-01**: The dormant weekly "Scrape hemnet.se ad cost" `PeriodicTask` (cron `0 6 * * 1`, Australia/Sydney) is re-enabled on the price-scraper droplet so the crawl runs on its weekly cadence.
+- [ ] **SCRAPE-02**: A first resumed crawl is verified — fresh rows land in `AdCostV2` with current `crawled` dates across the expected ~10 municipalities and ad tiers; the ~3.5-month gap (Mar 16 → resume) is left as a visible forward hole (not backfilled — ad prices are current-only).
+
+### Weekly reporting suite (REPORT) — in this repo
+- [ ] **REPORT-01**: A weekly Slack summary reports average `ad_price` by tier, week-over-week change, and a per-municipality breakdown, in **absolute kronor** (not take-rate %), posted to the sold-match review channel `C0B9X2WDC4C`.
+- [ ] **REPORT-02**: A committed Chart.js trend HTML visualizes ad-price history over time with per-tier series (mirrors `sold-match-trend-chart.js`, committed-HTML-from-DB pattern).
+- [ ] **REPORT-03**: An ExcelJS workbook provides an auditable per-week ad-price export with clickable full URLs (mirrors `sold-match-xlsx.js`).
+
+### Scheduling (SCHED)
+- [ ] **SCHED-01**: The reporting suite runs on a weekly cron via `cron-wrapper.runJob` in this repo (scrape Mon AM → report Mon later), mirroring the sold-match cron wiring; the run is DB-only (no Oxylabs cost on the report side).
+
+---
+
+## Future Requirements (deferred)
+- **Take-rate / % view** — explicitly declined for v5.0 (absolute kronor only); revisit if the absolute series proves insufficient.
+- **Backfilling the Mar 16 → resume gap** — not possible (ad prices are current-only); the hole stays.
+- **Booli / listings scrape resume** on the price box — out of this milestone (leave those beat tasks disabled per v4.0).
+
+## Out of Scope (v5.0)
+- **Reporting as a Django celery task on the price box** — rejected; report home is Node scripts in this repo (locked 2026-06-30).
+- **Dedicated ad-pricing Slack channel** — operator chose to reuse `C0B9X2WDC4C` at kickoff.
+- **Non-Hemnet scrapers** (block_inc/procore/spotify) — stay killed per v4.0; not touched.
+- **Managed-Postgres `simple_history` ~49 GB retention/cleanup + dedicated rotatable Oxylabs sub-user** — deferred v4.0 follow-through, its own future phase.
 
 ## Traceability
 
 | REQ | Phase |
 |-----|-------|
-| ACCESS-01, ACCESS-02, ACCESS-03 | 21 |
-| AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04, AUDIT-05 | 22 |
-| FETCH-01, FETCH-02, FETCH-03 | 23 |
-| CLEAN-01, CLEAN-02, CLEAN-03, CLEAN-04 | 24 |
-| SIZE-01, SIZE-02 | 25 |
+| FEAS-01 | Phase 26 |
+| FEAS-02 | Phase 26 |
+| FEAS-03 | Phase 26 |
+| SCRAPE-01 | Phase 27 |
+| SCRAPE-02 | Phase 27 |
+| REPORT-01 | Phase 28 |
+| REPORT-02 | Phase 28 |
+| REPORT-03 | Phase 28 |
+| SCHED-01 | Phase 29 |
+
+**Coverage:** 9/9 v1 requirements mapped — no orphans, no duplicates.
+
+| Phase | Requirements | Depends on |
+|-------|--------------|------------|
+| 26. Ad-cost scrape feasibility (gates milestone) | FEAS-01, FEAS-02, FEAS-03 | — (first phase) |
+| 27. Resume weekly scrape | SCRAPE-01, SCRAPE-02 | Phase 26 |
+| 28. Weekly reporting suite | REPORT-01, REPORT-02, REPORT-03 | Phase 27 |
+| 29. Weekly scheduling | SCHED-01 | Phase 28 |

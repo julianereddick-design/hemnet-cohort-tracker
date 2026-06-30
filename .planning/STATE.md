@@ -1,44 +1,45 @@
 ---
 gsd_state_version: 1.0
-milestone: v4.0
-milestone_name: Hemnet Price-Scraper Droplet — Audit, Consolidate & Right-size
-status: Phase 25 complete — v4.0 milestone complete
-stopped_at: Phase 25 complete (SIZE-01 + SIZE-02 verified GREEN)
-last_updated: "2026-06-30T04:05:00.000Z"
-last_activity: 2026-06-30 -- Phase 25 executed + verified (droplet right-sized to s-1vcpu-2gb)
+milestone: v5.0
+milestone_name: Hemnet Ad-Pricing — Resume Scrape + Weekly Reporting
+status: executing
+stopped_at: Phase 26 plan 01 complete (DIRECT_BLOCKED)
+last_updated: "2026-06-30T00:00:00.000Z"
+last_activity: 2026-06-30 -- 26-01 complete: direct ad-cost path BLOCKED (403 Cloudflare); 26-02 Oxylabs rewire activated
 progress:
-  total_phases: 22
+  total_phases: 26
   completed_phases: 14
-  total_plans: 63
+  total_plans: 62
   completed_plans: 54
-  percent: 86
+  percent: 87
 ---
 
 ## Current Position
 
-Phase: 25 — COMPLETE (4/4 plans, verified GREEN 2026-06-30). v4.0 milestone (Phases 21–25) COMPLETE.
+Phase: 26 (ad-cost-scrape-feasibility) — EXECUTING
+Plan: 2 of 3 (26-01 done)
+Status: Executing Phase 26 — 26-01 DIRECT_BLOCKED, 26-02 (Oxylabs rewire) next
+Last activity: 2026-06-30 -- 26-01 complete: direct ad-cost path BLOCKED (403 Cloudflare); 26-02 Oxylabs rewire activated
 
-**Phase 25 result (executed inline by orchestrator, operator-gated):** Right-sized the price-scraper droplet `357087018` / `170.64.181.89` from **`s-8vcpu-16gb` → `s-1vcpu-2gb`** (CPU/RAM-only reversible resize, 50 G disk preserved) — **~$96/mo → ~$12/mo** (SIZE-01). Verified GREEN (SIZE-02): 205-page Oxylabs crawl 0% HTTP-403, peak 733 MiB, no OOM; loopback bind (`ed7192c`) survived the reboot (3000/8000 closed off-box). 25-01 D-07 pre-flight + Metabase gate; 25-02 peak-RAM profile (1033 MiB) → slug confirmed; 25-03 power-cycle resize (operator provisioned a write-scoped doctl token — the default token is read-only); 25-04 health + verification crawl.
-  • **KEY FINDING / durable fix:** the `docker stop` gate (D-02, and P23's Playwright gate) is NOT reboot-persistent on this box — `hemnet.service`→`bin/restart.sh` re-runs `docker compose up` on boot AND the Docker daemon auto-restarts `on-failure` containers. First 2 GB boot OOM-crash-looped (Metabase ~1 GiB + Playwright celery `--concurrency=8` ~600 MiB, no swap). Fixed durably for BOTH `hemnet-metabase` and `hemnet-crawler-playwright`: untracked `/var/www/apps/hemnet/docker-compose.override.yml` profiles them `ondemand` (boot compose-up skips) + `docker update --restart=no <name>` (daemon won't restart). Validated reboot-persistent. Lean steady state now = 5 scraper containers (redis/django/beat/crawler/writer) Up, ~630 MiB used / ~1.1 GiB free. Metabase on-demand: `docker compose --profile ondemand up -d metabase` (UI via `ssh -L 3000:localhost:3000`).
-  • **Reversible rollback exercised as designed:** to recover the OOM box, re-resized UP to 4 GB, applied the gate fix, rolled back to 2 GB — possible because the disk was preserved.
+**26-01 result (2026-06-30):** Direct `search_ad_cost_2` GraphQL POST tested on the price-scraper droplet `170.64.181.89` (container `hemnet-django`). The first POST (`AutocompleteLocations` → `https://www.hemnet.se/graphql`) returns **HTTP 403 Cloudflare "Just a moment…"** from the droplet IP → `VERDICT: DIRECT_BLOCKED` (`.planning/phases/26-ad-cost-scrape-feasibility/26-DIRECT-TEST-RESULT.md`, commit 36a2290). 0 `AdCostV2` rows written (blocked before write); zero Oxylabs spend; weekly + adhoc ad-cost PeriodicTasks still DISABLED. Confirms the post-May-2026 Cloudflare block now covers the GraphQL POST endpoint P23 had left direct. **FEAS-01 answered (direct = blocked); FEAS-02 deferred to 26-02** = build the Oxylabs rewire (P23 `apps/core/webscraper.py` pattern, borrowed cohort-tracker creds per D-07 since droplet's own Oxylabs creds are dead 401), bounded probe + FEAS-03 cost go/no-go. Recon facts for 26-02: endpoint `hemnet.se/graphql`, two-step POST (autocomplete→`SellerMarketingProductPrices`), 60 price points (10 munis × 6 prices), 7 productCodes, `AdCostV2` fields `{property_municipality, property_price, ad_type, ad_price, valid_until, crawled}`.
 
-**OPEN operator follow-through:** (1) **revoke the write-scoped doctl token** (T-25-07 — provisioned for the resize, no longer needed; the default read-only token remains). (2) Optional: gate doc/code — the override is untracked on the droplet only. (3) Deferred (own phase): managed-Postgres `simple_history` ~49 GB retention/cleanup; dedicated rotatable Oxylabs sub-user (droplet still borrows cohort-tracker creds).
+**Phase 26 discussion outcome (26-CONTEXT.md, 8 decisions):** Direct-first test of `search_ad_cost_2` GraphQL POST **on the droplet** (free, P23 classified it as a default-queue POST not a Chromium/403 path → may still work), smoke→representative. If blocked: build the Oxylabs rewire IN phase 26 (P23 `webscraper.py` pattern; escape hatch to split if large). **Operator delegation: run to ONE go/no-go** (full autonomous, single checkpoint = recurring-cost decision, which pre-authorizes a *bounded* Oxylabs probe capped ~P23's $0.49/200pg only if direct fails; zero spend if direct works). **Creds if Oxylabs needed: borrow cohort-tracker creds** (droplet's own are dead 401; dedicated sub-user = deferred cleanup). Cost evidence (per-run/week/month vs sold-match ~## Current Position
 
-**Prior v4.0 phases (context):** Phase 23 (Fix Hemnet capability — Oxylabs fetch) executed INLINE overnight by orchestrator on Opus (operator delegated full chain). All on live team droplet 170.64.181.89, reversible-first, no team `main` touched.
-  • 23-01: re-wired the Hemnet HTML fetch to Oxylabs `WebScraper` on branch `feat/hemnet-oxylabs-fetch` (commit 7d0fe7c). tasks.py: new `fetch_via_webscraper()` replaces 4 `run_async(get_page_source())` (local-Chromium) call sites. base.py (NEEDED beyond stated files_modified — routing lives in settings): repointed search_listings_2 / search_pre_market_listings_2 / scrape_listing_2 `playwright_queue → default`. `search_ad_cost_2` (GraphQL POST, default queue) left unchanged (not the 403/Chromium path — documented). main untouched @ ff397e9, 0 secrets.
-  • 23-02: rebuilt ONLY the `hemnet` image (cached; via the `django` buildable service) → recreated ONLY `hemnet-crawler` (default-queue eventlet worker now runs the fetch); clean boot, nothing else disturbed. Verification crawl: 200/200 Hemnet pricing pages OK, **0 HTTP-403, 0.00% block rate** (23-VERIFICATION-CRAWL.md). Build spiked disk to 1.9GB free → reclaimed build cache → 8.5GB.
-  • 23-03: `docker stop hemnet-crawler-playwright` (reversible) → **~6.0 GiB RAM freed** (used 8.6→2.6 GiB); compose service + Chromium code intact; `docker start` reverts. Unblocks Phase 25 right-size.
+5-45/mo) = Claude measures, operator decides.
 
-🚨 ESCALATION (operator action — open): the droplet's OWN Oxylabs Web Scraper API creds return **HTTP 401** (stale; the local-Chromium path never used the API). Code re-wire is correct + approach proven, but **production Hemnet scraping on the droplet won't run until the TEAM refreshes the droplet's Oxylabs API creds.** The verification crawl was run OFF-box on Decade's Oxylabs account (200 pages, ~$0.49 list / ~$0 marginal) — both because the droplet creds are dead AND to avoid exposing good creds on the malware-compromised host. Branch NOT merged to team main (per scope) — upstreaming/cred-refresh = separate team coordination.
+**Milestone v5.0 — Hemnet Ad-Pricing: Resume Scrape + Weekly Reporting.** PROJECT.md (current milestone + v4.0 moved to history) and REQUIREMENTS.md (9 reqs: FEAS ×3, SCRAPE ×2, REPORT ×3, SCHED ×1) written. Roadmap created — phases continue from 25: v5.0 = **Phases 26 (FEAS, gates) → 27 (SCRAPE) → 28 (REPORT, this repo) → 29 (SCHED)**, strictly sequential; 9/9 reqs mapped (FEAS-01..03→26, SCRAPE-01..02→27, REPORT-01..03→28, SCHED-01→29). No domain research run (recon already complete per memory `project_next_milestone_ad_pricing`; config research off). Slack target = reuse sold-match channel `C0B9X2WDC4C` (operator decision at kickoff). Absolute kronor, not take-rate %. ⚠️ Gating risk: the ad-cost scrape uses a Hemnet GraphQL POST path (`search_ad_cost_2`) P23 left un-rerouted and untested post-May-2026 blocking → FEAS test crawl gates everything.
 
-Carried-forward audit findings (still relevant for P24/P25): 🚨 Kinsing/kdevtmpfsi malware suppressed per-minute by kill.sh (escalate w/ P24); shared external managed PG defaultdb ~49GB simple_history bloat; all scrape beat tasks DISABLED; disk pressure on the box (P24 reclaim: kill.log 4.4G + scraper_log_export 6.6G + docker images). KEEP hemnet+booli+core; KILL block_inc/procore/spotify. See docs/price-scraper-droplet-audit.md + 22-EVIDENCE.md.
+Artifacts staged, NOT committed (commit_docs off; commit on request).
 
-Artifacts NOT committed yet (commit_docs off; per guidance commit on request). The 23-* .planning docs + ROADMAP/STATE/REQUIREMENTS edits are staged in the working tree, ready to commit on request. (Droplet code IS committed — on the feature branch only.)
-Last activity: 2026-06-30 -- Phase 25 executed + verified GREEN (droplet right-sized to s-1vcpu-2gb, ~$12/mo)
-Next: v4.0 milestone COMPLETE (Phases 21–25 all done). Suggested: `/gsd-complete-milestone` to archive v4.0, or pick up the deferred managed-Postgres retention/cleanup as its own phase. Operator action: revoke the write-scoped doctl token (T-25-07).
-(Historical) Phase 24 PLANNED 2026-06-30 (5 sequential plans). **OWNERSHIP CLARIFIED 2026-06-30: there is no separate host-owning team — the operator owns the DO droplet AND the scraper repo `tt7676/hem-bol-scrapers` (Illia/Raymond are the operator's devs). So repo edits are permitted and the durable hardening is folded INTO P24 (no external escalation needed; the "team notification" becomes the operator's own remediation record).** Operator decisions 2026-06-30 (24-CONTEXT.md): (1) **remediate Kinsing/kdevtmpfsi IN P24** — not just escalate (req CLEAN-04); (2) cleared apps = **confirm-disabled + orphan/dangling-image reclaim ONLY** — no DB-table drops (modules/tables stay; removal is a possible follow-up); (3) ~49 GB simple_history DB bloat **deferred**; (4) NEW **D-08 durable hardening** wave (24-05). Plans: 24-01 recon (R0-R3) → 24-02 remediate+observe + firewall containment (R1,R3-R6) → 24-03 retire kill.sh + reclaim ~21 GB (R7) → 24-04 keys + verification table + remediation record → **24-05 durable hardening (close vector at source in repo, replace runserver/DEBUG, upgrade Metabase, rotate .env secrets, rebuild/redeploy reversibly + re-verify scraper green)**. All waves operator-gated destructive droplet actions. CAVEATS: (a) DB-cred rotation NOT unilateral — `defaultdb` is SHARED with this cohort-tracker repo (coordinate-or-defer); (b) still do NOT port working Oxylabs creds until verified clean, then a DEDICATED rotatable sub-user. 24-05 has an escape hatch to split to a follow-up phase if rebuild risks destabilizing the scraper pre-resize. Phase 25 (right-size) gated on 24; ~6 GB Playwright RAM already freed (P23). Planning artifacts staged — commit on request (commit_docs off).
+### v4.0 close-out carry (do not lose)
 
-progress note: v4.0 completed_phases 3/5; Phases 22 + 23 complete+verified.
+v4.0 (Phases 21–25) COMPLETE 2026-06-30. Price-scraper droplet `357087018` / `170.64.181.89` (the SEPARATE price box, not the cohort-tracker host) right-sized `s-8vcpu-16gb`→`s-1vcpu-2gb` (~$96→~$12/mo), Hemnet fetch on Oxylabs (0% 403), Kinsing malware remediated + durable hardening, lean steady state = 5 scraper containers. **Durable-fix gotcha:** docker `stop`/gate is NOT reboot-persistent on this box (`hemnet.service`→`bin/restart.sh` re-`compose up` on boot + daemon auto-restart) — Metabase + Playwright durably gated via untracked `/var/www/apps/hemnet/docker-compose.override.yml` (`ondemand` profile) + `docker update --restart=no`. Metabase on-demand: `docker compose --profile ondemand up -d metabase` (UI via `ssh -L 3000:localhost:3000`).
+
+**OPEN v4.0 follow-throughs (carried into v5.0 context):**
+
+- 🚨 The droplet's OWN Oxylabs Web Scraper API creds return **HTTP 401** (stale). The P23 re-wire is correct + proven, but **production Hemnet scraping on the droplet won't run until the droplet's Oxylabs API creds are refreshed** — DIRECTLY RELEVANT to v5.0 FEAS-02 (if the ad-cost path needs Oxylabs, this cred must be live first). v4.0 verification crawls ran OFF-box on Decade's Oxylabs account.
+- Deferred (own future phase): managed-Postgres `simple_history` ~49 GB retention/cleanup; dedicated rotatable Oxylabs sub-user (droplet still borrows cohort-tracker creds).
+- The `feat/hemnet-oxylabs-fetch` branch is NOT merged to team main (per v4.0 scope).
 
 ### v3.1 carry-over (shipped/live — do not lose)
 

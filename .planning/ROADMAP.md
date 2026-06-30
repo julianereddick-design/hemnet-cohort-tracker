@@ -9,6 +9,7 @@
 - 🚧 **v3.0 Sold-match pipeline (Booli-sold → Hemnet-sold), DB-backed** — Phases 15–17 (productionize the validated `spike/sold-match-feasibility` spike into reusable `lib/` modules + DB persistence + config-driven segments; planning 2026-06-17)
 - 🚧 **v3.1 Sold-match productionization** — Phases 18–20 (turn the v3.0 code-complete runner into a scheduled, self-draining, observable pipeline: cron batch + ~4-week re-check drain + Slack/trend reporting; planning 2026-06-18)
 - 🚧 **v4.0 Hemnet Price-Scraper Droplet — Audit, Consolidate & Right-size** — Phases 21–25 (infra/ops for the SEPARATE price-scraper droplet `170.64.181.89` / repo `tt7676/hem-bol-scrapers`: consistent access + deep-dive audit + Oxylabs fetch fix + cleanup + right-size from ~$100/mo; planning 2026-06-29)
+- 🚧 **v5.0 Hemnet Ad-Pricing — Resume Scrape + Weekly Reporting** — Phases 26–29 (resume the dormant `AdCostV2` ad-package-price scrape on the SEPARATE price box + build a weekly Slack/Chart.js/Excel reporting suite in THIS repo, absolute kronor; planning 2026-06-30)
 
 ## Phases
 
@@ -269,6 +270,10 @@ Plans:
 | 18. Re-check state + slutpris-lag drain logic | v3.1 | 4/4 | Complete | 2026-06-18 |
 | 19. Scheduled batch orchestrator (Sold match batch) | v3.1 | 3/3 | Complete (offline; national panel sampler reframe) | 2026-06-18 |
 | 20. Per-run reporting + decision-grade trend | v3.1 | 2/2 | Complete (offline) | 2026-06-18 |
+| 26. Ad-cost scrape feasibility (gates milestone) | v5.0 | 1/3 | Executing (26-01 DIRECT_BLOCKED — 403 Cloudflare; 26-02 Oxylabs rewire activated) | - |
+| 27. Resume weekly scrape | v5.0 | 0/? | Not started | - |
+| 28. Weekly reporting suite (Slack + chart + xlsx) | v5.0 | 0/? | Not started | - |
+| 29. Weekly scheduling | v5.0 | 0/? | Not started | - |
 
 ### Phase 12: Cohort match spot-check weekly QA gate
 
@@ -510,4 +515,74 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 - [x] 25-04-PLAN.md — post-resize infra health + bind-survival + operator-approved Oxylabs verification crawl (0% 403), GREEN/rollback verdict (SIZE-02)
+**UI hint**: no
+
+---
+
+### 🚧 v5.0 Hemnet Ad-Pricing — Resume Scrape + Weekly Reporting (Planning — 2026-06-30)
+
+**Milestone Goal:** Resume the dormant Hemnet **advertising-package price** scrape (`AdCostV2` — what Hemnet charges a *seller* to list, by BASIC/PLUS/PREMIUM/MAX/TOPLISTING tier × municipality × property-price band; weekly task disabled since 2026-03-16) and build a weekly Slack + Chart.js + Excel reporting suite **in this cohort-tracker repo** that mirrors the sold-match reporting suite. A direct read on Hemnet's pricing power, in **absolute kronor**.
+
+> **Two systems.** The *scrape* half lives on the SEPARATE price-scraper droplet `170.64.181.89` (repo `github.com/tt7676/hem-bol-scrapers`, operator-owned) — re-enabling the dormant ad-cost crawl. The *reporting* half is new Node scripts **in THIS repo**, reusing `cron-wrapper.runJob` + Slack + Chart.js + ExcelJS, mirroring `sold-match-report.js` / `sold-match-trend-chart.js` / `sold-match-xlsx.js`.
+
+**Background:** `AdCostV2` history = 17,234 rows, 10 municipalities, weekly 2025-06-08 → 2026-03-16 (42 crawls), then stopped (beat task disabled during the v4.0 audit — not broken). ⚠️ **Gating feasibility risk:** the ad-cost crawl uses a Hemnet **GraphQL POST** path (`search_ad_cost_2`) that P23 left UN-rerouted and that last ran *before* Hemnet's ~May-2026 direct-blocking — so a cheap operator-approved test crawl must confirm direct still works OR rewire through Oxylabs (mirroring P23) before anything recurring is enabled. A known open risk that may surface: the droplet's OWN Oxylabs API creds are currently stale (HTTP 401) and would need refreshing first if the ad-cost path needs Oxylabs.
+
+**Decisions LOCKED (2026-06-30):** report home = Node scripts in THIS repo (not a Django task on the price box); outputs = all three (Slack + chart + xlsx); **absolute kronor, NOT take-rate %**; cadence = weekly Mondays, continuing the existing series; Slack target = reuse the sold-match review channel `C0B9X2WDC4C`; the ~3.5-month gap (Mar 16 → resume) **cannot be backfilled** (ad prices are current-only) — resume forward with a visible hole. Recurring-cost is the operator's call (no paid runs without explicit per-run go-ahead).
+
+**Sequence (locked):** (1) feasibility test → (2) re-enable weekly scrape → (3) build the 3 reports in this repo → (4) wire the weekly cron. Strictly sequential: 26 → 27 → 28 → 29.
+
+#### Phase 26: Ad-cost scrape feasibility (gates the milestone)
+**Goal**: A working ad-cost fetch path is established and its recurring cost is quantified for the operator — confirming whether the Hemnet `search_ad_cost_2` GraphQL POST path still works directly post-May-2026 blocking or must be rerouted through Oxylabs (mirroring P23) — before any recurring scraping is enabled. **Gates Phases 27–29.**
+**Depends on**: Nothing in v5.0 (first phase; builds on P23 Oxylabs-fetch knowledge and the v4.0 droplet access)
+**Requirements**: FEAS-01, FEAS-02, FEAS-03
+**Success Criteria** (what must be TRUE):
+  1. A cheap, operator-approved test crawl has produced evidence of whether the `search_ad_cost_2` GraphQL POST path still works directly (HTTP 200 with parseable ad-cost data) or is blocked (403/Cloudflare) post-May-2026
+  2. A working ad-cost fetch path exists end-to-end — kept direct if it still works, else rerouted through Oxylabs mirroring P23 — and produces at least one batch of fresh, parseable `AdCostV2` rows (tier × municipality × price-band)
+  3. If the path requires Oxylabs, the droplet's stale (HTTP 401) Oxylabs API creds are confirmed refreshed/live first (the P23-known blocker), or the test runs on confirmed-live creds
+  4. The recurring per-run scrape cost (direct ≈ free vs Oxylabs ≈ N calls × unit cost) is quantified in writing and surfaced to the operator, who makes the recurring-cost go/no-go call before anything recurring is enabled
+**Plans**: 3 plans
+
+Plans:
+**Wave 1**
+- [ ] 26-01-PLAN.md — Direct-first `search_ad_cost_2` test on the droplet (smoke→all-10 muni); verdict + AdCostV2 evidence (FEAS-01, FEAS-02)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 26-02-PLAN.md — CONDITIONAL: Oxylabs rewire of the GraphQL POST + borrowed creds + bounded probe (≤$0.49) if direct is blocked (FEAS-02)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 26-03-PLAN.md — Recurring-cost write-up (per-run/week/month) + single operator go/no-go checkpoint (FEAS-03)
+**UI hint**: no
+
+#### Phase 27: Resume weekly scrape
+**Goal**: The dormant weekly "Scrape hemnet.se ad cost" `PeriodicTask` is re-enabled on the price-scraper droplet over the FEAS-validated fetch path, and a first resumed crawl is verified — fresh `AdCostV2` rows land again on the weekly cadence, with the ~3.5-month gap left as a visible forward hole.
+**Depends on**: Phase 26 (a working, cost-approved fetch path must exist before re-enabling recurring scraping)
+**Requirements**: SCRAPE-01, SCRAPE-02
+**Success Criteria** (what must be TRUE):
+  1. The dormant "Scrape hemnet.se ad cost" `PeriodicTask` (cron `0 6 * * 1`, Australia/Sydney) is re-enabled on the droplet and scheduled to fire on its weekly cadence
+  2. A first resumed crawl completes and writes fresh `AdCostV2` rows with current `crawled` dates across the expected ~10 municipalities and the BASIC/PLUS/PREMIUM/MAX/TOPLISTING tiers
+  3. The ~3.5-month Mar-16→resume gap is left as a visible forward hole — not backfilled (ad prices are current-only) — and documented so downstream reports render it honestly
+**Plans**: TBD
+**UI hint**: no
+
+#### Phase 28: Weekly reporting suite (in this repo)
+**Goal**: Three new Node scripts in THIS repo — a Slack summary, a committed Chart.js trend HTML, and an ExcelJS workbook — report Hemnet ad-package prices in **absolute kronor** from the `AdCostV2` data, mirroring the sold-match reporting suite and reusing `cron-wrapper.runJob` + Slack + Chart.js + ExcelJS.
+**Depends on**: Phase 27 (fresh `AdCostV2` rows must be landing for the reports to summarize and for week-over-week deltas to be meaningful)
+**Requirements**: REPORT-01, REPORT-02, REPORT-03
+**Success Criteria** (what must be TRUE):
+  1. A weekly Slack summary reports average `ad_price` by tier, week-over-week change, and a per-municipality breakdown in **absolute kronor** (NOT take-rate %), posted to the sold-match review channel `C0B9X2WDC4C`
+  2. A committed Chart.js trend HTML visualizes ad-price history over time with per-tier series, following the committed-HTML-from-DB pattern (mirrors `sold-match-trend-chart.js`)
+  3. An ExcelJS workbook provides an auditable per-week ad-price export with clickable full URLs (mirrors `sold-match-xlsx.js`)
+  4. All three reporters run offline against fixture/DB data with zero Oxylabs spend (the report side is DB-only)
+**Plans**: TBD
+**UI hint**: yes
+
+#### Phase 29: Weekly scheduling
+**Goal**: The reporting suite is wired onto a weekly cron via `cron-wrapper.runJob` in this repo (scrape Mon AM → report Mon later), mirroring the sold-match cron wiring, with the cron line, env vars, and a runbook entry documented and installable.
+**Depends on**: Phase 28 (the report scripts must exist before they can be scheduled)
+**Requirements**: SCHED-01
+**Success Criteria** (what must be TRUE):
+  1. The reporting suite runs on a weekly cron via `cron-wrapper.runJob` in this repo, scheduled after the Monday-AM scrape (scrape Mon AM → report Mon later), mirroring the sold-match cron wiring
+  2. The cron line, required env vars, and an operator runbook entry (how to detect, diagnose, and re-run after a failure) are documented in `deploy-instructions.md` and installable
+  3. The scheduled report run is DB-only — it logs to `cron_job_log` and incurs no Oxylabs cost on the report side
+**Plans**: TBD
 **UI hint**: no
