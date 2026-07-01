@@ -30,6 +30,22 @@ entry (NOT the `[adhoc]` entry):
 
 Disable command (revert): same one-liner with `t.enabled=False`.
 
+## Correction — payment method (2026-07-01, during Phase 28 scoping)
+
+The initial resume used `PAY_NOW`. Verified against Julian's ARPL v6 model that the entire
+historical `AdCostV2` series is the **`PAY_WHEN_LISTING_IS_REMOVED`** price (Stockholm @5M matches
+BASIC 7297 / PLUS 11662 / PREMIUM 16370 / MAX 22683 exactly; PAY_NOW does not). PAY_NOW would have
+injected a fake ~7% drop across the gap.
+
+- Fixed: repo `e9b9d61` + droplet `328dc3d` (`PAYMENT_METHOD = PAY_WHEN_LISTING_IS_REMOVED`); crawler
+  worker restarted so the Monday cron uses it.
+- The 784 PAY_NOW rows (two test batches: 420 + a partial 364) were **deleted**; historical rows
+  (≤ Mar 16, 17,234) untouched.
+- Re-crawled: **378 correct rows** (54/60 cells; 6 transient CF misses), 10 munis, 7 tiers,
+  GATE PASS, PLUS@5M ∈ {9180, 10068, 10688, 11662} = pay-when-removed basis. ~$0.30.
+- Note: the crawler drops ~5–10% of cells on transient Cloudflare/autocomplete misses per run;
+  the weekly cadence refreshes them. A per-cell retry is a possible future hardening.
+
 ## Gap
 
 The 2026-03-16 → 2026-06-30 dormancy is a no-backfill forward hole — see `docs/ad-cost-scrape-gap.md`.
