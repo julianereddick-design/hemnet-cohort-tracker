@@ -19,17 +19,16 @@ Invoked the rewired task once on the box:
   measured run of $0.29; see app.steel.dev invoice for the exact figure).
 - This was a real write to the shared `defaultdb` `AdCostV2` table (the resume), not a dry run.
 
-## Task 3 — Weekly PeriodicTask re-enable (SCRAPE-01): PENDING OPERATOR FLIP
+## Task 3 — Weekly PeriodicTask re-enable (SCRAPE-01): DONE
 
-The recurring-cost flip (enable the weekly `Scrape hemnet.se ad cost` cron, ~$0.50/mo) is reserved
-to the operator and was gated by the auto-mode classifier. Command to run (flips ONLY the weekly
-entry, cron `0 6 * * 1` Australia/Sydney — NOT the `[adhoc]` entry):
+Operator authorized the recurring-cost flip 2026-07-01 ("flip the cron"). Flipped ONLY the weekly
+entry (NOT the `[adhoc]` entry):
 
-```
-ssh -o IdentitiesOnly=yes -o IdentityAgent=none -o ControlMaster=no -o ControlPath=none -o ConnectTimeout=12 -i ~/.ssh/droplet_ed25519 root@170.64.181.89 "docker exec hemnet-django python manage.py shell -c 'from django_celery_beat.models import PeriodicTask as P; t=P.objects.get(name=\"Scrape hemnet.se ad cost\"); t.enabled=True; t.save(); print(\"ENABLED:\", t.name, t.enabled, str(t.crontab), t.crontab.timezone)'"
-```
+- **`Scrape hemnet.se ad cost` → enabled=True**, cron **`0 6 * * 1` Australia/Sydney**.
+- `[adhoc] Scrape hemnet.se ad cost` → still `enabled=False` (untouched).
+- First unattended run: **next Monday 06:00 Australia/Sydney**. Recurring egress ~$0.50/mo.
 
-> _Update this line once flipped:_ `enabled=True` confirmed — cron `0 6 * * 1` Australia/Sydney — [pending].
+Disable command (revert): same one-liner with `t.enabled=False`.
 
 ## Gap
 
