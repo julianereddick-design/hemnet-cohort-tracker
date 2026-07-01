@@ -207,22 +207,22 @@ def arpl_block(latest_date, data_latest, end2025_date, data_end, baseline):
             lv, ev = bl, be
         else:
             lv, ev = pt_l.get(tier), pt_e.get(tier)
-        chg = pct(lv, ev)
+        chg = pct(lv, ev)  # ratio — VAT cancels, so unaffected by MOMS
         _, _, ctxt = cell_color(chg)
-        gross = (lv * MOMS) if lv else None
+        lg = (lv * MOMS) if lv else None   # gross (inc 25% moms)
+        eg = (ev * MOMS) if ev else None
         rows.append(
             f"<tr><td class='rowh'>{tier.title()}</td>"
-            f"<td>{('%.0f'%lv) if lv else 'n/a'}</td>"
-            f"<td><b>{('%.0f'%gross) if gross else 'n/a'}</b></td>"
-            f"<td>{('%.0f'%ev) if ev else 'n/a'}</td>"
+            f"<td><b>{('%.0f'%lg) if lg else 'n/a'}</b></td>"
+            f"<td>{('%.0f'%eg) if eg else 'n/a'}</td>"
             f"<td>{ctxt}</td></tr>")
-    return (f"<h2>Weighted ARPL (SEK / listing)</h2>"
-            f"<p class='sub'>Weighted by the v6 listing mix (county × tier × price-band, "
+    return (f"<h2>Weighted ARPL (SEK / listing, inc. 25% moms)</h2>"
+            f"<p class='sub'>Gross (VAT-inclusive), matching the v6 model. Weighted by the "
+            f"v6 listing mix (county × tier × price-band, "
             f"n={sum(sum(b.values()) for c in baseline.values() for b in c.values()):,} listings). "
-            f"Blended = across Bas/Plus/Premium/Max. 'net' = ex-VAT (as scraped); "
-            f"'inc-moms' = ×1.25 to match the v6 gross reporting.</p>"
-            f"<table class='arpl'><tr><th>Tier</th><th>Latest net ({latest_date})</th>"
-            f"<th>Latest inc-moms</th><th>End-2025 net ({end2025_date})</th><th>Δ net</th></tr>"
+            f"Blended = across Bas/Plus/Premium/Max.</p>"
+            f"<table class='arpl'><tr><th>Tier</th><th>Latest ({latest_date})</th>"
+            f"<th>End-2025 ({end2025_date})</th><th>Δ</th></tr>"
             f"{''.join(rows)}</table>")
 
 
@@ -286,8 +286,9 @@ def main():
     print(f"snapshots={len(dates)}  first={dates[0]}  latest={latest}")
     print(f"prior={prior}  WoW_valid={wow_ok}  end2025_anchor={end2025}")
     bl, pt = arpl(data[latest], baseline, CORE_TIERS)
-    print("ARPL latest per tier:", {k: (round(v) if v else None) for k, v in pt.items()})
-    print("ARPL latest blended:", round(bl) if bl else None)
+    print("ARPL latest per tier (inc-moms):",
+          {k: (round(v * MOMS) if v else None) for k, v in pt.items()})
+    print("ARPL latest blended (inc-moms):", round(bl * MOMS) if bl else None)
     print(f"wrote {xlsx}")
     print(f"wrote {html}")
 
