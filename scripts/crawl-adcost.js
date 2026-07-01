@@ -36,6 +36,7 @@ const {
   PRODUCT_CODES,
   OFFER_SLUGS,
   COMPOSE_UPGRADES_WITH_BASIC,
+  PAYMENT_METHOD,
   GRAPHQL_URL,
   USER_AGENT,
   AUTOCOMPLETE_QUERY,
@@ -404,7 +405,7 @@ function runSmoke() {
       pricingCalculator: OFFER_SLUGS.map((slug, i) => ({
         offerSlug: slug,
         prices: {
-          PAY_NOW: {
+          [PAYMENT_METHOD]: {
             total: {
               amountInCents: 100000 * (i + 1), // → 1000*(i+1) kr after /100
               amountBeforeDiscountInCents: 100000 * (i + 1),

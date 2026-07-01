@@ -80,9 +80,13 @@ const SLUG_TO_AD_TYPE = {
 // applyBasicSum is therefore NO LONGER applied (it would double-count).
 const COMPOSE_UPGRADES_WITH_BASIC = true;
 
-// Which of the 3 payment methods the AdCostV2 ad_price represents. PAY_NOW is
-// the standard upfront ad cost (the historical single price per tier).
-const PAYMENT_METHOD = 'PAY_NOW';
+// Which of the 3 payment methods the AdCostV2 ad_price represents.
+// PAY_WHEN_LISTING_IS_REMOVED — verified 2026-07-01 against Julian's historical
+// ARPL model (Hemnet ARPL Calcs_v6.xlsx): all 4 tiers for Stockholm @5M match this
+// method EXACTLY (BASIC 7297 / PLUS 11662 / PREMIUM 16370 / MAX 22683), and none
+// match PAY_NOW. This is the standard "pay when the listing is removed" price and
+// the one the entire pre-Mar-16 AdCostV2 series used — required for gap continuity.
+const PAYMENT_METHOD = 'PAY_WHEN_LISTING_IS_REMOVED';
 
 // Legacy alias — kept so existing references don't break; equals the historical
 // ad_type label set (the VALUES stored in AdCostV2.ad_type).
