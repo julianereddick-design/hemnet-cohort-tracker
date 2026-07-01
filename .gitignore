@@ -18,3 +18,6 @@ verf-soldspike*/cache/
 verf-soldspike*/**/*.html
 verf-soldspike*/recon/*.html
 verf-soldspike*/**/photos/
+
+# Phase 28: large source workbook (Julian ARPL model) — do not commit
+data/*.xlsx
