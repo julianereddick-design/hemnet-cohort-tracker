@@ -22,6 +22,11 @@ require('dotenv').config();
 const { createClient } = require('./db');
 const { postInfoMessage } = require('./lib/spotcheck-slack-bot');
 const panel = require('./config/sold-panel.json');
+// buildSeries computes, per fortnightly cohort, the on-Hemnet match share (firstPull +
+// incremental = matched/total) and the sample size — the exact numbers the trend chart
+// plots. The minimal weekly Slack message (below) reuses it so the posted % and the chart
+// are guaranteed to agree.
+const { buildSeries } = require('./sold-match-trend-chart');
 
 // REPORT-ONLY additive overlays (config/sold-panel.json overlays[]): each re-buckets rows whose
 // booli_sold.municipality === match_muni AND descriptive_area ∈ descriptive_areas as an extra
@@ -413,52 +418,81 @@ async function fetchRunSummary(client) {
 }
 
 // ---------------------------------------------------------------------------
+// fetchCohortRows — every verdict row carrying window_end, shaped for buildSeries. Static
+// SELECT, no interpolated input. Mirrors sold-match-trend-chart.js fetchRows so the Slack
+// number and the chart are computed from the same population.
+async function fetchCohortRows(client) {
+  const res = await client.query(
+    `SELECT verdict, (first_unmatched_at IS NOT NULL) AS was_enrolled,
+            to_char(window_end, 'YYYY-MM-DD') AS window_end
+       FROM sold_match
+      WHERE window_end IS NOT NULL
+      ORDER BY window_end`,
+  );
+  return res.rows;
+}
+
+// ---------------------------------------------------------------------------
+// renderMatchRateSummary — the minimal weekly Slack message (blank-slate redesign,
+// 2026-07-07). Shows, most-recent first, the Matched-on-Hemnet share + sample size for the
+// N most recent fortnightly runs (default 5 = latest + prior 4), and a link to the trend
+// chart. Nothing else. Matched-on-Hemnet = buildSeries firstPull + incremental (matched /
+// total), i.e. the same % the chart plots. `series` is the buildSeries output.
+// ---------------------------------------------------------------------------
+function renderMatchRateSummary(series, opts = {}) {
+  const limit = opts.limit || 5;
+  const n = (series.periods || []).length;
+  const take = Math.min(limit, n);
+  const rows = [];
+  for (let i = n - 1; i >= n - take; i--) {
+    const rate = (series.firstPull[i] || 0) + (series.incremental[i] || 0);
+    rows.push({ week: series.periods[i], pct: rate * 100, n: series.totals[i] });
+  }
+
+  const lines = [':bar_chart: *Sold-match — Matched on Hemnet*', ''];
+  if (rows.length === 0) {
+    lines.push('_No cohorts with data yet._');
+  } else {
+    lines.push('```');
+    lines.push('week        matched      n');
+    for (const r of rows) {
+      lines.push(`${rpad(r.week, 10)}  ${lpad(`${r.pct.toFixed(1)}%`, 6)}  ${lpad(String(r.n), 6)}`);
+    }
+    lines.push('```');
+  }
+  if (opts.chartUrl) {
+    lines.push(`:chart_with_upwards_trend: <${opts.chartUrl}|Historical chart>`);
+  }
+  return lines.join('\n');
+}
+
+// ---------------------------------------------------------------------------
 // run() — live path. createClient/connect/try/finally(end) verbatim from the analog.
+// Blank-slate minimal report: Matched-on-Hemnet % + n for the most recent runs + chart link.
+// The detailed region/segment/settle renderers above are retained (dormant) for a later
+// iteration but are no longer posted.
 // ---------------------------------------------------------------------------
 async function run() {
-  // Lookback defaults to today − 21 days (one fortnight + buffer); REPORT_SINCE overrides.
-  let since = process.env.REPORT_SINCE;
-  if (!since) {
-    const d = new Date();
-    d.setUTCDate(d.getUTCDate() - 21);
-    since = d.toISOString().slice(0, 10);
-  }
-  const fromRun = process.argv.includes('--from-run');
-
   const client = createClient();
   await client.connect();
 
-  let rows;
-  let settleRows;
-  let runSummary = null;
+  let cohortRows;
   try {
-    rows = await fetchRows(client, since);
-    settleRows = await fetchSettleRows(client);
-    if (fromRun) runSummary = await fetchRunSummary(client);
+    cohortRows = await fetchCohortRows(client);
   } finally {
     await client.end();
   }
 
-  const perSegment = bucketRows(rows);
-  // #4: the settled headline is computed over the full lifecycle-to-date population (no window_end
-  // filter), so settled rows are not aged out by the recent-window filter used for the raw rate.
-  const settleSeg = bucketRows(settleRows);
-  const settleRollup = rollupRegion(settleSeg);
-  const settleByFamily = rollupFamily(settleSeg, settleRollup.segMeta);
-  let message = renderReport(perSegment, {
-    date: new Date().toISOString().slice(0, 10), rows, since,
-    settle: { national: settleRollup.national, byFamily: settleByFamily },
-  });
+  const series = buildSeries(cohortRows);
 
-  if (fromRun && runSummary && runSummary.recheck) {
-    const r = runSummary.recheck;
-    message += '\n```\n'
-      + 'Last batch re-check drain:\n'
-      + `enrolled=${r.enrolled} rechecked=${r.rechecked} lateMatched=${r.lateMatched} `
-      + `stillPending=${r.stillPending} uncertain=${r.uncertain} settled=${r.settled}`
-      + '\n```';
-  }
+  // Link the trend chart written by sold-match-trend-chart.js at view-data/<date>/sold-match/
+  // trend.html and served by view-data-server.js. Same URL scheme as weekly-view-report.js.
+  const today = new Date().toISOString().slice(0, 10);
+  const host = process.env.VIEW_SERVER_HOST;
+  const port = process.env.VIEW_SERVER_PORT || 3800;
+  const chartUrl = host ? `http://${host}:${port}/view-data/${today}/sold-match/trend.html` : null;
 
+  const message = renderMatchRateSummary(series, { chartUrl });
   console.log(message);
 
   if (process.env.SLACK_BOT_TOKEN) {
@@ -472,7 +506,7 @@ async function run() {
 
 module.exports = {
   bucketRows, settledRate, rawBooliOnlyRate, rollupRegion, rollupFamily, bucketOverlays,
-  segmentToMuniRegion, renderReport, fetchSettleRows,
+  segmentToMuniRegion, renderReport, fetchSettleRows, renderMatchRateSummary,
 };
 
 // ---------------------------------------------------------------------------
@@ -705,6 +739,44 @@ function runSmoke() {
     await checkAsync('postInfoMessage returns null with no SLACK_BOT_TOKEN', async () => {
       const result = await postInfoMessage('C0test', 'hello');
       assert.strictEqual(result, null, `expected null, got ${JSON.stringify(result)}`);
+    });
+
+    // renderMatchRateSummary — the minimal weekly message: most-recent-first table of
+    // Matched-on-Hemnet % + n, capped at `limit`, plus the chart link.
+    check('renderMatchRateSummary: most-recent-first, correct %/n, capped, chart link', () => {
+      const series = {
+        periods: ['2026-W12', '2026-W25', '2026-W26', '2026-W28'],
+        firstPull: [0.50, 0.761, 0.788, 0.77],
+        incremental: [0, 0, 0, 0],
+        totals: [54, 67, 1467, 985],
+      };
+      const msg = renderMatchRateSummary(series, { chartUrl: 'http://h:3800/x.html', limit: 5 });
+      // most recent first
+      const w28 = msg.indexOf('2026-W28');
+      const w12 = msg.indexOf('2026-W12');
+      assert.ok(w28 >= 0 && w12 >= 0 && w28 < w12, 'most recent (W28) listed before oldest (W12)');
+      // latest row shows the 77.0% headline number and its sample size
+      assert.ok(/2026-W28\s+77\.0%\s+985/.test(msg), 'W28 row shows 77.0% and n=985');
+      assert.ok(/2026-W26\s+78\.8%\s+1467/.test(msg), 'W26 row shows 78.8% and n=1467');
+      assert.ok(msg.includes('<http://h:3800/x.html|Historical chart>'), 'chart link present');
+      assert.ok(msg.includes('Matched on Hemnet'), 'header present');
+      // no leftover detailed sections
+      assert.ok(!/settled|booli_only|region/i.test(msg), 'no detailed settle/booli_only/region text');
+    });
+
+    check('renderMatchRateSummary: caps at limit (5) of many cohorts', () => {
+      const mk = (k) => `2026-W${String(k).padStart(2, '0')}`;
+      const periods = []; const firstPull = []; const incremental = []; const totals = [];
+      for (let i = 1; i <= 9; i++) { periods.push(mk(i)); firstPull.push(0.7); incremental.push(0); totals.push(100 + i); }
+      const msg = renderMatchRateSummary({ periods, firstPull, incremental, totals }, { limit: 5 });
+      const shown = (msg.match(/2026-W\d\d/g) || []);
+      assert.strictEqual(shown.length, 5, `expected 5 rows, got ${shown.length}`);
+      assert.strictEqual(shown[0], '2026-W09', 'newest first');
+    });
+
+    check('renderMatchRateSummary: empty series → graceful "no cohorts" (no crash)', () => {
+      const msg = renderMatchRateSummary({ periods: [], firstPull: [], incremental: [], totals: [] }, {});
+      assert.ok(msg.includes('No cohorts'), 'graceful empty message');
     });
 
     if (savedToken !== undefined) process.env.SLACK_BOT_TOKEN = savedToken;
