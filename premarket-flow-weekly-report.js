@@ -103,18 +103,20 @@ async function run() {
       `If the measure job hasn't run yet today, this is expected — rendering "?" cells.`);
   }
 
-  // Hemnet share of combined fresh 2nd-hand adds.
-  let shareLine = 'Hemnet share of fresh pre-market adds: ?';
-  if (hc && bc && hc.adds != null && bc.adds != null && (hc.adds + bc.adds) > 0) {
-    shareLine = `Hemnet share of fresh pre-market adds: ${((hc.adds / (hc.adds + bc.adds)) * 100).toFixed(1)}%`;
+  // Hemnet fresh 2nd-hand adds as a % of Booli's. NOT a combined-market share
+  // (hemnet/(hemnet+booli)) — the two platforms aren't a partition of one market, so
+  // summing them is misleading. Just Hemnet relative to Booli = 1/(Booli/Hemnet ratio).
+  let shareLine = 'Hemnet fresh adds as % of Booli: ?';
+  if (hc && bc && hc.adds != null && bc.adds != null && bc.adds > 0) {
+    shareLine = `Hemnet fresh adds as % of Booli: ${((hc.adds / bc.adds) * 100).toFixed(1)}%`;
   }
 
   const bodyLines = [
-    `Pre-market flow pulse — week of ${today}  (2nd-hand, national)`,
+    `Pre-market flow pulse — last 7 days to ${today}  (2nd-hand, national)`,
     '',
     `${rpad('', 18)}${lpad('Hemnet', 10)}${lpad('Booli', 12)}${lpad('Booli/Hemnet', 13)}`,
     metricRow('Stock (2nd-hand)', hc && hc.stock, bc && bc.stock, ''),
-    metricRow('Adds / week',      hc && hc.adds,  bc && bc.adds,  ''),
+    metricRow('Adds (last 7d)',   hc && hc.adds,  bc && bc.adds,  ''),
     metricRow('Mean dwell',       hc && hc.dwell != null ? hc.dwell : null, bc && bc.dwell != null ? bc.dwell : null, 'd'),
     '',
     shareLine,
