@@ -65,7 +65,10 @@ const PLATFORMS = {
     url: (p) => `https://www.hemnet.se/kommande/bostader?sort=NEWEST&page=${p}`,
     parse: (apollo) => parseListingCards(apollo).map(c => ({ published: c.publishedAt, isNewBuild: c.newConstruction })),
     stock: (apollo) => pickByPrefix(apollo.ROOT_QUERY, 'searchUpcomingListings', 'total'),
-    depthPages: [1, 40, 80, 120, 160],
+    // Hemnet /kommande pagination is shallow (caps ~page 40-50; page 80+ returns empty).
+    // Sample within the reachable depth so the new-build/age estimate isn't computed from
+    // just page 1. Booli's pool is far deeper (33k) so it keeps the wide [1..900] spread.
+    depthPages: [1, 15, 30, 40],
   },
   booli: {
     url: (p) => `https://www.booli.se/sok/till-salu?upcomingSale=1&page=${p}`,

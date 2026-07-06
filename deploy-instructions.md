@@ -131,6 +131,24 @@ All times are UTC. Schedule respects:
 ```
 
 ```cron
+# === Pre-market flow pulse (2026-07-06) — weekly FLOW & staleness, Hemnet vs Booli ===
+# Measure job: scripts/premarket-flow-measure.js walks Hemnet /kommande + Booli
+# ?upcomingSale=1 newest-first to a 7-day cutoff, counts SECOND-HAND adds (excludes new
+# builds), samples pool depth, and upserts 2 rows/week into premarket_flow_weekly.
+# ~107 Oxylabs calls/run (non-JS). SCRAPE_FORCE_OXYLABS=1 skips the dead direct-curl path
+# (droplet DC IP gets Cloudflare 403). Slot: Mon 08:50 UTC — after market-totals-daily
+# (08:30), before the 09:00-09:30 Mon fan-out; done (~4 min) well before the report.
+50 8 * * 1  cd /opt/hemnet-cohort-tracker && SCRAPE_FORCE_OXYLABS=1 node scripts/premarket-flow-measure.js >> /var/log/hemnet/premarket-flow-measure.log 2>&1
+
+# Report job: premarket-flow-weekly-report.js reads premarket_flow_weekly for (today,
+# today-7), renders the locked comparison block (stock / adds-per-week / mean dwell +
+# Booli/Hemnet ratios + Hemnet share + WoW adds) and posts to SLACK_WEBHOOK_URL.
+# Slot: Mon 09:40 UTC — 5 min after market-totals-weekly-report (09:35), grouping the two
+# supply pulses. First valid WoW delta is >= 7 days post-deploy; earlier runs render "?".
+40 9 * * 1  cd /opt/hemnet-cohort-tracker && node premarket-flow-weekly-report.js >> /var/log/hemnet/premarket-flow-report.log 2>&1
+```
+
+```cron
 # === Phase 13 — Image confirmation + review loop (go-live with Phase 13, implements D-14) ===
 # The Phase 12 weekly gate line (Mon 06:30 UTC above) now does useful work: dHash shared-image
 # check + advisory Claude vision on suspect pairs + Slack review-queue post. D-13 guard skips
