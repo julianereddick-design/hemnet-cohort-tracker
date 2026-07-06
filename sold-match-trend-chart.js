@@ -22,6 +22,13 @@ const { createClient } = require('./db');
 const fs = require('fs');
 const path = require('path');
 
+// EXCLUDED_COHORTS — ISO-week keys to drop from the sold-match analysis entirely. 2026-W12
+// is a pre-national pilot pull (~54 records, March 2026) that was never part of the national
+// sold-match analysis; it skews the trend and the weekly Slack table. Both the chart and the
+// report compute cohorts via buildSeries, so listing a key here excludes it from BOTH. Keys
+// are full 'YYYY-Www' so they never collide with the same ISO week in another year.
+const EXCLUDED_COHORTS = ['2026-W12'];
+
 // ---------------------------------------------------------------------------
 // isoWeekKey(dateStr) — map a YYYY-MM-DD to its ISO-8601 week label 'YYYY-Www'
 // (Thursday-anchored ISO week number + ISO week-YEAR). Modeled on the
@@ -64,11 +71,14 @@ function rowEnrolled(r) {
 //   Returns { periods:[...sorted week keys], firstPull:[...0..1], incremental:[...0..1],
 //             totals:[...counts] }.
 // ---------------------------------------------------------------------------
-function buildSeries(rows) {
+function buildSeries(rows, opts = {}) {
+  // opts.exclude overrides the default EXCLUDED_COHORTS (pass [] to include everything).
+  const excluded = opts.exclude || EXCLUDED_COHORTS;
   const byPeriod = {};
   for (const r of (rows || [])) {
     if (r.window_end == null) continue;
     const key = isoWeekKey(r.window_end);
+    if (excluded.includes(key)) continue; // drop pre-national pilots from the analysis
     if (!byPeriod[key]) byPeriod[key] = emptyPeriod();
     const p = byPeriod[key];
     p.total++;
@@ -228,7 +238,7 @@ async function run() {
   }
 }
 
-module.exports = { isoWeekKey, buildSeries, renderHtml, writeChart };
+module.exports = { isoWeekKey, buildSeries, renderHtml, writeChart, EXCLUDED_COHORTS };
 
 // ---------------------------------------------------------------------------
 // Entry gate: --smoke runs the offline self-test; otherwise run().
@@ -300,6 +310,21 @@ function runSmoke() {
     assert.strictEqual(s.incremental[b], 0, 'B incremental 0');
     // first-pull + incremental = cumulative on-Hemnet match rate (8/21 for A).
     assert.ok(Math.abs((s.firstPull[a] + s.incremental[a]) - (8 / 21)) < 1e-9, 'A onHemnet 8/21');
+  });
+
+  // 2b. buildSeries excludes EXCLUDED_COHORTS (2026-W12 pre-national pilot) by default,
+  //     and opts.exclude=[] opts back in.
+  check('buildSeries: excludes 2026-W12 by default; opts.exclude=[] includes it', () => {
+    const rows = [
+      { verdict: 'matched', was_enrolled: false, window_end: '2026-03-18' }, // 2026-W12
+      { verdict: 'matched', was_enrolled: false, window_end: '2026-06-10' }, // 2026-W24
+    ];
+    assert.strictEqual(isoWeekKey('2026-03-18'), '2026-W12', 'sanity: 2026-03-18 is W12');
+    const s = buildSeries(rows);
+    assert.ok(!s.periods.includes('2026-W12'), 'W12 excluded by default');
+    assert.ok(s.periods.includes('2026-W24'), 'W24 retained');
+    const sAll = buildSeries(rows, { exclude: [] });
+    assert.ok(sAll.periods.includes('2026-W12'), 'W12 present when exclude=[]');
   });
 
   // 3. multi-cohort ordering is chronological regardless of input order.
