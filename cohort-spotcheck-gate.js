@@ -200,6 +200,35 @@ async function main(client, log) {
     throw new Error(`Spot-check artifact ${jsonPath} has no pairs[] array`);
   }
 
+  // 5b. Enrichment guard (incident 2026-W27). spotcheck-photos.js writes the
+  //     galleries back into the artifact JSON only at the very END of its run
+  //     (after the worker pool drains), then emits PHOTOS-<cohort>.md. If it
+  //     terminates mid-run (that week: resource pressure on the box slowed it to
+  //     a crawl and it exited before the write-back), the JSON keeps its original
+  //     un-enriched pairs — every pair then looks photo-less, the dHash step
+  //     skips them all, and the adjudicator downgrades ALL of them to a false
+  //     "no-photos" UNCERTAIN. The gate would then flood the review channel with
+  //     one bogus message per pair. Detect that (zero galleries across the whole
+  //     sample) and ABORT before posting anything, so cron-wrapper fires a single
+  //     [FAILURE] alert instead. The write-back is all-or-nothing, so a healthy
+  //     run always enriches many pairs and never trips this.
+  const enrichedCount = artifact.pairs.filter(
+    (p) => p.photos && (((p.photos.hemnet_gallery || []).length > 0) ||
+                        ((p.photos.booli_gallery || []).length > 0))
+  ).length;
+  const photosMdExists = fs.existsSync(path.join(artifactDir, `PHOTOS-${cohortId}.md`));
+  log('INFO', `enrichment check: ${enrichedCount}/${artifact.pairs.length} pairs have galleries; PHOTOS-${cohortId}.md ${photosMdExists ? 'present' : 'MISSING'}`);
+  if (artifact.pairs.length > 0 && enrichedCount === 0) {
+    throw new Error(
+      `photo-enrichment produced 0 galleries across ${artifact.pairs.length} pairs ` +
+      `(PHOTOS-${cohortId}.md ${photosMdExists ? 'present' : 'MISSING'}) — spotcheck-photos.js likely ` +
+      `died before writing galleries back to the artifact. Aborting before posting reviews ` +
+      `(every pair would be a false "no-photos" UNCERTAIN). Re-run photo enrichment for cohort ${cohortId} ` +
+      `(node spotcheck-photos.js ${artifactDir} --gallery --all) then re-run the gate, or recover from ` +
+      `on-disk images with scripts/spotcheck-readjudicate-from-disk.js.`
+    );
+  }
+
   // 6. Count fetch failures: pairs where Hemnet re-fetch failed.
   //    The meta.hemnet.error counter is the authoritative source; fall back to
   //    counting individual pair hemnet.status === 'error' entries.
