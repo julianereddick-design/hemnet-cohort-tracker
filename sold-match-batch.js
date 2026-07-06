@@ -49,8 +49,13 @@ const deps = {
   enrollUnmatched: recheck.enrollUnmatched,
   runRecheck: recheck.runRecheck,
   settleExpired: recheck.settleExpired,
+  loadPanel: sampler.loadPanel,   // full-panel segments map for the re-check drain (not just the queue)
+  buildSeg: sampler.buildSeg,
   now: undefined, // injected ISO clock for the smoke (drives the week gate AND the drain)
 };
+
+// Families the panel enumerates per municipality (mirrors lib/sold-sample.js FAMILIES).
+const RECHECK_FAMILIES = ['HOUSE', 'APARTMENT'];
 
 // ---------------------------------------------------------------------------
 // isoWeekNumber(date) — Thursday-anchored ISO-8601 week number (int). Modeled on
@@ -210,8 +215,12 @@ async function main(client, log) {
   }
 
   // 3) Re-check drain — only on a clean match pass (not stopped, not fatal). Real clock.
-  //    Build the segments map from this run's queue so runRecheck can rebuild a due row's
-  //    seg. A CeilingError here → batchStoppedBy='ceiling' (runRecheck re-throws it).
+  //    Build the segments map from the FULL panel (every '<Muni>:<FAMILY>' key) so a due
+  //    booli_only row resolves even in a week its municipality sampled zero records — the
+  //    queue-only map silently orphaned any such row (e.g. small munis like Kungälv), and
+  //    orphaned rows never advance next_recheck_at, so they stuck "due" and got skipped
+  //    forever. Queue entries are still merged in as a fallback for any key the panel build
+  //    misses. A CeilingError here → batchStoppedBy='ceiling' (runRecheck re-throws it).
   const recheckBlock = {
     enrolled: 0, rechecked: 0, lateMatched: 0, stillPending: 0, uncertain: 0, settled: 0,
   };
@@ -223,7 +232,17 @@ async function main(client, log) {
         `SELECT booli_id FROM sold_match WHERE verdict = 'booli_only' AND first_unmatched_at IS NULL`,
       )).rows;
       const segments = {};
-      for (const r of queue) segments[r.segment] = r.seg;
+      try {
+        const panel = (deps.loadPanel ? deps.loadPanel() : null) || { munis: [] };
+        for (const muni of (panel.munis || [])) {
+          for (const family of RECHECK_FAMILIES) {
+            segments[`${muni.name}:${family}`] = deps.buildSeg(muni, family);
+          }
+        }
+      } catch (e) {
+        log('WARN', `recheck: full-panel segments build failed (${e && e.message}); using queue only`);
+      }
+      for (const r of queue) if (!segments[r.segment]) segments[r.segment] = r.seg;
 
       const e = await deps.enrollUnmatched(client, { now, rows });
       recheckBlock.enrolled = (e && e.enrolled) || 0;
@@ -484,8 +503,8 @@ function runSmoke() {
       resetDeps();
     });
 
-    // 4. re-check pass runs after the match loop with a segments map from the queue.
-    await checkAsync('re-check pass runs after match loop (segments map from queue)', async () => {
+    // 4. re-check pass runs after the match loop with a segments map from the FULL panel.
+    await checkAsync('re-check pass runs after match loop (segments map from full panel)', async () => {
       resetDeps();
       const order = [];
       let segmentsSeen = null;
@@ -502,7 +521,15 @@ function runSmoke() {
       assert.ok(order.lastIndexOf('match') < order.indexOf('enroll'), 'enroll after last match');
       assert.deepStrictEqual(order.slice(-3), ['enroll', 'recheck', 'settle'], 'enroll->recheck->settle order');
       assert.ok(segmentsSeen && segmentsSeen['Stockholm:APARTMENT'] && segmentsSeen['Täby:HOUSE'],
-        'segments map built from the queue');
+        'segments map covers the queue segments');
+      // Regression guard (the W28 orphaned-recheck bug): the map must cover EVERY panel
+      // segment, incl. ones NOT in this run's queue (queue only has Stockholm:APARTMENT +
+      // Täby:HOUSE), so a due row whose muni sampled zero records this week still resolves.
+      assert.ok(segmentsSeen['Kungälv:HOUSE'] && segmentsSeen['Malmö:APARTMENT'],
+        'segments map covers full-panel keys absent from the queue');
+      assert.ok(segmentsSeen['Kungälv:HOUSE'].family === 'HOUSE'
+        && segmentsSeen['Malmö:APARTMENT'].family === 'APARTMENT',
+        'full-panel seg objects carry the correct family');
       resetDeps();
     });
 
