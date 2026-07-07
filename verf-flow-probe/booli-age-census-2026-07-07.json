@@ -1,0 +1,158 @@
+{
+  "snapshot_date": "2026-07-07",
+  "now_sec": 1783384404,
+  "stock_total": 33742,
+  "edges_days": [
+    30,
+    90,
+    180,
+    365,
+    548,
+    730
+  ],
+  "labels": [
+    "≤1mo",
+    "1–3mo",
+    "3–6mo",
+    "6–12mo",
+    "12–18mo",
+    "18–24mo",
+    ">24mo"
+  ],
+  "preflight": {
+    "pageSize": 35,
+    "min": 35,
+    "max": 35,
+    "modal": 35,
+    "dupIds": 0,
+    "sampledCards": 420,
+    "sampledUndated": 0
+  },
+  "binary_search": {
+    "buckets": [
+      8155,
+      7280,
+      4001,
+      4415,
+      3004,
+      1995,
+      4892
+    ],
+    "cumulative": {
+      "30": 8155,
+      "90": 15435,
+      "180": 19436,
+      "365": 23851,
+      "548": 26855,
+      "730": 28850
+    },
+    "undatedEst": 0,
+    "undatedRate": 0
+  },
+  "census": {
+    "buckets": [
+      8155,
+      7280,
+      4000,
+      4415,
+      3004,
+      1995,
+      4809
+    ],
+    "newbuild": [
+      7,
+      17,
+      11,
+      14,
+      3,
+      5,
+      9
+    ],
+    "undated": 0,
+    "distinct": 33658,
+    "pagesWalked": 963,
+    "errorPages": 0,
+    "meanCardsPerPage": 34.98960498960499,
+    "datedTotal": 33658
+  },
+  "comparison": {
+    "rows": [
+      {
+        "label": "≤1mo",
+        "census": 8155,
+        "binary": 8155,
+        "abs": 0,
+        "rel": 0,
+        "sharePct": 24.16869183806532,
+        "pass": true
+      },
+      {
+        "label": "1–3mo",
+        "census": 7280,
+        "binary": 7280,
+        "abs": 0,
+        "rel": 0,
+        "sharePct": 21.575484559302947,
+        "pass": true
+      },
+      {
+        "label": "3–6mo",
+        "census": 4000,
+        "binary": 4001,
+        "abs": 1,
+        "rel": 0.00025,
+        "sharePct": 11.854661845770849,
+        "pass": true
+      },
+      {
+        "label": "6–12mo",
+        "census": 4415,
+        "binary": 4415,
+        "abs": 0,
+        "rel": 0,
+        "sharePct": 13.084583012269574,
+        "pass": true
+      },
+      {
+        "label": "12–18mo",
+        "census": 3004,
+        "binary": 3004,
+        "abs": 0,
+        "rel": 0,
+        "sharePct": 8.902851046173907,
+        "pass": true
+      },
+      {
+        "label": "18–24mo",
+        "census": 1995,
+        "binary": 1995,
+        "abs": 0,
+        "rel": 0,
+        "sharePct": 5.912512595578211,
+        "pass": true
+      },
+      {
+        "label": ">24mo",
+        "census": 4809,
+        "binary": 4892,
+        "abs": 83,
+        "rel": 0.017259305468912457,
+        "sharePct": 14.252267204078004,
+        "pass": true
+      }
+    ],
+    "allPass": true,
+    "absTol": 337.42
+  },
+  "oxylabs_calls": {
+    "preflight": 12,
+    "binary": 48,
+    "census": 963,
+    "total": 1023
+  },
+  "timings_sec": {
+    "preflight": 43,
+    "binary": 210,
+    "census": 4543
+  }
+}
