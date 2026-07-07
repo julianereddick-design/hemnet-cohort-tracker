@@ -1,0 +1,2367 @@
+{
+  "snapshot_date": "2026-07-07",
+  "now_sec": 1783391637,
+  "edges_days": [
+    30,
+    90,
+    180,
+    365,
+    548,
+    730
+  ],
+  "labels": [
+    "≤1mo",
+    "1–3mo",
+    "3–6mo",
+    "6–12mo",
+    "12–18mo",
+    "18–24mo",
+    ">24mo"
+  ],
+  "buckets": [
+    3276,
+    1912,
+    688,
+    804,
+    597,
+    312,
+    779
+  ],
+  "newbuild": [
+    17,
+    13,
+    11,
+    14,
+    1,
+    0,
+    5
+  ],
+  "undated": 0,
+  "distinct": 8368,
+  "dated_total": 8368,
+  "muni_total_sum": 8368,
+  "error_pages": 0,
+  "oxylabs_calls": 656,
+  "munis": [
+    {
+      "name": "Ale",
+      "id": 17865,
+      "pages": 2,
+      "total": 12,
+      "counted": 50,
+      "p1Error": false
+    },
+    {
+      "name": "Alingsås",
+      "id": 17866,
+      "pages": 2,
+      "total": 7,
+      "counted": 8,
+      "p1Error": false
+    },
+    {
+      "name": "Alvesta",
+      "id": 17867,
+      "pages": 2,
+      "total": 2,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Aneby",
+      "id": 17868,
+      "pages": 2,
+      "total": 0,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Arboga",
+      "id": 17869,
+      "pages": 2,
+      "total": 10,
+      "counted": 11,
+      "p1Error": false
+    },
+    {
+      "name": "Arjeplog",
+      "id": 17870,
+      "pages": 2,
+      "total": 5,
+      "counted": 5,
+      "p1Error": false
+    },
+    {
+      "name": "Arvidsjaur",
+      "id": 17871,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Arvika",
+      "id": 17872,
+      "pages": 2,
+      "total": 3,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Askersund",
+      "id": 17873,
+      "pages": 2,
+      "total": 3,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Avesta",
+      "id": 17874,
+      "pages": 2,
+      "total": 15,
+      "counted": 17,
+      "p1Error": false
+    },
+    {
+      "name": "Bengtsfors",
+      "id": 17875,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Berg",
+      "id": 17876,
+      "pages": 2,
+      "total": 17,
+      "counted": 20,
+      "p1Error": false
+    },
+    {
+      "name": "Bjurholm",
+      "id": 17877,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Bjuv",
+      "id": 17878,
+      "pages": 2,
+      "total": 2,
+      "counted": 6,
+      "p1Error": false
+    },
+    {
+      "name": "Boden",
+      "id": 17879,
+      "pages": 2,
+      "total": 9,
+      "counted": 10,
+      "p1Error": false
+    },
+    {
+      "name": "Bollebygd",
+      "id": 17880,
+      "pages": 2,
+      "total": 1,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Bollnäs",
+      "id": 17881,
+      "pages": 2,
+      "total": 13,
+      "counted": 14,
+      "p1Error": false
+    },
+    {
+      "name": "Borgholm",
+      "id": 17882,
+      "pages": 2,
+      "total": 6,
+      "counted": 6,
+      "p1Error": false
+    },
+    {
+      "name": "Borlänge",
+      "id": 17883,
+      "pages": 2,
+      "total": 48,
+      "counted": 50,
+      "p1Error": false
+    },
+    {
+      "name": "Borås",
+      "id": 17884,
+      "pages": 3,
+      "total": 90,
+      "counted": 91,
+      "p1Error": false
+    },
+    {
+      "name": "Botkyrka",
+      "id": 17885,
+      "pages": 6,
+      "total": 215,
+      "counted": 250,
+      "p1Error": false
+    },
+    {
+      "name": "Boxholm",
+      "id": 17886,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Bromölla",
+      "id": 17887,
+      "pages": 2,
+      "total": 0,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Bräcke",
+      "id": 17888,
+      "pages": 2,
+      "total": 2,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Burlöv",
+      "id": 17889,
+      "pages": 2,
+      "total": 2,
+      "counted": 14,
+      "p1Error": false
+    },
+    {
+      "name": "Båstad",
+      "id": 17890,
+      "pages": 2,
+      "total": 3,
+      "counted": 9,
+      "p1Error": false
+    },
+    {
+      "name": "Dals-Ed",
+      "id": 17891,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Danderyd",
+      "id": 17892,
+      "pages": 2,
+      "total": 16,
+      "counted": 50,
+      "p1Error": false
+    },
+    {
+      "name": "Degerfors",
+      "id": 17893,
+      "pages": 2,
+      "total": 4,
+      "counted": 4,
+      "p1Error": false
+    },
+    {
+      "name": "Dorotea",
+      "id": 17894,
+      "pages": 2,
+      "total": 2,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Eda",
+      "id": 17895,
+      "pages": 2,
+      "total": 5,
+      "counted": 5,
+      "p1Error": false
+    },
+    {
+      "name": "Ekerö",
+      "id": 17896,
+      "pages": 2,
+      "total": 13,
+      "counted": 37,
+      "p1Error": false
+    },
+    {
+      "name": "Eksjö",
+      "id": 17897,
+      "pages": 2,
+      "total": 3,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Emmaboda",
+      "id": 18040,
+      "pages": 2,
+      "total": 3,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Enköping",
+      "id": 17898,
+      "pages": 3,
+      "total": 68,
+      "counted": 70,
+      "p1Error": false
+    },
+    {
+      "name": "Eskilstuna",
+      "id": 17899,
+      "pages": 4,
+      "total": 140,
+      "counted": 142,
+      "p1Error": false
+    },
+    {
+      "name": "Eslöv",
+      "id": 17900,
+      "pages": 2,
+      "total": 15,
+      "counted": 18,
+      "p1Error": false
+    },
+    {
+      "name": "Essunga",
+      "id": 17901,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Fagersta",
+      "id": 17902,
+      "pages": 2,
+      "total": 1,
+      "counted": 4,
+      "p1Error": false
+    },
+    {
+      "name": "Falkenberg",
+      "id": 17903,
+      "pages": 2,
+      "total": 9,
+      "counted": 10,
+      "p1Error": false
+    },
+    {
+      "name": "Falköping",
+      "id": 17766,
+      "pages": 2,
+      "total": 8,
+      "counted": 16,
+      "p1Error": false
+    },
+    {
+      "name": "Falun",
+      "id": 17904,
+      "pages": 2,
+      "total": 24,
+      "counted": 22,
+      "p1Error": false
+    },
+    {
+      "name": "Filipstad",
+      "id": 17905,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Finspång",
+      "id": 17906,
+      "pages": 2,
+      "total": 10,
+      "counted": 14,
+      "p1Error": false
+    },
+    {
+      "name": "Flen",
+      "id": 17907,
+      "pages": 2,
+      "total": 19,
+      "counted": 20,
+      "p1Error": false
+    },
+    {
+      "name": "Forshaga",
+      "id": 17908,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Färgelanda",
+      "id": 17909,
+      "pages": 2,
+      "total": 2,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Gagnef",
+      "id": 17910,
+      "pages": 2,
+      "total": 7,
+      "counted": 7,
+      "p1Error": false
+    },
+    {
+      "name": "Gislaved",
+      "id": 17911,
+      "pages": 2,
+      "total": 0,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Gnesta",
+      "id": 17912,
+      "pages": 2,
+      "total": 22,
+      "counted": 24,
+      "p1Error": false
+    },
+    {
+      "name": "Gnosjö",
+      "id": 17913,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Gotland",
+      "id": 17914,
+      "pages": 2,
+      "total": 38,
+      "counted": 38,
+      "p1Error": false
+    },
+    {
+      "name": "Grums",
+      "id": 17915,
+      "pages": 2,
+      "total": 0,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Grästorp",
+      "id": 17916,
+      "pages": 2,
+      "total": 1,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Gullspång",
+      "id": 17917,
+      "pages": 2,
+      "total": 4,
+      "counted": 4,
+      "p1Error": false
+    },
+    {
+      "name": "Gällivare",
+      "id": 17918,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Gävle",
+      "id": 17919,
+      "pages": 5,
+      "total": 152,
+      "counted": 154,
+      "p1Error": false
+    },
+    {
+      "name": "Göteborg",
+      "id": 17920,
+      "pages": 10,
+      "total": 427,
+      "counted": 417,
+      "p1Error": false
+    },
+    {
+      "name": "Götene",
+      "id": 17921,
+      "pages": 2,
+      "total": 4,
+      "counted": 4,
+      "p1Error": false
+    },
+    {
+      "name": "Habo",
+      "id": 17922,
+      "pages": 2,
+      "total": 4,
+      "counted": 9,
+      "p1Error": false
+    },
+    {
+      "name": "Hagfors",
+      "id": 17923,
+      "pages": 2,
+      "total": 2,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Hallsberg",
+      "id": 17924,
+      "pages": 2,
+      "total": 6,
+      "counted": 7,
+      "p1Error": false
+    },
+    {
+      "name": "Hallstahammar",
+      "id": 17925,
+      "pages": 2,
+      "total": 13,
+      "counted": 16,
+      "p1Error": false
+    },
+    {
+      "name": "Halmstad",
+      "id": 17926,
+      "pages": 4,
+      "total": 104,
+      "counted": 103,
+      "p1Error": false
+    },
+    {
+      "name": "Hammarö",
+      "id": 17927,
+      "pages": 2,
+      "total": 1,
+      "counted": 8,
+      "p1Error": false
+    },
+    {
+      "name": "Haninge",
+      "id": 17928,
+      "pages": 7,
+      "total": 291,
+      "counted": 298,
+      "p1Error": false
+    },
+    {
+      "name": "Haparanda",
+      "id": 17929,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Heby",
+      "id": 17930,
+      "pages": 2,
+      "total": 9,
+      "counted": 9,
+      "p1Error": false
+    },
+    {
+      "name": "Hedemora",
+      "id": 17931,
+      "pages": 2,
+      "total": 11,
+      "counted": 11,
+      "p1Error": false
+    },
+    {
+      "name": "Helsingborg",
+      "id": 17932,
+      "pages": 3,
+      "total": 72,
+      "counted": 75,
+      "p1Error": false
+    },
+    {
+      "name": "Herrljunga",
+      "id": 17933,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Hjo",
+      "id": 17934,
+      "pages": 2,
+      "total": 3,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Hofors",
+      "id": 17935,
+      "pages": 2,
+      "total": 4,
+      "counted": 5,
+      "p1Error": false
+    },
+    {
+      "name": "Huddinge",
+      "id": 17936,
+      "pages": 5,
+      "total": 160,
+      "counted": 159,
+      "p1Error": false
+    },
+    {
+      "name": "Hudiksvall",
+      "id": 17937,
+      "pages": 2,
+      "total": 12,
+      "counted": 12,
+      "p1Error": false
+    },
+    {
+      "name": "Hultsfred",
+      "id": 17938,
+      "pages": 2,
+      "total": 4,
+      "counted": 5,
+      "p1Error": false
+    },
+    {
+      "name": "Hylte",
+      "id": 17939,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Håbo",
+      "id": 17940,
+      "pages": 2,
+      "total": 23,
+      "counted": 24,
+      "p1Error": false
+    },
+    {
+      "name": "Hällefors",
+      "id": 17941,
+      "pages": 2,
+      "total": 2,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Härjedalen",
+      "id": 17942,
+      "pages": 2,
+      "total": 15,
+      "counted": 13,
+      "p1Error": false
+    },
+    {
+      "name": "Härnösand",
+      "id": 17943,
+      "pages": 2,
+      "total": 15,
+      "counted": 15,
+      "p1Error": false
+    },
+    {
+      "name": "Härryda",
+      "id": 17944,
+      "pages": 2,
+      "total": 15,
+      "counted": 19,
+      "p1Error": false
+    },
+    {
+      "name": "Hässleholm",
+      "id": 17945,
+      "pages": 2,
+      "total": 8,
+      "counted": 9,
+      "p1Error": false
+    },
+    {
+      "name": "Höganäs",
+      "id": 17946,
+      "pages": 2,
+      "total": 10,
+      "counted": 7,
+      "p1Error": false
+    },
+    {
+      "name": "Högsby",
+      "id": 17947,
+      "pages": 2,
+      "total": 8,
+      "counted": 9,
+      "p1Error": false
+    },
+    {
+      "name": "Hörby",
+      "id": 17948,
+      "pages": 2,
+      "total": 2,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Höör",
+      "id": 17949,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Jokkmokk",
+      "id": 17950,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Järfälla",
+      "id": 17951,
+      "pages": 7,
+      "total": 272,
+      "counted": 298,
+      "p1Error": false
+    },
+    {
+      "name": "Jönköping",
+      "id": 17952,
+      "pages": 3,
+      "total": 73,
+      "counted": 72,
+      "p1Error": false
+    },
+    {
+      "name": "Kalix",
+      "id": 17953,
+      "pages": 2,
+      "total": 3,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Kalmar",
+      "id": 17954,
+      "pages": 3,
+      "total": 63,
+      "counted": 63,
+      "p1Error": false
+    },
+    {
+      "name": "Karlsborg",
+      "id": 17955,
+      "pages": 2,
+      "total": 6,
+      "counted": 6,
+      "p1Error": false
+    },
+    {
+      "name": "Karlshamn",
+      "id": 17956,
+      "pages": 2,
+      "total": 2,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Karlskoga",
+      "id": 17957,
+      "pages": 2,
+      "total": 15,
+      "counted": 15,
+      "p1Error": false
+    },
+    {
+      "name": "Karlskrona",
+      "id": 17958,
+      "pages": 2,
+      "total": 11,
+      "counted": 11,
+      "p1Error": false
+    },
+    {
+      "name": "Karlstad",
+      "id": 17959,
+      "pages": 2,
+      "total": 22,
+      "counted": 14,
+      "p1Error": false
+    },
+    {
+      "name": "Katrineholm",
+      "id": 17960,
+      "pages": 2,
+      "total": 13,
+      "counted": 12,
+      "p1Error": false
+    },
+    {
+      "name": "Kil",
+      "id": 17961,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Kinda",
+      "id": 17962,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Kiruna",
+      "id": 17963,
+      "pages": 2,
+      "total": 5,
+      "counted": 5,
+      "p1Error": false
+    },
+    {
+      "name": "Klippan",
+      "id": 17964,
+      "pages": 2,
+      "total": 11,
+      "counted": 14,
+      "p1Error": false
+    },
+    {
+      "name": "Knivsta",
+      "id": 17965,
+      "pages": 2,
+      "total": 18,
+      "counted": 25,
+      "p1Error": false
+    },
+    {
+      "name": "Kramfors",
+      "id": 17966,
+      "pages": 2,
+      "total": 4,
+      "counted": 4,
+      "p1Error": false
+    },
+    {
+      "name": "Kristianstad",
+      "id": 17967,
+      "pages": 2,
+      "total": 6,
+      "counted": 6,
+      "p1Error": false
+    },
+    {
+      "name": "Kristinehamn",
+      "id": 17968,
+      "pages": 2,
+      "total": 10,
+      "counted": 10,
+      "p1Error": false
+    },
+    {
+      "name": "Krokom",
+      "id": 17969,
+      "pages": 2,
+      "total": 14,
+      "counted": 19,
+      "p1Error": false
+    },
+    {
+      "name": "Kumla",
+      "id": 17970,
+      "pages": 2,
+      "total": 20,
+      "counted": 21,
+      "p1Error": false
+    },
+    {
+      "name": "Kungsbacka",
+      "id": 17971,
+      "pages": 2,
+      "total": 29,
+      "counted": 26,
+      "p1Error": false
+    },
+    {
+      "name": "Kungsör",
+      "id": 17972,
+      "pages": 2,
+      "total": 6,
+      "counted": 7,
+      "p1Error": false
+    },
+    {
+      "name": "Kungälv",
+      "id": 17973,
+      "pages": 3,
+      "total": 84,
+      "counted": 69,
+      "p1Error": false
+    },
+    {
+      "name": "Kävlinge",
+      "id": 17974,
+      "pages": 2,
+      "total": 4,
+      "counted": 5,
+      "p1Error": false
+    },
+    {
+      "name": "Köping",
+      "id": 17975,
+      "pages": 2,
+      "total": 35,
+      "counted": 33,
+      "p1Error": false
+    },
+    {
+      "name": "Laholm",
+      "id": 17976,
+      "pages": 2,
+      "total": 7,
+      "counted": 5,
+      "p1Error": false
+    },
+    {
+      "name": "Landskrona",
+      "id": 18043,
+      "pages": 2,
+      "total": 5,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Laxå",
+      "id": 17977,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Lekeberg",
+      "id": 17845,
+      "pages": 2,
+      "total": 3,
+      "counted": 6,
+      "p1Error": false
+    },
+    {
+      "name": "Leksand",
+      "id": 17978,
+      "pages": 2,
+      "total": 3,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Lerum",
+      "id": 17979,
+      "pages": 2,
+      "total": 15,
+      "counted": 14,
+      "p1Error": false
+    },
+    {
+      "name": "Lessebo",
+      "id": 17980,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Lidingö",
+      "id": 17846,
+      "pages": 2,
+      "total": 14,
+      "counted": 46,
+      "p1Error": false
+    },
+    {
+      "name": "Lidköping",
+      "id": 17981,
+      "pages": 2,
+      "total": 32,
+      "counted": 33,
+      "p1Error": false
+    },
+    {
+      "name": "Lilla Edet",
+      "id": 18044,
+      "pages": 2,
+      "total": 5,
+      "counted": 6,
+      "p1Error": false
+    },
+    {
+      "name": "Lindesberg",
+      "id": 17982,
+      "pages": 2,
+      "total": 13,
+      "counted": 14,
+      "p1Error": false
+    },
+    {
+      "name": "Linköping",
+      "id": 17847,
+      "pages": 3,
+      "total": 75,
+      "counted": 75,
+      "p1Error": false
+    },
+    {
+      "name": "Ljungby",
+      "id": 17983,
+      "pages": 2,
+      "total": 7,
+      "counted": 7,
+      "p1Error": false
+    },
+    {
+      "name": "Ljusdal",
+      "id": 17984,
+      "pages": 2,
+      "total": 11,
+      "counted": 10,
+      "p1Error": false
+    },
+    {
+      "name": "Ljusnarsberg",
+      "id": 17985,
+      "pages": 2,
+      "total": 5,
+      "counted": 7,
+      "p1Error": false
+    },
+    {
+      "name": "Lomma",
+      "id": 17986,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Ludvika",
+      "id": 17848,
+      "pages": 2,
+      "total": 24,
+      "counted": 22,
+      "p1Error": false
+    },
+    {
+      "name": "Luleå",
+      "id": 18045,
+      "pages": 2,
+      "total": 12,
+      "counted": 11,
+      "p1Error": false
+    },
+    {
+      "name": "Lund",
+      "id": 17987,
+      "pages": 2,
+      "total": 33,
+      "counted": 35,
+      "p1Error": false
+    },
+    {
+      "name": "Lycksele",
+      "id": 17988,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Lysekil",
+      "id": 17849,
+      "pages": 2,
+      "total": 5,
+      "counted": 6,
+      "p1Error": false
+    },
+    {
+      "name": "Malmö",
+      "id": 17989,
+      "pages": 5,
+      "total": 157,
+      "counted": 148,
+      "p1Error": false
+    },
+    {
+      "name": "Malung-Sälen",
+      "id": 17990,
+      "pages": 2,
+      "total": 16,
+      "counted": 16,
+      "p1Error": false
+    },
+    {
+      "name": "Malå",
+      "id": 17991,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Mariestad",
+      "id": 17850,
+      "pages": 2,
+      "total": 14,
+      "counted": 16,
+      "p1Error": false
+    },
+    {
+      "name": "Mark",
+      "id": 18046,
+      "pages": 2,
+      "total": 11,
+      "counted": 8,
+      "p1Error": false
+    },
+    {
+      "name": "Markaryd",
+      "id": 17992,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Mellerud",
+      "id": 17993,
+      "pages": 2,
+      "total": 2,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Mjölby",
+      "id": 17994,
+      "pages": 2,
+      "total": 2,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Mora",
+      "id": 17851,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Motala",
+      "id": 17995,
+      "pages": 2,
+      "total": 3,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Mullsjö",
+      "id": 18047,
+      "pages": 1,
+      "total": 5,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Munkedal",
+      "id": 17996,
+      "pages": 2,
+      "total": 4,
+      "counted": 4,
+      "p1Error": false
+    },
+    {
+      "name": "Munkfors",
+      "id": 17852,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Mölndal",
+      "id": 17997,
+      "pages": 2,
+      "total": 45,
+      "counted": 34,
+      "p1Error": false
+    },
+    {
+      "name": "Mönsterås",
+      "id": 17998,
+      "pages": 2,
+      "total": 8,
+      "counted": 7,
+      "p1Error": false
+    },
+    {
+      "name": "Mörbylånga",
+      "id": 17999,
+      "pages": 2,
+      "total": 8,
+      "counted": 8,
+      "p1Error": false
+    },
+    {
+      "name": "Nacka",
+      "id": 17853,
+      "pages": 5,
+      "total": 197,
+      "counted": 171,
+      "p1Error": false
+    },
+    {
+      "name": "Nora",
+      "id": 18000,
+      "pages": 2,
+      "total": 6,
+      "counted": 6,
+      "p1Error": false
+    },
+    {
+      "name": "Norberg",
+      "id": 18048,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Nordanstig",
+      "id": 18001,
+      "pages": 2,
+      "total": 3,
+      "counted": 4,
+      "p1Error": false
+    },
+    {
+      "name": "Nordmaling",
+      "id": 17854,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Norrköping",
+      "id": 18002,
+      "pages": 5,
+      "total": 164,
+      "counted": 164,
+      "p1Error": false
+    },
+    {
+      "name": "Norrtälje",
+      "id": 18003,
+      "pages": 3,
+      "total": 61,
+      "counted": 60,
+      "p1Error": false
+    },
+    {
+      "name": "Norsjö",
+      "id": 18004,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Nybro",
+      "id": 18005,
+      "pages": 2,
+      "total": 8,
+      "counted": 8,
+      "p1Error": false
+    },
+    {
+      "name": "Nykvarn",
+      "id": 17855,
+      "pages": 2,
+      "total": 19,
+      "counted": 28,
+      "p1Error": false
+    },
+    {
+      "name": "Nyköping",
+      "id": 18049,
+      "pages": 3,
+      "total": 70,
+      "counted": 77,
+      "p1Error": false
+    },
+    {
+      "name": "Nynäshamn",
+      "id": 18006,
+      "pages": 3,
+      "total": 76,
+      "counted": 75,
+      "p1Error": false
+    },
+    {
+      "name": "Nässjö",
+      "id": 18007,
+      "pages": 2,
+      "total": 5,
+      "counted": 5,
+      "p1Error": false
+    },
+    {
+      "name": "Ockelbo",
+      "id": 17856,
+      "pages": 2,
+      "total": 5,
+      "counted": 5,
+      "p1Error": false
+    },
+    {
+      "name": "Olofström",
+      "id": 18008,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Orsa",
+      "id": 18009,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Orust",
+      "id": 18010,
+      "pages": 2,
+      "total": 3,
+      "counted": 5,
+      "p1Error": false
+    },
+    {
+      "name": "Osby",
+      "id": 18011,
+      "pages": 2,
+      "total": 0,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Oskarshamn",
+      "id": 17857,
+      "pages": 2,
+      "total": 15,
+      "counted": 15,
+      "p1Error": false
+    },
+    {
+      "name": "Ovanåker",
+      "id": 18050,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Oxelösund",
+      "id": 18012,
+      "pages": 2,
+      "total": 7,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Pajala",
+      "id": 18013,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Partille",
+      "id": 17858,
+      "pages": 2,
+      "total": 5,
+      "counted": 5,
+      "p1Error": false
+    },
+    {
+      "name": "Perstorp",
+      "id": 18014,
+      "pages": 2,
+      "total": 12,
+      "counted": 9,
+      "p1Error": false
+    },
+    {
+      "name": "Piteå",
+      "id": 18015,
+      "pages": 2,
+      "total": 3,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Ragunda",
+      "id": 18016,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Robertsfors",
+      "id": 18017,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Ronneby",
+      "id": 17767,
+      "pages": 2,
+      "total": 5,
+      "counted": 5,
+      "p1Error": false
+    },
+    {
+      "name": "Rättvik",
+      "id": 18018,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Sala",
+      "id": 18051,
+      "pages": 2,
+      "total": 13,
+      "counted": 11,
+      "p1Error": false
+    },
+    {
+      "name": "Salem",
+      "id": 18019,
+      "pages": 2,
+      "total": 47,
+      "counted": 33,
+      "p1Error": false
+    },
+    {
+      "name": "Sandviken",
+      "id": 17859,
+      "pages": 3,
+      "total": 57,
+      "counted": 55,
+      "p1Error": false
+    },
+    {
+      "name": "Sigtuna",
+      "id": 18020,
+      "pages": 3,
+      "total": 77,
+      "counted": 74,
+      "p1Error": false
+    },
+    {
+      "name": "Simrishamn",
+      "id": 18021,
+      "pages": 2,
+      "total": 3,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Sjöbo",
+      "id": 18022,
+      "pages": 2,
+      "total": 11,
+      "counted": 10,
+      "p1Error": false
+    },
+    {
+      "name": "Skara",
+      "id": 18023,
+      "pages": 2,
+      "total": 4,
+      "counted": 4,
+      "p1Error": false
+    },
+    {
+      "name": "Skellefteå",
+      "id": 17860,
+      "pages": 5,
+      "total": 183,
+      "counted": 184,
+      "p1Error": false
+    },
+    {
+      "name": "Skinnskatteberg",
+      "id": 18052,
+      "pages": 1,
+      "total": 2,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Skurup",
+      "id": 18024,
+      "pages": 2,
+      "total": 12,
+      "counted": 11,
+      "p1Error": false
+    },
+    {
+      "name": "Skövde",
+      "id": 18025,
+      "pages": 2,
+      "total": 40,
+      "counted": 30,
+      "p1Error": false
+    },
+    {
+      "name": "Smedjebacken",
+      "id": 17861,
+      "pages": 2,
+      "total": 9,
+      "counted": 9,
+      "p1Error": false
+    },
+    {
+      "name": "Sollefteå",
+      "id": 18026,
+      "pages": 2,
+      "total": 3,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Sollentuna",
+      "id": 18027,
+      "pages": 4,
+      "total": 109,
+      "counted": 112,
+      "p1Error": false
+    },
+    {
+      "name": "Solna",
+      "id": 18028,
+      "pages": 5,
+      "total": 197,
+      "counted": 190,
+      "p1Error": false
+    },
+    {
+      "name": "Sorsele",
+      "id": 18029,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Sotenäs",
+      "id": 17862,
+      "pages": 2,
+      "total": 8,
+      "counted": 9,
+      "p1Error": false
+    },
+    {
+      "name": "Staffanstorp",
+      "id": 18053,
+      "pages": 2,
+      "total": 3,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Stenungsund",
+      "id": 18030,
+      "pages": 2,
+      "total": 6,
+      "counted": 7,
+      "p1Error": false
+    },
+    {
+      "name": "Stockholm",
+      "id": 18031,
+      "pages": 23,
+      "total": 1086,
+      "counted": 1000,
+      "p1Error": false
+    },
+    {
+      "name": "Storfors",
+      "id": 18032,
+      "pages": 2,
+      "total": 4,
+      "counted": 4,
+      "p1Error": false
+    },
+    {
+      "name": "Storuman",
+      "id": 17863,
+      "pages": 2,
+      "total": 4,
+      "counted": 4,
+      "p1Error": false
+    },
+    {
+      "name": "Strängnäs",
+      "id": 18033,
+      "pages": 2,
+      "total": 44,
+      "counted": 42,
+      "p1Error": false
+    },
+    {
+      "name": "Strömstad",
+      "id": 18034,
+      "pages": 2,
+      "total": 5,
+      "counted": 7,
+      "p1Error": false
+    },
+    {
+      "name": "Strömsund",
+      "id": 18035,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Sundbyberg",
+      "id": 18042,
+      "pages": 5,
+      "total": 157,
+      "counted": 150,
+      "p1Error": false
+    },
+    {
+      "name": "Sundsvall",
+      "id": 18054,
+      "pages": 2,
+      "total": 42,
+      "counted": 47,
+      "p1Error": false
+    },
+    {
+      "name": "Sunne",
+      "id": 18036,
+      "pages": 2,
+      "total": 2,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Surahammar",
+      "id": 18037,
+      "pages": 2,
+      "total": 10,
+      "counted": 6,
+      "p1Error": false
+    },
+    {
+      "name": "Svalöv",
+      "id": 18038,
+      "pages": 2,
+      "total": 6,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Svedala",
+      "id": 17864,
+      "pages": 2,
+      "total": 5,
+      "counted": 5,
+      "p1Error": false
+    },
+    {
+      "name": "Svenljunga",
+      "id": 18039,
+      "pages": 2,
+      "total": 2,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Säffle",
+      "id": 17770,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Säter",
+      "id": 17771,
+      "pages": 2,
+      "total": 5,
+      "counted": 5,
+      "p1Error": false
+    },
+    {
+      "name": "Sävsjö",
+      "id": 17772,
+      "pages": 2,
+      "total": 2,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Söderhamn",
+      "id": 17773,
+      "pages": 2,
+      "total": 21,
+      "counted": 21,
+      "p1Error": false
+    },
+    {
+      "name": "Söderköping",
+      "id": 17774,
+      "pages": 2,
+      "total": 6,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Södertälje",
+      "id": 17775,
+      "pages": 6,
+      "total": 233,
+      "counted": 223,
+      "p1Error": false
+    },
+    {
+      "name": "Sölvesborg",
+      "id": 17776,
+      "pages": 1,
+      "total": 1,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Tanum",
+      "id": 17777,
+      "pages": 2,
+      "total": 8,
+      "counted": 5,
+      "p1Error": false
+    },
+    {
+      "name": "Tibro",
+      "id": 17778,
+      "pages": 2,
+      "total": 11,
+      "counted": 11,
+      "p1Error": false
+    },
+    {
+      "name": "Tidaholm",
+      "id": 17779,
+      "pages": 2,
+      "total": 8,
+      "counted": 8,
+      "p1Error": false
+    },
+    {
+      "name": "Tierp",
+      "id": 17780,
+      "pages": 2,
+      "total": 23,
+      "counted": 24,
+      "p1Error": false
+    },
+    {
+      "name": "Timrå",
+      "id": 17781,
+      "pages": 2,
+      "total": 13,
+      "counted": 7,
+      "p1Error": false
+    },
+    {
+      "name": "Tingsryd",
+      "id": 17782,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Tjörn",
+      "id": 17783,
+      "pages": 2,
+      "total": 2,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Tomelilla",
+      "id": 17784,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Torsby",
+      "id": 17785,
+      "pages": 2,
+      "total": 3,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Torsås",
+      "id": 17786,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Tranemo",
+      "id": 17787,
+      "pages": 2,
+      "total": 12,
+      "counted": 10,
+      "p1Error": false
+    },
+    {
+      "name": "Tranås",
+      "id": 17788,
+      "pages": 2,
+      "total": 3,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Trelleborg",
+      "id": 17789,
+      "pages": 2,
+      "total": 18,
+      "counted": 18,
+      "p1Error": false
+    },
+    {
+      "name": "Trollhättan",
+      "id": 17790,
+      "pages": 2,
+      "total": 26,
+      "counted": 26,
+      "p1Error": false
+    },
+    {
+      "name": "Trosa",
+      "id": 17791,
+      "pages": 2,
+      "total": 44,
+      "counted": 40,
+      "p1Error": false
+    },
+    {
+      "name": "Tyresö",
+      "id": 17792,
+      "pages": 3,
+      "total": 56,
+      "counted": 53,
+      "p1Error": false
+    },
+    {
+      "name": "Täby",
+      "id": 17793,
+      "pages": 3,
+      "total": 56,
+      "counted": 54,
+      "p1Error": false
+    },
+    {
+      "name": "Töreboda",
+      "id": 17794,
+      "pages": 2,
+      "total": 2,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Uddevalla",
+      "id": 17795,
+      "pages": 2,
+      "total": 49,
+      "counted": 45,
+      "p1Error": false
+    },
+    {
+      "name": "Ulricehamn",
+      "id": 17796,
+      "pages": 2,
+      "total": 11,
+      "counted": 9,
+      "p1Error": false
+    },
+    {
+      "name": "Umeå",
+      "id": 17797,
+      "pages": 2,
+      "total": 38,
+      "counted": 37,
+      "p1Error": false
+    },
+    {
+      "name": "Upplands Väsby",
+      "id": 17798,
+      "pages": 4,
+      "total": 110,
+      "counted": 105,
+      "p1Error": false
+    },
+    {
+      "name": "Upplands-Bro",
+      "id": 17799,
+      "pages": 3,
+      "total": 60,
+      "counted": 59,
+      "p1Error": false
+    },
+    {
+      "name": "Uppsala",
+      "id": 17800,
+      "pages": 8,
+      "total": 320,
+      "counted": 315,
+      "p1Error": false
+    },
+    {
+      "name": "Uppvidinge",
+      "id": 17768,
+      "pages": 2,
+      "total": 5,
+      "counted": 5,
+      "p1Error": false
+    },
+    {
+      "name": "Vadstena",
+      "id": 17801,
+      "pages": 2,
+      "total": 4,
+      "counted": 4,
+      "p1Error": false
+    },
+    {
+      "name": "Vaggeryd",
+      "id": 17802,
+      "pages": 2,
+      "total": 2,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Valdemarsvik",
+      "id": 17803,
+      "pages": 2,
+      "total": 6,
+      "counted": 7,
+      "p1Error": false
+    },
+    {
+      "name": "Vallentuna",
+      "id": 17804,
+      "pages": 2,
+      "total": 17,
+      "counted": 15,
+      "p1Error": false
+    },
+    {
+      "name": "Vansbro",
+      "id": 17805,
+      "pages": 2,
+      "total": 3,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Vara",
+      "id": 17806,
+      "pages": 2,
+      "total": 3,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Varberg",
+      "id": 17807,
+      "pages": 2,
+      "total": 7,
+      "counted": 7,
+      "p1Error": false
+    },
+    {
+      "name": "Vaxholm",
+      "id": 17808,
+      "pages": 2,
+      "total": 9,
+      "counted": 25,
+      "p1Error": false
+    },
+    {
+      "name": "Vellinge",
+      "id": 17809,
+      "pages": 2,
+      "total": 6,
+      "counted": 4,
+      "p1Error": false
+    },
+    {
+      "name": "Vetlanda",
+      "id": 17810,
+      "pages": 2,
+      "total": 11,
+      "counted": 11,
+      "p1Error": false
+    },
+    {
+      "name": "Vilhelmina",
+      "id": 17811,
+      "pages": 2,
+      "total": 3,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Vimmerby",
+      "id": 17812,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Vindeln",
+      "id": 17813,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Vingåker",
+      "id": 17814,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Vårgårda",
+      "id": 17815,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Vänersborg",
+      "id": 17816,
+      "pages": 2,
+      "total": 9,
+      "counted": 7,
+      "p1Error": false
+    },
+    {
+      "name": "Vännäs",
+      "id": 17817,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Värmdö",
+      "id": 17818,
+      "pages": 3,
+      "total": 81,
+      "counted": 78,
+      "p1Error": false
+    },
+    {
+      "name": "Värnamo",
+      "id": 17819,
+      "pages": 2,
+      "total": 13,
+      "counted": 13,
+      "p1Error": false
+    },
+    {
+      "name": "Västervik",
+      "id": 17820,
+      "pages": 2,
+      "total": 23,
+      "counted": 21,
+      "p1Error": false
+    },
+    {
+      "name": "Västerås",
+      "id": 17821,
+      "pages": 4,
+      "total": 102,
+      "counted": 101,
+      "p1Error": false
+    },
+    {
+      "name": "Växjö",
+      "id": 17822,
+      "pages": 3,
+      "total": 85,
+      "counted": 85,
+      "p1Error": false
+    },
+    {
+      "name": "Ydre",
+      "id": 17823,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Ystad",
+      "id": 17824,
+      "pages": 2,
+      "total": 6,
+      "counted": 6,
+      "p1Error": false
+    },
+    {
+      "name": "Åmål",
+      "id": 17825,
+      "pages": 2,
+      "total": 9,
+      "counted": 9,
+      "p1Error": false
+    },
+    {
+      "name": "Ånge",
+      "id": 17826,
+      "pages": 2,
+      "total": 2,
+      "counted": 2,
+      "p1Error": false
+    },
+    {
+      "name": "Åre",
+      "id": 17827,
+      "pages": 2,
+      "total": 9,
+      "counted": 8,
+      "p1Error": false
+    },
+    {
+      "name": "Årjäng",
+      "id": 17828,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Åsele",
+      "id": 17829,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Åstorp",
+      "id": 17830,
+      "pages": 2,
+      "total": 6,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Åtvidaberg",
+      "id": 17765,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Älmhult",
+      "id": 17831,
+      "pages": 2,
+      "total": 6,
+      "counted": 3,
+      "p1Error": false
+    },
+    {
+      "name": "Älvdalen",
+      "id": 17832,
+      "pages": 2,
+      "total": 11,
+      "counted": 11,
+      "p1Error": false
+    },
+    {
+      "name": "Älvkarleby",
+      "id": 17833,
+      "pages": 2,
+      "total": 13,
+      "counted": 12,
+      "p1Error": false
+    },
+    {
+      "name": "Älvsbyn",
+      "id": 17834,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Ängelholm",
+      "id": 17835,
+      "pages": 2,
+      "total": 16,
+      "counted": 12,
+      "p1Error": false
+    },
+    {
+      "name": "Öckerö",
+      "id": 17836,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Ödeshög",
+      "id": 17837,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Örebro",
+      "id": 17838,
+      "pages": 6,
+      "total": 236,
+      "counted": 230,
+      "p1Error": false
+    },
+    {
+      "name": "Örkelljunga",
+      "id": 18041,
+      "pages": 1,
+      "total": 1,
+      "counted": 0,
+      "p1Error": false
+    },
+    {
+      "name": "Örnsköldsvik",
+      "id": 17839,
+      "pages": 2,
+      "total": 9,
+      "counted": 9,
+      "p1Error": false
+    },
+    {
+      "name": "Östersund",
+      "id": 17840,
+      "pages": 3,
+      "total": 69,
+      "counted": 64,
+      "p1Error": false
+    },
+    {
+      "name": "Österåker",
+      "id": 17769,
+      "pages": 3,
+      "total": 71,
+      "counted": 53,
+      "p1Error": false
+    },
+    {
+      "name": "Östhammar",
+      "id": 17841,
+      "pages": 2,
+      "total": 7,
+      "counted": 6,
+      "p1Error": false
+    },
+    {
+      "name": "Östra Göinge",
+      "id": 17842,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Överkalix",
+      "id": 17843,
+      "pages": 2,
+      "total": 1,
+      "counted": 1,
+      "p1Error": false
+    },
+    {
+      "name": "Övertorneå",
+      "id": 17844,
+      "pages": 1,
+      "total": 0,
+      "counted": 0,
+      "p1Error": false
+    }
+  ]
+}
