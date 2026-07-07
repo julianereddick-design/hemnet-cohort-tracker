@@ -24,7 +24,7 @@ const fs = require('fs');
 const path = require('path');
 const { createClient } = require('../db');
 const { cachedFetch, CeilingError, stdoutLogger, spentCallsAsync, remainingCallsAsync, setSpendClient, reserveOxylabsCall } = require('../lib/sold-transport');
-const { isTitleTransfer, PRICE_AGREE_PCT, AREA_AGREE_PCT, SOLD_DATE_WINDOW_DAYS, READ_TIME_EXCLUDE_DAYS, daysAgoISO } = require('../lib/sold-config');
+const { isTitleTransfer, PRICE_AGREE_PCT, AREA_AGREE_PCT, FEE_AGREE_PCT, SOLD_DATE_WINDOW_DAYS, READ_TIME_EXCLUDE_DAYS, daysAgoISO } = require('../lib/sold-config');
 const { fetchBooliSoldPage, fetchBooliDetail, extractDetailUrl } = require('../lib/sold-fetch-booli');
 const { searchSoldPaged, searchOptsFor, booliSoldUnix } = require('../lib/sold-fetch-hemnet');
 const { upsertBooliSold, upsertHemnetSold, persistVerdictForRecord } = require('../lib/sold-store');
@@ -332,6 +332,35 @@ async function matchOne(client, record, seg, segKey, minSoldDate, maxSoldDate, l
     if (fm) feeChosen = fm;
   }
   const aptDeltas = deltasFor(record, feeChosen);
+
+  // 4a) SINGLE-CANDIDATE CONFIRMATION TIER (before adjudicatePair). With exactly one
+  //     same-address Hemnet candidate whose living-area and sold-price agree, there is
+  //     no OTHER unit to confuse it with, so the unit-level fee gate adds no safety —
+  //     confirm the match. Fee and rooms only VETO (present-on-both-and-contradicting),
+  //     never block on missing data. Mirrors the HOUSE address-key shortcut (~line 279).
+  //     evidence is built inline here: the adjudicator's `aptEv` is defined further down
+  //     (after this early return), so it is NOT in scope yet.
+  const areaOk  = aptDeltas.area_pct_diff  != null && aptDeltas.area_pct_diff  <= AREA_AGREE_PCT;
+  const priceOk = aptDeltas.price_pct_diff != null && aptDeltas.price_pct_diff <= PRICE_AGREE_PCT;
+  const addrOk  = aptDeltas.address_match === true;
+  const feeContradicts = booliRent != null && feeChosen.fee != null
+    && Math.abs(feeChosen.fee - booliRent) / booliRent > FEE_AGREE_PCT;
+  const roomsContradict = record.rooms != null && feeChosen.rooms != null
+    && Number(record.rooms) !== Number(feeChosen.rooms);
+  if (cands.length === 1 && addrOk && areaOk && priceOk && !feeContradicts && !roomsContradict) {
+    await upsertHemnetSold(client, feeChosen); // D-07
+    return await persistMapped(client, record, 'matched', 'single_candidate_confirmed',
+      feeChosen, aptDeltas, {
+        source: 'single-candidate-confirmed',
+        reason: `single candidate; area Δ${(aptDeltas.area_pct_diff * 100).toFixed(1)}% price Δ${(aptDeltas.price_pct_diff * 100).toFixed(1)}%`,
+        addr_candidates: cands.length,
+        single_candidate: true,
+        fee_checked: booliRent != null && feeChosen.fee != null,
+        rooms_checked: record.rooms != null && feeChosen.rooms != null,
+        fee: { booli_rent: booliRent, hemnet_fee: feeChosen.fee != null ? feeChosen.fee : null },
+      }, segKey, minSoldDate, maxSoldDate, feeChosen);
+  }
+
   const adj = adjudicatePair({
     pair_id: record.booli_id, deltas: aptDeltas,
     photos: { hemnet_gallery: [], booli_gallery: [] }, // D-05: no photos for sold
@@ -505,6 +534,7 @@ function runSmoke() {
   const verdictSlug = (c) => sold(c)[0].params[1]; // $2 matched_hemnet_slug
   const verdictMethod = (c) => sold(c)[0].params[3]; // $4 match_method
   const verdictName = (c) => sold(c)[0].params[2]; // $3 verdict
+  const verdictEvidence = (c) => JSON.parse(sold(c)[0].params[4]); // $5 evidence (JSON string)
 
   // run the async portion, then print + exit.
   (async () => {
@@ -621,40 +651,102 @@ function runSmoke() {
     assert.notStrictEqual(v, 'matched');
   });
 
-  // 4) APARTMENT, fee-exact → matched / fee_exact + upsertHemnetSold (D-06 inline fee)
-  await checkAsync('apt fee-exact → matched/fee_exact + Hemnet persist', async () => {
+  // 4) APARTMENT, single candidate, fee present & within tolerance → the single-
+  //    candidate tier fires FIRST → matched/single_candidate_confirmed (NOT fee_exact;
+  //    fee_exact is now the MULTI-candidate disambiguation method — see test 5b).
+  await checkAsync('apt single-candidate fee within 5% → matched/single_candidate_confirmed', async () => {
     const c = mockClient();
     const cands = [hcard({ slug: 'apt-1', housing_form: 'Lägenhet', fee: 4500 })];
     const v = await matchOne(c, brec({ booli_id: 14, object_type: 'Lägenhet' }), APT, 'stockholm-apt', WIN[0], WIN[1], noLog,
       depsWith(cands, { rent: 4500 }));
     assert.strictEqual(v, 'matched');
-    assert.strictEqual(verdictMethod(c), 'fee_exact');
+    assert.strictEqual(verdictMethod(c), 'single_candidate_confirmed');
     assert.strictEqual(verdictSlug(c), 'apt-1');
     assert.strictEqual(hemnet(c).length, 1, 'matched apt persists its Hemnet card (D-07)');
+    const ev = verdictEvidence(c);
+    assert.strictEqual(ev.single_candidate, true, 'evidence flags single_candidate');
+    assert.strictEqual(ev.fee_checked, true, 'fee present on both → fee_checked true');
   });
 
-  // 5) APARTMENT, no fee (detail rent null) → uncertain (no false confirm — Pitfall 3)
-  await checkAsync('apt no fee (rent null) → uncertain', async () => {
+  // 5) APARTMENT, single candidate, fee ABSENT (Booli rent null) → tier fires:
+  //    one unit at this address with agreeing area+price, no other unit to confuse
+  //    it with, so the missing fee no longer blocks → matched/single_candidate_confirmed.
+  //    (Deliberately inverts the pre-change "no fee → uncertain" behavior.)
+  await checkAsync('apt single-candidate fee absent → matched/single_candidate_confirmed', async () => {
     const c = mockClient();
-    const cands = [hcard({ slug: 'apt-2', housing_form: 'Lägenhet', fee: 4500 })];
+    const cands = [hcard({ slug: 'apt-2', housing_form: 'Lägenhet', fee: null })];
     const v = await matchOne(c, brec({ booli_id: 15, object_type: 'Lägenhet' }), APT, 'stockholm-apt', WIN[0], WIN[1], noLog,
       depsWith(cands, { rent: null }));
-    assert.strictEqual(v, 'uncertain');
-    assert.strictEqual(verdictName(c), 'uncertain');
-    assert.strictEqual(hemnet(c).length, 0, 'no Hemnet persist when unmatched');
+    assert.strictEqual(v, 'matched');
+    assert.strictEqual(verdictMethod(c), 'single_candidate_confirmed');
+    assert.strictEqual(verdictSlug(c), 'apt-2', 'matched row persists the Hemnet slug');
+    assert.strictEqual(hemnet(c).length, 1, 'matched apt persists its Hemnet card (D-07)');
+    const ev = verdictEvidence(c);
+    assert.strictEqual(ev.fee_checked, false, 'fee absent → fee_checked false');
   });
 
-  // 5b) APARTMENT on an /annons/<booliId> card → fee fetch STILL runs → matched.
-  //     Regression guard for the /annons fee-fetch fix: extractResidenceId returned
-  //     null for /annons (→ forced uncertain); extractDetailUrl follows both flavors.
-  await checkAsync('apt /annons card → fee fetch runs → matched/fee_exact', async () => {
+  // 5b) APARTMENT, TWO same-address candidates via an /annons card, one fee-exact →
+  //     tier is skipped (cands.length !== 1) → adjudicator confirms on fee → matched/
+  //     fee_exact. Doubles as (a) the /annons fee-fetch regression guard (extractDetailUrl
+  //     must follow /annons/<booliId>; if it regressed, rent=null → no fee-exact → uncertain)
+  //     and (b) the multi-candidate fee_exact path.
+  await checkAsync('apt /annons 2-candidate fee-exact → matched/fee_exact', async () => {
     const c = mockClient();
-    const cands = [hcard({ slug: 'apt-annons', housing_form: 'Lägenhet', fee: 4500 })];
+    const cands = [
+      hcard({ slug: 'apt-annons', card_id: 'c1', housing_form: 'Lägenhet', fee: 4500 }),
+      hcard({ slug: 'apt-decoy', card_id: 'c2', housing_form: 'Lägenhet', fee: 9999 }),
+    ];
     const v = await matchOne(c, brec({ booli_id: 17, object_type: 'Lägenhet', residence_url: '/annons/777' }),
       APT, 'stockholm-apt', WIN[0], WIN[1], noLog, depsWith(cands, { rent: 4500 }));
-    assert.strictEqual(v, 'matched', '/annons apt must reach fee-exact (was uncertain before the fix)');
+    assert.strictEqual(v, 'matched', '/annons apt must reach fee-exact (was uncertain before the /annons fix)');
     assert.strictEqual(verdictMethod(c), 'fee_exact');
     assert.strictEqual(verdictSlug(c), 'apt-annons');
+  });
+
+  // 5c) single candidate, fee present & differs > 5% → tier VETOED → adjudicator sees a
+  //     fee contradiction (tolerance 0 kr) → UNCERTAIN conflict → uncertain.
+  await checkAsync('apt single-candidate fee differs >5% → uncertain (tier vetoed)', async () => {
+    const c = mockClient();
+    const cands = [hcard({ slug: 'apt-3', housing_form: 'Lägenhet', fee: 6000 })];
+    const v = await matchOne(c, brec({ booli_id: 18, object_type: 'Lägenhet' }), APT, 'stockholm-apt', WIN[0], WIN[1], noLog,
+      depsWith(cands, { rent: 4500 })); // |6000-4500|/4500 = 33% > 5%
+    assert.strictEqual(v, 'uncertain');
+    assert.strictEqual(verdictMethod(c), null);
+    assert.strictEqual(hemnet(c).length, 0);
+  });
+
+  // 5d) single candidate, area+price agree, fee ABSENT, but ROOMS differ → tier VETOED
+  //     (rooms present on both and unequal) → adjudicator has no fee/photos → uncertain.
+  await checkAsync('apt single-candidate rooms differ → uncertain (tier vetoed)', async () => {
+    const c = mockClient();
+    const cands = [hcard({ slug: 'apt-4', housing_form: 'Lägenhet', fee: null, rooms: 4 })];
+    const v = await matchOne(c, brec({ booli_id: 19, object_type: 'Lägenhet', rooms: 5 }), APT, 'stockholm-apt', WIN[0], WIN[1], noLog,
+      depsWith(cands, { rent: null }));
+    assert.strictEqual(v, 'uncertain', 'rooms 5 vs 4 with no fee → tier vetoed → uncertain');
+    assert.strictEqual(verdictMethod(c), null);
+  });
+
+  // 5e) single candidate, area DISAGREES, fee absent → tier skipped (areaOk false) →
+  //     adjudicator (no fee/photos) → uncertain. Confirms the tier requires area agreement.
+  await checkAsync('apt single-candidate area disagree → uncertain (tier not used)', async () => {
+    const c = mockClient();
+    const cands = [hcard({ slug: 'apt-5', housing_form: 'Lägenhet', fee: null, living_area: 200 })];
+    const v = await matchOne(c, brec({ booli_id: 20, object_type: 'Lägenhet', living_area: 100 }), APT, 'stockholm-apt', WIN[0], WIN[1], noLog,
+      depsWith(cands, { rent: null })); // area 100 vs 200 → 100% diff
+    assert.strictEqual(v, 'uncertain');
+  });
+
+  // 5f) TWO same-address candidates, NO fee on either → tier skipped → adjudicator has no
+  //     unit signal → uncertain. (Multi-candidate is left to the adjudicator, unchanged.)
+  await checkAsync('apt 2-candidate no fee → uncertain (adjudicator path)', async () => {
+    const c = mockClient();
+    const cands = [
+      hcard({ slug: 'apt-6a', card_id: 'c1', housing_form: 'Lägenhet', fee: null }),
+      hcard({ slug: 'apt-6b', card_id: 'c2', housing_form: 'Lägenhet', fee: null }),
+    ];
+    const v = await matchOne(c, brec({ booli_id: 21, object_type: 'Lägenhet' }), APT, 'stockholm-apt', WIN[0], WIN[1], noLog,
+      depsWith(cands, { rent: null }));
+    assert.strictEqual(v, 'uncertain');
   });
 
   // 6) Title transfer → zero verdict queries (D-02 gate in persistVerdictForRecord)
