@@ -1,0 +1,1775 @@
+{
+  "dateStr": "2026-07-09",
+  "nowSec": 1783594666,
+  "edges": [
+    30,
+    90,
+    180,
+    365,
+    548,
+    730
+  ],
+  "buckets": [
+    20899,
+    11217,
+    3185,
+    2586,
+    1930,
+    924,
+    2597
+  ],
+  "newbuild": [
+    1687,
+    668,
+    132,
+    76,
+    49,
+    28,
+    149
+  ],
+  "undated": 0,
+  "distinct": 43338,
+  "headlineSum": 43338,
+  "muniStats": [
+    {
+      "name": "Ale",
+      "id": 17865,
+      "headline": 110,
+      "counted": 150
+    },
+    {
+      "name": "Alingsås",
+      "id": 17866,
+      "headline": 75,
+      "counted": 84
+    },
+    {
+      "name": "Alvesta",
+      "id": 17867,
+      "headline": 72,
+      "counted": 84
+    },
+    {
+      "name": "Aneby",
+      "id": 17868,
+      "headline": 25,
+      "counted": 31
+    },
+    {
+      "name": "Arboga",
+      "id": 17869,
+      "headline": 50,
+      "counted": 50
+    },
+    {
+      "name": "Arjeplog",
+      "id": 17870,
+      "headline": 12,
+      "counted": 12
+    },
+    {
+      "name": "Arvidsjaur",
+      "id": 17871,
+      "headline": 15,
+      "counted": 15
+    },
+    {
+      "name": "Arvika",
+      "id": 17872,
+      "headline": 98,
+      "counted": 100
+    },
+    {
+      "name": "Askersund",
+      "id": 17873,
+      "headline": 59,
+      "counted": 80
+    },
+    {
+      "name": "Avesta",
+      "id": 17874,
+      "headline": 153,
+      "counted": 158
+    },
+    {
+      "name": "Bengtsfors",
+      "id": 17875,
+      "headline": 97,
+      "counted": 100
+    },
+    {
+      "name": "Berg",
+      "id": 17876,
+      "headline": 106,
+      "counted": 143
+    },
+    {
+      "name": "Bjurholm",
+      "id": 17877,
+      "headline": 21,
+      "counted": 23
+    },
+    {
+      "name": "Bjuv",
+      "id": 17878,
+      "headline": 58,
+      "counted": 100
+    },
+    {
+      "name": "Boden",
+      "id": 17879,
+      "headline": 117,
+      "counted": 121
+    },
+    {
+      "name": "Bollebygd",
+      "id": 17880,
+      "headline": 31,
+      "counted": 47
+    },
+    {
+      "name": "Bollnäs",
+      "id": 17881,
+      "headline": 168,
+      "counted": 174
+    },
+    {
+      "name": "Borgholm",
+      "id": 17882,
+      "headline": 161,
+      "counted": 162
+    },
+    {
+      "name": "Borlänge",
+      "id": 17883,
+      "headline": 289,
+      "counted": 300
+    },
+    {
+      "name": "Borås",
+      "id": 17884,
+      "headline": 472,
+      "counted": 474
+    },
+    {
+      "name": "Botkyrka",
+      "id": 17885,
+      "headline": 468,
+      "counted": 500
+    },
+    {
+      "name": "Boxholm",
+      "id": 17886,
+      "headline": 21,
+      "counted": 34
+    },
+    {
+      "name": "Bromölla",
+      "id": 17887,
+      "headline": 49,
+      "counted": 50
+    },
+    {
+      "name": "Bräcke",
+      "id": 17888,
+      "headline": 24,
+      "counted": 25
+    },
+    {
+      "name": "Burlöv",
+      "id": 17889,
+      "headline": 26,
+      "counted": 50
+    },
+    {
+      "name": "Båstad",
+      "id": 17890,
+      "headline": 232,
+      "counted": 250
+    },
+    {
+      "name": "Dals-Ed",
+      "id": 17891,
+      "headline": 45,
+      "counted": 45
+    },
+    {
+      "name": "Danderyd",
+      "id": 17892,
+      "headline": 49,
+      "counted": 50
+    },
+    {
+      "name": "Degerfors",
+      "id": 17893,
+      "headline": 25,
+      "counted": 37
+    },
+    {
+      "name": "Dorotea",
+      "id": 17894,
+      "headline": 16,
+      "counted": 17
+    },
+    {
+      "name": "Eda",
+      "id": 17895,
+      "headline": 66,
+      "counted": 66
+    },
+    {
+      "name": "Ekerö",
+      "id": 17896,
+      "headline": 90,
+      "counted": 93
+    },
+    {
+      "name": "Eksjö",
+      "id": 17897,
+      "headline": 55,
+      "counted": 62
+    },
+    {
+      "name": "Emmaboda",
+      "id": 18040,
+      "headline": 41,
+      "counted": 43
+    },
+    {
+      "name": "Enköping",
+      "id": 17898,
+      "headline": 275,
+      "counted": 295
+    },
+    {
+      "name": "Eskilstuna",
+      "id": 17899,
+      "headline": 605,
+      "counted": 628
+    },
+    {
+      "name": "Eslöv",
+      "id": 17900,
+      "headline": 112,
+      "counted": 134
+    },
+    {
+      "name": "Essunga",
+      "id": 17901,
+      "headline": 14,
+      "counted": 13
+    },
+    {
+      "name": "Fagersta",
+      "id": 17902,
+      "headline": 74,
+      "counted": 77
+    },
+    {
+      "name": "Falkenberg",
+      "id": 17903,
+      "headline": 161,
+      "counted": 175
+    },
+    {
+      "name": "Falköping",
+      "id": 17766,
+      "headline": 86,
+      "counted": 100
+    },
+    {
+      "name": "Falun",
+      "id": 17904,
+      "headline": 197,
+      "counted": 193
+    },
+    {
+      "name": "Filipstad",
+      "id": 17905,
+      "headline": 71,
+      "counted": 77
+    },
+    {
+      "name": "Finspång",
+      "id": 17906,
+      "headline": 54,
+      "counted": 77
+    },
+    {
+      "name": "Flen",
+      "id": 17907,
+      "headline": 95,
+      "counted": 99
+    },
+    {
+      "name": "Forshaga",
+      "id": 17908,
+      "headline": 20,
+      "counted": 35
+    },
+    {
+      "name": "Färgelanda",
+      "id": 17909,
+      "headline": 16,
+      "counted": 19
+    },
+    {
+      "name": "Gagnef",
+      "id": 17910,
+      "headline": 50,
+      "counted": 49
+    },
+    {
+      "name": "Gislaved",
+      "id": 17911,
+      "headline": 140,
+      "counted": 150
+    },
+    {
+      "name": "Gnesta",
+      "id": 17912,
+      "headline": 85,
+      "counted": 93
+    },
+    {
+      "name": "Gnosjö",
+      "id": 17913,
+      "headline": 38,
+      "counted": 41
+    },
+    {
+      "name": "Gotland",
+      "id": 17914,
+      "headline": 470,
+      "counted": 470
+    },
+    {
+      "name": "Grums",
+      "id": 17915,
+      "headline": 45,
+      "counted": 50
+    },
+    {
+      "name": "Grästorp",
+      "id": 17916,
+      "headline": 10,
+      "counted": 11
+    },
+    {
+      "name": "Gullspång",
+      "id": 17917,
+      "headline": 53,
+      "counted": 58
+    },
+    {
+      "name": "Gällivare",
+      "id": 17918,
+      "headline": 45,
+      "counted": 49
+    },
+    {
+      "name": "Gävle",
+      "id": 17919,
+      "headline": 360,
+      "counted": 380
+    },
+    {
+      "name": "Göteborg",
+      "id": 17920,
+      "headline": 1655,
+      "counted": 1655
+    },
+    {
+      "name": "Götene",
+      "id": 17921,
+      "headline": 43,
+      "counted": 45
+    },
+    {
+      "name": "Habo",
+      "id": 17922,
+      "headline": 35,
+      "counted": 50
+    },
+    {
+      "name": "Hagfors",
+      "id": 17923,
+      "headline": 72,
+      "counted": 77
+    },
+    {
+      "name": "Hallsberg",
+      "id": 17924,
+      "headline": 55,
+      "counted": 53
+    },
+    {
+      "name": "Hallstahammar",
+      "id": 17925,
+      "headline": 25,
+      "counted": 30
+    },
+    {
+      "name": "Halmstad",
+      "id": 17926,
+      "headline": 389,
+      "counted": 386
+    },
+    {
+      "name": "Hammarö",
+      "id": 17927,
+      "headline": 54,
+      "counted": 100
+    },
+    {
+      "name": "Haninge",
+      "id": 17928,
+      "headline": 505,
+      "counted": 546
+    },
+    {
+      "name": "Haparanda",
+      "id": 17929,
+      "headline": 62,
+      "counted": 62
+    },
+    {
+      "name": "Heby",
+      "id": 17930,
+      "headline": 109,
+      "counted": 110
+    },
+    {
+      "name": "Hedemora",
+      "id": 17931,
+      "headline": 66,
+      "counted": 70
+    },
+    {
+      "name": "Helsingborg",
+      "id": 17932,
+      "headline": 858,
+      "counted": 876
+    },
+    {
+      "name": "Herrljunga",
+      "id": 17933,
+      "headline": 14,
+      "counted": 14
+    },
+    {
+      "name": "Hjo",
+      "id": 17934,
+      "headline": 37,
+      "counted": 37
+    },
+    {
+      "name": "Hofors",
+      "id": 17935,
+      "headline": 36,
+      "counted": 46
+    },
+    {
+      "name": "Huddinge",
+      "id": 17936,
+      "headline": 318,
+      "counted": 292
+    },
+    {
+      "name": "Hudiksvall",
+      "id": 17937,
+      "headline": 154,
+      "counted": 159
+    },
+    {
+      "name": "Hultsfred",
+      "id": 17938,
+      "headline": 92,
+      "counted": 100
+    },
+    {
+      "name": "Hylte",
+      "id": 17939,
+      "headline": 35,
+      "counted": 36
+    },
+    {
+      "name": "Håbo",
+      "id": 17940,
+      "headline": 91,
+      "counted": 96
+    },
+    {
+      "name": "Hällefors",
+      "id": 17941,
+      "headline": 39,
+      "counted": 34
+    },
+    {
+      "name": "Härjedalen",
+      "id": 17942,
+      "headline": 404,
+      "counted": 390
+    },
+    {
+      "name": "Härnösand",
+      "id": 17943,
+      "headline": 141,
+      "counted": 143
+    },
+    {
+      "name": "Härryda",
+      "id": 17944,
+      "headline": 125,
+      "counted": 132
+    },
+    {
+      "name": "Hässleholm",
+      "id": 17945,
+      "headline": 223,
+      "counted": 243
+    },
+    {
+      "name": "Höganäs",
+      "id": 17946,
+      "headline": 149,
+      "counted": 136
+    },
+    {
+      "name": "Högsby",
+      "id": 17947,
+      "headline": 43,
+      "counted": 44
+    },
+    {
+      "name": "Hörby",
+      "id": 17948,
+      "headline": 44,
+      "counted": 42
+    },
+    {
+      "name": "Höör",
+      "id": 17949,
+      "headline": 47,
+      "counted": 32
+    },
+    {
+      "name": "Jokkmokk",
+      "id": 17950,
+      "headline": 26,
+      "counted": 23
+    },
+    {
+      "name": "Järfälla",
+      "id": 17951,
+      "headline": 513,
+      "counted": 549
+    },
+    {
+      "name": "Jönköping",
+      "id": 17952,
+      "headline": 351,
+      "counted": 357
+    },
+    {
+      "name": "Kalix",
+      "id": 17953,
+      "headline": 165,
+      "counted": 165
+    },
+    {
+      "name": "Kalmar",
+      "id": 17954,
+      "headline": 424,
+      "counted": 429
+    },
+    {
+      "name": "Karlsborg",
+      "id": 17955,
+      "headline": 27,
+      "counted": 30
+    },
+    {
+      "name": "Karlshamn",
+      "id": 17956,
+      "headline": 132,
+      "counted": 141
+    },
+    {
+      "name": "Karlskoga",
+      "id": 17957,
+      "headline": 76,
+      "counted": 71
+    },
+    {
+      "name": "Karlskrona",
+      "id": 17958,
+      "headline": 286,
+      "counted": 287
+    },
+    {
+      "name": "Karlstad",
+      "id": 17959,
+      "headline": 332,
+      "counted": 280
+    },
+    {
+      "name": "Katrineholm",
+      "id": 17960,
+      "headline": 118,
+      "counted": 117
+    },
+    {
+      "name": "Kil",
+      "id": 17961,
+      "headline": 21,
+      "counted": 13
+    },
+    {
+      "name": "Kinda",
+      "id": 17962,
+      "headline": 20,
+      "counted": 28
+    },
+    {
+      "name": "Kiruna",
+      "id": 17963,
+      "headline": 19,
+      "counted": 17
+    },
+    {
+      "name": "Klippan",
+      "id": 17964,
+      "headline": 100,
+      "counted": 114
+    },
+    {
+      "name": "Knivsta",
+      "id": 17965,
+      "headline": 75,
+      "counted": 99
+    },
+    {
+      "name": "Kramfors",
+      "id": 17966,
+      "headline": 116,
+      "counted": 118
+    },
+    {
+      "name": "Kristianstad",
+      "id": 17967,
+      "headline": 316,
+      "counted": 322
+    },
+    {
+      "name": "Kristinehamn",
+      "id": 17968,
+      "headline": 152,
+      "counted": 152
+    },
+    {
+      "name": "Krokom",
+      "id": 17969,
+      "headline": 72,
+      "counted": 86
+    },
+    {
+      "name": "Kumla",
+      "id": 17970,
+      "headline": 97,
+      "counted": 87
+    },
+    {
+      "name": "Kungsbacka",
+      "id": 17971,
+      "headline": 135,
+      "counted": 140
+    },
+    {
+      "name": "Kungsör",
+      "id": 17972,
+      "headline": 50,
+      "counted": 48
+    },
+    {
+      "name": "Kungälv",
+      "id": 17973,
+      "headline": 166,
+      "counted": 143
+    },
+    {
+      "name": "Kävlinge",
+      "id": 17974,
+      "headline": 45,
+      "counted": 50
+    },
+    {
+      "name": "Köping",
+      "id": 17975,
+      "headline": 132,
+      "counted": 132
+    },
+    {
+      "name": "Laholm",
+      "id": 17976,
+      "headline": 190,
+      "counted": 175
+    },
+    {
+      "name": "Landskrona",
+      "id": 18043,
+      "headline": 199,
+      "counted": 186
+    },
+    {
+      "name": "Laxå",
+      "id": 17977,
+      "headline": 32,
+      "counted": 28
+    },
+    {
+      "name": "Lekeberg",
+      "id": 17845,
+      "headline": 41,
+      "counted": 38
+    },
+    {
+      "name": "Leksand",
+      "id": 17978,
+      "headline": 114,
+      "counted": 121
+    },
+    {
+      "name": "Lerum",
+      "id": 17979,
+      "headline": 69,
+      "counted": 69
+    },
+    {
+      "name": "Lessebo",
+      "id": 17980,
+      "headline": 53,
+      "counted": 53
+    },
+    {
+      "name": "Lidingö",
+      "id": 17846,
+      "headline": 47,
+      "counted": 50
+    },
+    {
+      "name": "Lidköping",
+      "id": 17981,
+      "headline": 89,
+      "counted": 90
+    },
+    {
+      "name": "Lilla Edet",
+      "id": 18044,
+      "headline": 50,
+      "counted": 50
+    },
+    {
+      "name": "Lindesberg",
+      "id": 17982,
+      "headline": 181,
+      "counted": 188
+    },
+    {
+      "name": "Linköping",
+      "id": 17847,
+      "headline": 371,
+      "counted": 373
+    },
+    {
+      "name": "Ljungby",
+      "id": 17983,
+      "headline": 175,
+      "counted": 178
+    },
+    {
+      "name": "Ljusdal",
+      "id": 17984,
+      "headline": 138,
+      "counted": 135
+    },
+    {
+      "name": "Ljusnarsberg",
+      "id": 17985,
+      "headline": 41,
+      "counted": 43
+    },
+    {
+      "name": "Lomma",
+      "id": 17986,
+      "headline": 66,
+      "counted": 75
+    },
+    {
+      "name": "Ludvika",
+      "id": 17848,
+      "headline": 154,
+      "counted": 153
+    },
+    {
+      "name": "Luleå",
+      "id": 18045,
+      "headline": 120,
+      "counted": 118
+    },
+    {
+      "name": "Lund",
+      "id": 17987,
+      "headline": 348,
+      "counted": 342
+    },
+    {
+      "name": "Lycksele",
+      "id": 17988,
+      "headline": 20,
+      "counted": 20
+    },
+    {
+      "name": "Lysekil",
+      "id": 17849,
+      "headline": 79,
+      "counted": 100
+    },
+    {
+      "name": "Malmö",
+      "id": 17989,
+      "headline": 1035,
+      "counted": 1031
+    },
+    {
+      "name": "Malung-Sälen",
+      "id": 17990,
+      "headline": 480,
+      "counted": 481
+    },
+    {
+      "name": "Malå",
+      "id": 17991,
+      "headline": 11,
+      "counted": 12
+    },
+    {
+      "name": "Mariestad",
+      "id": 17850,
+      "headline": 139,
+      "counted": 139
+    },
+    {
+      "name": "Mark",
+      "id": 18046,
+      "headline": 111,
+      "counted": 112
+    },
+    {
+      "name": "Markaryd",
+      "id": 17992,
+      "headline": 41,
+      "counted": 36
+    },
+    {
+      "name": "Mellerud",
+      "id": 17993,
+      "headline": 73,
+      "counted": 76
+    },
+    {
+      "name": "Mjölby",
+      "id": 17994,
+      "headline": 40,
+      "counted": 40
+    },
+    {
+      "name": "Mora",
+      "id": 17851,
+      "headline": 77,
+      "counted": 79
+    },
+    {
+      "name": "Motala",
+      "id": 17995,
+      "headline": 86,
+      "counted": 83
+    },
+    {
+      "name": "Mullsjö",
+      "id": 18047,
+      "headline": 23,
+      "counted": 16
+    },
+    {
+      "name": "Munkedal",
+      "id": 17996,
+      "headline": 64,
+      "counted": 60
+    },
+    {
+      "name": "Munkfors",
+      "id": 17852,
+      "headline": 12,
+      "counted": 6
+    },
+    {
+      "name": "Mölndal",
+      "id": 17997,
+      "headline": 153,
+      "counted": 132
+    },
+    {
+      "name": "Mönsterås",
+      "id": 17998,
+      "headline": 62,
+      "counted": 66
+    },
+    {
+      "name": "Mörbylånga",
+      "id": 17999,
+      "headline": 102,
+      "counted": 101
+    },
+    {
+      "name": "Nacka",
+      "id": 17853,
+      "headline": 378,
+      "counted": 399
+    },
+    {
+      "name": "Nora",
+      "id": 18000,
+      "headline": 64,
+      "counted": 62
+    },
+    {
+      "name": "Norberg",
+      "id": 18048,
+      "headline": 30,
+      "counted": 30
+    },
+    {
+      "name": "Nordanstig",
+      "id": 18001,
+      "headline": 56,
+      "counted": 54
+    },
+    {
+      "name": "Nordmaling",
+      "id": 17854,
+      "headline": 27,
+      "counted": 26
+    },
+    {
+      "name": "Norrköping",
+      "id": 18002,
+      "headline": 570,
+      "counted": 560
+    },
+    {
+      "name": "Norrtälje",
+      "id": 18003,
+      "headline": 632,
+      "counted": 642
+    },
+    {
+      "name": "Norsjö",
+      "id": 18004,
+      "headline": 21,
+      "counted": 22
+    },
+    {
+      "name": "Nybro",
+      "id": 18005,
+      "headline": 85,
+      "counted": 82
+    },
+    {
+      "name": "Nykvarn",
+      "id": 17855,
+      "headline": 33,
+      "counted": 50
+    },
+    {
+      "name": "Nyköping",
+      "id": 18049,
+      "headline": 412,
+      "counted": 434
+    },
+    {
+      "name": "Nynäshamn",
+      "id": 18006,
+      "headline": 202,
+      "counted": 201
+    },
+    {
+      "name": "Nässjö",
+      "id": 18007,
+      "headline": 135,
+      "counted": 129
+    },
+    {
+      "name": "Ockelbo",
+      "id": 17856,
+      "headline": 22,
+      "counted": 24
+    },
+    {
+      "name": "Olofström",
+      "id": 18008,
+      "headline": 52,
+      "counted": 57
+    },
+    {
+      "name": "Orsa",
+      "id": 18009,
+      "headline": 45,
+      "counted": 43
+    },
+    {
+      "name": "Orust",
+      "id": 18010,
+      "headline": 98,
+      "counted": 88
+    },
+    {
+      "name": "Osby",
+      "id": 18011,
+      "headline": 82,
+      "counted": 88
+    },
+    {
+      "name": "Oskarshamn",
+      "id": 17857,
+      "headline": 138,
+      "counted": 139
+    },
+    {
+      "name": "Ovanåker",
+      "id": 18050,
+      "headline": 64,
+      "counted": 64
+    },
+    {
+      "name": "Oxelösund",
+      "id": 18012,
+      "headline": 92,
+      "counted": 64
+    },
+    {
+      "name": "Pajala",
+      "id": 18013,
+      "headline": 23,
+      "counted": 23
+    },
+    {
+      "name": "Partille",
+      "id": 17858,
+      "headline": 48,
+      "counted": 34
+    },
+    {
+      "name": "Perstorp",
+      "id": 18014,
+      "headline": 58,
+      "counted": 51
+    },
+    {
+      "name": "Piteå",
+      "id": 18015,
+      "headline": 91,
+      "counted": 91
+    },
+    {
+      "name": "Ragunda",
+      "id": 18016,
+      "headline": 20,
+      "counted": 20
+    },
+    {
+      "name": "Robertsfors",
+      "id": 18017,
+      "headline": 43,
+      "counted": 48
+    },
+    {
+      "name": "Ronneby",
+      "id": 17767,
+      "headline": 131,
+      "counted": 129
+    },
+    {
+      "name": "Rättvik",
+      "id": 18018,
+      "headline": 107,
+      "counted": 100
+    },
+    {
+      "name": "Sala",
+      "id": 18051,
+      "headline": 100,
+      "counted": 94
+    },
+    {
+      "name": "Salem",
+      "id": 18019,
+      "headline": 73,
+      "counted": 76
+    },
+    {
+      "name": "Sandviken",
+      "id": 17859,
+      "headline": 239,
+      "counted": 217
+    },
+    {
+      "name": "Sigtuna",
+      "id": 18020,
+      "headline": 316,
+      "counted": 306
+    },
+    {
+      "name": "Simrishamn",
+      "id": 18021,
+      "headline": 274,
+      "counted": 296
+    },
+    {
+      "name": "Sjöbo",
+      "id": 18022,
+      "headline": 113,
+      "counted": 118
+    },
+    {
+      "name": "Skara",
+      "id": 18023,
+      "headline": 61,
+      "counted": 63
+    },
+    {
+      "name": "Skellefteå",
+      "id": 17860,
+      "headline": 505,
+      "counted": 500
+    },
+    {
+      "name": "Skinnskatteberg",
+      "id": 18052,
+      "headline": 40,
+      "counted": 38
+    },
+    {
+      "name": "Skurup",
+      "id": 18024,
+      "headline": 79,
+      "counted": 89
+    },
+    {
+      "name": "Skövde",
+      "id": 18025,
+      "headline": 160,
+      "counted": 149
+    },
+    {
+      "name": "Smedjebacken",
+      "id": 17861,
+      "headline": 43,
+      "counted": 38
+    },
+    {
+      "name": "Sollefteå",
+      "id": 18026,
+      "headline": 65,
+      "counted": 64
+    },
+    {
+      "name": "Sollentuna",
+      "id": 18027,
+      "headline": 211,
+      "counted": 223
+    },
+    {
+      "name": "Solna",
+      "id": 18028,
+      "headline": 274,
+      "counted": 291
+    },
+    {
+      "name": "Sorsele",
+      "id": 18029,
+      "headline": 24,
+      "counted": 25
+    },
+    {
+      "name": "Sotenäs",
+      "id": 17862,
+      "headline": 103,
+      "counted": 104
+    },
+    {
+      "name": "Staffanstorp",
+      "id": 18053,
+      "headline": 78,
+      "counted": 58
+    },
+    {
+      "name": "Stenungsund",
+      "id": 18030,
+      "headline": 79,
+      "counted": 91
+    },
+    {
+      "name": "Stockholm",
+      "id": 18031,
+      "headline": 1524,
+      "counted": 1451
+    },
+    {
+      "name": "Storfors",
+      "id": 18032,
+      "headline": 24,
+      "counted": 20
+    },
+    {
+      "name": "Storuman",
+      "id": 17863,
+      "headline": 117,
+      "counted": 118
+    },
+    {
+      "name": "Strängnäs",
+      "id": 18033,
+      "headline": 337,
+      "counted": 320
+    },
+    {
+      "name": "Strömstad",
+      "id": 18034,
+      "headline": 243,
+      "counted": 250
+    },
+    {
+      "name": "Strömsund",
+      "id": 18035,
+      "headline": 42,
+      "counted": 41
+    },
+    {
+      "name": "Sundbyberg",
+      "id": 18042,
+      "headline": 212,
+      "counted": 199
+    },
+    {
+      "name": "Sundsvall",
+      "id": 18054,
+      "headline": 594,
+      "counted": 599
+    },
+    {
+      "name": "Sunne",
+      "id": 18036,
+      "headline": 73,
+      "counted": 70
+    },
+    {
+      "name": "Surahammar",
+      "id": 18037,
+      "headline": 27,
+      "counted": 25
+    },
+    {
+      "name": "Svalöv",
+      "id": 18038,
+      "headline": 66,
+      "counted": 50
+    },
+    {
+      "name": "Svedala",
+      "id": 17864,
+      "headline": 42,
+      "counted": 42
+    },
+    {
+      "name": "Svenljunga",
+      "id": 18039,
+      "headline": 29,
+      "counted": 24
+    },
+    {
+      "name": "Säffle",
+      "id": 17770,
+      "headline": 131,
+      "counted": 133
+    },
+    {
+      "name": "Säter",
+      "id": 17771,
+      "headline": 62,
+      "counted": 53
+    },
+    {
+      "name": "Sävsjö",
+      "id": 17772,
+      "headline": 69,
+      "counted": 79
+    },
+    {
+      "name": "Söderhamn",
+      "id": 17773,
+      "headline": 254,
+      "counted": 249
+    },
+    {
+      "name": "Söderköping",
+      "id": 17774,
+      "headline": 64,
+      "counted": 52
+    },
+    {
+      "name": "Södertälje",
+      "id": 17775,
+      "headline": 573,
+      "counted": 532
+    },
+    {
+      "name": "Sölvesborg",
+      "id": 17776,
+      "headline": 69,
+      "counted": 64
+    },
+    {
+      "name": "Tanum",
+      "id": 17777,
+      "headline": 212,
+      "counted": 197
+    },
+    {
+      "name": "Tibro",
+      "id": 17778,
+      "headline": 47,
+      "counted": 44
+    },
+    {
+      "name": "Tidaholm",
+      "id": 17779,
+      "headline": 67,
+      "counted": 65
+    },
+    {
+      "name": "Tierp",
+      "id": 17780,
+      "headline": 144,
+      "counted": 142
+    },
+    {
+      "name": "Timrå",
+      "id": 17781,
+      "headline": 90,
+      "counted": 82
+    },
+    {
+      "name": "Tingsryd",
+      "id": 17782,
+      "headline": 86,
+      "counted": 82
+    },
+    {
+      "name": "Tjörn",
+      "id": 17783,
+      "headline": 107,
+      "counted": 100
+    },
+    {
+      "name": "Tomelilla",
+      "id": 17784,
+      "headline": 90,
+      "counted": 68
+    },
+    {
+      "name": "Torsby",
+      "id": 17785,
+      "headline": 118,
+      "counted": 116
+    },
+    {
+      "name": "Torsås",
+      "id": 17786,
+      "headline": 40,
+      "counted": 38
+    },
+    {
+      "name": "Tranemo",
+      "id": 17787,
+      "headline": 59,
+      "counted": 54
+    },
+    {
+      "name": "Tranås",
+      "id": 17788,
+      "headline": 59,
+      "counted": 48
+    },
+    {
+      "name": "Trelleborg",
+      "id": 17789,
+      "headline": 238,
+      "counted": 235
+    },
+    {
+      "name": "Trollhättan",
+      "id": 17790,
+      "headline": 198,
+      "counted": 198
+    },
+    {
+      "name": "Trosa",
+      "id": 17791,
+      "headline": 89,
+      "counted": 87
+    },
+    {
+      "name": "Tyresö",
+      "id": 17792,
+      "headline": 113,
+      "counted": 90
+    },
+    {
+      "name": "Täby",
+      "id": 17793,
+      "headline": 222,
+      "counted": 226
+    },
+    {
+      "name": "Töreboda",
+      "id": 17794,
+      "headline": 39,
+      "counted": 32
+    },
+    {
+      "name": "Uddevalla",
+      "id": 17795,
+      "headline": 371,
+      "counted": 363
+    },
+    {
+      "name": "Ulricehamn",
+      "id": 17796,
+      "headline": 43,
+      "counted": 39
+    },
+    {
+      "name": "Umeå",
+      "id": 17797,
+      "headline": 684,
+      "counted": 687
+    },
+    {
+      "name": "Upplands Väsby",
+      "id": 17798,
+      "headline": 292,
+      "counted": 286
+    },
+    {
+      "name": "Upplands-Bro",
+      "id": 17799,
+      "headline": 226,
+      "counted": 219
+    },
+    {
+      "name": "Uppsala",
+      "id": 17800,
+      "headline": 820,
+      "counted": 810
+    },
+    {
+      "name": "Uppvidinge",
+      "id": 17768,
+      "headline": 59,
+      "counted": 60
+    },
+    {
+      "name": "Vadstena",
+      "id": 17801,
+      "headline": 28,
+      "counted": 26
+    },
+    {
+      "name": "Vaggeryd",
+      "id": 17802,
+      "headline": 54,
+      "counted": 44
+    },
+    {
+      "name": "Valdemarsvik",
+      "id": 17803,
+      "headline": 71,
+      "counted": 73
+    },
+    {
+      "name": "Vallentuna",
+      "id": 17804,
+      "headline": 125,
+      "counted": 119
+    },
+    {
+      "name": "Vansbro",
+      "id": 17805,
+      "headline": 20,
+      "counted": 20
+    },
+    {
+      "name": "Vara",
+      "id": 17806,
+      "headline": 33,
+      "counted": 31
+    },
+    {
+      "name": "Varberg",
+      "id": 17807,
+      "headline": 126,
+      "counted": 116
+    },
+    {
+      "name": "Vaxholm",
+      "id": 17808,
+      "headline": 68,
+      "counted": 92
+    },
+    {
+      "name": "Vellinge",
+      "id": 17809,
+      "headline": 163,
+      "counted": 151
+    },
+    {
+      "name": "Vetlanda",
+      "id": 17810,
+      "headline": 164,
+      "counted": 151
+    },
+    {
+      "name": "Vilhelmina",
+      "id": 17811,
+      "headline": 59,
+      "counted": 57
+    },
+    {
+      "name": "Vimmerby",
+      "id": 17812,
+      "headline": 47,
+      "counted": 48
+    },
+    {
+      "name": "Vindeln",
+      "id": 17813,
+      "headline": 27,
+      "counted": 25
+    },
+    {
+      "name": "Vingåker",
+      "id": 17814,
+      "headline": 57,
+      "counted": 53
+    },
+    {
+      "name": "Vårgårda",
+      "id": 17815,
+      "headline": 29,
+      "counted": 24
+    },
+    {
+      "name": "Vänersborg",
+      "id": 17816,
+      "headline": 177,
+      "counted": 172
+    },
+    {
+      "name": "Vännäs",
+      "id": 17817,
+      "headline": 22,
+      "counted": 17
+    },
+    {
+      "name": "Värmdö",
+      "id": 17818,
+      "headline": 247,
+      "counted": 233
+    },
+    {
+      "name": "Värnamo",
+      "id": 17819,
+      "headline": 167,
+      "counted": 155
+    },
+    {
+      "name": "Västervik",
+      "id": 17820,
+      "headline": 256,
+      "counted": 243
+    },
+    {
+      "name": "Västerås",
+      "id": 17821,
+      "headline": 431,
+      "counted": 417
+    },
+    {
+      "name": "Växjö",
+      "id": 17822,
+      "headline": 581,
+      "counted": 561
+    },
+    {
+      "name": "Ydre",
+      "id": 17823,
+      "headline": 14,
+      "counted": 11
+    },
+    {
+      "name": "Ystad",
+      "id": 17824,
+      "headline": 153,
+      "counted": 141
+    },
+    {
+      "name": "Åmål",
+      "id": 17825,
+      "headline": 110,
+      "counted": 105
+    },
+    {
+      "name": "Ånge",
+      "id": 17826,
+      "headline": 43,
+      "counted": 42
+    },
+    {
+      "name": "Åre",
+      "id": 17827,
+      "headline": 338,
+      "counted": 319
+    },
+    {
+      "name": "Årjäng",
+      "id": 17828,
+      "headline": 62,
+      "counted": 60
+    },
+    {
+      "name": "Åsele",
+      "id": 17829,
+      "headline": 14,
+      "counted": 14
+    },
+    {
+      "name": "Åstorp",
+      "id": 17830,
+      "headline": 69,
+      "counted": 32
+    },
+    {
+      "name": "Åtvidaberg",
+      "id": 17765,
+      "headline": 44,
+      "counted": 40
+    },
+    {
+      "name": "Älmhult",
+      "id": 17831,
+      "headline": 137,
+      "counted": 124
+    },
+    {
+      "name": "Älvdalen",
+      "id": 17832,
+      "headline": 191,
+      "counted": 190
+    },
+    {
+      "name": "Älvkarleby",
+      "id": 17833,
+      "headline": 35,
+      "counted": 31
+    },
+    {
+      "name": "Älvsbyn",
+      "id": 17834,
+      "headline": 15,
+      "counted": 15
+    },
+    {
+      "name": "Ängelholm",
+      "id": 17835,
+      "headline": 168,
+      "counted": 160
+    },
+    {
+      "name": "Öckerö",
+      "id": 17836,
+      "headline": 28,
+      "counted": 28
+    },
+    {
+      "name": "Ödeshög",
+      "id": 17837,
+      "headline": 17,
+      "counted": 16
+    },
+    {
+      "name": "Örebro",
+      "id": 17838,
+      "headline": 834,
+      "counted": 824
+    },
+    {
+      "name": "Örkelljunga",
+      "id": 18041,
+      "headline": 73,
+      "counted": 67
+    },
+    {
+      "name": "Örnsköldsvik",
+      "id": 17839,
+      "headline": 227,
+      "counted": 226
+    },
+    {
+      "name": "Östersund",
+      "id": 17840,
+      "headline": 213,
+      "counted": 194
+    },
+    {
+      "name": "Österåker",
+      "id": 17769,
+      "headline": 269,
+      "counted": 239
+    },
+    {
+      "name": "Östhammar",
+      "id": 17841,
+      "headline": 144,
+      "counted": 135
+    },
+    {
+      "name": "Östra Göinge",
+      "id": 17842,
+      "headline": 48,
+      "counted": 37
+    },
+    {
+      "name": "Överkalix",
+      "id": 17843,
+      "headline": 19,
+      "counted": 19
+    },
+    {
+      "name": "Övertorneå",
+      "id": 17844,
+      "headline": 16,
+      "counted": 16
+    }
+  ]
+}
