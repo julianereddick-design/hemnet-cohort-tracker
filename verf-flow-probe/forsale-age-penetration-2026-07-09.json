@@ -1,0 +1,37 @@
+{
+  "dateStr": "2026-07-09",
+  "nowSec": 1783590700,
+  "edges": [
+    30,
+    90,
+    180,
+    365,
+    548,
+    730
+  ],
+  "results": [
+    {
+      "name": "booli",
+      "headlineTotal": 52349,
+      "bands": [
+        9696,
+        16758,
+        9510,
+        7009,
+        4388,
+        1729,
+        3259
+      ],
+      "undatedEst": 0,
+      "datedBase": 52349,
+      "newbuildRate": 0.006896551724137931,
+      "seenPages": 58,
+      "calls": 84,
+      "crosscheck": {
+        "cut": 90,
+        "newestPass": 26454,
+        "oldestPass": 26939
+      }
+    }
+  ]
+}
