@@ -9,7 +9,7 @@
 
 'use strict';
 
-const { addsShare, formatShareRow } = require('../premarket-flow-weekly-report');
+const { addsShare, formatShareRow, formatShareHistory } = require('../premarket-flow-weekly-report');
 
 let pass = 0, fail = 0;
 const failures = [];
@@ -71,6 +71,48 @@ test('formatShareRow renders ? when current share unavailable', () => {
 test('formatShareRow is labelled so the metric is unambiguous', () => {
   const row = formatShareRow(0.46686, null);
   assert(/Hemnet\/Booli adds/.test(row), `expected explicit label, got: ${row}`);
+});
+
+// --- formatShareHistory: the historic trend of the ratio ------------------------------
+// Real series so far: 07-06 45.5%, 07-13 48.7%, 07-22 46.7%.
+
+const HIST = [
+  { day: '2026-07-06', hemnetAdds: 1143, booliAdds: 2512 },
+  { day: '2026-07-13', hemnetAdds: 1081, booliAdds: 2218 },
+  { day: '2026-07-22', hemnetAdds: 817,  booliAdds: 1750 },
+];
+
+test('formatShareHistory returns one line per snapshot, in the order given', () => {
+  const lines = formatShareHistory(HIST);
+  assert(Array.isArray(lines), 'should return an array of lines');
+  assert(lines.length === 3, `expected 3 lines, got ${lines.length}`);
+  assert(/2026-07-06/.test(lines[0]), `first line should be the oldest snapshot, got: ${lines[0]}`);
+  assert(/2026-07-22/.test(lines[2]), `last line should be the newest snapshot, got: ${lines[2]}`);
+});
+
+test('formatShareHistory computes the share for each snapshot', () => {
+  const lines = formatShareHistory(HIST);
+  assert(/45\.5%/.test(lines[0]), `expected 45.5% on 07-06, got: ${lines[0]}`);
+  assert(/48\.7%/.test(lines[1]), `expected 48.7% on 07-13, got: ${lines[1]}`);
+  assert(/46\.7%/.test(lines[2]), `expected 46.7% on 07-22, got: ${lines[2]}`);
+});
+
+test('formatShareHistory shows the raw adds so the ratio is auditable', () => {
+  const lines = formatShareHistory(HIST);
+  assert(/1,143/.test(lines[0]) && /2,512/.test(lines[0]), `expected raw adds, got: ${lines[0]}`);
+});
+
+test('formatShareHistory renders ? for a partial week rather than crashing', () => {
+  // Exactly the 2026-07-22 pre-re-run state: Hemnet persisted, Booli failed.
+  const lines = formatShareHistory([{ day: '2026-07-22', hemnetAdds: 817, booliAdds: null }]);
+  assert(lines.length === 1, 'partial week must still produce a line');
+  assert(/\?/.test(lines[0]), `expected ? share for a partial week, got: ${lines[0]}`);
+  assert(/817/.test(lines[0]), `should still show the side we do have, got: ${lines[0]}`);
+});
+
+test('formatShareHistory handles an empty series without crashing', () => {
+  const lines = formatShareHistory([]);
+  assert(Array.isArray(lines) && lines.length >= 1, 'empty history should yield a placeholder line');
 });
 
 if (fail === 0) {

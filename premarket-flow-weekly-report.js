@@ -36,6 +36,10 @@ async function sendSlack(webhookUrl, message) {
   });
 }
 
+// How many past snapshots to print in the ratio trend block. 8 ≈ two months of weekly
+// readings — enough to see the trend, short enough to keep the Slack message scannable.
+const HISTORY_LIMIT = 8;
+
 function fmtNumber(n) { return Number(n).toLocaleString('en-US'); }
 function lpad(s, w) { return (' '.repeat(w) + s).slice(-w); }
 function rpad(s, w) { return (s + ' '.repeat(w)).slice(0, w); }
@@ -84,6 +88,22 @@ function formatShareRow(curr, prior) {
   return `${rpad('Hemnet/Booli adds:', 18)}${' '.repeat(22)}${lpad(pct, 13)}${suffix}`;
 }
 
+// Historic trend of the Hemnet/Booli adds ratio, OLDEST → NEWEST. Rows are
+// { day, hemnetAdds, booliAdds }. The raw adds are printed beside each share so the ratio
+// is auditable at a glance (and so a big swing can be traced to which side moved). A
+// partial week — one platform failed that run, cf. the 2026-07-22 Booli outage — renders
+// "?" rather than silently vanishing from the series, so gaps stay visible.
+function formatShareHistory(rows) {
+  if (!rows || rows.length === 0) return ['  (no history yet)'];
+  return rows.map((r) => {
+    const s = addsShare(r.hemnetAdds, r.booliAdds);
+    const pct = s == null ? '?' : `${(s * 100).toFixed(1)}%`;
+    const h = r.hemnetAdds == null ? '—' : fmtNumber(r.hemnetAdds);
+    const b = r.booliAdds == null ? '—' : fmtNumber(r.booliAdds);
+    return `  ${rpad(r.day, 13)}${lpad(pct, 7)}   (${lpad(h, 5)} / ${lpad(b, 5)})`;
+  });
+}
+
 // Week-over-week delta string for one platform's adds: "prior → curr (+abs, +pct)".
 // "?" semantics per market-totals-weekly-report.js:46-67 when prior missing.
 function wowAdds(label, prior, curr) {
@@ -101,6 +121,7 @@ async function run() {
 
   const client = createClient();
   let rows;
+  let historyRows = [];
   try {
     await client.connect();
     const res = await client.query(`
@@ -111,6 +132,26 @@ async function run() {
       ORDER BY platform, snapshot_date
     `, [today]);
     rows = res.rows;
+
+    // Historic trend of the headline ratio: one row per snapshot, both platforms pivoted
+    // onto the same line so the share is computable per date. Newest N, then reversed to
+    // chronological for display. Independent of the (today, today-7) window above, so a
+    // missing exact-7-day prior never hides the trend.
+    const hist = await client.query(`
+      SELECT to_char(snapshot_date, 'YYYY-MM-DD') AS day,
+             MAX(adds_window_secondhand) FILTER (WHERE platform = 'hemnet') AS hemnet_adds,
+             MAX(adds_window_secondhand) FILTER (WHERE platform = 'booli')  AS booli_adds
+      FROM premarket_flow_weekly
+      WHERE snapshot_date <= $1::date
+      GROUP BY snapshot_date
+      ORDER BY snapshot_date DESC
+      LIMIT $2
+    `, [today, HISTORY_LIMIT]);
+    historyRows = hist.rows.map(r => ({
+      day: r.day,
+      hemnetAdds: r.hemnet_adds == null ? null : Number(r.hemnet_adds),
+      booliAdds:  r.booli_adds  == null ? null : Number(r.booli_adds),
+    })).reverse(); // oldest → newest
   } finally {
     await client.end();
   }
@@ -157,6 +198,9 @@ async function run() {
     '',
     `WoW adds — ${wowAdds('Hemnet', P.hemnet.prior && P.hemnet.prior.adds, hc && hc.adds)}`,
     `           ${wowAdds('Booli',  P.booli.prior  && P.booli.prior.adds,  bc && bc.adds)}`,
+    '',
+    `Hemnet/Booli adds — trend (last ${historyRows.length} snapshot${historyRows.length === 1 ? '' : 's'}):`,
+    ...formatShareHistory(historyRows),
   ];
   const message = '```\n' + bodyLines.join('\n') + '\n```';
 
@@ -178,7 +222,7 @@ async function run() {
 // Pure helpers exported for offline tests (scripts/test-premarket-report-share.js).
 // The run() entrypoint is guarded so a `require` of this module NEVER connects to the DB
 // or posts to Slack — importing it used to fire the whole report as a side effect.
-module.exports = { addsShare, formatShareRow, ratio, metricRow, wowAdds };
+module.exports = { addsShare, formatShareRow, formatShareHistory, ratio, metricRow, wowAdds };
 
 if (require.main === module) {
   run().catch(err => { console.error(err); process.exit(1); });
