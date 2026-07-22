@@ -53,6 +53,37 @@ function metricRow(label, hemnet, booli, unit) {
   return `${rpad(label + ':', 18)}${lpad(h, 10)}${lpad(b, 12)}${lpad(ratio(booli, hemnet), 13)}`;
 }
 
+// Hemnet fresh adds as a FRACTION of Booli's — the headline origination-share metric.
+// Why this and not the absolute adds: through 2026-07 both platforms' absolute inflow fell
+// ~30% (summer), but this ratio held at ~46-49%, i.e. Hemnet was NOT losing share. The
+// absolute numbers mislead; the ratio doesn't. Also note Hemnet holds only ~25% of
+// pre-market STOCK but ~47% of FLOW — Booli's stock lead is largely stale inventory.
+// null when either side is missing or Booli is zero (no meaningful denominator).
+function addsShare(hemnetAdds, booliAdds) {
+  if (hemnetAdds == null || booliAdds == null || booliAdds <= 0) return null;
+  return hemnetAdds / booliAdds;
+}
+
+// The Hemnet/Booli adds table row: share as a percent aligned under the ratio column, plus
+// a WoW delta in PERCENTAGE POINTS — a share moving 48.7%→46.7% is "−2.1pp", not "−4.2%".
+// The delta is computed from UNROUNDED shares, so it can differ by 0.1 from subtracting the
+// two displayed percents; precision is preferred since this row is read for share shifts.
+function formatShareRow(curr, prior) {
+  const pct = curr == null ? '?' : `${(curr * 100).toFixed(1)}%`;
+  let suffix = '';
+  if (curr != null) {
+    if (prior == null) {
+      suffix = '  (WoW ?)';
+    } else {
+      const dpp = (curr - prior) * 100;
+      const sign = dpp >= 0 ? '+' : '−';        // U+2212 for negatives (matches wowAdds)
+      suffix = `  (${sign}${Math.abs(dpp).toFixed(1)}pp)`;
+    }
+  }
+  // Blank the Hemnet(10) + Booli(12) columns so the value lands under "Booli/Hemnet".
+  return `${rpad('Hemnet/Booli adds:', 18)}${' '.repeat(22)}${lpad(pct, 13)}${suffix}`;
+}
+
 // Week-over-week delta string for one platform's adds: "prior → curr (+abs, +pct)".
 // "?" semantics per market-totals-weekly-report.js:46-67 when prior missing.
 function wowAdds(label, prior, curr) {
@@ -103,13 +134,17 @@ async function run() {
       `If the measure job hasn't run yet today, this is expected — rendering "?" cells.`);
   }
 
-  // Hemnet fresh 2nd-hand adds as a % of Booli's. NOT a combined-market share
-  // (hemnet/(hemnet+booli)) — the two platforms aren't a partition of one market, so
-  // summing them is misleading. Just Hemnet relative to Booli = 1/(Booli/Hemnet ratio).
-  let shareLine = 'Hemnet fresh adds as % of Booli: ?';
-  if (hc && bc && hc.adds != null && bc.adds != null && bc.adds > 0) {
-    shareLine = `Hemnet fresh adds as % of Booli: ${((hc.adds / bc.adds) * 100).toFixed(1)}%`;
-  }
+  // Headline metric — Hemnet's share of fresh pre-market adds. Promoted from a footnote to
+  // a first-class table row (2026-07-23) because it is the number that actually tracks
+  // competitive position: absolute adds fell ~30% on BOTH platforms in July while this
+  // ratio held ~46-49%. NOT a combined-market share (hemnet/(hemnet+booli)) — the two
+  // platforms aren't a partition of one market, so summing them is misleading. This is
+  // Hemnet relative to Booli = 1/(Booli/Hemnet ratio).
+  const currShare  = addsShare(hc && hc.adds, bc && bc.adds);
+  const priorShare = addsShare(
+    P.hemnet.prior && P.hemnet.prior.adds,
+    P.booli.prior  && P.booli.prior.adds,
+  );
 
   const bodyLines = [
     `Pre-market flow pulse — last 7 days to ${today}  (2nd-hand, national)`,
@@ -117,9 +152,9 @@ async function run() {
     `${rpad('', 18)}${lpad('Hemnet', 10)}${lpad('Booli', 12)}${lpad('Booli/Hemnet', 13)}`,
     metricRow('Stock (2nd-hand)', hc && hc.stock, bc && bc.stock, ''),
     metricRow('Adds (last 7d)',   hc && hc.adds,  bc && bc.adds,  ''),
+    formatShareRow(currShare, priorShare),
     metricRow('Mean dwell',       hc && hc.dwell != null ? hc.dwell : null, bc && bc.dwell != null ? bc.dwell : null, 'd'),
     '',
-    shareLine,
     `WoW adds — ${wowAdds('Hemnet', P.hemnet.prior && P.hemnet.prior.adds, hc && hc.adds)}`,
     `           ${wowAdds('Booli',  P.booli.prior  && P.booli.prior.adds,  bc && bc.adds)}`,
   ];
@@ -140,4 +175,11 @@ async function run() {
   }
 }
 
-run().catch(err => { console.error(err); process.exit(1); });
+// Pure helpers exported for offline tests (scripts/test-premarket-report-share.js).
+// The run() entrypoint is guarded so a `require` of this module NEVER connects to the DB
+// or posts to Slack — importing it used to fire the whole report as a side effect.
+module.exports = { addsShare, formatShareRow, ratio, metricRow, wowAdds };
+
+if (require.main === module) {
+  run().catch(err => { console.error(err); process.exit(1); });
+}
