@@ -454,7 +454,7 @@ async function run() {
       const mr = meanRows[region];
       const hRef = `${colLetter(hCol)}${mr}`;
       const bRef = `${colLetter(bCol)}${mr}`;
-      hPctMeanRow.getCell(hCol).value = { formula: `IFERROR(${hRef}/(${hRef}+${bRef}),"")` };
+      hPctMeanRow.getCell(hCol).value = { formula: `IF(OR(N(${hRef})=0,N(${bRef})=0),"",IFERROR(${hRef}/(${hRef}+${bRef}),""))` };
       hPctMeanRow.getCell(hCol).numFmt = '0.0%';
     }
     curRow++;
@@ -470,7 +470,7 @@ async function run() {
       const mr = medianRows[region];
       const hRef = `${colLetter(hCol)}${mr}`;
       const bRef = `${colLetter(bCol)}${mr}`;
-      hPctMedianRow.getCell(hCol).value = { formula: `IFERROR(${hRef}/(${hRef}+${bRef}),"")` };
+      hPctMedianRow.getCell(hCol).value = { formula: `IF(OR(N(${hRef})=0,N(${bRef})=0),"",IFERROR(${hRef}/(${hRef}+${bRef}),""))` };
       hPctMedianRow.getCell(hCol).numFmt = '0.0%';
     }
     curRow++;

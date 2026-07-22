@@ -149,7 +149,13 @@ function computeHPct(cohortData) {
       const hMean = hIncrVals.reduce((a, b) => a + b, 0) / hIncrVals.length;
       const bMean = bIncrVals.reduce((a, b) => a + b, 0) / bIncrVals.length;
 
-      if (hMean + bMean > 0) {
+      // Degenerate-point guard: a share is only meaningful if BOTH platforms show
+      // measurable incremental activity. When a cohort ages out of the tracking
+      // window its upstream view counts freeze (identical cumulative values across
+      // dates), so every increment floors to 0. If one platform's mean is 0 while
+      // the other keeps a rounding residual, hMean/(hMean+bMean) degenerates to
+      // 0% or 100% — a meaningless spike. Skip those points entirely.
+      if (hMean > 0 && bMean > 0) {
         result[region][dates[d]] = Math.round(hMean / (hMean + bMean) * 1000) / 10;
       }
     }
