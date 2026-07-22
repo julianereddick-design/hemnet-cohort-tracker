@@ -138,6 +138,12 @@ All times are UTC. Schedule respects:
 # ~107 Oxylabs calls/run (non-JS). SCRAPE_FORCE_OXYLABS=1 skips the dead direct-curl path
 # (droplet DC IP gets Cloudflare 403). Slot: Mon 08:50 UTC — after market-totals-daily
 # (08:30), before the 09:00-09:30 Mon fan-out; done (~4 min) well before the report.
+# RESILIENCE (2026-07-22, after the 07-20 silent-loss incident): now wrapped by
+# cron-wrapper.runJob → writes cron_job_log + Slack-alerts on failure/degradation. A
+# transient per-page Oxylabs 613 is retried (outer 5s/15s backoff) then, if still failing,
+# SKIPPED and counted rather than aborting the run; platforms are measured in isolation and
+# whatever succeeds is persisted (partial row OK). Crontab line UNCHANGED (runJob is called
+# inside the script, per the direct-require contract).
 50 8 * * 1  cd /opt/hemnet-cohort-tracker && SCRAPE_FORCE_OXYLABS=1 node scripts/premarket-flow-measure.js >> /var/log/hemnet/premarket-flow-measure.log 2>&1
 
 # Report job: premarket-flow-weekly-report.js reads premarket_flow_weekly for (today,
@@ -582,3 +588,18 @@ Self-hosted code stays deployed (no `git revert` needed) — it just stops runni
 **What this alert is NOT:** an unexpected-delta alarm. Phase 11 deliberately does NOT alert on WoW/DoD deltas (D-03). If a daily total swings dramatically week-to-week, you see it in the weekly market-supply-pulse Slack on Monday, not as an alert.
 
 Note on the streak-threshold change (D-11): cohort-track.js's drop threshold was halved from `>= 10` to `>= 5` in Plan 09-04 to compensate for the every-2-days cadence (Plan 09-03 / D-07 removed cohort-track 23:30+02:00 daily). Time-to-drop stays at ~10 calendar days under the new cadence. If a rollback restores the daily cohort-track schedule, the halved threshold means drops fire at ~5 calendar days instead of ~10 — operator should consider reverting cohort-track.js to the pre-D-11 `>= 10` threshold at the same time as the crontab rollback for symmetry.
+
+### Diagnosing `premarket-flow-measure` Slack alerts (2026-07-22, post 07-20 silent-loss fix)
+
+The measure job is now `cron-wrapper`-wrapped, so it lands in `cron_job_log` (`node scripts/verify-cron-job-log.js`, filter `script_name = 'premarket-flow-measure'`) and Slack-alerts. It is **silent on a clean run**. The non-silent paths:
+
+- **`[WARNING] premarket-flow-measure: <platform> failed — persisted partial (…)`** — one platform (Hemnet or Booli) threw and was skipped; the other was still persisted. The report will render `?` cells for the missing platform. Read `result_summary.failed`. Usual cause: a persistent Oxylabs block on that platform's walk (`> maxFailedPages` page failures, default 5) or its page-1 stock total not found. Re-run manually (below); if it recurs, the platform's Apollo call signature or the `/kommande`|`?upcomingSale=1` URL likely drifted.
+- **`[WARNING] premarket-flow-measure: pages skipped: <platform>=<n>`** — the run completed and persisted, but `n` pages failed every retry and were skipped (a small flow undercount that week). Transient; no action unless `n` is large or it recurs.
+- **`[FAILURE] premarket-flow-measure: all platforms failed (…) — nothing to persist`** — both platforms died; no row written (this is the 07-20 class of event, now LOUD instead of silent). Check `/var/log/hemnet/premarket-flow-measure.log` for the underlying error (Oxylabs creds/credit, DB unreachable, or a site-wide block).
+
+**Root cause of the original 07-20 silent loss:** a single transient Oxylabs `613` on Hemnet `/kommande` page 3 threw through the (untolerant) walk and killed the whole run before any DB write, and the job was not cron-wrapped so nothing alerted. Fixed by: outer per-page retry (`retryFetch`, 5s/15s backoff), page-skip tolerance in `walkFlow` (`maxFailedPages`), per-platform isolation + partial persist, and cron-wrapper alerting. Offline regression: `node scripts/test-premarket-flow-resilience.js` (PASS: 10/10).
+
+**Re-run manually** (needs per-run Oxylabs go-ahead; ~107 calls). NOTE the row is stamped `snapshot_date = CURRENT_DATE`, so a catch-up run on a non-Monday writes an off-cadence date and the Monday report won't pick it up — re-run on the intended Monday, or accept an off-cadence datapoint:
+```bash
+cd /opt/hemnet-cohort-tracker && SCRAPE_FORCE_OXYLABS=1 node scripts/premarket-flow-measure.js
+```
