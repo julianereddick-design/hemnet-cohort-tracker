@@ -43,6 +43,8 @@ const LABELS = ['≤1mo', '1–3mo', '3–6mo', '6–12mo', '12–18mo', '18–2
 const OUT_DIR = path.join(__dirname, '..', 'verf-flow-probe');
 const log = (lvl, msg) => console.log(`  [${lvl}] ${msg}`);
 
+let errorPages = 0;               // real page-fetch failures (null-cards, persistent non-200s); reset per run()
+
 // Resilient fetch: getWithRetry already retries the HTTP call, but transient DNS/network
 // blips (ENOTFOUND realtime.oxylabs.io) can still throw through it. Retry a few times with
 // backoff so a single blip mid-bisection doesn't abort the whole probe.
@@ -140,6 +142,7 @@ async function findLastReachablePage(plat, lo, hi, ids1, asc = false) {
 // p1MedianAge, clampMedianAge }.
 async function probeEnd(plat, asc) {
   const first = await safeFetch(plat, 1, asc);
+  if (first.cards == null) { errorPages++; log('WARN', `${plat.name} probeEnd page 1 (${asc ? 'oldest' : 'newest'}-first) status ${first.status} → treated empty`); }
   const total = first.total != null ? first.total : null;
   const pageSize = first.cards ? first.cards.length : 0;
   const lastPage = total && pageSize ? Math.ceil(total / pageSize) : null;
@@ -149,6 +152,7 @@ async function probeEnd(plat, asc) {
   if (lastPage && lastPage > 1) {
     reachablePage = await findLastReachablePage(plat, 1, lastPage, ids1, asc);
     const clamp = await safeFetch(plat, reachablePage, asc);
+    if (clamp.cards == null) { errorPages++; log('WARN', `${plat.name} probeEnd clamp page ${reachablePage} (${asc ? 'oldest' : 'newest'}-first) status ${clamp.status} → treated empty`); }
     clampMedianAge = pageMedianAge(clamp.cards || [], NOW_SEC);
   }
   return {
@@ -269,8 +273,22 @@ async function findCrossoverOlder({ fetchPage, cutoffDays, nowSec, lo, hi, pageS
 // estimatePlatform plus a `crosscheck` field.
 async function estimateTwoPass(plat, { newestHi, oldestHi, pageSize, headlineTotal }) {
   const memoNew = new Map(), memoOld = new Map();
-  const fetchNew = async (p) => { if (memoNew.has(p)) return memoNew.get(p); const r = await safeFetch(plat, p, false); const c = r.cards || []; memoNew.set(p, c); return c; };
-  const fetchOld = async (p) => { if (memoOld.has(p)) return memoOld.get(p); const r = await safeFetch(plat, p, true); const c = r.cards || []; memoOld.set(p, c); return c; };
+  const fetchNew = async (p) => {
+    if (memoNew.has(p)) return memoNew.get(p);
+    const r = await safeFetch(plat, p, false);
+    if (r.cards == null) { errorPages++; log('WARN', `${plat.name} newest-first probe page ${p} status ${r.status} → treated empty`); }
+    const c = r.cards || [];
+    memoNew.set(p, c);
+    return c;
+  };
+  const fetchOld = async (p) => {
+    if (memoOld.has(p)) return memoOld.get(p);
+    const r = await safeFetch(plat, p, true);
+    if (r.cards == null) { errorPages++; log('WARN', `${plat.name} oldest-first probe page ${p} status ${r.status} → treated empty`); }
+    const c = r.cards || [];
+    memoOld.set(p, c);
+    return c;
+  };
 
   const NEWEST_CUTS = [30, 90];                          // within the ~171d newest-first horizon
   const OLDEST_CUTS = [90, 180, 365, 548, 730];          // reached from the back (age ≥ ~51d)
@@ -373,12 +391,13 @@ async function selftest() {
   // Clean pool: card global index i has ageDays = i (strictly increasing with depth).
   const cleanPlat = {
     name: 'clean',
-    async fetch(p) {
+    async fetch(p, asc = false) {
       if (p < 1 || p > LAST) return { status: 200, cards: [], total: TOTAL };
       const cards = [];
       for (let j = 0; j < PAGE; j++) {
-        const age = (p - 1) * PAGE + j;
-        cards.push({ id: `c${(p - 1) * PAGE + j}`, published: CLOCK - age * DAY, isNewBuild: false, upcoming: false });
+        const idx = (p - 1) * PAGE + j;
+        const age = asc ? (TOTAL - 1 - idx) : idx;      // oldest-first reverses the age axis
+        cards.push({ id: `c${age}`, published: CLOCK - age * DAY, isNewBuild: false, upcoming: false });
       }
       return { status: 200, cards, total: p === 1 ? TOTAL : undefined };
     },
@@ -472,6 +491,54 @@ async function selftest() {
     assert.strictEqual(bands.slice(0, 6).reduce((a, b) => a + b, 0) + bands[6], datedBase);
   });
 
+  await check('run(): returns the standard result shape with a crosscheck gate', async () => {
+    const res = await run({ platform: cleanPlat, nowSec: CLOCK, logger: () => {} });
+    assert.strictEqual(res.pool, 'forsale');
+    assert.strictEqual(res.method, 'sort-flip');
+    assert.strictEqual(res.bucketsSecondhand, null);
+    assert.ok(res.gates.some(g => g.name === 'crosscheck'), 'two-pass must report a crosscheck gate');
+    const keys = ['le1m', 'm1_3', 'm3_6', 'm6_12', 'm12_18', 'm18_24', 'gt24'];
+    assert.deepStrictEqual(Object.keys(res.buckets), [...keys, 'undated']);
+    const sum = keys.reduce((a, k) => a + res.buckets[k], 0);
+    assert.ok(Math.abs(sum + res.buckets.undated - res.nTotal) <= 1, 'bands must reconcile to nTotal');
+    assert.strictEqual(res.errorPages, 0, 'clean synthetic pool must report zero error pages');
+    assert.ok(res.gates.some(g => g.name === 'error_pages'), 'gate list must include an error_pages gate');
+  });
+
+  // errorPages must count REAL fetch failures, not be hardcoded to 0 (the defect an earlier
+  // draft of this plan shipped on the sibling script — see task-5's fix round 1). Page 25 is
+  // deliberately targeted: it is the 2nd bisection probe of estimateTwoPass's newest-first
+  // fetchNew() for both NEWEST_CUTS (30d, 90d — traced by hand against this pool's geometry:
+  // findCrossoverPage always probes mid=50 first for a [1,100] range, then 25), but it is NEVER
+  // visited by probeEnd's own findLastReachablePage bisection (which, on this clamp-free pool,
+  // converges upward from 50 toward the true deepest page 100: {50,75,88,94,97,99,100}). So
+  // breaking page 25 exercises fetchNew's error-counting in isolation without corrupting
+  // probeEnd's reachablePage/total for either pass — the run completes with a real (if
+  // locally-wrong) cumulative count instead of throwing or producing NaN.
+  await check('run(): errorPages counts real fetch failures, not hardcoded to 0', async () => {
+    let hit = false;
+    const flaky = {
+      name: 'flaky',
+      async fetch(p, asc = false) {
+        if (p === 25 && asc === false) { hit = true; return { status: 500, cards: null, total: undefined }; }
+        return cleanPlat.fetch(p, asc);
+      },
+    };
+    const res = await run({ platform: flaky, nowSec: CLOCK, logger: () => {} });
+    assert.ok(hit, 'the injected broken page (25, newest-first) was never queried — test setup is wrong');
+    assert.strictEqual(res.errorPages, 1, `expected exactly 1 error page from the injected failure, got ${res.errorPages}`);
+  });
+
+  await check('gateErrorPages reacts to a real errorPages/oxCalls pair (synthetic run has oxCalls=0, so assert the gate directly)', () => {
+    // The selftest's synthetic platforms bypass lib/scrape-http entirely, so oxCalls (real
+    // Oxylabs call count) is always 0 inside run() here — gateErrorPages short-circuits to a
+    // pass on `!oxCalls` regardless of errorPages (see lib/age-census.js). Prove the gate
+    // itself reacts correctly to a real errorPages/oxCalls pair directly, mirroring the count
+    // run() just produced above plus a plausible non-zero oxCalls.
+    const g = gateErrorPages({ errorPages: 1, oxCalls: 30, maxPct: 2 });
+    assert.strictEqual(g.passed, false, `1 error page out of 30 calls (3.3%) must fail the 2% gate: ${g.detail}`);
+  });
+
   console.log(`\nselftest: ${pass} pass, ${fail} fail`);
   process.exit(fail === 0 ? 0 : 1);
 }
@@ -522,6 +589,49 @@ async function runSortProbe(only) {
     console.log(`  VERDICT: ${verdict}\n`);
   }
   console.log(`Oxylabs calls this probe: ${JSON.stringify(getOxylabsStats())}`);
+}
+
+const { bucketsToObject, gateCrosscheck, gateTotalDrift, gateErrorPages, evaluateGates } = require('../lib/age-census');
+
+// Monthly-job entry point: Booli FS two-pass estimate (newest-first for the young bands,
+// oldest-first for the deep ones). `platform` is injectable so --selftest drives a synthetic
+// pool; production always passes the module's `booli` adapter.
+async function run({ platform = booli, nowSec = NOW_SEC, logger = log, priorTotal = null } = {}) {
+  const t0 = Math.floor(Date.now() / 1000);
+  resetOxylabsStats();
+  errorPages = 0;
+  const newest = await probeEnd(platform, false);
+  const oldest = await probeEnd(platform, true);
+  const overlap = newest.reachableListings + oldest.reachableListings - newest.total;
+  if (overlap <= 0) throw new Error(`two-pass ends do not overlap (gap ${-overlap}) — cannot cover the age axis`);
+
+  const est = await estimateTwoPass(platform, {
+    newestHi: newest.reachablePage, oldestHi: oldest.reachablePage,
+    pageSize: newest.pageSize, headlineTotal: newest.total,
+  });
+  const { bands, undatedEst } = bandsFromCumulative(est.cumulative, newest.total, est.undatedRate);
+  const ox = getOxylabsStats();
+  const oxCalls = ox.oxylabsCallCount + ox.directSuccessCount;
+  const cc = est.crosscheck;
+  const gates = [
+    gateCrosscheck({ newestPass: cc.newestPass, oldestPass: cc.oldestPass, headlineTotal: newest.total, maxPct: 3 }),
+    gateErrorPages({ errorPages, oxCalls, maxPct: 2 }),
+    gateTotalDrift({ nTotal: newest.total, priorTotal, maxPct: 25 }),
+  ];
+  const ev = evaluateGates(gates);
+  logger('INFO', `run() bands=${JSON.stringify(bands)} calls=${oxCalls} gates=${ev.passed ? 'ok' : ev.failures.join(',')}`);
+  return {
+    platform: 'booli', pool: 'forsale', method: 'sort-flip',
+    nTotal: newest.total, nUndated: undatedEst,
+    nNewbuild: Math.round(newest.total * est.newbuildRate),
+    newbuildSampled: true, newbuildSampleN: est.seenPages * (newest.pageSize || 0),
+    buckets: bucketsToObject(bands, undatedEst),
+    bucketsSecondhand: null,
+    muni: [],
+    oxCalls, errorPages, runtimeS: Math.floor(Date.now() / 1000) - t0,
+    gates, status: ev.passed ? 'ok' : 'gate_failed',
+    notes: ev.passed ? null : `gates failed: ${ev.failures.join(', ')}`,
+  };
 }
 
 // Booli full national FS age histogram via the two-pass (newest + oldest-first) method.
@@ -580,4 +690,4 @@ if (require.main === module) {
   else runFull().catch(e => { console.error(e); process.exit(1); });
 }
 
-module.exports = { preflightPlatform, estimatePlatform, estimateTwoPass, findCrossoverOlder, bandsFromCumulative, hemnet, booli };
+module.exports = { preflightPlatform, estimatePlatform, estimateTwoPass, findCrossoverOlder, bandsFromCumulative, hemnet, booli, run };
