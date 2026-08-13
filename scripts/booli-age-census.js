@@ -27,6 +27,7 @@ const log = (lvl, msg) => console.log(`  [${lvl}] ${msg}`);
 const url = (p) => `https://www.booli.se/sok/till-salu?upcomingSale=1&page=${p}`;
 
 let stockTotal = null;
+let errorPages = 0;               // real page-fetch failures (null-cards, persistent non-200s); reset per run()
 
 function apolloFrom(html) {
   const data = extractNextData(html);
@@ -74,7 +75,7 @@ async function preflight(memo) {
   let sampledCards = 0, sampledUndated = 0;
   for (const p of PREFLIGHT_PAGES) {
     const r = await fetchPageResult(p);
-    if (r.cards == null) { log('WARN', `preflight page ${p} status ${r.status} — skipped`); continue; }
+    if (r.cards == null) { errorPages++; log('WARN', `preflight page ${p} status ${r.status} — skipped`); continue; }
     memo.set(p, r.cards);                       // reused by binary-search
     sizes.push(r.cards.length);
     sampledCards += r.cards.length;
@@ -104,7 +105,7 @@ async function binarySearch(memo, pageSize, lastPage) {
     if (memo.has(p)) return memo.get(p);
     const r = await fetchPageResult(p);
     const cards = r.cards || [];
-    if (r.cards == null) log('WARN', `probe page ${p} status ${r.status} → treated empty`);
+    if (r.cards == null) { errorPages++; log('WARN', `probe page ${p} status ${r.status} → treated empty`); }
     memo.set(p, cards);
     return cards;
   };
@@ -141,6 +142,7 @@ const { bucketsToObject, gateTotalDrift, gateErrorPages, evaluateGates } = requi
 async function run({ nowSec = NOW_SEC, logger = log, priorTotal = null } = {}) {
   const t0 = Math.floor(Date.now() / 1000);
   resetOxylabsStats();
+  errorPages = 0;
   const memo = new Map();
   const pf = await preflight(memo);
   const lastPage = stockTotal ? Math.ceil(stockTotal / pf.pageSize) : MAX_PAGES;
@@ -155,7 +157,7 @@ async function run({ nowSec = NOW_SEC, logger = log, priorTotal = null } = {}) {
   const ox = getOxylabsStats();
   const oxCalls = ox.oxylabsCallCount + ox.directSuccessCount;
   const gates = [
-    gateErrorPages({ errorPages: 0, oxCalls, maxPct: 2 }),
+    gateErrorPages({ errorPages, oxCalls, maxPct: 2 }),
     gateTotalDrift({ nTotal: stockTotal, priorTotal, maxPct: 25 }),
   ];
   const ev = evaluateGates(gates);
@@ -168,7 +170,7 @@ async function run({ nowSec = NOW_SEC, logger = log, priorTotal = null } = {}) {
     buckets: bucketsToObject(bands, bs.undatedEst),
     bucketsSecondhand: null,
     muni: [],
-    oxCalls, errorPages: 0, runtimeS: Math.floor(Date.now() / 1000) - t0,
+    oxCalls, errorPages, runtimeS: Math.floor(Date.now() / 1000) - t0,
     gates, status: ev.passed ? 'ok' : 'gate_failed',
     notes: ev.passed ? null : `gates failed: ${ev.failures.join(', ')}`,
   };
@@ -322,7 +324,29 @@ async function selftest() {
   const bandSum = ['le1m', 'm1_3', 'm3_6', 'm6_12', 'm12_18', 'm18_24', 'gt24'].reduce((a, k) => a + res.buckets[k], 0);
   assert.ok(Math.abs(bandSum + res.buckets.undated - res.nTotal) <= 1, `bands+undated ${bandSum + res.buckets.undated} must reconcile to nTotal ${res.nTotal}`);
   assert.ok(res.muni.length === 0, 'Booli is national-only — no muni rows');
+  assert.strictEqual(res.errorPages, 0, 'clean synthetic pool must report zero error pages');
+  assert.ok(res.gates.some(g => g.name === 'error_pages'), 'gate list must include an error_pages gate');
   console.log('SELFTEST PASS — run() estimate contract holds.');
+
+  // --- error_pages counter must actually count real fetch failures, not just default to 0 ---
+  const cleanFetcher = pageFetcher;
+  let brokenPageHit = false;
+  pageFetcher = async (p) => {
+    if (p === 2) { brokenPageHit = true; return { status: 500, cards: null }; }   // persistent non-200 → error page
+    return cleanFetcher(p);
+  };
+  const resErr = await run({ nowSec: CLOCK, logger: () => {} });
+  pageFetcher = cleanFetcher;
+  assert.ok(brokenPageHit, 'synthetic broken-page fetcher was never invoked for page 2 — test setup is wrong');
+  assert.ok(resErr.errorPages >= 1, `injecting one non-200 page must raise errorPages above 0, got ${resErr.errorPages}`);
+  // The selftest's synthetic pageFetcher bypasses lib/scrape-http entirely, so oxCalls (real
+  // Oxylabs call count) is always 0 here — gateErrorPages short-circuits to a pass on `!oxCalls`
+  // regardless of errorPages (see lib/age-census.js), so its *detail text* can't be asserted
+  // against here. Prove the gate itself reacts correctly to a real errorPages/oxCalls pair by
+  // calling it directly with the count run() just produced plus a plausible non-zero oxCalls.
+  const directGate = gateErrorPages({ errorPages: resErr.errorPages, oxCalls: 60, maxPct: 2 });
+  assert.strictEqual(directGate.passed, false, `1+ error page(s) out of 60 calls must fail the 2% gate: ${directGate.detail}`);
+  console.log(`SELFTEST PASS — run() errorPages wired to real fetch failures (errorPages=${resErr.errorPages}).`);
 }
 
 async function main() {
