@@ -1,13 +1,21 @@
 const { createClient } = require('./db');
 
-const SCRIPTS = ['cohort-track', 'cohort-create', 'sfpl-region-snapshot'];
+const SCRIPTS = ['cohort-track', 'cohort-create', 'age-census-monthly'];
 
-// Expected schedule: how often each script should run
+// Expected schedule: how often each script should run.
+// sfpl-region-snapshot was RETIRED 2026-08-13 (removed from the droplet crontab, no
+// consumer) and dropped from this list 2026-08-14 — it was reporting a standing
+// "No runs found" issue for a job that is meant not to run.
 const EXPECTED = {
   'cohort-track': { frequency: 'daily', label: 'Daily' },
   'cohort-create': { frequency: 'weekly', label: 'Weekly (Mon)' },
-  'sfpl-region-snapshot': { frequency: 'daily', label: 'Daily' },
+  // First fire 02:00 UTC 2026-09-01; `notBefore` suppresses the not-yet-due window.
+  'age-census-monthly': { frequency: 'monthly', label: 'Monthly (1st)', notBefore: '2026-09-02' },
 };
+
+// A monthly job's last run can be 31 days old on a healthy system, so the query window
+// must cover it regardless of --days (which defaults to 7).
+const MIN_LOOKBACK_DAYS = 35;
 
 function formatDuration(ms) {
   if (ms == null) return '-';
@@ -39,8 +47,18 @@ function summarizeResult(scriptName, summary) {
     case 'cohort-create':
       if (summary.skipped) return `skipped (${summary.cohortId} exists)`;
       return `${summary.cohortId} matched=${summary.matched || 0} unmatched=${summary.unmatched || 0} rate=${summary.matchRate || '-'}`;
-    case 'sfpl-region-snapshot':
-      return `rows=${summary.rowCount || 0}`;
+    case 'age-census-monthly': {
+      const persisted = summary.persisted != null ? summary.persisted : '?';
+      let s = `${persisted}/4 pools persisted`;
+      if (summary.pools) {
+        s += '\n      ' + summary.pools
+          .map(p => `${p.platform}:${p.pool}=${p.status}${p.nTotal != null ? ` n=${p.nTotal}` : ''}`)
+          .join('  ');
+      }
+      if (summary.gateFailed && summary.gateFailed.length) s += `\n      gate_failed: ${summary.gateFailed.join(', ')}`;
+      if (summary.failed && summary.failed.length) s += `\n      failed: ${summary.failed.join(', ')}`;
+      return s;
+    }
     default:
       return JSON.stringify(summary);
   }
@@ -69,7 +87,7 @@ async function run() {
     FROM cron_job_log
     WHERE started_at >= NOW() - INTERVAL '1 day' * $1
     ORDER BY started_at DESC
-  `, [lookbackDays]);
+  `, [Math.max(lookbackDays, MIN_LOOKBACK_DAYS)]);
 
   const issues = [];
 
@@ -89,6 +107,11 @@ async function run() {
     console.log(`\n=== ${scriptName} (${spec.label}) ===`);
 
     if (runs.length === 0) {
+      // Deployed but not yet due (see EXPECTED.notBefore) is pending, not broken.
+      if (spec.notBefore && new Date().toISOString().slice(0, 10) < spec.notBefore) {
+        console.log(`  Deployed, no runs yet — first run due ${spec.notBefore}`);
+        continue;
+      }
       console.log('  No runs found in the last ' + lookbackDays + ' days');
       issues.push(`No runs found for ${scriptName} in the last ${lookbackDays} days`);
       continue;
@@ -146,6 +169,19 @@ async function run() {
       }
     }
 
+    // Check for a missed monthly run. 31 days is the longest healthy gap (Jan->Feb etc.),
+    // so 33 gives two days of grace before flagging — long enough to absorb a same-day
+    // re-run, short enough to catch a cron that stopped firing.
+    if (spec.frequency === 'monthly') {
+      const lastSuccess = runs.find(r => r.status === 'success' || r.status === 'warning');
+      if (lastSuccess) {
+        const daysSince = (Date.now() - new Date(lastSuccess.started_at)) / 86400000;
+        if (daysSince > 33) {
+          issues.push(`Last successful ${scriptName} was ${Math.floor(daysSince)} days ago (expected monthly, on the 1st)`);
+        }
+      }
+    }
+
     // Check result anomalies
     const lastSuccess = runs.find(r => r.status === 'success' && r.result_summary);
     if (lastSuccess && lastSuccess.result_summary) {
@@ -167,8 +203,16 @@ async function run() {
         if (nullBooliPct > 50) issues.push(`${scriptName}: ${nullBooliPct}% of pairs had null Booli views`);
         if (nullHemnetPct > 50) issues.push(`${scriptName}: ${nullHemnetPct}% of pairs had null Hemnet views`);
       }
-      if (scriptName === 'sfpl-region-snapshot' && s.rowCount !== 18) {
-        issues.push(`${scriptName}: last success upserted ${s.rowCount} rows (expected 18)`);
+      // Age-census: 4 pools must persist. Fewer means a pool failed outright; a pool whose
+      // gates failed still persists, so `gateFailed` is reported separately rather than
+      // reducing the count.
+      if (scriptName === 'age-census-monthly') {
+        if (s.persisted != null && s.persisted < 4) {
+          issues.push(`${scriptName}: only ${s.persisted}/4 pools persisted (failed: ${(s.failed || []).join(', ') || 'unknown'})`);
+        }
+        if (s.gateFailed && s.gateFailed.length) {
+          issues.push(`${scriptName}: validation gates failed for ${s.gateFailed.join(', ')} — numbers stored but not trustworthy`);
+        }
       }
     }
   }

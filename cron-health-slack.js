@@ -2,18 +2,31 @@ require('dotenv').config();
 const https = require('https');
 const { createClient } = require('./db');
 
-const SCRIPTS = ['cohort-track', 'cohort-create'];
+const SCRIPTS = ['cohort-track', 'cohort-create', 'age-census-monthly'];
 
 // Each frequency carries its own lookback window, sized to the job's real cadence
 // plus a grace margin. Before 2026-08-13 every script was judged against a flat 25h
 // window, which produced two standing false alarms: weekly `cohort-create` warned on
 // the 6 non-Mondays, and every-2-days `cohort-track` (22:00 UTC on odd days) warned
 // on alternate days because its last run was ~29h old when the 03:00 check ran.
-const WINDOW_HOURS = { daily: 25, every2days: 50, weekly: 8 * 24 };
+//
+// `monthly` (added 2026-08-14 for age-census-monthly, which fires 02:00 on the 1st):
+// the longest real gap between runs is 31 days, so the window is 33 days — long enough
+// that a healthy job is never flagged on the 31st, short enough that a job which stopped
+// firing is caught within ~2 days of its missed slot.
+const WINDOW_HOURS = { daily: 25, every2days: 50, weekly: 8 * 24, monthly: 33 * 24 };
+
+// FETCH_DAYS must cover the widest window above, or a monthly job's last run falls
+// outside the single query below and reads as "never ran".
+const FETCH_DAYS = 34;
 
 const EXPECTED = {
   'cohort-track': { frequency: 'every2days', label: 'Every 2 days' },
   'cohort-create': { frequency: 'weekly', label: 'Weekly (Mon)' },
+  // `notBefore`: the job is deployed but has never run — its first fire is 02:00 UTC on
+  // 2026-09-01 (~3h). Until the day after that, "no runs" is expected, not a fault, so
+  // it renders as pending and raises no issue. Delete the key once it has run once.
+  'age-census-monthly': { frequency: 'monthly', label: 'Monthly (1st)', notBefore: '2026-09-02' },
 };
 
 function formatDuration(ms) {
@@ -40,6 +53,15 @@ function summarizeResult(scriptName, summary) {
     case 'cohort-create':
       if (summary.skipped) return `skipped (${summary.cohortId} exists)`;
       return `${summary.cohortId} matched=${summary.matched || 0} rate=${summary.matchRate || '-'}`;
+    case 'age-census-monthly': {
+      // Summary shape from scripts/age-census-monthly.js: { runDate, pools:[{platform,
+      // pool, status, nTotal}], persisted, failed:[key], gateFailed:[key] }.
+      const persisted = summary.persisted != null ? summary.persisted : '?';
+      let s = `${persisted}/4 pools persisted`;
+      if (summary.gateFailed && summary.gateFailed.length) s += ` gate_failed=${summary.gateFailed.join(',')}`;
+      if (summary.failed && summary.failed.length) s += ` failed=${summary.failed.join(',')}`;
+      return s;
+    }
     default:
       return '';
   }
@@ -85,9 +107,9 @@ async function run() {
   const rows = await client.query(`
     SELECT script_name, started_at, duration_ms, status, error_message, result_summary
     FROM cron_job_log
-    WHERE started_at >= NOW() - INTERVAL '8 days'
+    WHERE started_at >= NOW() - INTERVAL '1 day' * $1
     ORDER BY started_at DESC
-  `);
+  `, [FETCH_DAYS]);
 
   // Widest window is fetched once; each script is then judged against its own
   // frequency window (daily 25h, weekly 8d) so weekly jobs don't false-alarm.
@@ -113,6 +135,13 @@ async function run() {
     const windowLabel = `last ${WINDOW_HOURS[spec.frequency]}h`;
 
     if (runs.length === 0) {
+      // A job that is deployed but not yet due (see EXPECTED.notBefore) is pending, not
+      // broken — flagging it daily until its first fire would train the reader to ignore
+      // this report, which is the one failure mode a monitor cannot afford.
+      if (spec.notBefore && new Date().toISOString().slice(0, 10) < spec.notBefore) {
+        lines.push(`:hourglass_flowing_sand:  *${scriptName}* (${spec.label})  —  deployed, first run due ${spec.notBefore}`);
+        continue;
+      }
       lines.push(`*${scriptName}* (${spec.label})  —  :warning: No runs in ${windowLabel}`);
       issues.push(`No runs for ${scriptName} in ${windowLabel}`);
       continue;
