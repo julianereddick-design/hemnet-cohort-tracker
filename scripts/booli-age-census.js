@@ -24,9 +24,18 @@ const MAX_PAGES = 1200;                                   // safety cap (real de
 const PREFLIGHT_PAGES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 500, 800];
 const OUT_DIR = path.join(__dirname, '..', 'verf-flow-probe');
 const log = (lvl, msg) => console.log(`  [${lvl}] ${msg}`);
-const url = (p) => `https://www.booli.se/sok/till-salu?upcomingSale=1&page=${p}`;
 
-let stockTotal = null;
+// `isNewConstruction=0` is the ONLY spelling Booli honours on this search — verified live by
+// scripts/probe-booli-newconstruction-filter.js (2026-08-13): `newConstruction=1`,
+// `isNewConstruction=true`, `isNewConstruction=false` and `newProduction=1` are all silently
+// IGNORED and return the unfiltered pool, i.e. a wrong number that looks right. Do not "tidy"
+// this spelling. Live totals that day: upcomingSale=1 → 31,602 all / 31,418 filtered / 185
+// new-build (0.59%). The unfiltered URL is byte-identical to what it has always been.
+const url = (p, filtered = false) =>
+  `https://www.booli.se/sok/till-salu?upcomingSale=1${filtered ? '&isNewConstruction=0' : ''}&page=${p}`;
+
+let stockTotal = null;            // headline total of the ALL-listings stream (page 1)
+let filteredTotal = null;         // headline total of the isNewConstruction=0 stream (page 1)
 let errorPages = 0;               // real page-fetch failures (null-cards, persistent non-200s); reset per run()
 
 function apolloFrom(html) {
@@ -38,18 +47,22 @@ function apolloFrom(html) {
 
 // Low-level page fetch. Returns { status, cards } — cards is a normalized array on a real
 // 200, or null on a persistent non-200 (so callers can tell an ERROR from a real empty page).
-async function realFetchPage(p) {
-  const res = await getWithRetry(url(p), { logger: () => {} });
+async function realFetchPage(p, filtered = false) {
+  const res = await getWithRetry(url(p, filtered), { logger: () => {} });
   if (res.status !== 200) return { status: res.status, cards: null };
   const parsed = parseBooliSearchCards(apolloFrom(res.html));
-  if (p === 1 && parsed.totalCount != null) stockTotal = parsed.totalCount;
+  // Each stream carries its OWN headline total, and the pair of totals is what makes the
+  // new-build count exact (all − filtered) instead of a sampled rate.
+  if (p === 1 && parsed.totalCount != null) {
+    if (filtered) filteredTotal = parsed.totalCount; else stockTotal = parsed.totalCount;
+  }
   const cards = parsed.cards.map(c => ({ booli_id: c.booli_id, published: c.published, isNewBuild: c.isNewConstruction }));
   return { status: 200, cards };
 }
 
 // Swappable so --selftest can drive the whole pipeline against a synthetic in-memory pool.
 let pageFetcher = realFetchPage;
-const fetchPageResult = (p) => pageFetcher(p);
+const fetchPageResult = (p, filtered = false) => pageFetcher(p, filtered);
 
 function pctOfPool(n) { return stockTotal ? (100 * n / stockTotal) : 0; }
 function round(x) { return Math.round(x); }
@@ -98,14 +111,19 @@ async function preflight(memo) {
 }
 
 // ---- Stage 2: binary-search estimate (the candidate) ----
-async function binarySearch(memo, pageSize, lastPage) {
-  console.log('\n===== BINARY-SEARCH ESTIMATE =====');
+// `filtered` selects which stream to bisect (all listings vs isNewConstruction=0); `poolTotal`
+// is that stream's own headline total (defaults to the all-listings stockTotal so the bake-off
+// call site is unchanged). Each stream must be given its OWN memo — the two streams re-paginate
+// independently, so page 12 of one is not page 12 of the other.
+async function binarySearch(memo, pageSize, lastPage, { filtered = false, poolTotal = null } = {}) {
+  console.log(`\n===== BINARY-SEARCH ESTIMATE${filtered ? ' (2ND-HAND: isNewConstruction=0)' : ''} =====`);
+  const total = poolTotal != null ? poolTotal : stockTotal;
   const cumulative = {};
   const fetchPage = async (p) => {
     if (memo.has(p)) return memo.get(p);
-    const r = await fetchPageResult(p);
+    const r = await fetchPageResult(p, filtered);
     const cards = r.cards || [];
-    if (r.cards == null) { errorPages++; log('WARN', `probe page ${p} status ${r.status} → treated empty`); }
+    if (r.cards == null) { errorPages++; log('WARN', `probe page ${p}${filtered ? ' (2nd-hand)' : ''} status ${r.status} → treated empty`); }
     memo.set(p, cards);
     return cards;
   };
@@ -117,9 +135,9 @@ async function binarySearch(memo, pageSize, lastPage) {
   let seenCards = 0, seenUndated = 0;
   for (const cards of memo.values()) for (const c of cards) { seenCards++; if (c.published == null) seenUndated++; }
   const undatedRate = seenCards ? seenUndated / seenCards : 0;
-  const undatedEst = round(stockTotal * undatedRate);
+  const undatedEst = round(total * undatedRate);
   // Buckets = successive differences; >24mo = undated-free residual.
-  const datedBase = stockTotal - undatedEst;
+  const datedBase = total - undatedEst;
   const buckets = [
     cumulative[30],
     cumulative[90] - cumulative[30],
@@ -136,9 +154,11 @@ async function binarySearch(memo, pageSize, lastPage) {
 
 const { bucketsToObject, gateTotalDrift, gateErrorPages, evaluateGates } = require('../lib/age-census');
 
-// Estimate-only path used by the monthly job: preflight + binary-search, NO full census.
-// ~60 calls vs the bake-off's ~1,023. The census stage stays available via the default CLI
-// for method revalidation; it is never on the monthly path.
+// Estimate-only path used by the monthly job: preflight + binary-search, NO full census —
+// run TWICE, once over all listings and once over the isNewConstruction=0 stream, so the
+// second-hand histogram is measured rather than left null. ~110 calls vs the bake-off's
+// ~1,023. The census stage stays available via the default CLI for method revalidation; it is
+// never on the monthly path (and it, like --probe, still walks the unfiltered stream only).
 // NOTE: run() deliberately takes NO nowSec. It used to accept one, but it was never plumbed
 // into preflight/binarySearch (both read the module-level NOW_SEC directly), so the parameter
 // silently did nothing while the selftest passed a value and believed it had taken effect.
@@ -152,36 +172,66 @@ async function run({ logger = log, priorTotal = null } = {}) {
   // realFetchPage; without this reset a second in-process run() whose page 1 failed would
   // silently inherit the PREVIOUS run's pool total and report it as this run's n_total.
   stockTotal = null;
+  filteredTotal = null;
   const memo = new Map();
   const pf = await preflight(memo);
   const lastPage = stockTotal ? Math.ceil(stockTotal / pf.pageSize) : MAX_PAGES;
   const bs = await binarySearch(memo, pf.pageSize, lastPage);
-
-  // New-build share across every card the search actually fetched (sampled, not exact).
-  let sampleN = 0, sampleNewbuild = 0;
-  for (const cards of memo.values()) for (const c of cards) { sampleN++; if (c.isNewBuild) sampleNewbuild++; }
-  const newbuildRate = sampleN ? sampleNewbuild / sampleN : 0;
-
   const bands = bs.buckets.map(v => Math.max(0, Math.round(v)));
+
+  // ---- Second pass: the SAME bisection against the new-build-excluded stream. ----
+  // Page 1 first, on its own, because that is where the filtered headline total lives — and
+  // that total is both the denominator of this pass and (subtracted from the unfiltered one)
+  // the EXACT new-build count. Without it there is no second basis, so the pass is skipped
+  // and the pool degrades to the old all-listings-only row rather than reporting a guess.
+  const memoFiltered = new Map();
+  const p1f = await fetchPageResult(1, true);
+  if (p1f.cards == null) { errorPages++; log('WARN', `2nd-hand page 1 status ${p1f.status} → treated empty`); }
+  memoFiltered.set(1, p1f.cards || []);
+
+  let bucketsSecondhand = null, nNewbuild = null, secondhandNote = null;
+  if (filteredTotal == null) {
+    secondhandNote = 'second-hand pass skipped: the isNewConstruction=0 stream returned no headline total on page 1';
+    log('WARN', secondhandNote);
+  } else if (filteredTotal > stockTotal) {
+    // A filtered pool LARGER than the unfiltered one means the filter was not applied (Booli
+    // silently ignores params it does not recognise) or the two page-1 fetches straddled a
+    // pool change. Either way the "exclusion" is not one — refuse to publish it as second-hand.
+    secondhandNote = `second-hand pass rejected: filtered total ${filteredTotal} exceeds unfiltered ${stockTotal} — the isNewConstruction=0 filter did not apply`;
+    log('WARN', secondhandNote);
+  } else {
+    // max(1, …) so a degenerate all-new-build pool (filteredTotal 0) bisects the single empty
+    // page and yields all-zero bands, rather than falling back to a 1,200-page safety cap.
+    const lastPageFiltered = Math.max(1, Math.ceil(filteredTotal / pf.pageSize));
+    const bsf = await binarySearch(memoFiltered, pf.pageSize, lastPageFiltered, { filtered: true, poolTotal: filteredTotal });
+    const bandsFiltered = bsf.buckets.map(v => Math.max(0, Math.round(v)));
+    bucketsSecondhand = bucketsToObject(bandsFiltered, bsf.undatedEst);
+    nNewbuild = stockTotal - filteredTotal;      // EXACT: two headline totals, not a sample
+    logger('INFO', `run() 2nd-hand bands=${JSON.stringify(bandsFiltered)} filteredTotal=${filteredTotal} newbuild=${nNewbuild}`);
+  }
+
   const ox = getOxylabsStats();
-  const oxCalls = ox.oxylabsCallCount + ox.directSuccessCount;
+  const oxCalls = ox.oxylabsCallCount + ox.directSuccessCount;   // covers BOTH passes
   const gates = [
     gateErrorPages({ errorPages, oxCalls, maxPct: 2 }),
     gateTotalDrift({ nTotal: stockTotal, priorTotal, maxPct: 25 }),
   ];
   const ev = evaluateGates(gates);
+  const notes = [];
+  if (!ev.passed) notes.push(`gates failed: ${ev.failures.join(', ')}`);
+  if (secondhandNote) notes.push(secondhandNote);
   logger('INFO', `run() bands=${JSON.stringify(bands)} undated=${bs.undatedEst} calls=${oxCalls} gates=${ev.passed ? 'ok' : ev.failures.join(',')}`);
   return {
     platform: 'booli', pool: 'premarket', method: 'binary-search',
     nTotal: stockTotal, nUndated: bs.undatedEst,
-    nNewbuild: Math.round(stockTotal * newbuildRate),
-    newbuildSampled: true, newbuildSampleN: sampleN,
+    nNewbuild,
+    newbuildSampled: false, newbuildSampleN: null,
     buckets: bucketsToObject(bands, bs.undatedEst),
-    bucketsSecondhand: null,
+    bucketsSecondhand,
     muni: [],
     oxCalls, errorPages, runtimeS: Math.floor(Date.now() / 1000) - t0,
     gates, status: ev.passed ? 'ok' : 'gate_failed',
-    notes: ev.passed ? null : `gates failed: ${ev.failures.join(', ')}`,
+    notes: notes.length ? notes.join('; ') : null,
   };
 }
 
@@ -287,19 +337,23 @@ async function selftest() {
   // card i: age = i*1.3 days (ascending, globally sorted); every 200th undated; ~1% new-build.
   const ageOf = (i) => i * 1.3;
   const pub = (i) => (i % 200 === 0) ? null : CLOCK - Math.round(ageOf(i) * DAY);
-  pageFetcher = async (p) => {
-    // Mirror realFetchPage: page 1 is where the headline pool total comes from. run() resets
-    // stockTotal per run, so the synthetic fetcher has to supply it the same way the real one does.
-    if (p === 1) stockTotal = N;
+  // Two streams over ONE pool, exactly as the site serves them: the all-listings stream and
+  // the isNewConstruction=0 stream, which is the same list with the new-builds dropped and the
+  // remainder RE-PAGINATED (so page p of one is not page p of the other) and its own headline
+  // total. Age order is preserved by the filter, which is what lets the same bisection run.
+  const ALL = [];
+  for (let i = 0; i < N; i++) ALL.push({ booli_id: String(i), published: pub(i), isNewBuild: i % 97 === 0 });
+  const FILTERED = ALL.filter(c => !c.isNewBuild);
+  const cleanFetch = async (p, filtered = false) => {
+    // Mirror realFetchPage: page 1 is where each stream's headline total comes from. run()
+    // resets both per run, so the synthetic fetcher has to supply them the same way.
+    const src = filtered ? FILTERED : ALL;
+    if (p === 1) { if (filtered) filteredTotal = src.length; else stockTotal = src.length; }
     const start = (p - 1) * PAGE;
-    if (start >= N) return { status: 200, cards: [] };
-    const cards = [];
-    for (let j = 0; j < PAGE && start + j < N; j++) {
-      const i = start + j;
-      cards.push({ booli_id: String(i), published: pub(i), isNewBuild: i % 97 === 0 });
-    }
-    return { status: 200, cards };
+    if (start >= src.length) return { status: 200, cards: [] };
+    return { status: 200, cards: src.slice(start, start + PAGE) };
   };
+  pageFetcher = cleanFetch;
   stockTotal = N;
   // Ground truth computed directly.
   const truth = new Array(EDGES.length + 1).fill(0); let truthUndated = 0;
@@ -327,29 +381,61 @@ async function selftest() {
   // --- run() estimate-only contract (monthly job path) ---
   // A deliberately stale pool total: run() must reset it and re-derive from page 1, so a second
   // in-process call can never report the previous run's total as its own.
-  stockTotal = 999999;
+  stockTotal = 999999; filteredTotal = 888888;
   const res = await run({ logger: () => {} });
   assert.strictEqual(res.nTotal, N, `run() must reset stockTotal and re-derive it from page 1, got ${res.nTotal}`);
   assert.strictEqual(res.platform, 'booli');
   assert.strictEqual(res.pool, 'premarket');
   assert.strictEqual(res.method, 'binary-search');
-  assert.strictEqual(res.bucketsSecondhand, null, 'binary-search must NOT claim a 2nd-hand histogram');
-  assert.strictEqual(res.newbuildSampled, true);
-  assert.ok(res.newbuildSampleN > 0, 'sampled new-build rate needs a sample size');
-  assert.deepStrictEqual(Object.keys(res.buckets), ['le1m', 'm1_3', 'm3_6', 'm6_12', 'm12_18', 'm18_24', 'gt24', 'undated']);
-  const bandSum = ['le1m', 'm1_3', 'm3_6', 'm6_12', 'm12_18', 'm18_24', 'gt24'].reduce((a, k) => a + res.buckets[k], 0);
+  const BAND_KEYS = ['le1m', 'm1_3', 'm3_6', 'm6_12', 'm12_18', 'm18_24', 'gt24'];
+  assert.deepStrictEqual(Object.keys(res.buckets), [...BAND_KEYS, 'undated']);
+  const bandSum = BAND_KEYS.reduce((a, k) => a + res.buckets[k], 0);
   assert.ok(Math.abs(bandSum + res.buckets.undated - res.nTotal) <= 1, `bands+undated ${bandSum + res.buckets.undated} must reconcile to nTotal ${res.nTotal}`);
   assert.ok(res.muni.length === 0, 'Booli is national-only — no muni rows');
   assert.strictEqual(res.errorPages, 0, 'clean synthetic pool must report zero error pages');
   assert.ok(res.gates.some(g => g.name === 'error_pages'), 'gate list must include an error_pages gate');
   console.log('SELFTEST PASS — run() estimate contract holds.');
 
+  // --- 2nd-hand basis: the SAME bisection over the isNewConstruction=0 stream ---
+  // The filtered pass must produce a real histogram (not null), it must be a SUBSET of the
+  // all-listings one band by band (the filtered stream is the same pool minus some cards, so
+  // no band can grow), and the new-build count must be the exact difference of the two
+  // headline totals — never a sampled rate.
+  assert.ok(res.bucketsSecondhand != null, 'the isNewConstruction=0 pass must yield a 2nd-hand histogram');
+  assert.deepStrictEqual(Object.keys(res.bucketsSecondhand), [...BAND_KEYS, 'undated']);
+  assert.strictEqual(res.newbuildSampled, false, 'the new-build count is now exact, not sampled');
+  assert.strictEqual(res.newbuildSampleN, null, 'an exact count has no sample size');
+  assert.strictEqual(res.nNewbuild, N - FILTERED.length,
+    `nNewbuild must be allTotal − filteredTotal (${N} − ${FILTERED.length}), got ${res.nNewbuild}`);
+  assert.strictEqual(filteredTotal, FILTERED.length, 'the filtered pass must read its own headline total from ITS page 1');
+  for (const k of BAND_KEYS) {
+    assert.ok(res.bucketsSecondhand[k] <= res.buckets[k],
+      `2nd-hand band ${k} (${res.bucketsSecondhand[k]}) must not exceed the all-listings band (${res.buckets[k]})`);
+  }
+  const shSum = BAND_KEYS.reduce((a, k) => a + res.bucketsSecondhand[k], 0) + res.bucketsSecondhand.undated;
+  assert.ok(Math.abs(shSum - FILTERED.length) <= 1,
+    `2nd-hand bands+undated ${shSum} must reconcile to the FILTERED total ${FILTERED.length}, not the pool total`);
+  assert.strictEqual(res.notes, null, `a clean two-pass run has nothing to note: ${res.notes}`);
+  console.log(`SELFTEST PASS — 2nd-hand pass exact: nNewbuild=${res.nNewbuild}, 2nd-hand bands ⊆ all bands, reconciles to ${FILTERED.length}.`);
+
+  // --- filteredTotal unavailable → degrade to the old all-listings row, never guess ---
+  pageFetcher = async (p, filtered = false) => (filtered && p === 1)
+    ? { status: 503, cards: null }
+    : cleanFetch(p, filtered);
+  const resNoSh = await run({ logger: () => {} });
+  pageFetcher = cleanFetch;
+  assert.strictEqual(resNoSh.bucketsSecondhand, null, 'no filtered total → no 2nd-hand claim');
+  assert.strictEqual(resNoSh.nNewbuild, null, 'no filtered total → no new-build count, not a fabricated 0');
+  assert.strictEqual(resNoSh.nTotal, N, 'the all-listings pass must still stand on its own');
+  assert.ok(/second-hand pass skipped/.test(resNoSh.notes || ''), `the skip must be stated: ${resNoSh.notes}`);
+  console.log('SELFTEST PASS — a missing filtered total degrades honestly.');
+
   // --- error_pages counter must actually count real fetch failures, not just default to 0 ---
   const cleanFetcher = pageFetcher;
   let brokenPageHit = false;
-  pageFetcher = async (p) => {
-    if (p === 2) { brokenPageHit = true; return { status: 500, cards: null }; }   // persistent non-200 → error page
-    return cleanFetcher(p);
+  pageFetcher = async (p, filtered = false) => {
+    if (p === 2 && !filtered) { brokenPageHit = true; return { status: 500, cards: null }; }   // persistent non-200 → error page
+    return cleanFetcher(p, filtered);
   };
   const resErr = await run({ logger: () => {} });
   pageFetcher = cleanFetcher;
@@ -363,6 +449,23 @@ async function selftest() {
   const directGate = gateErrorPages({ errorPages: resErr.errorPages, oxCalls: 60, maxPct: 2 });
   assert.strictEqual(directGate.passed, false, `1+ error page(s) out of 60 calls must fail the 2% gate: ${directGate.detail}`);
   console.log(`SELFTEST PASS — run() errorPages wired to real fetch failures (errorPages=${resErr.errorPages}).`);
+
+  // --- errorPages must accumulate across BOTH passes, not just the first ---
+  // The failure is injected ONLY on the filtered stream (filtered && p===43), so any count at
+  // all proves the second pass's failures are being tallied. Page 43 is the first bisection
+  // probe of the filtered stream (range [1,85] → mid 43) and nothing else touches it on that
+  // stream; the unfiltered pass runs completely clean, so the expected total is exactly 1.
+  let filteredPageHit = false;
+  pageFetcher = async (p, filtered = false) => {
+    if (filtered && p === 43) { filteredPageHit = true; return { status: 500, cards: null }; }
+    return cleanFetcher(p, filtered);
+  };
+  const resErr2 = await run({ logger: () => {} });
+  pageFetcher = cleanFetcher;
+  assert.ok(filteredPageHit, 'the injected 2nd-hand-stream failure (page 43) was never queried — test setup is wrong');
+  assert.strictEqual(resErr2.errorPages, 1,
+    `a failure on the 2nd-hand pass alone must raise errorPages to exactly 1, got ${resErr2.errorPages} — the counter must span both passes`);
+  console.log('SELFTEST PASS — errorPages accumulates across both passes.');
 }
 
 async function main() {
