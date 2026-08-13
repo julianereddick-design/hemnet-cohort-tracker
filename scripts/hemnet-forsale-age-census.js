@@ -13,6 +13,13 @@
 // one global age histogram by listing id, so overlapping scopes are harmless; only gaps matter,
 // and we reconcile the union's distinct count against each muni's headline total to surface any.
 //
+// Per-muni accumulators (lib/age-census.js) share ONE global `seen` Set so dedupe stays global
+// while bands stay per-muni; the WHOLE recursion for one municipality — every sub-scope it
+// spawns — folds into THAT municipality's accumulator. The national histogram is then the sum
+// of the per-muni ones, which is also what makes the reconciliation gate (Σ headline totals vs
+// distinct union) meaningful. Unlike the Booli binary-search estimate, every card here is
+// walked, so the 2nd-hand histogram is an exact band-wise subtraction, not a sample.
+//
 //   node   scripts/hemnet-forsale-age-census.js --selftest          # offline, synthetic; free
 //   SCRAPE_FORCE_OXYLABS=1 node scripts/hemnet-forsale-age-census.js --probe [Muni]   # 1 muni live (default Stockholm)
 //   SCRAPE_FORCE_OXYLABS=1 node scripts/hemnet-forsale-age-census.js                  # full national run
@@ -22,10 +29,13 @@ const fs = require('fs');
 const path = require('path');
 const { getWithRetry, extractNextData, getOxylabsStats, resetOxylabsStats } = require('../lib/scrape-http');
 const { parseListingCards } = require('../lib/hemnet-fetch');
-const { bandIndex, cardAgeDays, DAY } = require('../lib/premarket-flow');
+const { DAY } = require('../lib/premarket-flow');
+const {
+  EDGES, BAND_KEYS, newAccumulator, addCardTo, mergeAccumulators, bucketsToObject, secondhandToObject,
+  gateReconciliation, gateTotalDrift, gateErrorPages, evaluateGates,
+} = require('../lib/age-census');
 
 const NOW_SEC = Math.floor(Date.now() / 1000);
-const EDGES = [30, 90, 180, 365, 548, 730];
 const LABELS = ['≤1mo', '1–3mo', '3–6mo', '6–12mo', '12–18mo', '18–24mo', '>24mo'];
 const LOCATIONS = require('../lib/hemnet-locations-full.json');
 const OUT_DIR = path.join(__dirname, '..', 'verf-flow-probe');
@@ -90,80 +100,116 @@ async function safeFetch(scope, p, tries = 4) {
   throw lastErr;
 }
 
-// ---- Global age accumulators (union across all scopes; dedupe by listing id) ----
-const buckets = new Array(EDGES.length + 1).fill(0);
-const newbuild = new Array(EDGES.length + 1).fill(0);
-const seen = new Set();
-let distinct = 0, undated = 0, anomalies = 0, nonUpcoming = 0, rawCards = 0, pagesWithCards = 0, errorPages = 0;
-
-function addCard(c) {
-  if (c.id != null) { if (seen.has(c.id)) return false; seen.add(c.id); }
-  distinct++;
-  const p = c.published;
-  if (p == null || typeof p !== 'number' || !isFinite(p) || p <= 0 || p > NOW_SEC + DAY) { if (p != null) anomalies++; undated++; return true; }
-  const k = bandIndex(cardAgeDays(p, NOW_SEC), EDGES);
-  buckets[k]++; if (c.isNewBuild) newbuild[k]++;
-  return true;
-}
-
-// Walk ONE scope (already known to be < clamp) to exhaustion. Returns { pages, clampedSuspect }.
-async function walkScope(scope) {
+// Walk ONE scope (already known to be < clamp) to exhaustion, folding every card into THIS
+// municipality's accumulator. `ctx` carries cross-cutting counters (errorPages, nonUpcoming)
+// that are not per-muni. Returns { pages, clampedSuspect }.
+async function walkScope(scope, acc, nowSec, ctx) {
   let pages = 0, lastFresh = 0;
   for (let p = 1; p <= MAX_PAGES; p++) {
     const r = await safeFetch(scope, p);
     pages = p;
-    if (r.cards == null) { errorPages++; log('WARN', `${scopeLabel(scope)} p${p} status ${r.status} — gap, continuing`); continue; }
+    if (r.cards == null) { ctx.errorPages++; log('WARN', `${scopeLabel(scope)} p${p} status ${r.status} — gap, continuing`); continue; }
     if (r.cards.length === 0) break;
     const up = r.cards.filter(c => c.upcoming).length;
-    if (up) { nonUpcoming += up; log('WARN', `${scopeLabel(scope)} p${p}: ${up} upcoming card(s) filtered`); }
+    if (up) { ctx.nonUpcoming += up; log('WARN', `${scopeLabel(scope)} p${p}: ${up} upcoming card(s) filtered`); }
     const forSale = r.cards.filter(c => !c.upcoming);
     let fresh = 0;
-    for (const c of forSale) if (addCard(c)) fresh++;
+    for (const c of forSale) if (addCardTo(acc, c, nowSec)) fresh++;
     lastFresh = fresh;
     if (fresh === 0) break;                    // clamp/end: no new IDs → stop
-    rawCards += forSale.length; pagesWithCards++;
   }
   return { pages, clampedSuspect: pages === MAX_PAGES && lastFresh > 0 };
 }
 
 // Recursively census a scope, sub-partitioning (item_type → price band) until under the clamp.
-// level 0 = whole muni, 1 = item_type fixed, 2 = item_type+price fixed. Returns { headline }.
-async function censusScope(scope, level) {
+// level 0 = whole muni, 1 = item_type fixed, 2 = item_type+price fixed. Every sub-scope this
+// recursion spawns folds into the SAME `acc` — the caller's municipality accumulator — so the
+// whole recursive tree for one muni ends up in one place. Returns { headline }.
+async function censusScope(scope, level, acc, nowSec, ctx) {
   const first = await safeFetch(scope, 1);
   const total = first.cards == null ? null : first.total;
-  if (first.cards == null) { errorPages++; log('WARN', `${scopeLabel(scope)} p1 status ${first.status} — scope skipped`); return { headline: 0, sub: [] }; }
+  if (first.cards == null) { ctx.errorPages++; log('WARN', `${scopeLabel(scope)} p1 status ${first.status} — scope skipped`); return { headline: 0, sub: [] }; }
   if (total != null && total <= THRESHOLD) {
     // Reuse the page-1 cards we already have, then continue walking.
     const forSale = first.cards.filter(c => !c.upcoming);
-    for (const c of forSale) addCard(c);
-    if (forSale.length) { rawCards += forSale.length; pagesWithCards++; }
-    if (total > forSale.length) { for (let p = 2; p <= MAX_PAGES; p++) { const r = await safeFetch(scope, p); if (r.cards == null) { errorPages++; continue; } if (r.cards.length === 0) break; const fs2 = r.cards.filter(c => !c.upcoming); let fresh = 0; for (const c of fs2) if (addCard(c)) fresh++; if (fresh === 0) break; rawCards += fs2.length; pagesWithCards++; } }
+    for (const c of forSale) addCardTo(acc, c, nowSec);
+    if (total > forSale.length) { for (let p = 2; p <= MAX_PAGES; p++) { const r = await safeFetch(scope, p); if (r.cards == null) { ctx.errorPages++; continue; } if (r.cards.length === 0) break; const fs2 = r.cards.filter(c => !c.upcoming); let fresh = 0; for (const c of fs2) if (addCardTo(acc, c, nowSec)) fresh++; if (fresh === 0) break; } }
     return { headline: total, sub: [] };
   }
   // Over threshold → sub-partition.
   if (level === 0) {
     log('INFO', `${scopeLabel(scope)} total=${total} > ${THRESHOLD} → splitting by item_type`);
     let sumTypes = 0;
-    for (const t of ITEM_TYPES) { const r = await censusScope({ ...scope, itemType: t }, 1); sumTypes += r.headline; }
+    for (const t of ITEM_TYPES) { const r = await censusScope({ ...scope, itemType: t }, 1, acc, nowSec, ctx); sumTypes += r.headline; }
     const residual = total - sumTypes;
     if (residual > 0.02 * total) log('WARN', `${scopeLabel(scope)}: item_types cover ${sumTypes}/${total}; ~${residual} listings not in the 6 types (uncovered residual)`);
     return { headline: total, sub: ITEM_TYPES };
   }
   if (level === 1) {
     log('INFO', `${scopeLabel(scope)} total=${total} > ${THRESHOLD} → splitting by price band`);
-    for (const b of PRICE_BANDS) { const s = { ...scope, priceMin: b.min != null ? b.min : null, priceMax: b.max != null ? b.max : null }; const r = await safeFetch(s, 1); if (r.cards != null && r.total > 0) await censusScope(s, 2); }
+    for (const b of PRICE_BANDS) { const s = { ...scope, priceMin: b.min != null ? b.min : null, priceMax: b.max != null ? b.max : null }; const r = await safeFetch(s, 1); if (r.cards != null && r.total > 0) await censusScope(s, 2, acc, nowSec, ctx); }
     return { headline: total, sub: PRICE_BANDS.length + ' price bands' };
   }
   // level 2: type+price still over clamp (rare) — walk anyway, warn about undercount.
   log('WARN', `${scopeLabel(scope)} total=${total} still > clamp after type+price — walking, will undercount by ~${total - CLAMP_LISTINGS}`);
-  await walkScope(scope);
+  await walkScope(scope, acc, nowSec, ctx);
   return { headline: total, sub: [] };
 }
 
-async function censusMuni(name, id) {
-  const before = distinct;
-  const r = await censusScope({ locationId: id, name }, 0);
-  return { name, id, headline: r.headline, counted: distinct - before };
+async function censusMuni(name, id, acc, nowSec, ctx) {
+  const before = acc.distinct;
+  const r = await censusScope({ locationId: id, name }, 0, acc, nowSec, ctx);
+  return { name, id, headline: r.headline, counted: acc.distinct - before };
+}
+
+async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, priorTotal = null } = {}) {
+  const t0 = Math.floor(Date.now() / 1000);
+  resetOxylabsStats();
+  const seen = new Set();
+  const ctx = { errorPages: 0, nonUpcoming: 0 };
+  const names = Object.keys(locations);
+  const accs = [], stats = [];
+  let headlineSum = 0, i = 0;
+
+  for (const name of names) {
+    const acc = newAccumulator({ seen });
+    const st = await censusMuni(name, locations[name], acc, nowSec, ctx);
+    headlineSum += st.headline || 0;
+    accs.push(acc); stats.push(st);
+    if (++i % 25 === 0) logger('INFO', `…${i}/${names.length} munis, distinct=${seen.size}`);
+  }
+
+  const nat = mergeAccumulators(accs);
+  const ox = getOxylabsStats();
+  const oxCalls = ox.oxylabsCallCount + ox.directSuccessCount;
+  const gates = [
+    gateReconciliation({ headlineSum, distinct: nat.distinct, maxPct: 2 }),
+    gateErrorPages({ errorPages: ctx.errorPages, oxCalls, maxPct: 2 }),
+    gateTotalDrift({ nTotal: nat.distinct, priorTotal, maxPct: 25 }),
+  ];
+  const ev = evaluateGates(gates);
+  const notes = [
+    ctx.nonUpcoming ? `${ctx.nonUpcoming} upcoming cards filtered` : null,
+    nat.anomalies ? `${nat.anomalies} publishedAt anomalies` : null,
+    ev.passed ? null : `gates failed: ${ev.failures.join(', ')}`,
+  ].filter(Boolean).join('; ') || null;
+
+  return {
+    platform: 'hemnet', pool: 'forsale', method: 'muni-partition',
+    nTotal: nat.distinct, nUndated: nat.undated,
+    nNewbuild: nat.newbuild.reduce((a, b) => a + b, 0),
+    newbuildSampled: false, newbuildSampleN: null,
+    buckets: bucketsToObject(nat.buckets, nat.undated),
+    bucketsSecondhand: secondhandToObject(nat.buckets, nat.newbuild, nat.undated),
+    muni: stats.map((s, k) => ({
+      name: s.name, id: Number(s.id) || 0,
+      headlineN: s.headline || 0, countedN: s.counted,
+      buckets: bucketsToObject(accs[k].buckets, accs[k].undated),
+      bucketsSecondhand: secondhandToObject(accs[k].buckets, accs[k].newbuild, accs[k].undated),
+    })),
+    oxCalls, errorPages: ctx.errorPages, runtimeS: Math.floor(Date.now() / 1000) - t0,
+    gates, status: ev.passed ? 'ok' : 'gate_failed', notes,
+  };
 }
 
 // ---- reporting ----
@@ -176,18 +222,26 @@ function loadLatestBooliFs() {
     return j.results && j.results.find(r => r.name === 'booli');
   } catch (e) { return null; }
 }
-function buildMd(dateStr, muniStats, headlineSum, oxCalls, booli) {
+function buildMd(dateStr, res, booli) {
+  const buckets = BAND_KEYS.map(k => res.buckets[k]);
+  const bucketsSecondhand = BAND_KEYS.map(k => res.bucketsSecondhand[k]);
   const datedTotal = buckets.reduce((a, b) => a + b, 0);
+  const undated = res.buckets.undated;
+  const headlineSum = res.muni.reduce((a, m) => a + (m.headlineN || 0), 0);
   const L = [];
   L.push(`# Hemnet for-sale (Till salu) age penetration — national — ${dateStr}`, '');
-  L.push(`Municipality-partition census over ${muniStats.length} munis (big munis sub-partitioned by item_type + price). Age = days since Hemnet publish.`, '');
+  L.push(`Municipality-partition census over ${res.muni.length} munis (big munis sub-partitioned by item_type + price). Age = days since Hemnet publish.`, '');
   L.push('## Census histogram', '');
   L.push('| Bucket | Count | % of dated | Cumulative % | of which new-build |');
   L.push('|---|--:|--:|--:|--:|');
   let cum = 0;
-  for (let k = 0; k < LABELS.length; k++) { cum += buckets[k]; L.push(`| ${LABELS[k]} | ${buckets[k].toLocaleString()} | ${pct(buckets[k], datedTotal).toFixed(1)}% | ${pct(cum, datedTotal).toFixed(1)}% | ${newbuild[k]} |`); }
+  for (let k = 0; k < LABELS.length; k++) {
+    cum += buckets[k];
+    const nb = buckets[k] - bucketsSecondhand[k]; // exact: bucketsSecondhand is a band-wise subtraction, never sampled
+    L.push(`| ${LABELS[k]} | ${buckets[k].toLocaleString()} | ${pct(buckets[k], datedTotal).toFixed(1)}% | ${pct(cum, datedTotal).toFixed(1)}% | ${nb} |`);
+  }
   L.push(`| _undated_ | ${undated.toLocaleString()} | — | — | — |`);
-  L.push(`| **dated total** | **${datedTotal.toLocaleString()}** | | | ${newbuild.reduce((a, b) => a + b, 0)} new-build |`, '');
+  L.push(`| **dated total** | **${datedTotal.toLocaleString()}** | | | ${res.nNewbuild} new-build |`, '');
   if (booli) {
     const bb = booli.bands, bTot = bb.reduce((a, b) => a + b, 0);
     L.push('## Like-for-like: Hemnet vs Booli for-sale (share of dated pool)', '');
@@ -196,14 +250,17 @@ function buildMd(dateStr, muniStats, headlineSum, oxCalls, booli) {
     const h3 = pct(buckets[0] + buckets[1], datedTotal), b3 = pct(bb[0] + bb[1], bTot);
     const h24 = pct(buckets[6], datedTotal), b24 = pct(bb[6], bTot);
     L.push('', `Hemnet ${h3.toFixed(0)}% ≤3mo vs Booli ${b3.toFixed(0)}%; zombie tail (>24mo) Hemnet ${h24.toFixed(1)}% vs Booli ${b24.toFixed(1)}%.`, '');
+  } else {
+    L.push('_(No Booli for-sale census artifact found for the combined table.)_', '');
   }
-  const withListings = muniStats.filter(m => m.counted > 0).length;
+  const withListings = res.muni.filter(m => m.countedN > 0).length;
   L.push('## Coverage & quality', '');
-  L.push(`- Munis: ${muniStats.length} processed, ${withListings} with FS listings.`);
-  L.push(`- Distinct listings counted: **${distinct.toLocaleString()}** (dated ${datedTotal.toLocaleString()} + undated ${undated}).`);
-  L.push(`- Σ muni headline totals=${headlineSum.toLocaleString()} vs distinct counted ${distinct.toLocaleString()} (gap = clamp-undercount + dedupe; count is truth).`);
-  L.push(`- Error/gap pages: ${errorPages}. Upcoming cards filtered: ${nonUpcoming}. publishedAt anomalies: ${anomalies}.`);
-  L.push(`- Oxylabs calls: **${oxCalls}**.`);
+  L.push(`- Munis: ${res.muni.length} processed, ${withListings} with FS listings.`);
+  L.push(`- Distinct listings counted: **${res.nTotal.toLocaleString()}** (dated ${datedTotal.toLocaleString()} + undated ${undated}).`);
+  L.push(`- Σ muni headline totals=${headlineSum.toLocaleString()} vs distinct counted ${res.nTotal.toLocaleString()} (gap = clamp-undercount + dedupe; count is truth).`);
+  L.push(`- Error/gap pages: ${res.errorPages}. Oxylabs calls: **${res.oxCalls}**. Runtime: ${res.runtimeS}s.`);
+  L.push(`- Gates: ${res.gates.map(g => `${g.name}=${g.passed ? 'pass' : 'FAIL'}`).join(', ')} (status: ${res.status}).`);
+  if (res.notes) L.push(`- Notes: ${res.notes}`);
   return L.join('\n');
 }
 
@@ -247,15 +304,18 @@ async function selftest() {
   };
 
   await check('small muni: walked fully, no sub-partition', async () => {
-    const r = await censusMuni('Small', 9001);
+    const acc = newAccumulator({ seen: new Set() });
+    const ctx = { errorPages: 0, nonUpcoming: 0 };
+    const r = await censusMuni('Small', 9001, acc, NOW_SEC, ctx);
     assert.strictEqual(r.counted, 120, `counted ${r.counted}`);
   });
 
   await check('big muni: sub-partition recovers FULL count (beats the 2,500 clamp)', async () => {
-    const before = distinct;
-    const r = await censusMuni('Big', 9002);
+    const acc = newAccumulator({ seen: new Set() });
+    const ctx = { errorPages: 0, nonUpcoming: 0 };
+    const r = await censusMuni('Big', 9002, acc, NOW_SEC, ctx);
     assert.strictEqual(r.headline, BIG_TOTAL, `headline ${r.headline}`);
-    assert.strictEqual(distinct - before, BIG_TOTAL, `recovered ${distinct - before} of ${BIG_TOTAL} — clamp not beaten`);
+    assert.strictEqual(r.counted, BIG_TOTAL, `recovered ${r.counted} of ${BIG_TOTAL} — clamp not beaten`);
   });
 
   await check('naive single-scope walk WOULD have clamped at 2,500 (proves the problem is real)', async () => {
@@ -263,6 +323,19 @@ async function selftest() {
     const s = new Set(); let cnt = 0;
     for (let p = 1; p <= MAX_PAGES; p++) { const r = await fetchScope({ name: 'Big' }, p); if (!r.cards.length) break; let fresh = 0; for (const c of r.cards) if (!s.has(c.id)) { s.add(c.id); cnt++; fresh++; } if (fresh === 0) break; }
     assert.ok(cnt <= CLAMP_LISTINGS && cnt < BIG_TOTAL, `naive walk got ${cnt}, expected clamp <=${CLAMP_LISTINGS}`);
+  });
+
+  await check('run(): per-muni rows sum to the national histogram, 2nd-hand exact', async () => {
+    const res = await run({ locations: { Small: 9001, Big: 9002 }, nowSec: NOW_SEC, logger: () => {} });
+    assert.strictEqual(res.pool, 'forsale');
+    assert.strictEqual(res.method, 'muni-partition');
+    assert.strictEqual(res.muni.length, 2);
+    const perMuni = res.muni.reduce((a, m) => a + BAND_KEYS.reduce((s, k) => s + m.buckets[k], 0), 0);
+    const national = BAND_KEYS.reduce((s, k) => s + res.buckets[k], 0);
+    assert.strictEqual(perMuni, national, 'Σ per-muni must equal national');
+    assert.strictEqual(res.nTotal, 120 + BIG_TOTAL, 'sub-partition must recover the full count, not the 2,500 clamp');
+    assert.ok(res.bucketsSecondhand != null);
+    assert.strictEqual(res.newbuildSampled, false);
   });
 
   console.log(`\nselftest: ${pass} pass, ${fail} fail`);
@@ -278,14 +351,16 @@ async function runProbe(muniName) {
   if (id == null) { console.error(`Unknown muni "${name}". Try one of: Stockholm, Göteborg, Malmö…`); process.exit(1); }
   resetOxylabsStats();
   console.log(`===== HEMNET FS AGE CENSUS — PROBE: ${name} (id ${id}) =====\n`);
-  const r = await censusMuni(name, id);
+  const acc = newAccumulator({ seen: new Set() });
+  const ctx = { errorPages: 0, nonUpcoming: 0 };
+  const r = await censusMuni(name, id, acc, NOW_SEC, ctx);
   const ox = getOxylabsStats();
   const naiveWouldGet = Math.min(r.headline, CLAMP_LISTINGS);
   console.log(`\n  headline FS total: ${r.headline}`);
   console.log(`  distinct counted (sub-partitioned union): ${r.counted}`);
   console.log(`  a naive single-scope walk would have clamped at: ~${naiveWouldGet}`);
   console.log(`  coverage vs headline: ${pct(r.counted, r.headline).toFixed(1)}%`);
-  console.log(`  buckets=${JSON.stringify(buckets)}  undated=${undated}`);
+  console.log(`  buckets=${JSON.stringify(acc.buckets)}  undated=${acc.undated}`);
   console.log(`  Oxylabs calls: ${JSON.stringify(ox)}`);
   const verdict = r.headline <= THRESHOLD ? '(muni under clamp — no sub-partition needed; pick a bigger muni to test splitting)'
     : r.counted >= 0.97 * r.headline ? '✅ sub-partition recovered ~full count (clamp beaten)'
@@ -317,24 +392,17 @@ async function runSizes() {
 }
 
 async function runFull() {
-  resetOxylabsStats();
   console.log('===== HEMNET FS AGE CENSUS — FULL NATIONAL RUN =====\n');
-  const names = Object.keys(LOCATIONS);
-  const muniStats = [];
-  let headlineSum = 0, i = 0;
-  for (const name of names) {
-    const r = await censusMuni(name, LOCATIONS[name]);
-    headlineSum += r.headline; muniStats.push(r);
-    if (++i % 25 === 0) log('INFO', `…${i}/${names.length} munis, distinct=${distinct}, calls=${getOxylabsStats().oxylabsCallCount}`);
-  }
+  const res = await run({ logger: log });
   const dateStr = new Date(NOW_SEC * 1000).toISOString().slice(0, 10);
   const booli = loadLatestBooliFs();
-  const md = buildMd(dateStr, muniStats, headlineSum, getOxylabsStats().oxylabsCallCount, booli);
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const mdPath = path.join(OUT_DIR, `hemnet-forsale-age-census-${dateStr}.md`);
   const jsonPath = path.join(OUT_DIR, `hemnet-forsale-age-census-${dateStr}.json`);
+  // Write raw JSON FIRST so a formatting bug in buildMd can never destroy a ~1,208-call result.
+  fs.writeFileSync(jsonPath, JSON.stringify({ ...res, dateStr, edges: EDGES }, null, 2));
+  const md = buildMd(dateStr, res, booli);
   fs.writeFileSync(mdPath, md);
-  fs.writeFileSync(jsonPath, JSON.stringify({ dateStr, nowSec: NOW_SEC, edges: EDGES, buckets, newbuild, undated, distinct, headlineSum, muniStats }, null, 2));
   console.log('\n' + md);
   console.log(`\nWrote ${mdPath}\nWrote ${jsonPath}`);
 }
@@ -347,4 +415,4 @@ if (require.main === module) {
   else runFull().catch(e => { console.error(e); process.exit(1); });
 }
 
-module.exports = { censusScope, censusMuni, addCard, buckets };
+module.exports = { run, censusScope, censusMuni };
