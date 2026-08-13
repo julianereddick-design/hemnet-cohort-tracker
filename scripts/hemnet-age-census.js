@@ -1,9 +1,15 @@
 'use strict';
-// scripts/hemnet-age-census.js — one-off NATIONAL Hemnet pre-market (Kommande) age
-// histogram by municipality partition, for a like-for-like freshness comparison vs the
-// Booli census. Hemnet caps national Kommande pagination (~2,500/8,368), so we census each
-// of the 290 municipalities and union. Stop condition is "0 new distinct IDs" (Hemnet clamps
-// past a muni's end and repeats the tail — it never returns an empty page for a small muni).
+// scripts/hemnet-age-census.js — NATIONAL Hemnet pre-market (Kommande) age histogram by
+// municipality partition, for a like-for-like freshness comparison vs the Booli census.
+// Hemnet caps national Kommande pagination (~2,500/8,368), so we census each of the 290
+// municipalities and union. Stop condition is "0 new distinct IDs" (Hemnet clamps past a
+// muni's end and repeats the tail — it never returns an empty page for a small muni).
+//
+// Per-muni accumulators (lib/age-census.js) share ONE global `seen` Set so dedupe stays
+// global while bands stay per-muni; the national histogram is the sum of the per-muni ones.
+// This is also what makes the reconciliation gate (Σ headline totals vs distinct union)
+// meaningful. Every card is walked, so — unlike the Booli binary-search estimate — the
+// 2nd-hand histogram here is an exact band-wise subtraction, not a sample.
 //
 //   node scripts/hemnet-age-census.js --selftest   # offline, synthetic clamp pool
 //   SCRAPE_FORCE_OXYLABS=1 node scripts/hemnet-age-census.js --probe   # 1 muni live sanity
@@ -16,10 +22,13 @@ const fs = require('fs');
 const path = require('path');
 const { getWithRetry, extractNextData, getOxylabsStats, resetOxylabsStats } = require('../lib/scrape-http');
 const { parseListingCards } = require('../lib/hemnet-fetch');
-const { bandIndex, cardAgeDays, DAY } = require('../lib/premarket-flow');
+const { bandIndex, DAY } = require('../lib/premarket-flow');
+const {
+  EDGES, BAND_KEYS, newAccumulator, addCardTo, mergeAccumulators, bucketsToObject, secondhandToObject,
+  gateReconciliation, gateTotalDrift, gateErrorPages, evaluateGates,
+} = require('../lib/age-census');
 
 const NOW_SEC = Math.floor(Date.now() / 1000);
-const EDGES = [30, 90, 180, 365, 548, 730];
 const LABELS = ['≤1mo', '1–3mo', '3–6mo', '6–12mo', '12–18mo', '18–24mo', '>24mo'];
 const MAX_PAGES_PER_MUNI = 40;                 // Stockholm ends ~p24; 40 is an ample backstop
 const LOCATIONS = require('../lib/hemnet-locations-full.json');
@@ -49,48 +58,93 @@ async function realFetchPage(id, p) {
 let pageFetcher = realFetchPage;                 // swappable for --selftest
 const fetchPage = (id, p) => pageFetcher(id, p);
 
-// Accumulators (module-level so walkMuni folds into them).
-const buckets = new Array(EDGES.length + 1).fill(0);
-const newbuild = new Array(EDGES.length + 1).fill(0);
-const seen = new Set();
-let undated = 0, distinct = 0, errorPages = 0, rawCards = 0, pagesWithCards = 0, anomalies = 0, nonUpcoming = 0;
-
-function addCard(c) {
-  if (c.id != null) { if (seen.has(c.id)) return false; seen.add(c.id); }
-  distinct++;
-  const p = c.published;
-  // Guard: publishedAt must be a sane unix-seconds value. A mangled/ISO value (coerceNumber
-  // can produce garbage) or future date is counted as an anomaly, not silently misbucketed.
-  if (p == null || typeof p !== 'number' || !isFinite(p) || p <= 0 || p > NOW_SEC + DAY) {
-    if (p != null) anomalies++;
-    undated++; return true;
-  }
-  const k = bandIndex(cardAgeDays(p, NOW_SEC), EDGES);
-  buckets[k]++; if (c.isNewBuild) newbuild[k]++;
-  return true;
-}
-
-// Walk one muni until a page adds 0 new distinct IDs (clamp/end) or the safety cap.
+// Walk one muni into ITS OWN accumulator. `acc.seen` is the shared global id set, so a
+// listing that somehow appears under two munis is counted once, in the first one seen.
 // Only `upcoming === true` cards are counted (defensive against any injected/recommended
 // or Till-salu cards — probe 2026-07-07 saw none, but the filter WARNs if that changes).
-async function walkMuni(name, id) {
+// Walk stops when a page adds 0 new distinct IDs (clamp/end) or the safety cap — NOT on an
+// empty page, since Hemnet clamps past a muni's end and repeats the tail forever.
+async function walkMuni(name, id, acc, nowSec, ctx) {
   let pages = 0, total = null, counted = 0, p1Error = false;
   for (let p = 1; p <= MAX_PAGES_PER_MUNI; p++) {
     const r = await fetchPage(id, p);
     pages = p;
-    if (r.cards == null) { errorPages++; if (p === 1) p1Error = true; log('WARN', `${name} p${p} status ${r.status} — gap, continuing`); continue; }
+    if (r.cards == null) { ctx.errorPages++; if (p === 1) p1Error = true; log('WARN', `${name} p${p} status ${r.status} — gap, continuing`); continue; }
     if (p === 1) total = r.total;
-    if (r.cards.length === 0) break;             // 0-Kommande muni → empty p1
+    if (r.cards.length === 0) break;              // 0-Kommande muni → empty p1
     const up = r.cards.filter(c => c.upcoming);
     const nonUp = r.cards.length - up.length;
-    if (nonUp) { nonUpcoming += nonUp; log('WARN', `${name} p${p}: ${nonUp} non-upcoming card(s) filtered out`); }
+    if (nonUp) { ctx.nonUpcoming += nonUp; log('WARN', `${name} p${p}: ${nonUp} non-upcoming card(s) filtered out`); }
     let fresh = 0;
-    for (const c of up) if (addCard(c)) { fresh++; counted++; }
+    for (const c of up) if (addCardTo(acc, c, nowSec)) { fresh++; counted++; }
     if (fresh === 0) break;                       // clamp/end: no new upcoming IDs → stop this muni
-    rawCards += up.length; pagesWithCards++;
     if (p === MAX_PAGES_PER_MUNI) log('WARN', `${name} hit MAX_PAGES_PER_MUNI=${MAX_PAGES_PER_MUNI} — muni may exceed cap (unexpected)`);
   }
   return { name, id, pages, total, counted, p1Error };
+}
+
+async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, priorTotal = null } = {}) {
+  const t0 = Math.floor(Date.now() / 1000);
+  resetOxylabsStats();
+  const seen = new Set();
+  const ctx = { errorPages: 0, nonUpcoming: 0 };
+  const names = Object.keys(locations);
+  const accs = [], stats = [];
+  let headlineSum = 0, done = 0;
+
+  for (const name of names) {
+    const acc = newAccumulator({ seen });
+    const st = await walkMuni(name, locations[name], acc, nowSec, ctx);
+    if (typeof st.total === 'number') headlineSum += st.total;
+    accs.push(acc); stats.push(st);
+    if (++done % 25 === 0) logger('INFO', `${done}/${names.length} munis, distinct=${seen.size}`);
+  }
+  // Retry munis whose page 1 errored — a whole-muni coverage gap. Global dedupe makes a
+  // re-walk safe; the accumulator is REPLACED so bands are not double-counted.
+  const p1errs = stats.map((s, i) => ({ s, i })).filter(x => x.s.p1Error);
+  if (p1errs.length) {
+    logger('WARN', `retrying ${p1errs.length} munis whose p1 errored: ${p1errs.map(x => x.s.name).join(', ')}`);
+    for (const { s, i } of p1errs) {
+      const acc = newAccumulator({ seen });
+      const st = await walkMuni(s.name, locations[s.name], acc, nowSec, ctx);
+      if (typeof st.total === 'number') headlineSum += st.total;
+      accs[i] = acc; stats[i] = st;
+    }
+  }
+
+  const nat = mergeAccumulators(accs);
+  const ox = getOxylabsStats();
+  const oxCalls = ox.oxylabsCallCount + ox.directSuccessCount;
+  const stillFailed = stats.filter(s => s.p1Error).map(s => s.name);
+  const gates = [
+    gateReconciliation({ headlineSum, distinct: nat.distinct, maxPct: 2 }),
+    gateErrorPages({ errorPages: ctx.errorPages, oxCalls, maxPct: 2 }),
+    gateTotalDrift({ nTotal: nat.distinct, priorTotal, maxPct: 25 }),
+  ];
+  const ev = evaluateGates(gates);
+  const notes = [
+    stillFailed.length ? `munis still failing p1: ${stillFailed.join(', ')}` : null,
+    ctx.nonUpcoming ? `${ctx.nonUpcoming} non-upcoming cards filtered` : null,
+    nat.anomalies ? `${nat.anomalies} publishedAt anomalies` : null,
+    ev.passed ? null : `gates failed: ${ev.failures.join(', ')}`,
+  ].filter(Boolean).join('; ') || null;
+
+  return {
+    platform: 'hemnet', pool: 'premarket', method: 'muni-partition',
+    nTotal: nat.distinct, nUndated: nat.undated,
+    nNewbuild: nat.newbuild.reduce((a, b) => a + b, 0),
+    newbuildSampled: false, newbuildSampleN: null,
+    buckets: bucketsToObject(nat.buckets, nat.undated),
+    bucketsSecondhand: secondhandToObject(nat.buckets, nat.newbuild, nat.undated),
+    muni: stats.map((s, i) => ({
+      name: s.name, id: Number(s.id) || 0,
+      headlineN: s.total == null ? 0 : s.total, countedN: s.counted,
+      buckets: bucketsToObject(accs[i].buckets, accs[i].undated),
+      bucketsSecondhand: secondhandToObject(accs[i].buckets, accs[i].newbuild, accs[i].undated),
+    })),
+    oxCalls, errorPages: ctx.errorPages, runtimeS: Math.floor(Date.now() / 1000) - t0,
+    gates, status: ev.passed ? 'ok' : 'gate_failed', notes,
+  };
 }
 
 function pct(n, d) { return d ? (100 * n / d) : 0; }
@@ -104,21 +158,26 @@ function loadLatestBooli() {
   } catch (e) { return null; }
 }
 
-function buildMd(dateStr, muniStats, natTotalSum, oxCalls, booli) {
+function buildMd(dateStr, res, booli) {
+  const buckets = BAND_KEYS.map(k => res.buckets[k]);
+  const bucketsSecondhand = BAND_KEYS.map(k => res.bucketsSecondhand[k]);
   const datedTotal = buckets.reduce((a, b) => a + b, 0);
+  const undated = res.buckets.undated;
+  const headlineSum = res.muni.reduce((a, m) => a + (m.headlineN || 0), 0);
   const L = [];
   L.push(`# Hemnet pre-market (Kommande) age penetration — national — ${dateStr}`, '');
-  L.push(`Municipality-partition census over ${Object.keys(LOCATIONS).length} munis. Age = days since Hemnet publish (\`publishedAt\`).`, '');
+  L.push(`Municipality-partition census over ${res.muni.length} munis. Age = days since Hemnet publish (\`publishedAt\`).`, '');
   L.push(`## Census histogram`, '');
   L.push(`| Bucket | Count | % of dated | Cumulative % | of which new-build |`);
   L.push(`|---|--:|--:|--:|--:|`);
   let cum = 0;
   for (let k = 0; k < LABELS.length; k++) {
     cum += buckets[k];
-    L.push(`| ${LABELS[k]} | ${buckets[k].toLocaleString()} | ${pct(buckets[k], datedTotal).toFixed(1)}% | ${pct(cum, datedTotal).toFixed(1)}% | ${newbuild[k]} |`);
+    const nb = buckets[k] - bucketsSecondhand[k]; // exact: bucketsSecondhand is a band-wise subtraction, never sampled
+    L.push(`| ${LABELS[k]} | ${buckets[k].toLocaleString()} | ${pct(buckets[k], datedTotal).toFixed(1)}% | ${pct(cum, datedTotal).toFixed(1)}% | ${nb} |`);
   }
   L.push(`| _undated_ | ${undated.toLocaleString()} | — | — | — |`);
-  L.push(`| **dated total** | **${datedTotal.toLocaleString()}** | | | ${newbuild.reduce((a, b) => a + b, 0)} new-build |`, '');
+  L.push(`| **dated total** | **${datedTotal.toLocaleString()}** | | | ${res.nNewbuild} new-build |`, '');
 
   if (booli) {
     const bb = booli.census.buckets, bTot = bb.reduce((a, b) => a + b, 0);
@@ -133,24 +192,24 @@ function buildMd(dateStr, muniStats, natTotalSum, oxCalls, booli) {
     L.push(`_(No Booli census artifact found for the combined table.)_`, '');
   }
 
-  const munisWithListings = muniStats.filter(m => m.counted > 0).length;
+  const munisWithListings = res.muni.filter(m => m.countedN > 0).length;
   L.push(`## Coverage & quality`, '');
-  L.push(`- Munis: ${muniStats.length} processed, ${munisWithListings} with Kommande, ${muniStats.length - munisWithListings} empty.`);
-  L.push(`- Distinct listings counted: **${distinct.toLocaleString()}** (dated ${datedTotal.toLocaleString()} + undated ${undated}).`);
-  L.push(`- Σ muni headline totals=${natTotalSum.toLocaleString()} vs distinct counted ${distinct.toLocaleString()} (Hemnet totals are approximate — count is truth).`);
-  L.push(`- Error/gap pages: ${errorPages}. Mean upcoming cards/content-page: ${(pagesWithCards ? rawCards / pagesWithCards : 0).toFixed(1)}.`);
-  const p1fail = muniStats.filter(m => m.p1Error).map(m => m.name);
-  L.push(`- Non-upcoming cards filtered: ${nonUpcoming}. publishedAt anomalies: ${anomalies}. Munis with p1 still failing: ${p1fail.length}${p1fail.length ? ' (' + p1fail.join(', ') + ')' : ''}.`);
-  L.push(`- Oxylabs calls: **${oxCalls}**.`);
-  L.push('', `_Stop condition = first page with 0 new IDs (Hemnet clamps past a muni's end). publishedAt = entered-Kommande, comparable to Booli published. New-builds reported separately._`);
+  L.push(`- Munis: ${res.muni.length} processed, ${munisWithListings} with Kommande, ${res.muni.length - munisWithListings} empty.`);
+  L.push(`- Distinct listings counted: **${res.nTotal.toLocaleString()}** (dated ${datedTotal.toLocaleString()} + undated ${undated}).`);
+  L.push(`- Σ muni headline totals=${headlineSum.toLocaleString()} vs distinct counted ${res.nTotal.toLocaleString()} (Hemnet totals are approximate — count is truth).`);
+  L.push(`- Error/gap pages: ${res.errorPages}. Oxylabs calls: **${res.oxCalls}**. Runtime: ${res.runtimeS}s.`);
+  L.push(`- Gates: ${res.gates.map(g => `${g.name}=${g.passed ? 'pass' : 'FAIL'}`).join(', ')} (status: ${res.status}).`);
+  if (res.notes) L.push(`- Notes: ${res.notes}`);
+  L.push('', `_Stop condition = first page with 0 new IDs (Hemnet clamps past a muni's end). publishedAt = entered-Kommande, comparable to Booli published. 2nd-hand histogram is exact (every card walked); new-builds reported separately._`);
   return L.join('\n');
 }
 
 async function probe() {
-  const r = await walkMuni('Alingsås', LOCATIONS['Alingsås']);
-  console.log(`PROBE Alingsås: pages=${r.pages} total=${r.total} counted=${r.counted} distinct=${distinct} undated=${undated}`);
-  console.log(`  buckets=${JSON.stringify(buckets)} newbuild=${JSON.stringify(newbuild)}`);
-  console.log(`  Oxylabs: ${JSON.stringify(getOxylabsStats())}`);
+  const res = await run({ locations: { 'Alingsås': LOCATIONS['Alingsås'] } });
+  const m = res.muni[0];
+  console.log(`PROBE Alingsås: headline=${m.headlineN} counted=${m.countedN} distinct=${res.nTotal} undated=${res.nUndated}`);
+  console.log(`  buckets=${JSON.stringify(res.buckets)}`);
+  console.log(`  Oxylabs calls: ${res.oxCalls}`);
 }
 
 async function selftest() {
@@ -187,21 +246,49 @@ async function selftest() {
   const truth = new Array(EDGES.length + 1).fill(0); let truthUndated = 0;
   for (const a of Object.values(store)) { if (a == null) truthUndated++; else truth[bandIndex(a, EDGES)]++; }
 
+  // --- direct walkMuni pass: verify clamp termination + non-upcoming filtering in isolation.
+  // Uses its own seen Set/ctx so it can't interfere with the run() pass below (pageFetcher is
+  // a pure function of (muniId, p) over idsByMuni/store, so replaying it twice is safe). ---
+  const manualSeen = new Set();
+  const manualCtx = { errorPages: 0, nonUpcoming: 0 };
   const muniStats = [];
-  for (const name of Object.keys(munis)) muniStats.push(await walkMuni(name, name));
-  for (let k = 0; k < truth.length; k++) assert.strictEqual(buckets[k], truth[k], `bucket ${k}: ${buckets[k]} != ${truth[k]}`);
-  assert.strictEqual(undated, truthUndated, 'undated mismatch');
-  assert.strictEqual(distinct, Object.keys(store).length, `distinct ${distinct} != ${Object.keys(store).length}`);
+  for (const name of Object.keys(munis)) {
+    const acc = newAccumulator({ seen: manualSeen });
+    muniStats.push(await walkMuni(name, name, acc, CLOCK, manualCtx));
+  }
   // Clamp must terminate: Big has 123 listings → 3 content pages + 1 zero-new page = 4.
   const big = muniStats.find(m => m.name === 'Big');
   assert.ok(big.pages <= 5, `Big should stop by ~p4 (clamp), got p${big.pages}`);
   const empty = muniStats.find(m => m.name === 'Empty');
   assert.strictEqual(empty.pages, 1, 'Empty muni should stop at p1');
-  assert.strictEqual(nonUpcoming, 1, `injected non-upcoming card should be filtered (nonUpcoming=${nonUpcoming})`);
-  assert.ok(!seen.has('INJECT'), 'injected non-upcoming card must not be counted');
-  const md = buildMd('SELFTEST', muniStats, 0, 0, null);
+  assert.strictEqual(manualCtx.nonUpcoming, 1, `injected non-upcoming card should be filtered (nonUpcoming=${manualCtx.nonUpcoming})`);
+  assert.ok(!manualSeen.has('INJECT'), 'injected non-upcoming card must not be counted');
+
+  // --- run() contract: national bands, per-muni sum, exact 2nd-hand histogram, gates, notes ---
+  const res = await run({ locations: { Big: 'Big', Small: 'Small', Undated: 'Undated', Empty: 'Empty' }, nowSec: CLOCK, logger: () => {} });
+  // National bands must equal ground truth built from the synthetic store.
+  for (let k = 0; k < truth.length; k++) {
+    assert.strictEqual(res.buckets[BAND_KEYS[k]], truth[k], `band ${BAND_KEYS[k]}: ${res.buckets[BAND_KEYS[k]]} != ${truth[k]}`);
+  }
+  assert.strictEqual(res.buckets.undated, truthUndated, 'undated mismatch');
+  assert.strictEqual(res.nTotal, Object.keys(store).length, 'nTotal must equal distinct listings');
+  // Per-muni rows exist and sum back to the national histogram.
+  assert.strictEqual(res.muni.length, 4, 'one row per muni, including empties');
+  const perMuniSum = res.muni.reduce((a, m) => a + BAND_KEYS.reduce((s, k) => s + m.buckets[k], 0), 0);
+  const nationalSum = BAND_KEYS.reduce((s, k) => s + res.buckets[k], 0);
+  assert.strictEqual(perMuniSum, nationalSum, 'Σ per-muni bands must equal the national histogram');
+  // 2nd-hand histogram is exact here (every card is walked).
+  assert.ok(res.bucketsSecondhand != null, 'muni-partition must produce an exact 2nd-hand histogram');
+  assert.strictEqual(res.newbuildSampled, false);
+  assert.ok(res.gates.some(g => g.name === 'reconciliation'));
+  // The injected non-upcoming card must never be counted: nTotal already equals the
+  // synthetic store's size, which excludes it. Assert the filter counter too.
+  assert.strictEqual(res.nTotal, Object.keys(store).length, 'injected non-upcoming card must not be counted');
+  assert.ok(/1 non-upcoming/.test(res.notes || ''), 'the filtered card must be reported in notes');
+
+  const md = buildMd('SELFTEST', res, null);
   assert.ok(md.includes('Census histogram'));
-  console.log(`SELFTEST PASS — census==truth (${distinct} distinct across ${muniStats.length} munis), clamp terminates, report renders.`);
+  console.log(`SELFTEST PASS — census==truth (${res.nTotal} distinct across ${res.muni.length} munis), clamp terminates, report renders.`);
 }
 
 async function main() {
@@ -210,51 +297,22 @@ async function main() {
     console.error('Refusing to run un-proxied. Set SCRAPE_FORCE_OXYLABS=1 (or use --selftest).');
     process.exit(1);
   }
-  resetOxylabsStats();
   fs.mkdirSync(OUT_DIR, { recursive: true });
   if (process.argv.includes('--probe')) { await probe(); return; }
 
-  const names = Object.keys(LOCATIONS);
-  console.log(`Censusing ${names.length} municipalities…`);
-  const muniStats = [];
-  let natTotalSum = 0, done = 0;
-  for (const name of names) {
-    const r = await walkMuni(name, LOCATIONS[name]);
-    if (typeof r.total === 'number') natTotalSum += r.total;
-    muniStats.push(r);
-    done++;
-    if (done % 25 === 0) log('INFO', `${done}/${names.length} munis, distinct=${distinct}, calls=${getOxylabsStats().oxylabsCallCount}`);
-  }
-  // Retry pass for munis whose page 1 errored (a whole-muni coverage gap). Global dedup
-  // keeps a re-walk safe (already-seen ids skipped).
-  const p1errs = muniStats.filter(m => m.p1Error).map(m => m.name);
-  if (p1errs.length) {
-    log('WARN', `retrying ${p1errs.length} munis whose p1 errored: ${p1errs.join(', ')}`);
-    for (const name of p1errs) {
-      const r = await walkMuni(name, LOCATIONS[name]);
-      if (typeof r.total === 'number') natTotalSum += r.total;
-      muniStats[muniStats.findIndex(m => m.name === name)] = r;
-    }
-  }
-  const stillFailed = muniStats.filter(m => m.p1Error).map(m => m.name);
-  if (stillFailed.length) log('WARN', `${stillFailed.length} munis STILL failing p1 after retry (coverage gap): ${stillFailed.join(', ')}`);
-  const ox = getOxylabsStats();
-  const oxCalls = ox.oxylabsCallCount + ox.directSuccessCount;
+  console.log(`Censusing ${Object.keys(LOCATIONS).length} municipalities…`);
+  const res = await run({ logger: log });
   const dateStr = new Date(NOW_SEC * 1000).toISOString().slice(0, 10);
   const booli = loadLatestBooli();
 
-  const payload = {
-    snapshot_date: dateStr, now_sec: NOW_SEC, edges_days: EDGES, labels: LABELS,
-    buckets, newbuild, undated, distinct, dated_total: buckets.reduce((a, b) => a + b, 0),
-    muni_total_sum: natTotalSum, error_pages: errorPages, oxylabs_calls: oxCalls,
-    munis: muniStats,
-  };
-  fs.writeFileSync(path.join(OUT_DIR, `hemnet-age-census-${dateStr}.json`), JSON.stringify(payload, null, 2));
-  const md = buildMd(dateStr, muniStats, natTotalSum, oxCalls, booli);
+  // Write raw JSON FIRST so a formatting bug in buildMd can never destroy a ~400-480-call result.
+  fs.writeFileSync(path.join(OUT_DIR, `hemnet-age-census-${dateStr}.json`), JSON.stringify(res, null, 2));
+  const md = buildMd(dateStr, res, booli);
   fs.writeFileSync(path.join(OUT_DIR, `hemnet-age-census-${dateStr}.md`), md);
   console.log(`\n${md}`);
-  console.log(`\nOxylabs total: ${JSON.stringify(ox)}`);
+  console.log(`\nOxylabs calls: ${res.oxCalls}`);
   console.log(`Artifact -> ${OUT_DIR}/hemnet-age-census-${dateStr}.{json,md}`);
 }
 
-main().catch(e => { console.error('UNEXPECTED', e); process.exit(1); });
+module.exports = { run };
+if (require.main === module) main().catch(e => { console.error('UNEXPECTED', e); process.exit(1); });
