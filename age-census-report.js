@@ -85,6 +85,16 @@ function headlineTotal(row) {
   return BAND_KEYS.reduce((a, k) => a + (b[k] || 0), 0);
 }
 
+// The `n` cell shows BOTH universes side by side — the full pool total and the headline
+// (share-consistent) one — so nothing is hidden and July's published figures stay comparable at
+// a glance. When the two render identically there is nothing to contrast, so it prints once
+// rather than repeating the same number either side of a slash.
+function nCell(row) {
+  const pool = fmtN(row.n_total);
+  const headline = fmtN(headlineTotal(row));
+  return pool === headline ? pool : `${pool} / ${headline}`;
+}
+
 function share(row, keys) {
   const b = headlineBuckets(row);
   const dated = headlineTotal(row);
@@ -126,7 +136,7 @@ function renderReport(runDate, rows, priorRows) {
   const L = [];
   L.push(`Age penetration — ${runDate}`);
   L.push('```');
-  L.push(`${rpad('', 20)}${lpad('n', 8)}${lpad('≤1mo', 9)}${lpad('≤3mo', 9)}${lpad('>24mo', 9)}`);
+  L.push(`${rpad('', 20)}${lpad('n pool/headline', 16)}${lpad('≤1mo', 9)}${lpad('≤3mo', 9)}${lpad('>24mo', 9)}`);
 
   for (const t of POOL_LABELS) {
     const r = find(rows, t);
@@ -151,7 +161,7 @@ function renderReport(runDate, rows, priorRows) {
     const basis = r.buckets_secondhand ? '' : '  incl. new-build';
 
     L.push(
-      `${rpad(t.label, 20)}${lpad(fmtN(headlineTotal(r)), 8)}${lpad(pct(share(r, ['le1m'])), 9)}` +
+      `${rpad(t.label, 20)}${lpad(nCell(r), 16)}${lpad(pct(share(r, ['le1m'])), 9)}` +
       `${lpad(pct(share(r, ['le1m', 'm1_3'])), 9)}${lpad(pct(share(r, ['gt24'])), 9)}` +
       `${delta(r, prior, ['le1m', 'm1_3'])}${clock}${basis}`
     );
@@ -171,7 +181,7 @@ function renderReport(runDate, rows, priorRows) {
     const errs = rows.reduce((a, r) => a + (Number(r.error_pages) || 0), 0);
     L.push(`Run: ${calls.toLocaleString('en-US')} proxy calls, ${errs.toLocaleString('en-US')} error page${errs === 1 ? '' : 's'} across ${rows.length} pool${rows.length === 1 ? '' : 's'}.`);
   }
-  L.push('n = the headline universe the shares are computed over (dated bands only), NOT the whole pool — full pool totals are in the run artifact JSON.');
+  L.push('n = whole pool / headline universe (the dated bands the shares are computed over); one figure means the two match. Multiply shares by the headline number, not the pool one.');
   L.push('Hemnet headline = 2nd-hand only; Booli = all listings (binary-search cannot exclude new-builds per band).');
   L.push('⚠ Hemnet age = days since last ad-package purchase (publishedAt refreshes on renewal), so the Hemnet >24mo tail is not a real clock — read the fresh end, not the tail.');
   return L.join('\n');
@@ -249,21 +259,36 @@ function smoke() {
     assert.ok(out.indexOf('≤1mo') < out.indexOf('>24mo'), 'fresh end must lead');
   });
 
-  check('the n column is the same universe as the shares beside it, not the whole pool', () => {
+  check('the n column prints BOTH universes — pool total and the share-consistent headline', () => {
     // n_total 43,338 is the whole pool; the headline (2nd-hand, dated) bands sum to 34,713.
-    // Printing 43.3k beside shares computed over 34,713 made `n × share` wrong by ~6.4% —
-    // exactly the new-build share the footer claimed was already excluded.
+    // Both are shown so nothing is hidden and earlier published figures stay comparable, but
+    // only the headline number is the shares' denominator — `43.3k × 60.2%` would be wrong.
     const r = row('hemnet', 'forsale', 43338, 20889, 11224, 2600);
     const headline = 20889 + 11224 + 2600;
     const out = renderReport('2026-09-01', [r], []);
     const line = out.split('\n').find(l => /^Hemnet for-sale/.test(l));
-    assert.ok(line.includes('34.7k'), `n must print the headline universe ${headline}, got: ${line}`);
-    assert.ok(!line.includes('43.3k'), 'n must not print the whole-pool total beside dated-band shares');
-    // n × share must now reconstruct a band: 60.2% of 34,713 ≈ 20,889.
+    assert.ok(line.includes('43.3k / 34.7k'), `n must pair pool and headline, got: ${line}`);
+    assert.ok(/n pool\/headline/.test(out), 'the header must make the pairing explicit');
+    assert.strictEqual(out.split('\n').filter(l => /^Hemnet for-sale/.test(l)).length, 1, 'rows must stay single-line');
+    // headline × share must reconstruct a band: 60.2% of 34,713 ≈ 20,889.
     const le1mPct = 100 * 20889 / headline;
-    assert.ok(line.includes(le1mPct.toFixed(1) + '%'), 'the ≤1mo share must be over the same denominator');
-    assert.ok(/headline universe/.test(out), 'the footer must say what n is');
-    assert.ok(/artifact JSON/.test(out), 'the footer must say where the full pool total lives');
+    assert.ok(line.includes(le1mPct.toFixed(1) + '%'), 'the ≤1mo share must be over the headline denominator');
+    assert.ok(/whole pool \/ headline universe/.test(out), 'the footer must explain the pairing');
+  });
+
+  check('when the two universes are the same number, n prints it once', () => {
+    // A pool with no new-builds and no undated listings: pool total == headline total, and
+    // "33.7k / 33.7k" would be noise. Booli rows sit at or near this case.
+    const b = row('booli', 'premarket', 20244, 8155, 7280, 4809);
+    b.buckets_secondhand = null;                     // binary-search: all-listings headline
+    const out = renderReport('2026-09-01', [b], []);
+    const line = out.split('\n').find(l => /^Booli pre-market/.test(l));
+    assert.ok(!line.includes('/ 20.2k'), `identical universes must not be printed twice: ${line}`);
+    assert.ok(/20\.2k/.test(line), 'the single figure must still appear');
+    // columns still line up with a paired row beside it
+    const both = renderReport('2026-09-01', [b, row('hemnet', 'forsale', 43338, 20889, 11224, 2600)], []);
+    const [l1, l2] = both.split('\n').filter(l => /^(Booli pre-market|Hemnet for-sale)/.test(l));
+    assert.strictEqual(l1.indexOf('%'), l2.indexOf('%'), 'the share columns must stay aligned across paired and single cells');
   });
 
   check('Hemnet rows carry the publishedAt-refresh clock caveat; Booli rows do not', () => {
