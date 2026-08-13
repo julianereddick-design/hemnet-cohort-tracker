@@ -1,7 +1,8 @@
 'use strict';
 // age-census-report.js — monthly Slack pulse for the age-penetration census.
-// Reads age_census_run for a run date (+ the prior month for deltas) and posts the fresh-end
-// summary. Companion to scripts/age-census-monthly.js, which populates the table.
+// Reads age_census_run for a run date (+ the most recent GATE-PASSED prior row per pool,
+// for deltas) and posts the fresh-end summary. Companion to scripts/age-census-monthly.js,
+// which populates the table.
 //
 // Reporting rules (spec §7, from Julian 2026-07-09):
 //  - Lead with the FRESH end (≤1mo, ≤3mo) and absolute counts. Share and absolute tell
@@ -17,8 +18,10 @@
 //    must look partial.
 //  - A row whose validation gates failed renders as a GATE FAILED banner with its reason,
 //    never as a clean, unflagged number.
-//  - Month-on-month deltas print only when a prior row exists for that (platform, pool) — a
-//    first month must not fabricate a delta.
+//  - Month-on-month deltas print only when a GATE-PASSED prior row exists for that
+//    (platform, pool) — a first month must not fabricate a delta, and a gate-failed prior
+//    month must never anchor one either (it would make a wrong number look clean). The
+//    baseline may therefore be older than one month; its date is named in the delta label.
 //
 // Cron: 07:00 UTC on the 1st of each month, after the 02:00 measure job.
 // Self-test: node age-census-report.js --smoke   (offline, no DB, no Slack)
@@ -81,12 +84,27 @@ function pct(x) { return x == null ? '?' : x.toFixed(1) + '%'; }
 
 // Month-on-month delta in percentage points, on the ≤3mo (fresh-end) share. '' when no
 // prior row exists for this (platform, pool) — a first month must not fabricate a delta.
+// The baseline's own date is folded into the label because findPrior (below) may reach
+// past the immediately preceding month to the last row that actually passed its gates —
+// "vs last month" would be a lie if the baseline is really two months back.
 function delta(curr, prior, keys) {
   if (!prior) return '';
   const c = share(curr, keys), p = share(prior, keys);
   if (c == null || p == null) return '';
   const d = c - p;
-  return `  (Δ${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(1)}pt)`;
+  const vs = prior.run_date ? ` vs ${prior.run_date}` : '';
+  return `  (Δ${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(1)}pt${vs})`;
+}
+
+// Picks the delta baseline for one pool: the most recent PRIOR row whose own gates passed.
+// A gate-failed prior month is never a valid baseline — anchoring a delta on a wrong number
+// would make the delta itself look clean while silently inheriting the defect. Filtering
+// here (not just in the SQL) means renderReport is correct even if it's ever called with an
+// unfiltered priorRows array, which is exactly what the smoke tests exercise offline.
+function findPrior(priorRows, t) {
+  const candidates = priorRows.filter(r => r.platform === t.platform && r.pool === t.pool && r.status === 'ok');
+  if (!candidates.length) return null;
+  return candidates.slice().sort((a, b) => (b.run_date || '').localeCompare(a.run_date || ''))[0];
 }
 
 // Pure and testable — no DB, no network. Renders the whole Slack message body for one run
@@ -112,7 +130,7 @@ function renderReport(runDate, rows, priorRows) {
       continue;
     }
 
-    const prior = find(priorRows, t);
+    const prior = findPrior(priorRows, t);
     // Every Hemnet row carries the clock caveat; Booli rows never do (Booli's publish
     // clock is sound — see the footer explanation for why Hemnet's is not).
     const clock = t.platform === 'hemnet' ? '  ⚠ clock' : '';
@@ -139,12 +157,19 @@ async function main() {
   let rows = [], priorRows = [];
   try {
     await client.connect();
-    const q = `SELECT platform, pool, method, n_total, buckets, buckets_secondhand, status, notes
+    // method is fetched by neither renderReport nor the smoke fixtures — dropped as dead.
+    const q = `SELECT platform, pool, n_total, buckets, buckets_secondhand, status, notes
                  FROM age_census_run WHERE run_date = $1::date`;
     rows = (await client.query(q, [runDate])).rows;
+    // status = 'ok' excludes gate-failed rows from ever anchoring a delta. DISTINCT ON still
+    // picks one row per (platform, pool) — now the most recent VALID month, which may be
+    // older than the immediately preceding one if that month's gates failed. run_date is
+    // selected so the delta label can name exactly which month it's comparing against.
     priorRows = (await client.query(
-      `SELECT DISTINCT ON (platform, pool) platform, pool, n_total, buckets, buckets_secondhand, status
-         FROM age_census_run WHERE run_date < $1::date
+      `SELECT DISTINCT ON (platform, pool) platform, pool,
+              to_char(run_date, 'YYYY-MM-DD') AS run_date,
+              n_total, buckets, buckets_secondhand, status
+         FROM age_census_run WHERE run_date < $1::date AND status = 'ok'
         ORDER BY platform, pool, run_date DESC`, [runDate])).rows;
   } finally {
     await client.end();
@@ -227,6 +252,29 @@ if (require.main === module && process.argv.includes('--smoke')) {
     b.buckets_secondhand = null;                      // binary-search: not available
     const out = renderReport('2026-09-01', [b], []);
     assert.ok(/incl\. new-build/.test(out), 'the definitional difference must be stated');
+  });
+
+  check('a gate-failed prior row anchors no delta', () => {
+    const curr = [row('booli', 'premarket', 33742, 8155, 7280, 4809)];
+    const priorFailedOnly = [
+      row('booli', 'premarket', 16000, 8000, 7000, 4700,
+        { status: 'gate_failed', notes: 'gates failed: total_drift', run_date: '2026-08-01' }),
+    ];
+    const out = renderReport('2026-09-01', curr, priorFailedOnly);
+    assert.ok(!/Δ/.test(out), 'a gate-failed baseline must not produce a delta');
+  });
+
+  check('delta anchors on the older ok row when a newer prior row is gate-failed, and names its date', () => {
+    const curr = [row('booli', 'premarket', 33742, 8155, 7280, 4809)];
+    const priorMixed = [
+      row('booli', 'premarket', 33000, 8000, 7000, 4700, { run_date: '2026-07-01' }),              // older, ok
+      row('booli', 'premarket', 16000, 8000, 7000, 4700,
+        { status: 'gate_failed', notes: 'gates failed: total_drift', run_date: '2026-08-01' }),     // newer, gate-failed
+    ];
+    const out = renderReport('2026-09-01', curr, priorMixed);
+    assert.ok(/Δ/.test(out), 'must anchor on the older ok row rather than skip the delta entirely');
+    assert.ok(/2026-07-01/.test(out), 'the baseline date must be visible so a reader knows what is being compared');
+    assert.ok(!/2026-08-01/.test(out), 'must not reference the excluded gate-failed prior date');
   });
 
   console.log(`smoke: ${pass} pass, ${fail} fail`);
