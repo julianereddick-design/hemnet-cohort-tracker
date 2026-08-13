@@ -233,11 +233,13 @@ Rules, from Julian's 2026-07-09 steer:
 
 ## 9. Delivery plan
 
-1. **Land the for-sale scripts.** `scripts/forsale-age-penetration.js` and
-   `scripts/hemnet-forsale-age-census.js` have never been on master — they exist only on
-   the local, unpushed `feat/forsale-age-penetration` (7 ahead of master, 0 behind). Merge
-   it, then verify the merge does not duplicate `70ba1c5` against an equivalent commit
-   already on master (flagged in prior work as needing rebase-not-merge).
+1. **Land all four census scripts.** Verified 2026-08-13: `origin/master` — what the droplet
+   runs — contains **none** of the four. Local `master` is 24 commits behind `origin/master`
+   and 2 ahead; those 2 (`2b4bf65`, `cdb53b4`) are the pre-market pair, and the for-sale pair
+   (`3d911eb`, `76ee076`) is on `feat/forsale-age-penetration`. The branch also carries three
+   commits already upstream in equivalent form — `70ba1c5` (duplicate of `ce4dbca`), the
+   premarket-quality docs, and the cron-health change — which must be dropped, not merged.
+   So: **rebase exactly those four commits onto `origin/master`**, never merge.
 2. **Clean-clone gate.** Before any deploy: clone master fresh and run all four scripts'
    offline self-tests. Directly targets last week's failure where `lib/booli-image-labels.js`
    was untracked and six local review passes missed it, because every local run had the file.
