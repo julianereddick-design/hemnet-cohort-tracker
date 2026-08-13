@@ -169,8 +169,113 @@ async function resolveAmbiguous({ listings, fetchDetail, logger }) {
   return { opened, failed };
 }
 
+const UNRESOLVED_WARN_PCT = 10;
+const VOLUME_ANOMALY_PCT = 40;
+const VOLUME_HISTORY_WEEKS = 4;
+
+// A zero-listing cohort means the walk or the parser broke, not that Sweden
+// stopped selling houses. Fail hard and persist nothing — the same guard that
+// was missing when spotcheck-photos.js wrote back an empty result set.
+function assertCohortNonEmpty(n) {
+  if (!n) throw new Error('walk produced 0 in-window listings — refusing to persist');
+}
+
+// Compare this week's volume against the trailing mean. Silent until enough
+// history exists; a short series must not manufacture an alarm.
+function volumeAnomaly(nTotal, priorTotals) {
+  if (priorTotals.length < VOLUME_HISTORY_WEEKS) return null;
+  const mean = priorTotals.reduce((a, b) => a + b, 0) / priorTotals.length;
+  if (!mean) return null;
+  const deltaPct = Math.round(100 * (nTotal - mean) / mean);
+  if (Math.abs(deltaPct) <= VOLUME_ANOMALY_PCT) return null;
+  return `n_total ${nTotal} is ${deltaPct > 0 ? '+' : ''}${deltaPct}% vs ${VOLUME_HISTORY_WEEKS}-week mean ${Math.round(mean)}`;
+}
+
+function validate(summary) {
+  const problems = [];
+  if (summary.n_ambiguous > 0) {
+    const unresolvedPct = 100 * (summary.n_ambiguous - summary.n_resolved) / summary.n_ambiguous;
+    if (unresolvedPct > UNRESOLVED_WARN_PCT) {
+      problems.push(`${summary.n_ambiguous - summary.n_resolved}/${summary.n_ambiguous} ambiguous listings unresolved (${unresolvedPct.toFixed(1)}%)`);
+    }
+  }
+  if (summary.n_unknown_labels > 0) {
+    problems.push(`${summary.n_unknown_labels} unknown image label(s) — Booli taxonomy may have changed, check lib/booli-image-labels.js`);
+  }
+  if (summary.volumeAnomaly) problems.push(summary.volumeAnomaly);
+  return problems.length ? problems.join(' · ') : null;
+}
+
+const UPSERT = `
+  INSERT INTO premarket_quality_weekly (
+    snapshot_date, window_days, n_total,
+    n_high, n_mid_high, n_mid_sell, n_mid_fish, n_other, n_low,
+    pct_interior, pct_price, pct_avm_shown, pct_viewing,
+    n_ambiguous, n_resolved, n_unknown_labels, pages_walked, oxylabs_calls
+  ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+  ON CONFLICT (snapshot_date) DO UPDATE SET
+    window_days = EXCLUDED.window_days, n_total = EXCLUDED.n_total,
+    n_high = EXCLUDED.n_high, n_mid_high = EXCLUDED.n_mid_high,
+    n_mid_sell = EXCLUDED.n_mid_sell, n_mid_fish = EXCLUDED.n_mid_fish,
+    n_other = EXCLUDED.n_other, n_low = EXCLUDED.n_low,
+    pct_interior = EXCLUDED.pct_interior, pct_price = EXCLUDED.pct_price,
+    pct_avm_shown = EXCLUDED.pct_avm_shown, pct_viewing = EXCLUDED.pct_viewing,
+    n_ambiguous = EXCLUDED.n_ambiguous, n_resolved = EXCLUDED.n_resolved,
+    n_unknown_labels = EXCLUDED.n_unknown_labels,
+    pages_walked = EXCLUDED.pages_walked, oxylabs_calls = EXCLUDED.oxylabs_calls,
+    created_at = NOW()
+`;
+
+async function main(client, log) {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const today = process.env.REPORT_DATE || new Date().toISOString().slice(0, 10);
+  const callsAtStart = getOxylabsStats().requests;
+
+  let walkCalls = 0;
+  const fetchPage = async (p) => {
+    if (++walkCalls > WALK_CALL_CEILING) throw new Error(`walk ceiling ${WALK_CALL_CEILING} exceeded`);
+    return parsePage(apolloFrom((await getWithRetry(searchUrl(p), { logger: () => {} })).html)).cards;
+  };
+  const fetchDetail = async (url) => apolloFrom((await getWithRetry(url, { logger: () => {} })).html);
+
+  const { listings, pagesWalked } = await collectWeek({ fetchPage, nowSec, logger: log });
+  log('INFO', `walked ${pagesWalked} pages -> ${listings.length} in-window 2nd-hand listings`);
+  assertCohortNonEmpty(listings.length);
+
+  await resolveAmbiguous({ listings, fetchDetail, logger: log });
+
+  const counts = tally(listings);
+  const oxylabsCalls = getOxylabsStats().requests - callsAtStart;
+
+  const prior = await client.query(
+    `SELECT n_total FROM premarket_quality_weekly
+      WHERE snapshot_date < $1::date ORDER BY snapshot_date DESC LIMIT $2`,
+    [today, VOLUME_HISTORY_WEEKS]
+  );
+  const anomaly = volumeAnomaly(counts.n_total, prior.rows.map(r => Number(r.n_total)));
+
+  await client.query(UPSERT, [
+    today, WINDOW_DAYS, counts.n_total,
+    counts.high, counts.mid_high, counts.mid_sell, counts.mid_fish, counts.other, counts.low,
+    counts.pct_interior, counts.pct_price, counts.pct_avm_shown, counts.pct_viewing,
+    counts.n_ambiguous, counts.n_resolved, counts.n_unknown_labels, pagesWalked, oxylabsCalls,
+  ]);
+
+  log('INFO', `persisted ${today}: coming-to-market ${counts.high + counts.mid_high}/${counts.n_total}, ` +
+    `filler ${counts.low}, ${oxylabsCalls} Oxylabs calls`);
+
+  return { ...counts, pagesWalked, oxylabsCalls, volumeAnomaly: anomaly };
+}
+
+// Entry gate: --smoke runs the offline self-test; otherwise the job runs under cron-wrapper.
 if (require.main === module && process.argv.includes('--smoke')) {
   smoke();
+} else if (require.main === module) {
+  require('../cron-wrapper').runJob({
+    scriptName: 'premarket-quality-measure',
+    main,
+    validate,
+  });
 }
 
 async function smoke() {
@@ -318,6 +423,33 @@ async function smoke() {
     await resolveAmbiguous({ listings, logger: () => {},
       fetchDetail: async () => { calls++; return detailS; } });
     assert(calls === 0, `settled listing must not be fetched, got ${calls} calls`);
+  });
+
+  // --- validate() thresholds ------------------------------------------------
+  const base = { n_total: 2264, n_ambiguous: 537, n_resolved: 537, n_unknown_labels: 0, volumeAnomaly: null };
+  check('validate: clean run returns nothing', () => {
+    assert(!validate(base), 'clean run should not warn');
+  });
+  check('validate: >10% unresolved warns', () => {
+    const v = validate({ ...base, n_resolved: 480 });   // 57/537 = 10.6%
+    assert(/unresolved/i.test(v || ''), `expected unresolved warning, got ${v}`);
+  });
+  check('validate: exactly 10% unresolved does not warn', () => {
+    const v = validate({ ...base, n_ambiguous: 100, n_resolved: 90 });
+    assert(!v, `10% should be within tolerance, got ${v}`);
+  });
+  check('validate: unknown labels warn (taxonomy drift canary)', () => {
+    const v = validate({ ...base, n_unknown_labels: 2 });
+    assert(/label/i.test(v || ''), `expected label warning, got ${v}`);
+  });
+  check('validate: volume anomaly warns', () => {
+    const v = validate({ ...base, volumeAnomaly: 'n_total 900 is -60% vs 4-week mean 2250' });
+    assert(/vs 4-week mean/.test(v || ''), `expected volume warning, got ${v}`);
+  });
+  check('validate: zero listings is a hard failure not a warning', () => {
+    let threw = false;
+    try { assertCohortNonEmpty(0); } catch (e) { threw = true; }
+    assert(threw, 'empty cohort must throw');
   });
 
   await Promise.all(results);
