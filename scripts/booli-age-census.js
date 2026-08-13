@@ -133,6 +133,47 @@ async function binarySearch(memo, pageSize, lastPage) {
   return { buckets, cumulative, undatedEst, undatedRate };
 }
 
+const { bucketsToObject, gateTotalDrift, gateErrorPages, evaluateGates } = require('../lib/age-census');
+
+// Estimate-only path used by the monthly job: preflight + binary-search, NO full census.
+// ~60 calls vs the bake-off's ~1,023. The census stage stays available via the default CLI
+// for method revalidation; it is never on the monthly path.
+async function run({ nowSec = NOW_SEC, logger = log, priorTotal = null } = {}) {
+  const t0 = Math.floor(Date.now() / 1000);
+  resetOxylabsStats();
+  const memo = new Map();
+  const pf = await preflight(memo);
+  const lastPage = stockTotal ? Math.ceil(stockTotal / pf.pageSize) : MAX_PAGES;
+  const bs = await binarySearch(memo, pf.pageSize, lastPage);
+
+  // New-build share across every card the search actually fetched (sampled, not exact).
+  let sampleN = 0, sampleNewbuild = 0;
+  for (const cards of memo.values()) for (const c of cards) { sampleN++; if (c.isNewBuild) sampleNewbuild++; }
+  const newbuildRate = sampleN ? sampleNewbuild / sampleN : 0;
+
+  const bands = bs.buckets.map(v => Math.max(0, Math.round(v)));
+  const ox = getOxylabsStats();
+  const oxCalls = ox.oxylabsCallCount + ox.directSuccessCount;
+  const gates = [
+    gateErrorPages({ errorPages: 0, oxCalls, maxPct: 2 }),
+    gateTotalDrift({ nTotal: stockTotal, priorTotal, maxPct: 25 }),
+  ];
+  const ev = evaluateGates(gates);
+  logger('INFO', `run() bands=${JSON.stringify(bands)} undated=${bs.undatedEst} calls=${oxCalls} gates=${ev.passed ? 'ok' : ev.failures.join(',')}`);
+  return {
+    platform: 'booli', pool: 'premarket', method: 'binary-search',
+    nTotal: stockTotal, nUndated: bs.undatedEst,
+    nNewbuild: Math.round(stockTotal * newbuildRate),
+    newbuildSampled: true, newbuildSampleN: sampleN,
+    buckets: bucketsToObject(bands, bs.undatedEst),
+    bucketsSecondhand: null,
+    muni: [],
+    oxCalls, errorPages: 0, runtimeS: Math.floor(Date.now() / 1000) - t0,
+    gates, status: ev.passed ? 'ok' : 'gate_failed',
+    notes: ev.passed ? null : `gates failed: ${ev.failures.join(', ')}`,
+  };
+}
+
 // ---- Stage 3: full census (ground truth) ----
 async function census(pageSize) {
   console.log('\n===== FULL CENSUS =====');
@@ -268,11 +309,33 @@ async function selftest() {
   const md = buildMd('SELFTEST', pf, bs, censusRes, cmp, { preflight: 12, binary: 15, census: 90, total: 117 }, { preflight: 1, binary: 1, census: 2 });
   assert.ok(md.includes('VERDICT'), 'md missing verdict');
   console.log(`\nSELFTEST PASS — census==truth (${N} listings), binary-search within tolerance, report renders.`);
+
+  // --- run() estimate-only contract (monthly job path) ---
+  const res = await run({ nowSec: CLOCK, logger: () => {} });
+  assert.strictEqual(res.platform, 'booli');
+  assert.strictEqual(res.pool, 'premarket');
+  assert.strictEqual(res.method, 'binary-search');
+  assert.strictEqual(res.bucketsSecondhand, null, 'binary-search must NOT claim a 2nd-hand histogram');
+  assert.strictEqual(res.newbuildSampled, true);
+  assert.ok(res.newbuildSampleN > 0, 'sampled new-build rate needs a sample size');
+  assert.deepStrictEqual(Object.keys(res.buckets), ['le1m', 'm1_3', 'm3_6', 'm6_12', 'm12_18', 'm18_24', 'gt24', 'undated']);
+  const bandSum = ['le1m', 'm1_3', 'm3_6', 'm6_12', 'm12_18', 'm18_24', 'gt24'].reduce((a, k) => a + res.buckets[k], 0);
+  assert.ok(Math.abs(bandSum + res.buckets.undated - res.nTotal) <= 1, `bands+undated ${bandSum + res.buckets.undated} must reconcile to nTotal ${res.nTotal}`);
+  assert.ok(res.muni.length === 0, 'Booli is national-only — no muni rows');
+  console.log('SELFTEST PASS — run() estimate contract holds.');
 }
 
 async function main() {
   if (process.argv.includes('--selftest')) { await selftest(); return; }
   if (process.argv.includes('--probe')) { resetOxylabsStats(); await probe(); return; }
+  if (process.argv.includes('--estimate')) {
+    if (process.env.SCRAPE_FORCE_OXYLABS !== '1') {
+      console.error('Refusing to run un-proxied. Set SCRAPE_FORCE_OXYLABS=1.');
+      process.exit(1);
+    }
+    console.log(JSON.stringify(await run({}), null, 2));
+    return;
+  }
 
   if (process.env.SCRAPE_FORCE_OXYLABS !== '1') {
     console.error('Refusing to run the full census un-proxied. Set SCRAPE_FORCE_OXYLABS=1 (or use --probe).');
@@ -318,4 +381,5 @@ async function main() {
   console.log(`Artifact -> ${OUT_DIR}/booli-age-census-${dateStr}.{json,md}`);
 }
 
-main().catch(e => { console.error('UNEXPECTED', e); process.exit(1); });
+module.exports = { run };
+if (require.main === module) main().catch(e => { console.error('UNEXPECTED', e); process.exit(1); });
