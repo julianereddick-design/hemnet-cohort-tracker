@@ -56,7 +56,27 @@ async function realFetchPage(id, p) {
   return { status: 200, cards, total: p === 1 ? muniTotal(apollo) : undefined };
 }
 let pageFetcher = realFetchPage;                 // swappable for --selftest
-const fetchPage = (id, p) => pageFetcher(id, p);
+
+// Resilient fetch, mirroring the two sibling censuses. getWithRetry already retries the HTTP
+// call, but under SCRAPE_FORCE_OXYLABS=1 it THROWS once its own retries are exhausted, and a
+// transient DNS/network blip (ENOTFOUND realtime.oxylabs.io, a one-off Oxylabs 613) therefore
+// propagated straight out of the walk and aborted the whole pool — discarding the ~656 already-
+// paid calls. That is exactly the failure class that lost the weekly datapoint on 2026-07-20.
+// Retry a few times with backoff so one blip cannot cost the run. A persistent non-200 is NOT
+// a throw: it comes back as { cards: null } and is handled by the caller as a coverage gap.
+async function safeFetch(id, p, tries = 4, delayMs = 1500) {
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    try { return await pageFetcher(id, p); }
+    catch (e) {
+      lastErr = e;
+      log('WARN', `muni ${id} page ${p} threw (${e.message.slice(0, 60)}) — retry ${i + 1}/${tries}`);
+      await new Promise(r => setTimeout(r, delayMs * (i + 1)));
+    }
+  }
+  throw lastErr;
+}
+const fetchPage = (id, p) => safeFetch(id, p);
 
 // Walk one muni into ITS OWN accumulator. `acc.seen` is the shared global id set, so a
 // listing that somehow appears under two munis is counted once, in the first one seen.
@@ -366,6 +386,25 @@ async function selftest() {
   assert.strictEqual(resDead.status, 'gate_failed', `a knowingly incomplete run must not be stored as ok (got ${resDead.status})`);
   assert.ok(/Dead/.test(resDead.notes || ''), `the skipped muni must be named in notes (got: ${resDead.notes})`);
   console.log('SELFTEST PASS — a muni still failing p1 after the retry fails the coverage gate instead of passing as a silent note.');
+
+  // --- safeFetch: a transient THROW must not abort the pool ---------------------------------
+  // getWithRetry throws once its own retries are exhausted; before safeFetch existed, one blip
+  // mid-walk propagated out of run() and discarded every already-paid call in the pool.
+  // (delayMs is parameterised only so this test doesn't sit through the real 1.5s backoff.)
+  let throwCalls = 0;
+  pageFetcher = async () => {
+    throwCalls++;
+    if (throwCalls < 3) throw new Error('ENOTFOUND realtime.oxylabs.io');
+    return { status: 200, cards: [], total: 0 };
+  };
+  const recovered = await safeFetch('X', 1, 4, 1);
+  assert.strictEqual(throwCalls, 3, `must retry through transient throws, got ${throwCalls} attempts`);
+  assert.strictEqual(recovered.status, 200, 'the successful attempt must be returned');
+  throwCalls = 0;
+  pageFetcher = async () => { throwCalls++; throw new Error('permanent'); };
+  await assert.rejects(() => safeFetch('X', 1, 3, 1), /permanent/, 'an exhausted retry budget must still surface the error');
+  assert.strictEqual(throwCalls, 3, 'must make exactly `tries` attempts before giving up');
+  console.log('SELFTEST PASS — safeFetch retries transient throws and surfaces a persistent one.');
 }
 
 async function main() {
