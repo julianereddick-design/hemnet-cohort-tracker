@@ -73,9 +73,21 @@ function fmtN(n) { return n >= 10000 ? (n / 1000).toFixed(1) + 'k' : Number(n).t
 // all-listings otherwise (Booli binary-search, which cannot resolve new-builds per band).
 function headlineBuckets(row) { return row.buckets_secondhand || row.buckets; }
 
+// The denominator every printed share is computed over: the headline histogram's DATED bands.
+// This is deliberately NOT n_total. n_total is the whole pool — new-builds and undated listings
+// included — whereas the shares run over the headline histogram, which for Hemnet rows is
+// 2nd-hand only (2,789 new-builds of 43,338 on Hemnet for-sale, ~6.4%). Printing n_total beside
+// those shares made `n × share` wrong by that margin, while the footer claimed the headline was
+// 2nd-hand only. The `n` column now prints THIS number, so the column and the shares beside it
+// are one universe; the full pool total is carried in the artifact JSON instead.
+function headlineTotal(row) {
+  const b = headlineBuckets(row) || {};
+  return BAND_KEYS.reduce((a, k) => a + (b[k] || 0), 0);
+}
+
 function share(row, keys) {
   const b = headlineBuckets(row);
-  const dated = BAND_KEYS.reduce((a, k) => a + (b[k] || 0), 0);
+  const dated = headlineTotal(row);
   if (!dated) return null;
   return 100 * keys.reduce((a, k) => a + (b[k] || 0), 0) / dated;
 }
@@ -139,7 +151,7 @@ function renderReport(runDate, rows, priorRows) {
     const basis = r.buckets_secondhand ? '' : '  incl. new-build';
 
     L.push(
-      `${rpad(t.label, 20)}${lpad(fmtN(r.n_total), 8)}${lpad(pct(share(r, ['le1m'])), 9)}` +
+      `${rpad(t.label, 20)}${lpad(fmtN(headlineTotal(r)), 8)}${lpad(pct(share(r, ['le1m'])), 9)}` +
       `${lpad(pct(share(r, ['le1m', 'm1_3'])), 9)}${lpad(pct(share(r, ['gt24'])), 9)}` +
       `${delta(r, prior, ['le1m', 'm1_3'])}${clock}${basis}`
     );
@@ -150,6 +162,7 @@ function renderReport(runDate, rows, priorRows) {
   }
 
   L.push('```');
+  L.push('n = the headline universe the shares are computed over (dated bands only), NOT the whole pool — full pool totals are in the run artifact JSON.');
   L.push('Hemnet headline = 2nd-hand only; Booli = all listings (binary-search cannot exclude new-builds per band).');
   L.push('⚠ Hemnet age = days since last ad-package purchase (publishedAt refreshes on renewal), so the Hemnet >24mo tail is not a real clock — read the fresh end, not the tail.');
   return L.join('\n');
@@ -183,7 +196,15 @@ async function main() {
   console.log(text);
   fs.mkdirSync(OUT_DIR, { recursive: true });
   fs.writeFileSync(path.join(OUT_DIR, `age-census-${runDate}.md`), text);
-  fs.writeFileSync(path.join(OUT_DIR, `age-census-${runDate}.json`), JSON.stringify({ runDate, rows, priorRows }, null, 2));
+  // The Slack table's `n` is the headline (dated-band) universe, so the FULL pool total is
+  // carried here where it cannot be mistaken for the denominator of the printed shares.
+  const poolTotals = rows.map(r => ({
+    platform: r.platform, pool: r.pool, status: r.status,
+    n_pool_total: r.n_total,                 // whole pool: new-builds + undated included
+    n_headline: headlineTotal(r),            // what the printed shares (and the `n` column) use
+    ox_calls: r.ox_calls, error_pages: r.error_pages,
+  }));
+  fs.writeFileSync(path.join(OUT_DIR, `age-census-${runDate}.json`), JSON.stringify({ runDate, rows, priorRows, poolTotals }, null, 2));
 
   // DRY_RUN=1 is the ONLY reliable guard: dotenv re-injects SLACK_WEBHOOK_URL from .env even
   // if the shell unsets it, so an unset-var trick does not prevent a live post.
@@ -216,6 +237,23 @@ if (require.main === module && process.argv.includes('--smoke')) {
     assert.ok(/Booli pre-market/.test(out));
     assert.ok(/Hemnet pre-market/.test(out));
     assert.ok(out.indexOf('≤1mo') < out.indexOf('>24mo'), 'fresh end must lead');
+  });
+
+  check('the n column is the same universe as the shares beside it, not the whole pool', () => {
+    // n_total 43,338 is the whole pool; the headline (2nd-hand, dated) bands sum to 34,713.
+    // Printing 43.3k beside shares computed over 34,713 made `n × share` wrong by ~6.4% —
+    // exactly the new-build share the footer claimed was already excluded.
+    const r = row('hemnet', 'forsale', 43338, 20889, 11224, 2600);
+    const headline = 20889 + 11224 + 2600;
+    const out = renderReport('2026-09-01', [r], []);
+    const line = out.split('\n').find(l => /^Hemnet for-sale/.test(l));
+    assert.ok(line.includes('34.7k'), `n must print the headline universe ${headline}, got: ${line}`);
+    assert.ok(!line.includes('43.3k'), 'n must not print the whole-pool total beside dated-band shares');
+    // n × share must now reconstruct a band: 60.2% of 34,713 ≈ 20,889.
+    const le1mPct = 100 * 20889 / headline;
+    assert.ok(line.includes(le1mPct.toFixed(1) + '%'), 'the ≤1mo share must be over the same denominator');
+    assert.ok(/headline universe/.test(out), 'the footer must say what n is');
+    assert.ok(/artifact JSON/.test(out), 'the footer must say where the full pool total lives');
   });
 
   check('Hemnet rows carry the publishedAt-refresh clock caveat; Booli rows do not', () => {
