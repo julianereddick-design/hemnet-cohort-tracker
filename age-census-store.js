@@ -63,30 +63,35 @@ async function getPriorTotal(client, { platform, pool, runDate }) {
   return res.rows.length ? Number(res.rows[0].n_total) : null;
 }
 
+// Map scraper result (camelCase) to DB row shape (snake_case). Pure, testable function.
+function toRunRow(result, runDate) {
+  return {
+    run_date: runDate,
+    platform: result.platform,
+    pool: result.pool,
+    method: result.method,
+    n_total: result.nTotal,
+    n_newbuild: result.nNewbuild == null ? null : Math.round(result.nNewbuild),
+    n_newbuild_sampled: !!result.newbuildSampled,
+    n_newbuild_sample_n: result.newbuildSampleN == null ? null : result.newbuildSampleN,
+    n_undated: result.nUndated,
+    buckets: result.buckets,
+    buckets_secondhand: result.bucketsSecondhand || null,
+    ox_calls: result.oxCalls,
+    error_pages: result.errorPages || 0,
+    runtime_s: result.runtimeS == null ? null : Math.round(result.runtimeS),
+    status: result.status,
+    notes: result.notes || null,
+  };
+}
+
 // One pool's full persistence. Owns its connection so a later pool's failure cannot
 // roll back or block an earlier pool's already-banked row (spec §3).
 async function persistPool(result, { runDate }) {
   const client = createClient();
   await client.connect();
   try {
-    const runId = await upsertRun(client, {
-      run_date: runDate,
-      platform: result.platform,
-      pool: result.pool,
-      method: result.method,
-      n_total: result.nTotal,
-      n_newbuild: result.nNewbuild == null ? null : Math.round(result.nNewbuild),
-      n_newbuild_sampled: !!result.newbuildSampled,
-      n_newbuild_sample_n: result.newbuildSampleN == null ? null : result.newbuildSampleN,
-      n_undated: result.nUndated,
-      buckets: result.buckets,
-      buckets_secondhand: result.bucketsSecondhand || null,
-      ox_calls: result.oxCalls,
-      error_pages: result.errorPages || 0,
-      runtime_s: result.runtimeS == null ? null : Math.round(result.runtimeS),
-      status: result.status,
-      notes: result.notes || null,
-    });
+    const runId = await upsertRun(client, toRunRow(result, runDate));
     const muniRows = await insertMuniRows(client, runId, result.muni || []);
     return { runId, muniRows };
   } finally {
@@ -94,7 +99,7 @@ async function persistPool(result, { runDate }) {
   }
 }
 
-module.exports = { upsertRun, insertMuniRows, getPriorTotal, persistPool };
+module.exports = { upsertRun, insertMuniRows, getPriorTotal, persistPool, toRunRow };
 
 if (require.main === module && process.argv.includes('--smoke')) {
   const assert = require('assert');
@@ -159,6 +164,35 @@ if (require.main === module && process.argv.includes('--smoke')) {
       const q = c1.calls[0];
       assert.ok(/run_date < \$3/.test(q.sql), 'must exclude the current run date');
       assert.ok(/ORDER BY run_date DESC/.test(q.sql), 'must take the most recent prior');
+    });
+
+    await check('toRunRow maps a scraper result to the DB row shape, both variants', () => {
+      // muni-partition variant: exact second-hand histogram, per-muni rows, exact new-build count
+      const hemnet = toRunRow({
+        platform: 'hemnet', pool: 'forsale', method: 'muni-partition',
+        nTotal: 43338, nUndated: 0, nNewbuild: 2789, newbuildSampled: false, newbuildSampleN: null,
+        buckets: { le1m: 1 }, bucketsSecondhand: { le1m: 1 },
+        oxCalls: 1208, errorPages: 0, runtimeS: 7200.6, status: 'ok', notes: null,
+      }, '2026-09-01');
+      assert.strictEqual(hemnet.run_date, '2026-09-01');
+      assert.strictEqual(hemnet.n_total, 43338);
+      assert.strictEqual(hemnet.n_newbuild, 2789);
+      assert.strictEqual(hemnet.n_newbuild_sampled, false);
+      assert.strictEqual(hemnet.runtime_s, 7201, 'runtime must be rounded to an integer column');
+      assert.deepStrictEqual(hemnet.buckets_secondhand, { le1m: 1 });
+
+      // binary-search variant: NO second-hand histogram, sampled new-build estimate
+      const booli = toRunRow({
+        platform: 'booli', pool: 'premarket', method: 'binary-search',
+        nTotal: 33742, nUndated: 0, nNewbuild: 67.4, newbuildSampled: true, newbuildSampleN: 2100,
+        buckets: { le1m: 1 }, bucketsSecondhand: null,
+        oxCalls: 60, errorPages: 0, runtimeS: null, status: 'gate_failed', notes: 'gates failed: total_drift',
+      }, '2026-09-01');
+      assert.strictEqual(booli.buckets_secondhand, null, 'binary-search pools must store NULL, not undefined');
+      assert.strictEqual(booli.n_newbuild, 67, 'sampled estimate must be rounded for the integer column');
+      assert.strictEqual(booli.n_newbuild_sample_n, 2100);
+      assert.strictEqual(booli.runtime_s, null);
+      assert.strictEqual(booli.status, 'gate_failed');
     });
 
     console.log(`smoke: ${pass} pass, ${fail} fail`);
