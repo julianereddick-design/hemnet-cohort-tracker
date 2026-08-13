@@ -16,6 +16,8 @@ require('dotenv').config();
 //
 // Self-test: node scripts/premarket-quality-measure.js --smoke   (offline, no DB, no network)
 
+const fs = require('fs');
+const path = require('path');
 const { walkFlow } = require('../lib/premarket-flow');
 const { getWithRetry, extractNextData, getOxylabsStats } = require('../lib/scrape-http');
 const { interiorVerdict, INTERIOR } = require('../lib/booli-image-labels');
@@ -24,6 +26,7 @@ const { parsePublishedToUnix } = require('../lib/booli-fetch');
 
 const MAX_PAGES = 120;          // flow job uses 80; ~71 expected, so 80 could truncate
 const WALK_CALL_CEILING = 130;
+const OUT_DIR = path.join(__dirname, '..', 'verf-premarket-quality');
 
 // No `sort` param — any sort=* flips Booli to oldest-first.
 const searchUrl = p => `https://www.booli.se/sok/till-salu?upcomingSale=1&page=${p}`;
@@ -42,10 +45,18 @@ function dataPoints(L) {
     .map(p => p && p.value && p.value.plainText).filter(Boolean);
 }
 
+// L is already the specific listing's own Apollo node (resolved by __ref in
+// parsePage), so there is no cross-listing binding risk here — but a node can
+// carry more than one `images(...)` cache-key variant (different query args),
+// and blindly taking the first one is an arbitrary pick. Take the longest, same
+// defensive rule galleryOf uses, so card and detail selection agree.
 function richCard(L, S) {
-  const imgKey = Object.keys(L).find(k => k.startsWith('images('));
-  const imgs = (Array.isArray(L[imgKey]) ? L[imgKey] : [])
-    .map(r => (r && r.__ref ? S[r.__ref] : r)).filter(Boolean);
+  let imgs = [];
+  for (const k of Object.keys(L)) {
+    if (!k.startsWith('images(')) continue;
+    const r = (Array.isArray(L[k]) ? L[k] : []).map(x => (x && x.__ref ? S[x.__ref] : x)).filter(Boolean);
+    if (r.length > imgs.length) imgs = r;
+  }
   const labels = imgs.map(i => (i.primaryLabel === undefined ? null : i.primaryLabel));
   const verdict = interiorVerdict(labels);
 
@@ -104,12 +115,28 @@ function parsePage(S) {
 
 // Walk the week newest-first. Reuses walkFlow so the window boundary logic is
 // identical to the production flow job — the two numerators must be comparable.
+//
+// Booli's pool is live and newest-first: a listing published mid-walk can shift
+// the pool and reappear on a later page. Dedupe by booli_id, keeping the first
+// (freshest-page) occurrence — mirrors scripts/premarket-quality-week.js:171-180,
+// whose August run recorded 0 duplicates (the expected baseline; any non-zero is
+// new information for validate() to surface).
 async function collectWeek({ fetchPage, nowSec, logger }) {
   const res = await walkFlow({ fetchPage, nowSec, windowDays: WINDOW_DAYS, maxPages: MAX_PAGES, logger });
   const cutoff = nowSec - WINDOW_DAYS * 86400;
-  const listings = res.cards.filter(c =>
-    c.upcomingSale && !c.isNewBuild && c.published != null && c.published >= cutoff);
-  return { listings, pagesWalked: res.pagesWalked };
+  const seen = new Set();
+  let duplicates = 0;
+  const listings = [];
+  for (const c of res.cards) {
+    if (c.booli_id != null) {
+      if (seen.has(c.booli_id)) { duplicates++; continue; }
+      seen.add(c.booli_id);
+    }
+    if (c.upcomingSale && !c.isNewBuild && c.published != null && c.published >= cutoff) {
+      listings.push(c);
+    }
+  }
+  return { listings, pagesWalked: res.pagesWalked, duplicates };
 }
 
 const RESOLVE_CALL_CEILING = 700;
@@ -117,10 +144,25 @@ const RESOLVE_CONCURRENCY = 4;
 
 // The detail gallery is NOT limit-capped. Take the longest images array on the
 // canonical Listing node. (Lifted from scripts/premarket-quality-resolve.js:41-60.)
-function galleryOf(S) {
+//
+// Prefer the EXACT `Listing:<booliId>` node — if Booli ever adds a "similar
+// homes" module to /annons/ pages, the Apollo state would carry more than one
+// Listing node and blind first-match would confidently score a neighbour's
+// gallery with no alarm (cohort size unchanged, nothing unresolved, just a
+// wrong headline). Fall back to first-match only when the exact key is absent,
+// and warn on the fallback so it isn't silent.
+function galleryOf(S, booliId, logger) {
   let L = null;
-  for (const k of Object.keys(S)) {
-    if (k.startsWith('Listing:') && S[k] && S[k].__typename === 'Listing') { L = S[k]; break; }
+  const exactKey = booliId != null ? `Listing:${booliId}` : null;
+  if (exactKey && S[exactKey] && S[exactKey].__typename === 'Listing') {
+    L = S[exactKey];
+  } else {
+    for (const k of Object.keys(S)) {
+      if (k.startsWith('Listing:') && S[k] && S[k].__typename === 'Listing') { L = S[k]; break; }
+    }
+    if (L && logger) {
+      logger('WARN', `galleryOf: no exact ${exactKey || 'Listing:<id>'} node in detail state — fell back to first Listing: match`);
+    }
   }
   if (!L) return null;
   let imgs = [];
@@ -140,17 +182,25 @@ function galleryOf(S) {
 // validate() escalates it.
 async function resolveAmbiguous({ listings, fetchDetail, logger }) {
   const queue = listings.filter(l => NEEDS_PAGE.has(l.bucket));
-  let opened = 0, failed = 0, next = 0;
+  let opened = 0, failed = 0, next = 0, ceilingHit = false, leftUnopened = 0;
 
   async function worker() {
     while (next < queue.length) {
-      const l = queue[next++];
+      // Check BEFORE claiming. The previous ordering (`queue[next++]` then check)
+      // claimed an item off the queue and then abandoned it without processing —
+      // so it was dropped silently AND excluded from `queue.length - next`,
+      // undercounting "left unopened" by one per worker that tripped the ceiling.
       if (opened + failed >= RESOLVE_CALL_CEILING) {
-        logger('WARN', `resolve ceiling ${RESOLVE_CALL_CEILING} hit — ${queue.length - next} left unopened`);
+        if (!ceilingHit) {
+          ceilingHit = true;
+          leftUnopened = queue.length - next;
+          logger('WARN', `resolve ceiling ${RESOLVE_CALL_CEILING} hit — ${leftUnopened} left unopened`);
+        }
         return;
       }
+      const l = queue[next++];
       try {
-        const g = galleryOf(await fetchDetail(l.url));
+        const g = galleryOf(await fetchDetail(l.url), l.booli_id, logger);
         if (!g) throw new Error('no Listing node in detail page');
         l.interiorVerdict = g.interiorN > 0 ? 'yes' : 'no';
         l.galleryPhotos = g.photos;
@@ -165,8 +215,9 @@ async function resolveAmbiguous({ listings, fetchDetail, logger }) {
   }
 
   await Promise.all(Array.from({ length: RESOLVE_CONCURRENCY }, worker));
-  logger('INFO', `resolve: ${opened} opened, ${failed} failed, of ${queue.length} needing a page`);
-  return { opened, failed };
+  logger('INFO', `resolve: ${opened} opened, ${failed} failed, of ${queue.length} needing a page` +
+    (ceilingHit ? ` (ceiling hit, ${leftUnopened} left unopened)` : ''));
+  return { opened, failed, ceilingHit, leftUnopened };
 }
 
 const UNRESOLVED_WARN_PCT = 10;
@@ -200,11 +251,19 @@ function validate(summary) {
     }
   }
   if (summary.n_unknown_labels > 0) {
-    problems.push(`${summary.n_unknown_labels} unknown image label(s) — Booli taxonomy may have changed, check lib/booli-image-labels.js`);
+    const names = summary.unknown_labels && summary.unknown_labels.length
+      ? ` [${summary.unknown_labels.join(', ')}]` : '';
+    problems.push(`${summary.n_unknown_labels} unknown image label(s)${names} — Booli taxonomy may have changed, check lib/booli-image-labels.js`);
   }
   if (summary.volumeAnomaly) problems.push(summary.volumeAnomaly);
   if (summary.pagesWalked >= MAX_PAGES) {
     problems.push(`walk hit maxPages=${MAX_PAGES} — the week may be truncated (undercount)`);
+  }
+  if (summary.ceilingHit) {
+    problems.push(`resolve ceiling ${RESOLVE_CALL_CEILING} hit — ${summary.leftUnopened} ambiguous listing(s) left unopened`);
+  }
+  if (summary.duplicates) {
+    problems.push(`${summary.duplicates} duplicate booli_id(s) deduped mid-walk — the pool may have shifted (August baseline: 0)`);
   }
   return problems.length ? problems.join(' · ') : null;
 }
@@ -251,14 +310,37 @@ async function main(client, log) {
   };
   const fetchDetail = async (url) => apolloFrom((await getWithRetry(url, { logger: () => {} })).html);
 
-  const { listings, pagesWalked } = await collectWeek({ fetchPage, nowSec, logger: log });
-  log('INFO', `walked ${pagesWalked} pages -> ${listings.length} in-window 2nd-hand listings`);
+  const { listings, pagesWalked, duplicates } = await collectWeek({ fetchPage, nowSec, logger: log });
+  log('INFO', `walked ${pagesWalked} pages -> ${listings.length} in-window 2nd-hand listings` +
+    (duplicates ? ` (${duplicates} duplicate booli_id(s) deduped)` : ''));
   assertCohortNonEmpty(listings.length);
 
-  await resolveAmbiguous({ listings, fetchDetail, logger: log });
+  const resolveResult = await resolveAmbiguous({ listings, fetchDetail, logger: log });
 
   const counts = tally(listings);
   const oxylabsCalls = oxCallsTotal() - callsAtStart;
+
+  // Raw per-listing rows survive on disk even if the DB write below fails, and
+  // even if nothing downstream ever reads them — this is the free-recompute
+  // capability the old four-script pipeline had and this rewrite must not lose.
+  // Best-effort: never fails or blocks the run.
+  try {
+    fs.mkdirSync(OUT_DIR, { recursive: true });
+    const artifactPath = path.join(OUT_DIR, `quality-${today}.json`);
+    fs.writeFileSync(artifactPath, JSON.stringify({
+      meta: {
+        snapshot_date: today, window_days: WINDOW_DAYS, pages_walked: pagesWalked,
+        oxylabs_calls: oxylabsCalls, duplicates,
+        n_ambiguous: counts.n_ambiguous, n_resolved: counts.n_resolved,
+        resolve_ceiling_hit: resolveResult.ceilingHit, resolve_left_unopened: resolveResult.leftUnopened,
+        n_unknown_labels: counts.n_unknown_labels, unknown_labels: counts.unknown_labels,
+      },
+      listings,
+    }, null, 2));
+    log('INFO', `artifact written -> ${artifactPath}`);
+  } catch (e) {
+    log('WARN', `artifact write failed (non-fatal, DB write proceeds): ${e.message}`);
+  }
 
   const prior = await client.query(
     `SELECT n_total FROM premarket_quality_weekly
@@ -277,18 +359,36 @@ async function main(client, log) {
   log('INFO', `persisted ${today}: coming-to-market ${counts.high + counts.mid_high}/${counts.n_total}, ` +
     `filler ${counts.low}, ${oxylabsCalls} Oxylabs calls`);
 
-  return { ...counts, pagesWalked, oxylabsCalls, volumeAnomaly: anomaly };
+  return {
+    ...counts, pagesWalked, oxylabsCalls, volumeAnomaly: anomaly, duplicates,
+    ceilingHit: resolveResult.ceilingHit, leftUnopened: resolveResult.leftUnopened,
+  };
 }
 
-// Entry gate: --smoke runs the offline self-test; otherwise the job runs under cron-wrapper.
-if (require.main === module && process.argv.includes('--smoke')) {
-  smoke();
-} else if (require.main === module) {
-  require('../cron-wrapper').runJob({
-    scriptName: 'premarket-quality-measure',
-    main,
-    validate,
-  });
+// Entry gate: --smoke runs the offline self-test; otherwise the job runs under cron-wrapper
+// (paid, ~$1.51, writes to prod DB). An unrecognised flag — `--smoketest`, `--smoke=true`,
+// `--smok` — must never fall through to the production path.
+const ACCEPTED_ARGV = new Set(['--smoke']);
+const USAGE = 'Usage: node scripts/premarket-quality-measure.js [--smoke]';
+function validateArgv(argv) {
+  return argv.every(a => ACCEPTED_ARGV.has(a));
+}
+
+if (require.main === module) {
+  const argv = process.argv.slice(2);
+  if (!validateArgv(argv)) {
+    console.error(`Unrecognised argument(s): ${argv.filter(a => !ACCEPTED_ARGV.has(a)).join(', ')}`);
+    console.error(USAGE);
+    process.exit(1);
+  } else if (argv.includes('--smoke')) {
+    smoke();
+  } else {
+    require('../cron-wrapper').runJob({
+      scriptName: 'premarket-quality-measure',
+      main,
+      validate,
+    });
+  }
 }
 
 async function smoke() {
@@ -390,9 +490,38 @@ async function smoke() {
     D1: { primaryLabel: 'facade' }, D2: { primaryLabel: 'bedroom' }, D3: { primaryLabel: 'facade' },
   };
   check('galleryOf takes the longest images array', () => {
-    const g = galleryOf(detailS);
+    const g = galleryOf(detailS, '9', () => {});
     assert(g.photos === 3, `expected 3 photos, got ${g && g.photos}`);
     assert(g.interiorN === 1, `expected 1 interior, got ${g && g.interiorN}`);
+  });
+
+  // Two listing nodes in the same detail Apollo state (e.g. a "similar homes"
+  // module on /annons/): first-match binding would confidently score the WRONG
+  // listing with no alarm. Node insertion order deliberately puts the neighbour
+  // first so a reverted fix (first-match) would score it instead.
+  const twoListingS = {
+    'Listing:9': { __typename: 'Listing', id: 9, 'images(full)': [{ __ref: 'F1' }] },
+    'Listing:5': { __typename: 'Listing', id: 5,
+      'images(full)': [{ __ref: 'F1' }, { __ref: 'F2' }, { __ref: 'F3' }] },
+    F1: { primaryLabel: 'facade' }, F2: { primaryLabel: 'bedroom' }, F3: { primaryLabel: 'facade' },
+  };
+  check('galleryOf binds to the exact booli_id, not the first Listing: node in the state', () => {
+    const g = galleryOf(twoListingS, '5', () => {});
+    assert(g.photos === 3, `expected 3 photos for listing 5, got ${g && g.photos}`);
+    assert(g.interiorN === 1, `expected 1 interior for listing 5, got ${g && g.interiorN}`);
+  });
+  check('galleryOf falls back to first-match and warns when the exact id is absent', () => {
+    let warned = false;
+    const g = galleryOf(twoListingS, '999', (lvl) => { if (lvl === 'WARN') warned = true; });
+    assert(g != null, 'fallback should still find a gallery');
+    assert(warned === true, 'fallback must log a WARN, not fail silently');
+  });
+  check('galleryOf resolve integration: opens the correct listing among several detail nodes', async () => {
+    const listings = [{ booli_id: '5', url: 'https://www.booli.se/annons/5',
+      bucket: 'ambiguous', interiorVerdict: 'no', resolved: false, cardLabels: {} }];
+    await resolveAmbiguous({ listings, logger: () => {}, fetchDetail: async () => twoListingS });
+    assert(listings[0].galleryPhotos === 3, `expected listing 5's 3 photos, got ${listings[0].galleryPhotos}`);
+    assert(listings[0].interiorVerdict === 'yes', 'listing 5 has an interior label and should resolve to yes');
   });
 
   check('resolve rescues an ambiguous listing that has interiors', async () => {
@@ -438,8 +567,65 @@ async function smoke() {
     assert(calls === 0, `settled listing must not be fetched, got ${calls} calls`);
   });
 
+  check('resolveAmbiguous stops at the spend ceiling and reports exactly what is left unopened', async () => {
+    const N = RESOLVE_CALL_CEILING + 5;
+    const listings = Array.from({ length: N }, (_, i) => ({
+      booli_id: String(i), url: `https://www.booli.se/annons/${i}`,
+      bucket: 'ambiguous', interiorVerdict: 'no', resolved: false, cardLabels: {},
+    }));
+    const generic = { 'Listing:generic': { __typename: 'Listing', id: 'generic',
+      'images(full)': [{ __ref: 'G1' }] }, G1: { primaryLabel: 'facade' } };
+    const r = await resolveAmbiguous({ listings, logger: () => {}, fetchDetail: async () => generic });
+    assert(r.ceilingHit === true, 'ceilingHit must be true once the ceiling is reached');
+    // Concurrent workers can overshoot the ceiling by up to RESOLVE_CONCURRENCY-1
+    // (several may pass the check on the same stale opened+failed count before any
+    // of them completes) — that slop is inherent to the worker pool, not the bug
+    // under test. The bug under test is the "left unopened" undercount below.
+    assert(r.opened + r.failed <= RESOLVE_CALL_CEILING + RESOLVE_CONCURRENCY - 1,
+      `processed ${r.opened + r.failed} exceeds ceiling+concurrency slop (${RESOLVE_CALL_CEILING + RESOLVE_CONCURRENCY - 1})`);
+    // The regression this guards: the old code claimed an item off the queue
+    // BEFORE checking the ceiling, so a dropped item was excluded from the
+    // "left unopened" count even though it was never processed. Reconcile the
+    // reported count directly against the listings' actual state.
+    const neverTouched = listings.filter(l => !l.resolved).length;
+    assert(r.leftUnopened === neverTouched,
+      `leftUnopened (${r.leftUnopened}) must equal listings never resolved (${neverTouched})`);
+  });
+
+  check('collectWeek dedupes repeated booli_id across pages (pool shifted mid-walk)', async () => {
+    const nowSec = 1786000000;
+    const mkCard = (id, ageDays) => ({
+      booli_id: String(id), url: `https://www.booli.se/annons/${id}`,
+      published: nowSec - ageDays * 86400, upcomingSale: true, isNewBuild: false,
+    });
+    const pages = {
+      1: [mkCard(1, 1), mkCard(2, 2)],
+      2: [mkCard(2, 2), mkCard(3, 3)],  // id 2 reappears — the pool shifted under the walk
+      3: [mkCard(4, 9)],                 // beyond the 7d window on every card -> entirely old, stop
+    };
+    const fetchPage = async (p) => pages[p] || [];
+    const { listings, duplicates } = await collectWeek({ fetchPage, nowSec, logger: () => {} });
+    assert(duplicates === 1, `expected 1 duplicate, got ${duplicates}`);
+    assert(listings.length === 3, `expected 3 deduped in-window listings, got ${listings.length}`);
+    assert(listings.filter(l => l.booli_id === '2').length === 1, 'id 2 must appear exactly once');
+  });
+  check('collectWeek reports 0 duplicates when the walk sees no repeats (August baseline)', async () => {
+    const nowSec = 1786000000;
+    const mkCard = (id, ageDays) => ({
+      booli_id: String(id), url: `https://www.booli.se/annons/${id}`,
+      published: nowSec - ageDays * 86400, upcomingSale: true, isNewBuild: false,
+    });
+    const pages = { 1: [mkCard(1, 1), mkCard(2, 2)], 2: [mkCard(3, 9)] };
+    const fetchPage = async (p) => pages[p] || [];
+    const { duplicates } = await collectWeek({ fetchPage, nowSec, logger: () => {} });
+    assert(duplicates === 0, `expected 0 duplicates, got ${duplicates}`);
+  });
+
   // --- validate() thresholds ------------------------------------------------
-  const base = { n_total: 2264, n_ambiguous: 537, n_resolved: 537, n_unknown_labels: 0, volumeAnomaly: null };
+  const base = {
+    n_total: 2264, n_ambiguous: 537, n_resolved: 537, n_unknown_labels: 0,
+    unknown_labels: [], volumeAnomaly: null, duplicates: 0, ceilingHit: false, leftUnopened: 0,
+  };
   check('validate: clean run returns nothing', () => {
     assert(!validate(base), 'clean run should not warn');
   });
@@ -454,6 +640,28 @@ async function smoke() {
   check('validate: unknown labels warn (taxonomy drift canary)', () => {
     const v = validate({ ...base, n_unknown_labels: 2 });
     assert(/label/i.test(v || ''), `expected label warning, got ${v}`);
+  });
+  check('validate: unknown-label warning NAMES the drifted label(s)', () => {
+    const v = validate({ ...base, n_unknown_labels: 2, unknown_labels: ['sauna', 'wine_cellar'] });
+    assert(/sauna/.test(v || ''), `expected "sauna" named in the warning, got ${v}`);
+    assert(/wine_cellar/.test(v || ''), `expected "wine_cellar" named in the warning, got ${v}`);
+  });
+  check('validate: resolve ceiling hit is escalated explicitly', () => {
+    const v = validate({ ...base, ceilingHit: true, leftUnopened: 42 });
+    assert(/ceiling/i.test(v || ''), `expected a ceiling warning, got ${v}`);
+    assert(/42/.test(v || ''), `expected the left-unopened count in the warning, got ${v}`);
+  });
+  check('validate: no ceiling warning when the ceiling was not hit', () => {
+    const v = validate({ ...base, ceilingHit: false, leftUnopened: 0 });
+    assert(!v, `clean run should not warn, got ${v}`);
+  });
+  check('validate: non-zero duplicates warn (August baseline was 0)', () => {
+    const v = validate({ ...base, duplicates: 3 });
+    assert(/duplicate/i.test(v || ''), `expected a duplicate warning, got ${v}`);
+  });
+  check('validate: zero duplicates does not warn', () => {
+    const v = validate({ ...base, duplicates: 0 });
+    assert(!v, `zero duplicates should not warn, got ${v}`);
   });
   check('validate: volume anomaly warns', () => {
     const v = validate({ ...base, volumeAnomaly: 'n_total 900 is -60% vs 4-week mean 2250' });
@@ -483,6 +691,16 @@ async function smoke() {
     // getOxylabsStats() has no `.requests` field — this is the exact bug that
     // made every run fail on the final INSERT after already spending the money.
     assert(Number.isInteger(oxCallsTotal()), `expected an integer, got ${oxCallsTotal()}`);
+  });
+
+  // --- entry-gate argv validation --------------------------------------------
+  check('validateArgv accepts --smoke and no args; rejects any typo or variant', () => {
+    assert(validateArgv(['--smoke']) === true, '--smoke must be accepted');
+    assert(validateArgv([]) === true, 'no args must be accepted (routes to the production path, not rejected)');
+    assert(validateArgv(['--smoketest']) === false, '--smoketest must be rejected, not treated as --smoke');
+    assert(validateArgv(['--smoke=true']) === false, '--smoke=true must be rejected');
+    assert(validateArgv(['--smok']) === false, '--smok must be rejected');
+    assert(validateArgv(['--smoke', '--foo']) === false, 'an extra unrecognised flag must be rejected');
   });
 
   await Promise.all(results);
