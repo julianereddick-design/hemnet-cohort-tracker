@@ -169,12 +169,17 @@ New columns use `ADD COLUMN IF NOT EXISTS`, the established pattern in this repo
 
 ```
 Mon 08:50 UTC  premarket-flow-measure       → premarket_flow_weekly     (existing, unchanged)
-Mon 09:00 UTC  premarket-quality-measure    → premarket_quality_weekly  (new, ~18 min, ~$1.51)
-Mon 09:40 UTC  premarket-flow-weekly-report → Slack                     (existing, extended)
+Mon 09:00 UTC  premarket-quality-measure    → premarket_quality_weekly  (new, ~22-27 min, ~$1.51)
+Mon 10:30 UTC  premarket-flow-weekly-report → Slack                     (existing, extended, MOVED from 09:40)
 ```
 
-All times UTC, matching the rest of the crontab. The 09:00 slot leaves the flow job ten
-minutes and finishes around 09:18, ~22 minutes clear of the report.
+All times UTC, matching the rest of the crontab.
+
+**The report moves 09:40 → 10:30** (Julian, 2026-08-13). The original estimate of ~18 minutes was
+wrong: realistic duration is 67 sequential walk pages plus ~537 detail fetches at concurrency 4,
+i.e. 22-27 minutes, landing 09:22-09:27. The 09:40 slot left only ~13 minutes of slack, and an
+overrun makes the report post "measurement did not land this week" — untrue, unalerted, and it
+never self-corrects when the row lands minutes later. 10:30 gives ~63 minutes of headroom.
 
 **Cohort definition:** second-hand only, national. New-builds are excluded via the card's
 `isNewBuild` flag, the same filter the flow job applies — they ran 0.2% of the pre-market

@@ -1016,10 +1016,22 @@ const UPSERT = `
     created_at = NOW()
 `;
 
+// 🚨 getOxylabsStats() exposes { oxylabsCallCount, oxylabsFailureCount,
+// directSuccessCount, oxylabsFallbackRate } — there is NO `requests` field.
+// Reading `.requests` yields undefined, so the subtraction yields NaN, and
+// node-pg serialises NaN as the string "NaN", which Postgres rejects on an
+// INTEGER column (22P02). The job would spend the full ~$1.51 and THEN fail on
+// the final insert, every week, persisting nothing. Total calls = Oxylabs +
+// direct, matching scripts/premarket-flow-measure.js:103.
+const oxCallsTotal = () => {
+  const s = getOxylabsStats();
+  return s.oxylabsCallCount + s.directSuccessCount;
+};
+
 async function main(client, log) {
   const nowSec = Math.floor(Date.now() / 1000);
   const today = process.env.REPORT_DATE || new Date().toISOString().slice(0, 10);
-  const callsAtStart = getOxylabsStats().requests;
+  const callsAtStart = oxCallsTotal();
 
   let walkCalls = 0;
   const fetchPage = async (p) => {
@@ -1035,7 +1047,7 @@ async function main(client, log) {
   await resolveAmbiguous({ listings, fetchDetail, logger: log });
 
   const counts = tally(listings);
-  const oxylabsCalls = getOxylabsStats().requests - callsAtStart;
+  const oxylabsCalls = oxCallsTotal() - callsAtStart;
 
   const prior = await client.query(
     `SELECT n_total FROM premarket_quality_weekly
@@ -1327,11 +1339,20 @@ Expected: `Created table: premarket_quality_weekly` then a 19-column listing.
 
 If the connection is refused, the local IP needs whitelisting — see `project_ip_whitelist` in memory, or run it from the droplet after deploying.
 
-- [ ] **Step 2: Gated live validation run**
+- [ ] **Step 2: Gated live validation run — DECLINED 2026-08-13**
 
-**STOP. Ask Julian for explicit go-ahead for this specific run (~604 Oxylabs calls, ~$1.51, ~18 minutes).** Do not proceed without it.
+**Julian declined this step**: the Oxylabs transport was exercised only days earlier, so a
+one-off proof run was judged unnecessary. The first live execution is therefore the Monday
+09:00 UTC cron itself.
 
-Run: `node scripts/premarket-quality-measure.js`
+**Consequence to accept knowingly:** the first real run is unattended. Its guards are the ones
+that must catch a bad first week — `assertCohortNonEmpty` hard-fails rather than persisting an
+empty cohort, `validate()` escalates unresolved >10% / unknown labels / duplicates / ceiling
+hit / walk truncation to Slack via cron-wrapper, and the row is idempotent so a re-run after a
+fix simply overwrites. The volume-anomaly check is silent for the first four weeks by design,
+so week one has no volume guard.
+
+Skipped command, retained for a future manual run: `node scripts/premarket-quality-measure.js`
 
 Expected: a `cron_job_log` row with status `success`, and one row in `premarket_quality_weekly`. Verify with:
 
@@ -1343,7 +1364,7 @@ console.log(JSON.stringify(r.rows[0],null,2));await c.end();})();
 "
 ```
 
-Sanity-check against August: `n_total` should land near 2,300, `n_ambiguous` near 24% of it, and `n_unknown_labels` should be 0. A non-zero `n_unknown_labels` means Booli changed its image taxonomy — investigate before trusting the row.
+Sanity-check against August: `n_total` should land near 2,300, `n_ambiguous` near 24% of it, and `n_unknown_labels` should be 0. A non-zero `n_unknown_labels` means Booli changed its image taxonomy — investigate before trusting the row. `oxylabs_calls` must be a positive integer; if it is null or the insert failed on it, the call-counter wiring regressed (see the `oxCallsTotal` note in Task 6).
 
 - [ ] **Step 3: Verify the report renders the real row**
 
@@ -1401,7 +1422,7 @@ git commit -m "feat(premarket-quality): retire the manual pipeline, wire the wee
 
 ## Notes for the implementer
 
-- **`getOxylabsStats()`** returns a cumulative counter for the process. Snapshot it at the start of `main` and subtract, as Task 6 does — do not assume it starts at zero.
+- **`getOxylabsStats()`** returns `{ oxylabsCallCount, oxylabsFailureCount, directSuccessCount, oxylabsFallbackRate }` — cumulative for the process, and with **no `requests` field**. Total calls = `oxylabsCallCount + directSuccessCount`. Snapshot at the start of `main` and subtract; do not assume it starts at zero.
 - **`createClient()` is synchronous.** It returns a `pg.Client`; you must `await client.connect()`. Calling `.query()` without connecting hangs silently rather than throwing.
 - **`cron-wrapper.runJob` passes `main(client, log)` an already-connected client.** Do not create your own inside `main`.
 - **The `other` rule changed shape from August.** `scripts/premarket-quality-categorise.js` used a catch-all `match: () => true` for `other` with `low` above it; Task 1 makes `other` explicit (`!INT && (P || V)`) and `low` the catch-all. The two are equivalent because the earlier rungs already consumed every interior-bearing case — the oracle in Task 2 proves it on 2,264 real listings. If the oracle fails on this, revert to the August ordering rather than editing expectations.

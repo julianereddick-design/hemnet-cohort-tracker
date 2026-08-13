@@ -11,7 +11,9 @@ require('dotenv').config();
 // Replaces the manual four-script pipeline (premarket-quality-week / -resolve /
 // -recompute / -categorise). Rubric lives in lib/premarket-quality.js.
 //
-// Cron: Mon 09:00 UTC, after premarket-flow-measure (08:50), before the report (09:40).
+// Cron: Mon 09:00 UTC, after premarket-flow-measure (08:50), before the report (10:30).
+// Runtime is 22-27 min (67 walk pages + ~537 detail fetches at concurrency 4), so it lands
+// ~09:22-09:27. The report sits at 10:30 to keep real headroom — see the spec's §7.
 // Cost: ~604 Oxylabs calls ≈ $1.51/week.
 //
 // Self-test: node scripts/premarket-quality-measure.js --smoke   (offline, no DB, no network)
