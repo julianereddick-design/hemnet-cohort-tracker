@@ -156,6 +156,44 @@ All times are UTC. Schedule respects:
 ```
 
 ```cron
+# === Monthly age-penetration census (2026-08-13) — age structure of all 4 supply pools ===
+# INSTALLED ON THE DROPLET 2026-08-13. Spec: docs/superpowers/specs/2026-08-13-age-penetration-monthly-design.md
+#
+# Measure job: scripts/age-census-monthly.js runs the four pool censuses SEQUENTIALLY,
+# cheapest-first — Booli pre-market (~60 calls, binary-search) -> Booli for-sale (~84,
+# two-pass sort-flip) -> Hemnet pre-market (~656, 290-muni partition) -> Hemnet for-sale
+# (~1,208, muni partition + recursive item_type/price sub-partition). ~2,000 Oxylabs calls
+# (~$5) and ~2.5-3h total, landing ~05:00. It sets SCRAPE_FORCE_OXYLABS=1 itself.
+#
+# WHY SEQUENTIAL: all four scraper modules keep module-level mutable state; two concurrent
+# run() calls would corrupt each other's counts. A --smoke check pins maxInFlight === 1.
+#
+# WHY EACH POOL PERSISTS IMMEDIATELY: the 2026-07-20 incident lost a whole weekly datapoint
+# to one transient 613. A failure in the 4th pool must never cost the three already paid for.
+# A failed pool is named in the summary; a pool whose validation gates failed is STILL
+# persisted with status='gate_failed' so a wrong number lands visibly rather than vanishing.
+#
+# Slot: 02:00 UTC on the 1st. Finishes ~05:00, clear of the 06:20-06:35 retention jobs and of
+# the Monday 08:30/08:50/09:00 fan-out when the 1st happens to fall on a Monday.
+0 2 1 * * cd /opt/hemnet-cohort-tracker && node scripts/age-census-monthly.js >> /var/log/hemnet/age-census.log 2>&1
+
+# Report job: age-census-report.js reads age_census_run for the run date (+ the most recent
+# prior run with status='ok' per pool, for deltas) and posts the fresh-end summary. Separate
+# from the measure job so a scrape failure never blocks the post and the post can be re-run
+# from the DB without re-scraping. DRY_RUN=1 (or --dry-run) suppresses the Slack post —
+# dotenv re-injects SLACK_WEBHOOK_URL, so unsetting the env var does NOT prevent a post.
+# Slot: 07:00 UTC on the 1st — 2h after the measure job's expected finish.
+0 7 1 * * cd /opt/hemnet-cohort-tracker && node age-census-report.js >> /var/log/hemnet/age-census-report.log 2>&1
+```
+
+**Age-census operational notes**
+
+- **Migration:** `node migrate-age-census.js` (idempotent) — RUN on the droplet 2026-08-13, created `age_census_run` + `age_census_muni`.
+- **Hand re-run:** `RUN_DATE=YYYY-MM-DD node scripts/age-census-monthly.js`. Re-running the SAME date upserts in place (idempotent). A different date creates a separate row-set the scheduled report will not display.
+- **First-run caveat:** the coverage gate sizes a municipality that failed page 1 from the previous month's per-muni rows. On the first ever run there are none, so any whole-municipality failure surviving retry gate-fails that pool; the remedy is a same-`RUN_DATE` re-run. From month two the sizing data exists and the 0.5% proportional threshold applies.
+- **Not yet monitored by `cron-health.js`** — it models daily/weekly cadences only, so a monthly job that silently stops firing would not raise an alert. Tracked as a follow-up.
+
+```cron
 # === Phase 13 — Image confirmation + review loop (go-live with Phase 13, implements D-14) ===
 # The Phase 12 weekly gate line (Mon 06:30 UTC above) now does useful work: dHash shared-image
 # check + advisory Claude vision on suspect pairs + Slack review-queue post. D-13 guard skips
