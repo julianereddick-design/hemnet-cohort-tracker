@@ -624,6 +624,13 @@ Expected: FAIL — `parsePage is not defined`.
 
 Insert before the `if (require.main === module ...)` gate. `richCard` and `parsePage` are lifted verbatim from `scripts/premarket-quality-week.js:60-130` with `bucketOf` now imported rather than local:
 
+Add `parsePublishedToUnix` to the imports — it is already exported by `lib/booli-fetch.js:321`.
+Import it; do NOT modify that file, and do NOT hand-roll a second date parser:
+
+```js
+const { parsePublishedToUnix } = require('../lib/booli-fetch');
+```
+
 ```js
 function apolloFrom(html) {
   const d = extractNextData(html);
@@ -661,7 +668,13 @@ function richCard(L, S) {
   return {
     booli_id: L.id != null ? String(L.id) : null,
     url: L.url || null,
-    published: L.published || null,
+    // 🚨 Booli serves `published` as a 'YYYY-MM-DD HH:MM:SS' STRING on search
+    // cards, not Unix seconds. Passing it through raw makes every downstream
+    // numeric comparison (`published >= cutoff`) false, which empties the cohort
+    // AND stops walkFlow's `pageEntirelyOld` from ever firing — so the walk runs
+    // to maxPages. parsePublishedToUnix accepts both forms defensively.
+    published: parsePublishedToUnix(L.published),
+    publishedRaw: L.published || null,
     // walkFlow reads exactly these two keys — everything else rides along free.
     isNewBuild: L.isNewConstruction === true,
     upcomingSale: L.upcomingSale === true,
