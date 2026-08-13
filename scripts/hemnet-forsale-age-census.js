@@ -257,12 +257,37 @@ async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, prio
   const nat = mergeAccumulators(accs);
   const ox = getOxylabsStats();
   const oxCalls = ox.oxylabsCallCount + ox.directSuccessCount;
+
+  // Size the sub-scope gaps by MEASUREMENT, not by guesswork. A sub-scope only ever fails inside
+  // a municipality whose own page 1 succeeded — which means that municipality told us its
+  // headline total, and we know how many distinct listings we actually counted for it. The
+  // shortfall `headlineN - countedN` is therefore the measured volume of everything missing
+  // inside it, needs no prior month, and works on the very first run. It is booked ONCE per
+  // municipality (not once per failed band) because one shortfall covers all of them jointly.
+  // Only a sub-scope we cannot attribute to a surviving municipality stays unmeasurable.
+  const measuredMissing = [], unmeasurableSubs = [];
+  const subsByMuni = new Map();
+  for (const rec of ctx.failedSubScopes) {
+    if (!subsByMuni.has(rec.muni)) subsByMuni.set(rec.muni, []);
+    subsByMuni.get(rec.muni).push(rec);
+  }
+  for (const [muni, recs] of subsByMuni) {
+    const k = names.indexOf(muni);
+    const st = k >= 0 ? stats[k] : null;
+    if (k < 0 || !st || st.p1Error || !(st.headline > 0)) {
+      unmeasurableSubs.push(...recs.map(r => r.label));           // no headline to measure against
+      continue;
+    }
+    const missing = Math.max(0, st.headline - accs[k].distinct);
+    measuredMissing.push({ label: recs.length === 1 ? recs[0].label : `${muni} ×${recs.length} sub-scopes`, missing });
+  }
+
   // What the coverage gate is asked to size. Municipality names resolve against the prior
-  // month's per-muni rows. Sub-scope labels never do — they are unknown by construction, which
-  // per gateCoverage's rule fails the gate. That is the right outcome: a price band we could
-  // not fetch twice, inside a municipality large enough to need sub-partitioning, is a
-  // materially-sized hole whose size we have no way to estimate.
-  const coverageFailures = [...ctx.failedMunis, ...ctx.failedSubScopes.map(r => r.label)];
+  // month's per-muni rows; a whole municipality we never reached has no headline of its own, so
+  // it stays prior-sized (and fails outright when there is no prior). Sub-scopes now arrive
+  // pre-measured instead, so a 3-listing price band publishes with a note rather than voiding
+  // a ~43,000-listing pool.
+  const coverageFailures = [...ctx.failedMunis, ...unmeasurableSubs];
   const gates = [
     gateReconciliation({ headlineSum, distinct: nat.distinct, maxPct: 2 }),
     // A skipped municipality subtracts itself from BOTH sides of gateReconciliation, so that
@@ -271,14 +296,19 @@ async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, prio
     // last valid month's per-muni totals estimate the gap, so losing Alingsås (7 listings) does
     // not void the month while losing Stockholm (~5,000) does. nationalTotal is the COUNTED
     // total, which excludes the gap and so is a slightly conservative denominator.
-    gateCoverage({ failedMunis: coverageFailures, priorMuniSizes, nationalTotal: nat.distinct, maxPct: 0.5 }),
+    gateCoverage({ failedMunis: coverageFailures, priorMuniSizes, measuredMissing, nationalTotal: nat.distinct, maxPct: 0.5 }),
     gateErrorPages({ errorPages: ctx.errorPages, oxCalls, maxPct: 2 }),
     gateTotalDrift({ nTotal: nat.distinct, priorTotal, maxPct: 25 }),
   ];
   const ev = evaluateGates(gates);
   const notes = [
     ctx.failedMunis.length ? `munis skipped entirely (p1 never fetched): ${ctx.failedMunis.join(', ')}` : null,
-    ctx.failedSubScopes.length ? `${ctx.failedSubScopes.length} sub-scopes skipped: ${ctx.failedSubScopes.slice(0, 8).map(r => r.label).join(', ')}${ctx.failedSubScopes.length > 8 ? ', …' : ''}` : null,
+    // A sub-scope gap that PASSES the sized threshold must still be visible on the published
+    // row, with its measured volume, so a reader knows exactly what the number is missing.
+    ctx.failedSubScopes.length
+      ? `${ctx.failedSubScopes.length} sub-scopes skipped: ${ctx.failedSubScopes.slice(0, 8).map(r => r.label).join(', ')}${ctx.failedSubScopes.length > 8 ? ', …' : ''}`
+        + ` (measured shortfall ${measuredMissing.reduce((a, m) => a + m.missing, 0)} listings)`
+      : null,
     ctx.nonUpcoming ? `${ctx.nonUpcoming} upcoming cards filtered` : null,
     nat.anomalies ? `${nat.anomalies} publishedAt anomalies` : null,
     ev.passed ? null : `gates failed: ${ev.failures.join(', ')}`,
@@ -457,6 +487,9 @@ async function selftest() {
       assert.strictEqual(cov.passed, false, 'a whole skipped municipality must fail the coverage gate');
       assert.strictEqual(res.status, 'gate_failed', `a run missing a whole municipality must never be stored as ok (got ${res.status})`);
       assert.ok(/Broken/.test(res.notes || ''), `the skipped municipality must be named in notes (got: ${res.notes})`);
+      // UNCHANGED by the measured-shortfall work: a whole municipality we never reached has no
+      // headline of its own, so there is nothing to measure and no prior size to fall back on.
+      assert.ok(/NO measurable size/.test(cov.detail), `a whole-muni gap with no prior size must still fail outright: ${cov.detail}`);
     } finally {
       fetchScope = clean;
     }
@@ -528,7 +561,7 @@ async function selftest() {
   addListings('Big', 'bostadsratt', 250000, 40, 3);          // Big/bostadsratt/0-1M
   const BIG_WITH_BAND = BIG_TOTAL + 40;
 
-  await check('a price band failing BOTH attempts fails the coverage gate and is named in notes', async () => {
+  await check('a price band failing BOTH attempts is SIZED by measured shortfall, and 0.95% fails', async () => {
     const clean = fetchScope;
     let bandCalls = 0;
     fetchScope = async (scope, p) => {
@@ -543,9 +576,12 @@ async function selftest() {
       const rec = res.gates.find(g => g.name === 'reconciliation');
       assert.strictEqual(rec.passed, true, `40 of 4,240 stays under the 2% reconciliation threshold — that is why a hard gate is needed: ${rec.detail}`);
       const cov = res.gates.find(g => g.name === 'coverage');
-      assert.strictEqual(cov.passed, false, `an unfetchable price band must fail the coverage gate: ${cov.detail}`);
-      assert.ok(/NO prior-run size/.test(cov.detail), 'a sub-scope is unmeasurable by construction, and the gate must say so');
-      assert.strictEqual(res.status, 'gate_failed', `a materially-sized hole must not publish as ok (notes: ${res.notes})`);
+      assert.strictEqual(cov.passed, false, `40 of 4,200 = 0.95% is over the 0.5% threshold: ${cov.detail}`);
+      // sized by MEASUREMENT (headlineN − countedN), not written off as unknown
+      assert.ok(/measured 40/.test(cov.detail), `the gap must be measured, not guessed: ${cov.detail}`);
+      assert.ok(!/NO measurable size/.test(cov.detail), 'a sub-scope inside a surviving muni is measurable');
+      assert.ok(/0\.95%/.test(cov.detail), cov.detail);
+      assert.strictEqual(res.status, 'gate_failed', `a gap over the threshold must not publish as ok (notes: ${res.notes})`);
       assert.ok(/Big\/bostadsratt\/0-1M/.test(res.notes || ''), `the band must be named in notes (got: ${res.notes})`);
       assert.strictEqual(res.nTotal, BIG_TOTAL, 'the 40 listings behind the failed band are genuinely missing');
     } finally {
@@ -569,6 +605,49 @@ async function selftest() {
       assert.strictEqual(res.nTotal, BIG_WITH_BAND, `the retry must recover all ${BIG_WITH_BAND} listings, got ${res.nTotal}`);
       assert.strictEqual(res.gates.find(g => g.name === 'coverage').passed, true, 'a recovered band must not count as a coverage failure');
       assert.strictEqual(res.status, 'ok', `a fully recovered run must publish (notes: ${res.notes})`);
+    } finally {
+      fetchScope = clean;
+    }
+  });
+
+  // --- a SMALL sub-scope gap must publish with a note, not void the pool ---------------------
+  // The client chose proportional coverage. A price band holding 10 listings inside a ~4,250
+  // municipality is 0.24% — treating it as fatal (which "sub-scopes are unknown by construction"
+  // did) would void the most expensive pool of the four over a rounding error. The size does not
+  // need a prior month: Big's page 1 SUCCEEDED, so its headline total is known, and
+  // headlineN − countedN measures exactly what is missing inside it.
+  addListings('Big', 'bostadsratt', 9000000, 10, 7);         // Big/bostadsratt/8-12M
+  const BIG_WITH_BANDS = BIG_WITH_BAND + 10;
+
+  await check('a SMALL measured sub-scope gap passes the gate and is still named in notes', async () => {
+    const clean = fetchScope;
+    let bandCalls = 0;
+    fetchScope = async (scope, p) => {
+      if ((scope.name || scope.locationId) === 'Big' && scope.itemType === 'bostadsratt' && scope.priceMin === 8000000 && p === 1) {
+        bandCalls++; return { status: 500, cards: null, total: undefined };
+      }
+      return clean(scope, p);
+    };
+    try {
+      const res = await run({ locations: { Big: 9002 }, nowSec: NOW_SEC, logger: () => {} });
+      assert.strictEqual(bandCalls, 2, `the band must be re-attempted once before being sized (got ${bandCalls})`);
+      const cov = res.gates.find(g => g.name === 'coverage');
+      // measured: headline 4,250 − counted 4,240 = 10, i.e. 0.24% of counted
+      assert.ok(/measured 10/.test(cov.detail), `the shortfall must be measured from headline − counted: ${cov.detail}`);
+      assert.ok(/0\.24%/.test(cov.detail), cov.detail);
+      assert.strictEqual(cov.passed, true, `0.24% must not void a 4,250-listing pool: ${cov.detail}`);
+      assert.strictEqual(res.status, 'ok', `a sub-0.5% gap must publish (notes: ${res.notes})`);
+      // …and it must remain VISIBLE on that published row
+      assert.ok(/Big\/bostadsratt\/8-12M/.test(res.notes || ''), `the band must still be named in notes (got: ${res.notes})`);
+      assert.ok(/measured shortfall 10 listings/.test(res.notes || ''), `notes must carry the measured volume (got: ${res.notes})`);
+      assert.strictEqual(res.nTotal, BIG_WITH_BANDS - 10, 'the 10 listings behind the failed band really are absent');
+      // no prior-run data was supplied at all — measurement must not depend on one
+      assert.ok(!/NO measurable size/.test(cov.detail), 'measured sizing must work on a first-ever run');
+      // gateReconciliation sees the SAME listings and must read coherently, not contradict:
+      // it reports Δ over Σ headline, the coverage gate reports it over the counted total.
+      const rec = res.gates.find(g => g.name === 'reconciliation');
+      assert.strictEqual(rec.passed, true, `10 of 4,250 is far under the 2% reconciliation threshold: ${rec.detail}`);
+      assert.ok(/4250 vs distinct 4240/.test(rec.detail), `reconciliation must show the same 10-listing gap: ${rec.detail}`);
     } finally {
       fetchScope = clean;
     }
