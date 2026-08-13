@@ -99,16 +99,20 @@ async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, prio
     accs.push(acc); stats.push(st);
     if (++done % 25 === 0) logger('INFO', `${done}/${names.length} munis, distinct=${seen.size}`);
   }
-  // Retry munis whose page 1 errored — a whole-muni coverage gap. Global dedupe makes a
-  // re-walk safe; the accumulator is REPLACED so bands are not double-counted.
+  // Retry munis whose page 1 errored — a whole-muni coverage gap. A p1 error does not stop
+  // the walk (walkMuni logs, continues, and pages 2+ may still fetch successfully), so the
+  // first attempt's accumulator may already hold real page-2+ listings whose ids are in the
+  // shared `seen` Set. The retry therefore REUSES that same accumulator (does NOT replace it
+  // with a fresh one) so the retried page 1 ADDS to what pages 2+ already contributed. Global
+  // dedupe still makes the retry safe: any id the first attempt already folded in is skipped
+  // by `seen`, so nothing is double-counted, and nothing collected on the first pass is lost.
   const p1errs = stats.map((s, i) => ({ s, i })).filter(x => x.s.p1Error);
   if (p1errs.length) {
     logger('WARN', `retrying ${p1errs.length} munis whose p1 errored: ${p1errs.map(x => x.s.name).join(', ')}`);
     for (const { s, i } of p1errs) {
-      const acc = newAccumulator({ seen });
-      const st = await walkMuni(s.name, locations[s.name], acc, nowSec, ctx);
+      const st = await walkMuni(s.name, locations[s.name], accs[i], nowSec, ctx);
       if (typeof st.total === 'number') headlineSum += st.total;
-      accs[i] = acc; stats[i] = st;
+      stats[i] = st;
     }
   }
 
@@ -136,9 +140,13 @@ async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, prio
     newbuildSampled: false, newbuildSampleN: null,
     buckets: bucketsToObject(nat.buckets, nat.undated),
     bucketsSecondhand: secondhandToObject(nat.buckets, nat.newbuild, nat.undated),
+    // countedN reads the accumulator's own `distinct`, not the last walkMuni call's returned
+    // `counted` — a muni retried after a p1 error accumulates across TWO walkMuni calls (page
+    // 2+ from the failed first attempt, page 1 from the retry), so `s.counted` alone would
+    // reflect only the most recent call and under-report the muni's true listing count.
     muni: stats.map((s, i) => ({
       name: s.name, id: Number(s.id) || 0,
-      headlineN: s.total == null ? 0 : s.total, countedN: s.counted,
+      headlineN: s.total == null ? 0 : s.total, countedN: accs[i].distinct,
       buckets: bucketsToObject(accs[i].buckets, accs[i].undated),
       bucketsSecondhand: secondhandToObject(accs[i].buckets, accs[i].newbuild, accs[i].undated),
     })),
@@ -289,6 +297,51 @@ async function selftest() {
   const md = buildMd('SELFTEST', res, null);
   assert.ok(md.includes('Census histogram'));
   console.log(`SELFTEST PASS — census==truth (${res.nTotal} distinct across ${res.muni.length} munis), clamp terminates, report renders.`);
+
+  // --- p1-retry must not lose page-2+ data collected during the failed first attempt ---
+  // Regression test (fix round 1): a p1 error does not stop walkMuni — it logs, continues, and
+  // page 2+ may fetch successfully into that walk's accumulator before the walk gives up. The
+  // earlier retry logic REPLACED accs[i] with a brand-new empty accumulator, silently discarding
+  // whatever page 2+ had already collected (the shared `seen` Set makes the ids un-recoverable:
+  // the retry's own page-2+ re-fetch finds them already seen and stops immediately). The fix
+  // REUSES accs[i] on retry so the retried page 1 ADDS to what page 2+ already contributed.
+  //
+  // 'Flaky' has 60 listings, 50/page → p1 fails on the FIRST attempt only; the first attempt's
+  // p2 (10 real listings) succeeds before the walk clamps and gives up; the retry's p1 succeeds
+  // and picks up the remaining 50. All 60 must survive in the final national total.
+  const flakyAges = Array.from({ length: 60 }, (_, i) => i * 3);
+  const flakyStore = {};
+  const flakyIds = flakyAges.map((a, i) => { const id = 'F' + i; flakyStore[id] = a; return id; });
+  let flakyP1Calls = 0;
+  pageFetcher = async (muniId, p) => {
+    if (muniId !== 'Flaky') return { status: 200, cards: [], total: 0 };
+    if (p === 1) {
+      flakyP1Calls++;
+      if (flakyP1Calls === 1) return { status: 500, cards: null, total: undefined };   // fails ONLY on the first attempt
+    }
+    const start = (p - 1) * PAGE;
+    const slice = start >= flakyIds.length ? [flakyIds[flakyIds.length - 1]] : flakyIds.slice(start, start + PAGE);
+    const cards = slice.map(id => ({ id, published: CLOCK - flakyStore[id] * DAY, isNewBuild: false, upcoming: true }));
+    return { status: 200, cards, total: p === 1 ? flakyIds.length : undefined };
+  };
+  const flakyTruth = new Array(EDGES.length + 1).fill(0);
+  for (const a of flakyAges) flakyTruth[bandIndex(a, EDGES)]++;
+
+  const resFlaky = await run({ locations: { Flaky: 'Flaky' }, nowSec: CLOCK, logger: () => {} });
+  assert.strictEqual(flakyP1Calls, 2, `expected exactly 2 calls to Flaky's p1 (fail then retry), got ${flakyP1Calls}`);
+  // THE assertion that fails against the pre-fix code: nTotal must include BOTH the page-1
+  // listings (only ever fetched on the retry) and the page-2+ listings (fetched — and, pre-fix,
+  // discarded — during the failed first attempt).
+  assert.strictEqual(resFlaky.nTotal, flakyIds.length, `nTotal must include all ${flakyIds.length} Flaky listings (page-1 + page-2+), got ${resFlaky.nTotal}`);
+  for (let k = 0; k < flakyTruth.length; k++) {
+    assert.strictEqual(resFlaky.buckets[BAND_KEYS[k]], flakyTruth[k], `Flaky band ${BAND_KEYS[k]}: ${resFlaky.buckets[BAND_KEYS[k]]} != ${flakyTruth[k]}`);
+  }
+  assert.strictEqual(resFlaky.muni.length, 1, 'one muni row for Flaky');
+  assert.strictEqual(resFlaky.muni[0].countedN, flakyIds.length, `muni row countedN must equal the true listing count, got ${resFlaky.muni[0].countedN}`);
+  const flakyPerMuniSum = BAND_KEYS.reduce((s, k) => s + resFlaky.muni[0].buckets[k], 0);
+  const flakyNationalSum = BAND_KEYS.reduce((s, k) => s + resFlaky.buckets[k], 0);
+  assert.strictEqual(flakyPerMuniSum, flakyNationalSum, 'Σ per-muni bands must equal the national histogram even after a p1-retry');
+  console.log(`SELFTEST PASS — p1-retry preserves page-2+ data collected during the failed first attempt (Flaky: ${resFlaky.nTotal}/${flakyIds.length} recovered).`);
 }
 
 async function main() {
