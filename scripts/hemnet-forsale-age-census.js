@@ -21,8 +21,9 @@
 // walked, so the 2nd-hand histogram is an exact band-wise subtraction, not a sample.
 //
 //   node   scripts/hemnet-forsale-age-census.js --selftest          # offline, synthetic; free
+//   SCRAPE_FORCE_OXYLABS=1 node scripts/hemnet-forsale-age-census.js --sizes          # page-1 totals for the biggest munis
 //   SCRAPE_FORCE_OXYLABS=1 node scripts/hemnet-forsale-age-census.js --probe [Muni]   # 1 muni live (default Stockholm)
-//   SCRAPE_FORCE_OXYLABS=1 node scripts/hemnet-forsale-age-census.js                  # full national run
+//   SCRAPE_FORCE_OXYLABS=1 node scripts/hemnet-forsale-age-census.js                  # full national run (~1,208 calls)
 require('dotenv').config();
 
 const fs = require('fs');
@@ -409,10 +410,21 @@ async function runFull() {
 
 if (require.main === module) {
   const arg = process.argv[2];
-  if (arg === '--selftest') selftest();
-  else if (arg === '--sizes') runSizes().catch(e => { console.error(e); process.exit(1); });
-  else if (arg === '--probe') runProbe(process.argv[3]).catch(e => { console.error(e); process.exit(1); });
-  else runFull().catch(e => { console.error(e); process.exit(1); });
+  if (arg === '--selftest') { selftest(); }
+  else {
+    // --sizes, --probe, and the default full run all make real page fetches. Refuse to run
+    // un-proxied so a bare invocation never hammers the target site directly from whatever
+    // machine ran it — the same guard scripts/hemnet-age-census.js and
+    // scripts/booli-age-census.js already use. The orchestrator sets this itself; this only
+    // ever bites a manual invocation.
+    if (process.env.SCRAPE_FORCE_OXYLABS !== '1') {
+      console.error('Refusing to run un-proxied. Set SCRAPE_FORCE_OXYLABS=1 (or use --selftest).');
+      process.exit(1);
+    }
+    if (arg === '--sizes') runSizes().catch(e => { console.error(e); process.exit(1); });
+    else if (arg === '--probe') runProbe(process.argv[3]).catch(e => { console.error(e); process.exit(1); });
+    else runFull().catch(e => { console.error(e); process.exit(1); });
+  }
 }
 
 module.exports = { run, censusScope, censusMuni };
