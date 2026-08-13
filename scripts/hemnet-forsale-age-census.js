@@ -33,7 +33,7 @@ const { parseListingCards } = require('../lib/hemnet-fetch');
 const { DAY } = require('../lib/premarket-flow');
 const {
   EDGES, BAND_KEYS, newAccumulator, addCardTo, mergeAccumulators, bucketsToObject, secondhandToObject,
-  gateReconciliation, gateTotalDrift, gateErrorPages, evaluateGates,
+  gateReconciliation, gateTotalDrift, gateErrorPages, gateCoverage, evaluateGates,
 } = require('../lib/age-census');
 
 const NOW_SEC = Math.floor(Date.now() / 1000);
@@ -122,14 +122,38 @@ async function walkScope(scope, acc, nowSec, ctx) {
   return { pages, clampedSuspect: pages === MAX_PAGES && lastFresh > 0 };
 }
 
+// Record a scope whose page 1 never fetched. A level-0 failure means a WHOLE municipality was
+// skipped (its listings vanish from both sides of the reconciliation gate — see gateCoverage in
+// lib/age-census.js); a level-1/2 failure is a sub-scope of a big muni, still a real gap but a
+// partial one. They are tracked separately because the two are not equally bad.
+// `failedScopes` is a cumulative diagnostic across the whole run (retries included);
+// `failedMunis` is the authoritative post-retry list the coverage gate reads, so run()'s retry
+// pass removes a muni from it before re-walking and the re-walk puts it back only if it fails again.
+function noteScopeFailure(ctx, scope, level) {
+  ctx.failedScopes = (ctx.failedScopes || 0) + 1;
+  const label = scope.name || String(scope.locationId);
+  if (level === 0) {
+    if (!ctx.failedMunis) ctx.failedMunis = [];
+    if (!ctx.failedMunis.includes(label)) ctx.failedMunis.push(label);
+  } else {
+    if (!ctx.failedSubScopes) ctx.failedSubScopes = [];
+    ctx.failedSubScopes.push(scopeLabel(scope));
+  }
+}
+
 // Recursively census a scope, sub-partitioning (item_type → price band) until under the clamp.
 // level 0 = whole muni, 1 = item_type fixed, 2 = item_type+price fixed. Every sub-scope this
 // recursion spawns folds into the SAME `acc` — the caller's municipality accumulator — so the
-// whole recursive tree for one muni ends up in one place. Returns { headline }.
+// whole recursive tree for one muni ends up in one place. Returns { headline, sub, p1Error }.
 async function censusScope(scope, level, acc, nowSec, ctx) {
   const first = await safeFetch(scope, 1);
   const total = first.cards == null ? null : first.total;
-  if (first.cards == null) { ctx.errorPages++; log('WARN', `${scopeLabel(scope)} p1 status ${first.status} — scope skipped`); return { headline: 0, sub: [] }; }
+  if (first.cards == null) {
+    ctx.errorPages++;
+    noteScopeFailure(ctx, scope, level);
+    log('WARN', `${scopeLabel(scope)} p1 status ${first.status} — scope skipped`);
+    return { headline: 0, sub: [], p1Error: true };
+  }
   if (total != null && total <= THRESHOLD) {
     // Reuse the page-1 cards we already have, then continue walking.
     const forSale = first.cards.filter(c => !c.upcoming);
@@ -148,7 +172,15 @@ async function censusScope(scope, level, acc, nowSec, ctx) {
   }
   if (level === 1) {
     log('INFO', `${scopeLabel(scope)} total=${total} > ${THRESHOLD} → splitting by price band`);
-    for (const b of PRICE_BANDS) { const s = { ...scope, priceMin: b.min != null ? b.min : null, priceMax: b.max != null ? b.max : null }; const r = await safeFetch(s, 1); if (r.cards != null && r.total > 0) await censusScope(s, 2, acc, nowSec, ctx); }
+    for (const b of PRICE_BANDS) {
+      const s = { ...scope, priceMin: b.min != null ? b.min : null, priceMax: b.max != null ? b.max : null };
+      const r = await safeFetch(s, 1);
+      // A failed page 1 here skipped a price band of a big municipality without ever entering
+      // censusScope, so it has to be booked as a scope failure explicitly — otherwise this one
+      // path is the single place a coverage gap could still slip past the counters.
+      if (r.cards == null) { ctx.errorPages++; noteScopeFailure(ctx, s, 2); log('WARN', `${scopeLabel(s)} p1 status ${r.status} — price band skipped`); continue; }
+      if (r.total > 0) await censusScope(s, 2, acc, nowSec, ctx);
+    }
     return { headline: total, sub: PRICE_BANDS.length + ' price bands' };
   }
   // level 2: type+price still over clamp (rare) — walk anyway, warn about undercount.
@@ -160,14 +192,14 @@ async function censusScope(scope, level, acc, nowSec, ctx) {
 async function censusMuni(name, id, acc, nowSec, ctx) {
   const before = acc.distinct;
   const r = await censusScope({ locationId: id, name }, 0, acc, nowSec, ctx);
-  return { name, id, headline: r.headline, counted: acc.distinct - before };
+  return { name, id, headline: r.headline, counted: acc.distinct - before, p1Error: !!r.p1Error };
 }
 
 async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, priorTotal = null } = {}) {
   const t0 = Math.floor(Date.now() / 1000);
   resetOxylabsStats();
   const seen = new Set();
-  const ctx = { errorPages: 0, nonUpcoming: 0 };
+  const ctx = { errorPages: 0, nonUpcoming: 0, failedScopes: 0, failedMunis: [], failedSubScopes: [] };
   const names = Object.keys(locations);
   const accs = [], stats = [];
   let headlineSum = 0, i = 0;
@@ -185,11 +217,17 @@ async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, prio
   const oxCalls = ox.oxylabsCallCount + ox.directSuccessCount;
   const gates = [
     gateReconciliation({ headlineSum, distinct: nat.distinct, maxPct: 2 }),
+    // A skipped municipality subtracts itself from BOTH sides of gateReconciliation, so that
+    // gate cannot see it. gateCoverage is the only thing standing between a run missing a whole
+    // municipality and a status='ok' row posted to Slack as a validated figure.
+    gateCoverage({ failedMunis: ctx.failedMunis, totalMunis: names.length }),
     gateErrorPages({ errorPages: ctx.errorPages, oxCalls, maxPct: 2 }),
     gateTotalDrift({ nTotal: nat.distinct, priorTotal, maxPct: 25 }),
   ];
   const ev = evaluateGates(gates);
   const notes = [
+    ctx.failedMunis.length ? `munis skipped entirely (p1 never fetched): ${ctx.failedMunis.join(', ')}` : null,
+    ctx.failedSubScopes.length ? `${ctx.failedSubScopes.length} sub-scopes skipped: ${ctx.failedSubScopes.slice(0, 8).join(', ')}${ctx.failedSubScopes.length > 8 ? ', …' : ''}` : null,
     ctx.nonUpcoming ? `${ctx.nonUpcoming} upcoming cards filtered` : null,
     nat.anomalies ? `${nat.anomalies} publishedAt anomalies` : null,
     ev.passed ? null : `gates failed: ${ev.failures.join(', ')}`,
@@ -337,6 +375,36 @@ async function selftest() {
     assert.strictEqual(res.nTotal, 120 + BIG_TOTAL, 'sub-partition must recover the full count, not the 2,500 clamp');
     assert.ok(res.bucketsSecondhand != null);
     assert.strictEqual(res.newbuildSampled, false);
+  });
+
+  // --- a whole municipality that never fetches must be IMPOSSIBLE to hide -------------------
+  // The reconciliation gate cancels itself out here: a muni whose page 1 fails contributes 0
+  // to Σ headline AND 0 to the distinct union, so Δ stays ≈0% and reconciliation PASSES on a
+  // run that is missing a whole municipality (Stockholm alone ≈ 11.5% of the national pool).
+  // error_pages (1 bad page in ~1,200) and total_drift (−11.5%, under 25%) wave it through too.
+  // Only gateCoverage catches it — this test asserts exactly that, and asserts reconciliation
+  // still passes, so it fails loudly if anyone ever removes the coverage gate.
+  await check('a municipality whose page 1 never fetches trips the coverage gate and is named in notes', async () => {
+    const clean = fetchScope;
+    let brokenCalls = 0;
+    fetchScope = async (scope, p) => {
+      if ((scope.name || scope.locationId) === 'Broken') { brokenCalls++; return { status: 500, cards: null, total: undefined }; }
+      return clean(scope, p);
+    };
+    try {
+      const res = await run({ locations: { Small: 9001, Broken: 9003 }, nowSec: NOW_SEC, logger: () => {} });
+      assert.ok(brokenCalls > 0, 'the broken fetcher was never exercised — test setup is wrong');
+      const rec = res.gates.find(g => g.name === 'reconciliation');
+      const cov = res.gates.find(g => g.name === 'coverage');
+      assert.ok(rec, 'reconciliation gate must be present');
+      assert.strictEqual(rec.passed, true, 'reconciliation cancels itself out here — that is precisely why the coverage gate is needed');
+      assert.ok(cov, 'a coverage gate must be evaluated on every muni-partition run');
+      assert.strictEqual(cov.passed, false, 'a whole skipped municipality must fail the coverage gate');
+      assert.strictEqual(res.status, 'gate_failed', `a run missing a whole municipality must never be stored as ok (got ${res.status})`);
+      assert.ok(/Broken/.test(res.notes || ''), `the skipped municipality must be named in notes (got: ${res.notes})`);
+    } finally {
+      fetchScope = clean;
+    }
   });
 
   console.log(`\nselftest: ${pass} pass, ${fail} fail`);
