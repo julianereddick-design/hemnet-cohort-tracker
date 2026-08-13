@@ -212,6 +212,26 @@ async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, prio
     if (++i % 25 === 0) logger('INFO', `…${i}/${names.length} munis, distinct=${seen.size}`);
   }
 
+  // Retry municipalities whose page 1 errored — a whole-muni coverage gap, and this is the
+  // largest and longest-running of the four pools, so it is the most exposed to a transient
+  // blip (2026-07-20 cost a whole weekly datapoint that way). Mirrors the sibling pre-market
+  // census. The retry REUSES that municipality's existing accumulator and never replaces it:
+  // replacing it would discard anything the first attempt already collected, and the shared
+  // global `seen` Set makes those ids unrecoverable (the re-walk would dedupe them away).
+  // Global dedupe also makes the retry safe — nothing already folded in is counted twice.
+  // A retried muni is dropped from ctx.failedMunis first, so it counts toward the coverage
+  // gate only if it fails AGAIN; ctx.failedScopes keeps the cumulative attempt count.
+  const p1errs = stats.map((s, k) => ({ s, k })).filter(x => x.s.p1Error);
+  if (p1errs.length) {
+    logger('WARN', `retrying ${p1errs.length} munis whose p1 errored: ${p1errs.map(x => x.s.name).join(', ')}`);
+    for (const { s, k } of p1errs) {
+      ctx.failedMunis = ctx.failedMunis.filter(n => n !== s.name);
+      const st = await censusMuni(s.name, locations[s.name], accs[k], nowSec, ctx);
+      headlineSum += st.headline || 0;
+      stats[k] = st;
+    }
+  }
+
   const nat = mergeAccumulators(accs);
   const ox = getOxylabsStats();
   const oxCalls = ox.oxylabsCallCount + ox.directSuccessCount;
@@ -240,9 +260,13 @@ async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, prio
     newbuildSampled: false, newbuildSampleN: null,
     buckets: bucketsToObject(nat.buckets, nat.undated),
     bucketsSecondhand: secondhandToObject(nat.buckets, nat.newbuild, nat.undated),
+    // countedN reads the accumulator's own `distinct`, not the last censusMuni call's returned
+    // `counted` — a muni retried after a p1 error accumulates across TWO censusMuni calls, and
+    // `counted` is a delta measured from the accumulator's state at the START of that call, so
+    // the retry's value alone would under-report the muni's true listing count.
     muni: stats.map((s, k) => ({
       name: s.name, id: Number(s.id) || 0,
-      headlineN: s.headline || 0, countedN: s.counted,
+      headlineN: s.headline || 0, countedN: accs[k].distinct,
       buckets: bucketsToObject(accs[k].buckets, accs[k].undated),
       bucketsSecondhand: secondhandToObject(accs[k].buckets, accs[k].newbuild, accs[k].undated),
     })),
@@ -402,6 +426,35 @@ async function selftest() {
       assert.strictEqual(cov.passed, false, 'a whole skipped municipality must fail the coverage gate');
       assert.strictEqual(res.status, 'gate_failed', `a run missing a whole municipality must never be stored as ok (got ${res.status})`);
       assert.ok(/Broken/.test(res.notes || ''), `the skipped municipality must be named in notes (got: ${res.notes})`);
+    } finally {
+      fetchScope = clean;
+    }
+  });
+
+  // --- a TRANSIENT page-1 failure is retried, and the muni is fully recovered ---------------
+  // A level-0 p1 failure abandons the whole municipality, so without a retry pass one blip on
+  // the longest-running pool of the four permanently loses a municipality (and now, correctly,
+  // fails the whole run's coverage gate). The retry must recover it and clear the gate.
+  await check('a municipality whose page 1 fails once is retried and fully recovered', async () => {
+    const clean = fetchScope;
+    let flakyP1Calls = 0;
+    addListings('Flaky', 'bostadsratt', 2000000, 80, 2);
+    fetchScope = async (scope, p) => {
+      if ((scope.name || scope.locationId) === 'Flaky' && p === 1) {
+        flakyP1Calls++;
+        if (flakyP1Calls === 1) return { status: 500, cards: null, total: undefined };   // fails only the FIRST time
+      }
+      return clean(scope, p);
+    };
+    try {
+      const res = await run({ locations: { Flaky: 9004 }, nowSec: NOW_SEC, logger: () => {} });
+      assert.strictEqual(flakyP1Calls, 2, `expected exactly 2 calls to Flaky's p1 (fail then retry), got ${flakyP1Calls}`);
+      assert.strictEqual(res.nTotal, 80, `the retry must recover all 80 listings, got ${res.nTotal}`);
+      assert.strictEqual(res.muni[0].countedN, 80, `the muni row must report the true count, got ${res.muni[0].countedN}`);
+      assert.strictEqual(res.muni[0].headlineN, 80, 'the retry must also recover the headline total');
+      const cov = res.gates.find(g => g.name === 'coverage');
+      assert.strictEqual(cov.passed, true, `a muni recovered by the retry must NOT count as skipped: ${cov.detail}`);
+      assert.strictEqual(res.status, 'ok', `a fully recovered run must not be gate_failed (notes: ${res.notes})`);
     } finally {
       fetchScope = clean;
     }
