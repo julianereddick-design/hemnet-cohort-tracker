@@ -965,10 +965,13 @@ The existing selftest asserts against the module globals. Rewrite its tail (keep
   assert.ok(res.bucketsSecondhand != null, 'muni-partition must produce an exact 2nd-hand histogram');
   assert.strictEqual(res.newbuildSampled, false);
   assert.ok(res.gates.some(g => g.name === 'reconciliation'));
-  assert.ok(!seenGlobal.has('INJECT'), 'injected non-upcoming card must not be counted');
+  // The injected non-upcoming card must never be counted: nTotal already equals the
+  // synthetic store's size, which excludes it. Assert the filter counter too.
+  assert.strictEqual(res.nTotal, Object.keys(store).length, 'injected non-upcoming card must not be counted');
+  assert.ok(/1 non-upcoming/.test(res.notes || ''), 'the filtered card must be reported in notes');
 ```
 
-`BAND_KEYS` must be imported at the top of the file; `seenGlobal` is the shared Set `run()` exposes on its result as `res._seen` for the test (add that field, documented as test-only).
+`BAND_KEYS` must be imported at the top of the file. Do NOT expose the internal `seen` Set on the result object — the assertions above cover global dedupe through the public result.
 
 - [ ] **Step 2: Run it to verify it fails**
 
@@ -1067,7 +1070,6 @@ async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, prio
     })),
     oxCalls, errorPages: ctx.errorPages, runtimeS: Math.floor(Date.now() / 1000) - t0,
     gates, status: ev.passed ? 'ok' : 'gate_failed', notes,
-    _seen: seen,   // test-only: lets --selftest assert on global dedupe
   };
 }
 ```
@@ -1197,7 +1199,6 @@ async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, prio
     })),
     oxCalls, errorPages: ctx.errorPages, runtimeS: Math.floor(Date.now() / 1000) - t0,
     gates, status: ev.passed ? 'ok' : 'gate_failed', notes,
-    _seen: seen,
   };
 }
 ```
