@@ -11,6 +11,7 @@
 require('dotenv').config();
 const https = require('https');
 const { createClient } = require('./db');
+const { ladderRows } = require('./lib/premarket-quality');
 
 // VERBATIM from market-totals-weekly-report.js:13-34 (reporting-consumer Slack sender).
 async function sendSlack(webhookUrl, message) {
@@ -115,6 +116,58 @@ function wowAdds(label, prior, curr) {
   return `${label}: ${fmtNumber(prior)} → ${fmtNumber(curr)} (${sign}${fmtNumber(Math.abs(abs))}, ${sign}${Math.abs(pct).toFixed(1)}%)`;
 }
 
+// The quality ladder: Booli's weekly cohort by tier, with Hemnet's single total
+// expressed against each cumulative rung. The first row carrying a number is the
+// parity point — the sub-segment where the two platforms actually compete.
+function qualityBlock({ quality, hemnetAdds, flowWindowDays }) {
+  if (!quality) {
+    return ['', 'Pre-market quality — measurement did not land this week (see cron_job_log).'];
+  }
+
+  // Only compare like with like. A window mismatch makes the numerators incomparable.
+  const comparable = hemnetAdds != null && flowWindowDays === quality.window_days;
+  const counts = {
+    n_total: Number(quality.n_total),
+    high: Number(quality.n_high), mid_high: Number(quality.n_mid_high),
+    mid_sell: Number(quality.n_mid_sell), mid_fish: Number(quality.n_mid_fish),
+    other: Number(quality.n_other), low: Number(quality.n_low),
+  };
+  const rows = ladderRows(counts, comparable ? hemnetAdds : null);
+
+  const out = [
+    '',
+    `Pre-market quality — Booli cohort of ${fmtNumber(counts.n_total)}`,
+    '',
+    `${rpad('Booli tier (best first)', 38)}${lpad('this wk', 9)}${lpad('cum n', 8)}${lpad('cum %', 7)}${lpad('Hemnet', 9)}`,
+  ];
+  for (const r of rows) {
+    out.push(
+      rpad('  ' + r.label, 38) +
+      lpad(fmtNumber(r.n), 9) +
+      lpad(fmtNumber(r.cumN), 8) +
+      lpad(r.cumPct + '%', 7) +
+      lpad(r.hemnetPct == null ? '—' : r.hemnetPct + '%', 9)
+    );
+  }
+
+  if (!comparable) {
+    out.push('');
+    out.push(hemnetAdds == null || flowWindowDays == null
+      ? 'Hemnet total unavailable this week — ladder shown without the comparison column.'
+      : `Not comparable: quality window ${quality.window_days}d vs flow window ${flowWindowDays}d.`);
+  }
+
+  out.push('');
+  out.push(`Signals: interior ${Math.round(quality.pct_interior)}% · asking price ${Math.round(quality.pct_price)}%` +
+    ` · viewing ${Math.round(quality.pct_viewing)}%`);
+  out.push(`         Booli AVM shown where a price would be: ${Math.round(quality.pct_avm_shown)}%`);
+
+  if (Number(quality.n_resolved) < Number(quality.n_ambiguous)) {
+    out.push(`         Based on ${fmtNumber(quality.n_resolved)} of ${fmtNumber(quality.n_ambiguous)} ambiguous listings opened.`);
+  }
+  return out;
+}
+
 async function run() {
   const today = process.env.REPORT_DATE || new Date().toISOString().slice(0, 10);
   console.log(`=== Pre-market flow pulse — ${today} ===\n`);
@@ -126,7 +179,8 @@ async function run() {
     await client.connect();
     const res = await client.query(`
       SELECT platform, to_char(snapshot_date, 'YYYY-MM-DD') AS day,
-             stock_secondhand_est, adds_window_secondhand, mean_dwell_days, flow_per_day
+             stock_secondhand_est, adds_window_secondhand, mean_dwell_days, flow_per_day,
+             window_days
       FROM premarket_flow_weekly
       WHERE snapshot_date IN ($1::date, $1::date - INTERVAL '7 days')
       ORDER BY platform, snapshot_date
@@ -165,6 +219,7 @@ async function run() {
         stock: r.stock_secondhand_est == null ? null : Number(r.stock_secondhand_est),
         adds:  r.adds_window_secondhand == null ? null : Number(r.adds_window_secondhand),
         dwell: r.mean_dwell_days == null ? null : Number(r.mean_dwell_days),
+        windowDays: r.window_days == null ? null : Number(r.window_days),
       };
     }
   }
@@ -202,6 +257,28 @@ async function run() {
     `Hemnet/Booli adds — trend (last ${historyRows.length} snapshot${historyRows.length === 1 ? '' : 's'}):`,
     ...formatShareHistory(historyRows),
   ];
+
+  // Quality ladder — read the week's row and join Hemnet's adds from the flow table.
+  let qRow = null;
+  const qClient = createClient();
+  try {
+    await qClient.connect();
+    const q = await qClient.query(
+      `SELECT * FROM premarket_quality_weekly WHERE snapshot_date = $1::date`, [today]);
+    qRow = q.rows[0] || null;
+  } catch (err) {
+    console.error(`Quality block unavailable: ${err.message}`);
+  } finally {
+    try { await qClient.end(); } catch (_) { /* best effort */ }
+  }
+  bodyLines.push(...qualityBlock({
+    quality: qRow,
+    hemnetAdds: hc && hc.adds != null ? hc.adds : null,
+    // Hemnet's OWN measurement window — the thing that must match the quality
+    // window for the two numerators to be comparable. Never hardcode this.
+    flowWindowDays: hc && hc.windowDays != null ? hc.windowDays : null,
+  }));
+
   const message = '```\n' + bodyLines.join('\n') + '\n```';
 
   console.log(message);
@@ -222,8 +299,76 @@ async function run() {
 // Pure helpers exported for offline tests (scripts/test-premarket-report-share.js).
 // The run() entrypoint is guarded so a `require` of this module NEVER connects to the DB
 // or posts to Slack — importing it used to fire the whole report as a side effect.
-module.exports = { addsShare, formatShareRow, formatShareHistory, ratio, metricRow, wowAdds };
+// qualityBlock joins that set: it is pure (no I/O) and the --smoke cases drive it directly.
+module.exports = { addsShare, formatShareRow, formatShareHistory, ratio, metricRow, wowAdds, qualityBlock };
 
-if (require.main === module) {
+// Entry gate: --smoke runs the offline self-test; otherwise the report runs.
+if (require.main === module && process.argv.includes('--smoke')) {
+  smoke();
+} else if (require.main === module) {
   run().catch(err => { console.error(err); process.exit(1); });
+}
+
+// --smoke self-test — fully offline (no DB, no network, no Slack post).
+function smoke() {
+  let failed = 0;
+  const check = (name, fn) => {
+    try { fn(); console.log(`  PASS  ${name}`); }
+    catch (e) { failed++; console.log(`  FAIL  ${name}: ${e.message}`); }
+  };
+  const assert = (c, m) => { if (!c) throw new Error(m || 'assertion failed'); };
+
+  console.log('=== premarket-flow-weekly-report --smoke ===');
+
+  const quality = {
+    window_days: 7, n_total: 2264,
+    n_high: 340, n_mid_high: 106, n_mid_sell: 758, n_mid_fish: 767, n_other: 145, n_low: 148,
+    pct_interior: 87.1, pct_price: 54.3, pct_avm_shown: 39.7, pct_viewing: 21.1,
+    n_ambiguous: 537, n_resolved: 537,
+  };
+
+  check('renders one row per ladder rung plus header and signals', () => {
+    const out = qualityBlock({ quality, hemnetAdds: 1150, flowWindowDays: 7 });
+    assert(out.some(l => /High — interior \+ price \+ viewing/.test(l)), 'missing High row');
+    assert(out.some(l => /Low — marketing filler/.test(l)), 'missing Low row');
+    assert(out.some(l => /interior 87%/.test(l)), 'missing signals line');
+  });
+  check('percentages render to 0 decimal places', () => {
+    const out = qualityBlock({ quality, hemnetAdds: 1150, flowWindowDays: 7 }).join('\n');
+    assert(!/\d\.\d%/.test(out), `found a decimal percentage in:\n${out}`);
+  });
+  check('Hemnet cell blank above 100%, present at parity', () => {
+    const out = qualityBlock({ quality, hemnetAdds: 1150, flowWindowDays: 7 });
+    const high = out.find(l => /High — interior/.test(l));
+    const midSell = out.find(l => /Mid — interior \+ price/.test(l));
+    assert(/—\s*$/.test(high), `High row should end with an em dash: "${high}"`);
+    assert(/96%\s*$/.test(midSell), `Mid row should end with 96%: "${midSell}"`);
+  });
+  check('missing quality row degrades to one line', () => {
+    const out = qualityBlock({ quality: null, hemnetAdds: 1150, flowWindowDays: 7 });
+    assert(out.length === 2, `expected a blank line plus one message, got ${out.length}`);
+    assert(/did not land/i.test(out.join(' ')), 'should say the measurement did not land');
+  });
+  check('missing Hemnet total renders the ladder without the Hemnet column', () => {
+    const out = qualityBlock({ quality, hemnetAdds: null, flowWindowDays: 7 }).join('\n');
+    assert(/High — interior/.test(out), 'ladder should still render');
+    assert(/Hemnet total unavailable/i.test(out), 'should explain the missing column');
+  });
+  check('missing flow window degrades like a missing total', () => {
+    const out = qualityBlock({ quality, hemnetAdds: 1150, flowWindowDays: null }).join('\n');
+    assert(/Hemnet total unavailable/i.test(out), 'null window must not render "flow window nulld"');
+    assert(!/nulld/.test(out), 'must never print a null window length');
+  });
+  check('mismatched windows refuse the Hemnet column', () => {
+    const out = qualityBlock({ quality, hemnetAdds: 1150, flowWindowDays: 14 }).join('\n');
+    assert(/not comparable/i.test(out), 'should state the two measurements are not comparable');
+    assert(!/96%/.test(out), 'must not render a Hemnet ratio across mismatched windows');
+  });
+  check('partial resolution is disclosed', () => {
+    const out = qualityBlock({ quality: { ...quality, n_resolved: 500 }, hemnetAdds: 1150, flowWindowDays: 7 }).join('\n');
+    assert(/500 of 537/.test(out), 'should disclose the resolution shortfall');
+  });
+
+  console.log(failed === 0 ? '\nALL PASS' : `\n${failed} FAILED`);
+  process.exit(failed === 0 ? 0 : 1);
 }
