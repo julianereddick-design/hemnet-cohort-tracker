@@ -162,6 +162,15 @@ function renderReport(runDate, rows, priorRows) {
   }
 
   L.push('```');
+  // Operator visibility. ox_calls and error_pages are persisted per pool but were never
+  // surfaced, so nothing in Slack distinguished a run that made 400 calls from one that made
+  // the expected ~1,208 — a half-scraped pool that still cleared its gates looked identical to
+  // a complete one. One compact line, summed across whatever pools are present.
+  if (rows.length) {
+    const calls = rows.reduce((a, r) => a + (Number(r.ox_calls) || 0), 0);
+    const errs = rows.reduce((a, r) => a + (Number(r.error_pages) || 0), 0);
+    L.push(`Run: ${calls.toLocaleString('en-US')} proxy calls, ${errs.toLocaleString('en-US')} error page${errs === 1 ? '' : 's'} across ${rows.length} pool${rows.length === 1 ? '' : 's'}.`);
+  }
   L.push('n = the headline universe the shares are computed over (dated bands only), NOT the whole pool — full pool totals are in the run artifact JSON.');
   L.push('Hemnet headline = 2nd-hand only; Booli = all listings (binary-search cannot exclude new-builds per band).');
   L.push('⚠ Hemnet age = days since last ad-package purchase (publishedAt refreshes on renewal), so the Hemnet >24mo tail is not a real clock — read the fresh end, not the tail.');
@@ -175,7 +184,8 @@ async function main() {
   try {
     await client.connect();
     // method is fetched by neither renderReport nor the smoke fixtures — dropped as dead.
-    const q = `SELECT platform, pool, n_total, buckets, buckets_secondhand, status, notes
+    const q = `SELECT platform, pool, n_total, buckets, buckets_secondhand, status, notes,
+                      ox_calls, error_pages
                  FROM age_census_run WHERE run_date = $1::date`;
     rows = (await client.query(q, [runDate])).rows;
     // status = 'ok' excludes gate-failed rows from ever anchoring a delta. DISTINCT ON still
@@ -337,6 +347,20 @@ function smoke() {
     assert.ok(/Δ/.test(out), 'must anchor on the older ok row rather than skip the delta entirely');
     assert.ok(/2026-07-01/.test(out), 'the baseline date must be visible so a reader knows what is being compared');
     assert.ok(!/2026-08-01/.test(out), 'must not reference the excluded gate-failed prior date');
+  });
+
+  check('the footer surfaces total proxy calls and error pages so a short run is visible', () => {
+    const out = renderReport('2026-09-01', [
+      row('booli', 'premarket', 33742, 8155, 7280, 4809, { ox_calls: 60, error_pages: 0 }),
+      row('hemnet', 'forsale', 43338, 20889, 11224, 2600, { ox_calls: 1208, error_pages: 3 }),
+    ], []);
+    assert.ok(/1,268 proxy calls/.test(out), `calls must be summed across the pools present: ${out}`);
+    assert.ok(/3 error pages/.test(out));
+    assert.ok(/across 2 pools/.test(out), 'the pool count is what makes a short run legible');
+    // missing/null counters must not render NaN
+    const partial = renderReport('2026-09-01', [row('booli', 'premarket', 33742, 8155, 7280, 4809)], []);
+    assert.ok(!/NaN/.test(partial), 'absent counters must degrade to 0, never NaN');
+    assert.ok(/0 proxy calls/.test(partial));
   });
 
   check('validateArgv accepts --smoke and --dry-run and no args; rejects anything else', () => {
