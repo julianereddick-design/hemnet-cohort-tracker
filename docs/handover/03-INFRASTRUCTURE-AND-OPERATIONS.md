@@ -1,0 +1,319 @@
+# 03 — Infrastructure & Operations
+
+Operator handover for **`hemnet-cohort-tracker`** — a Node.js pipeline that tracks
+Hemnet-vs-Booli listing views, market supply, pre-market flow, and Booli→Hemnet
+sold-match rates for the Swedish residential real-estate market. This document covers the
+**base infrastructure and day-to-day operations**: hosting, database, secrets, the Oxylabs
+proxy, deploy, cron, monitoring, and disk/retention.
+
+Primary source files: `deploy-instructions.md` (the canonical ops runbook — read it in
+full), `db.js`, `cron-wrapper.js`, `cron-health-slack.js`, `cron-setup.js`,
+`lib/scrape-http.js`, `.env.example`, the `migrate-*.js` scripts, and the droplet docs under
+`docs/`.
+
+---
+
+## 1. Runtime & Hosting
+
+The project touches **three DigitalOcean droplets**. Only the first runs *this* repo's cron
+jobs. Do not confuse them.
+
+| Droplet | IP | Role for this project | Notes |
+|---|---|---|---|
+| **cohort-tracker** (the "Hemnet box") | `170.64.197.241` | **Runs this repo.** All cron jobs in this document fire here from `/opt/hemnet-cohort-tracker`. | Ubuntu, login `root`. Git clone deployed at `/opt/hemnet-cohort-tracker`. SSH config alias `cohort-droplet` (Claude may SSH as of 2026-06-11). |
+| **price-scraper droplet** | `170.64.181.89` (region `syd1`, DO id `357087018`) | **Separate, team-owned box.** Does the actual Hemnet + Booli *listing* scraping into the shared DB. This repo *consumes* its output tables (`hemnet_listingv2`, `booli_listing`), it does not run here. | Repo `github.com/tt7676/hem-bol-scrapers`, app at `/var/www/apps/hemnet` (Django + Celery + Docker). Was `s-8vcpu-16gb` (~$100/mo), **right-sized to `s-1vcpu-2gb` (~$12/mo)** in v4.0 Phase 25. See `docs/price-scraper-droplet-audit.md`, `-runbook.md`, `-remediation.md`. |
+| **monitor-prod-syd1** | `209.38.93.133` | **NONE.** Separate fintech watchlist monitor. **Does NOT do any Hemnet scraping** (verified 2026-06-29). | Listed only to prevent mis-identification. |
+
+### The cohort-tracker box (this repo)
+
+- **Code location:** `/opt/hemnet-cohort-tracker/` (git clone; `cd … && git pull` to deploy).
+- **Job execution:** Linux **cron** (per-user crontab, `root`). Every scheduled script is
+  wrapped by `cron-wrapper.js` → `runJob` (invoked at module load — see §5/§6). No process
+  manager; jobs are short-lived cron invocations.
+- **Long-running service:** `view-data-server.js` runs as a **systemd** unit
+  (`view-data-server.service`, `Restart=always`) on **port 3800**, serving the weekly view
+  report / static view data. Installed by `setup-droplet.sh`. `EnvironmentFile=/opt/hemnet-cohort-tracker/.env`.
+- **Log dir:** `/var/log/hemnet/<job>.log` (one file per job; stdout+stderr). Create with
+  `mkdir -p /var/log/hemnet` before first deploy. Rotate with logrotate if they grow.
+- **SSH gotcha (applies to the price-scraper box; good practice everywhere):** always pass
+  `-o IdentitiesOnly=yes -o IdentityAgent=none -i <key>` or the agent offers wrong keys and
+  you get a false `Permission denied (publickey)`.
+
+### Access to the price-scraper box (reference only)
+
+`ssh -o IdentitiesOnly=yes -o IdentityAgent=none -i ~/.ssh/droplet_ed25519 root@170.64.181.89`.
+Operator key `~/.ssh/droplet_ed25519` (comment `julian-droplet`, DO key id `55446611`). Full
+runbook: `docs/price-scraper-droplet-runbook.md`. That box also hosts **Metabase** on `:3000`
+(backed by the same managed Postgres). NOTE: it had a Kinsing/kdevtmpfsi cryptomining
+infection that was **remediated** in v4.0 Phase 24 (`docs/price-scraper-droplet-remediation.md`).
+
+---
+
+## 2. Database — DigitalOcean Managed Postgres
+
+- **Engine:** DigitalOcean **managed Postgres**, host
+  `db-postgresql-syd1-79303-….ondigitalocean.com`, port **`25060`**, database **`defaultdb`**,
+  user **`doadmin`**, **SSL required**.
+- **Shared `defaultdb`:** the **same `defaultdb`** holds *both* the price-scraper's source
+  tables (`hemnet_listingv2` ~207k rows, `booli_listing` ~234k rows, plus large 0-row
+  `simple_history` bloat tables ~49 GB) *and* this repo's cohort / sold-match / market tables.
+  `defaultdb` was ~55 GB at last audit. Treat cross-repo tables with care.
+
+### Connection code (`db.js`)
+
+`db.js` exports a single `createClient()` returning a `pg.Client` built from **discrete env
+vars** (not a URL):
+
+```
+DB_HOST, DB_PORT, DB_USER (doadmin), DB_PASSWORD, DB_NAME (defaultdb)
+ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 10000
+```
+
+> ⚠ **Doc-vs-code discrepancy to know:** `deploy-instructions.md` §"Environment variables"
+> lists `DATABASE_URL` as required, but the actual code path (`db.js`, used by every
+> cron-wrapped job) reads the **discrete `DB_*` vars** shown in `.env.example`. The droplet
+> `.env` must define the `DB_*` set for the pipeline to connect. `DATABASE_URL` is the form
+> used by the *price-scraper* Django app on the other box.
+
+### Querying prod (no psql on the droplet)
+
+The droplet has **no `psql` client**. Query prod via a **committed Node script** using
+`db.js`'s `createClient()` — never inline `node -e` ad hoc for anything durable. Canonical
+helpers:
+
+- `node scripts/verify-cron-job-log.js` — last 5 `cron_job_log` rows per script (health triage).
+- Inline `node -e` pattern with `require('./db').createClient()` is used in
+  `deploy-instructions.md` for one-off diagnosis (e.g. reading a `cron_job_log` row, restoring
+  a soft-removed pair) — see that file's Runbook §Diagnose.
+- Local connections may need **DB IP whitelisting** via `doctl`; the default `doctl` token
+  authenticates for **reads only** (DO writes such as firewall/resize need an operator
+  write-scoped token).
+
+### Main tables (from `migrate-*.js` + `*-setup.js`)
+
+| Table | Created by | Holds |
+|---|---|---|
+| `cohorts` | `cohort-setup.js` | One row per weekly cohort (`cohort_id` e.g. `2026-W10`, week_start/end). |
+| `cohort_pairs` | `cohort-setup.js` | Matched Booli+Hemnet listing pairs per cohort (ids, address, county, day-0 views, drop dates). Phase 13.1 added soft-delete cols `removed_at/removed_reason/removed_by` (`migrate-cohort-pairs-soft-delete.js`). |
+| `cohort_daily_views` | `cohort-setup.js` | One row per pair per date: `booli_views`, `hemnet_views` (the core time series, ~408k rows). |
+| `cohort_unmatched` | `cohort-setup.js` | Booli listings that did not match a Hemnet listing in a cohort. |
+| `cron_job_log` | `cron-setup.js` | One row per cron-wrapped run: `script_name`, timing, `status` (running/success/warning/failure/killed), `error_message`, `result_summary` JSONB. The observability backbone. |
+| `market_totals` | `market-totals-daily.js` | Daily site headline totals: 4 rows/day (`{hemnet,booli}` × `{till_salu, kommande}`). |
+| `premarket_flow_weekly` | `migrate-premarket-flow.js` / `scripts/premarket-flow-measure.js` | Weekly pre-market flow & staleness (2 rows/week, Hemnet vs Booli). |
+| `booli_sold` | `migrate-sold-phase16.js` | One row per Booli `/slutpriser` sold record (UNIQUE `booli_id`); price, date, geo, type. |
+| `hemnet_sold` | `migrate-sold-phase16.js` | One row per Hemnet `/salda` sold record (UNIQUE `hemnet_slug`). |
+| `sold_match` | `migrate-sold-phase16.js` (populated Phase 17+) | Verdict table: Booli-sold ↔ Hemnet-sold match outcome (matched / booli_only / uncertain), window bounds. Phase 18 re-check cols via `migrate-sold-recheck-phase18.js`; single-candidate backfill `migrate-sold-backfill-single-candidate.js`; segment canonicalize `migrate-sold-canonicalize-segments.js`. |
+| `sold_spend` | `migrate-sold-phase16.js` | Atomic Oxylabs spend counter backing the DB-backed per-run ceiling. |
+| `spotcheck_review`, `spotcheck_removed_pairs` | `migrate-spotcheck-phase13.js` | Spot-check QA review queue + audit of removed pairs. |
+| `sfpl_region_daily` | ~~`sfpl-region-snapshot.js`~~ | FROZEN 2026-08-13 — writer retired, table retained (2026-03-06 → 2026-08-12). |
+
+**Migrations are manual and idempotent** (`IF NOT EXISTS` DDL): run
+`node <migrate-file>.js` on the droplet after a `git pull` that introduces one. There is no
+migration framework/ordering — each is a standalone script.
+
+---
+
+## 3. Credentials & Secrets
+
+All secrets live in **`/opt/hemnet-cohort-tracker/.env`** on the droplet (git-ignored — see
+`.gitignore`; set manually on the box). Loaded via `require('dotenv').config()` at the top of
+every entry script. **Never commit `.env`; never print secret values.** `.env.example` is the
+committed template (variable names only).
+
+| Variable | Purpose | Notes |
+|---|---|---|
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Managed Postgres connection (`db.js`). | `DB_SSL=require` also present in the example. Port 25060, user `doadmin`, db `defaultdb`. |
+| `OXYLABS_USERNAME`, `OXYLABS_PASSWORD` | Oxylabs Web Scraper API auth (`lib/scrape-http.js`). | Required for all scrape jobs. |
+| `SLACK_WEBHOOK_URL` | cron-wrapper warning/failure alerts + weekly report posts. | Without it, runs are **silent** on failure. Phase 9+ requires it. |
+| `SLACK_BOT_TOKEN` (`xoxb-…`) | Spot-check review-queue posting + reading reactions (`chat:write`, `reactions:read`). | **Separate** from the webhook. Used only by `cohort-spotcheck-gate.js` + `spotcheck-reaction-poller.js`. Setup: `SLACK-REVIEW-SETUP.md`. |
+| `SLACK_REVIEW_CHANNEL` (`C0…`) | Channel id (not name) for the review queue; bot must be invited. | |
+| `SLACK_ALLOWED_REACTORS` (`U0…`) | Comma-sep Slack user id(s) allowed to confirm removals via emoji. | **Set before trusting auto-removal** — absent → poller accepts ALL reactors (first-run fallback only). |
+| `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Optional Mode-B Claude vision adjudicator in spot-check. | Absent → deterministic Mode A. |
+| `MAX_OXY_CALLS`, `SOLD_MATCH_BRIDGE`, `RECHECK_BRIDGE_FINAL_ONLY`, `SOLD_BATCH_FETCH_FAIL_THRESHOLD`, `SOLD_BATCH_CONC` | Sold-match batch tuning/cost levers. | Set `MAX_OXY_CALLS=8000` in `.env` (the `lib/sold-transport.js` default of 4000 is too low for a full fortnight). Details in `deploy-instructions.md` Phase 19 section. |
+| `DHASH_THRESHOLD` | Spot-check dHash auto-confirm distance (default 6). | Do not raise without reviewing the minDist distribution. |
+| `VIEW_SERVER_HOST`, `VIEW_SERVER_PORT` (3800) | Written by `setup-droplet.sh` for the view-data systemd service. | |
+
+**Known dead-credential issue:** the **price-scraper droplet's own Oxylabs API creds are DEAD
+(401)** as of Phase 23 — prod on that box won't scrape until the team refreshes them (verified
+off-box that the code works on Decade's creds). This is on the *other* droplet's `.env`
+(`/var/www/apps/hemnet/.env`), not this repo's. Track before relying on that box's fetch path.
+
+---
+
+## 4. Oxylabs (proxy / scraping transport)
+
+- **How calls are made:** `lib/scrape-http.js` is the shared HTTP transport. It first tries a
+  **direct `curl --http1.1 --compressed` shellout** (Cloudflare bypass), then transparently
+  **falls back to the Oxylabs Web Scraper API** on 403/429/5xx. Endpoint:
+  **`https://realtime.oxylabs.io/v1/queries`** (`OXYLABS_ENDPOINT`), 90 s timeout, 1 internal
+  retry. Active plan: **Advanced ($249/mo)**, `source=universal`, `render=none`,
+  `premium=false`.
+- **Force-Oxylabs flag:** `SCRAPE_FORCE_OXYLABS=1` (alias `HEMNET_FORCE_OXYLABS=1`) skips the
+  direct path entirely — required on the droplet because its datacenter IP now gets a
+  Cloudflare 403 on direct Hemnet/Booli. Several cron lines set it inline. Sold-match batch
+  forces it too.
+- **Reality:** **Hemnet is now ~100% Oxylabs** (direct-curl stopped working 2026-05→2026-05-21)
+  and **Booli view data is 100% Oxylabs steady-state** (a "100% fallback" warning on Job D is
+  *expected noise*, not a fault). Oxylabs spend roughly doubled as a result.
+- **Per-run counters:** `getOxylabsStats()` exposes `oxylabsCallCount / oxylabsFailureCount /
+  directSuccessCount / oxylabsFallbackRate` (module-level singleton, combined across Hemnet +
+  Booli); these land in `cron_job_log.result_summary`. Sold-match uses a **DB-backed atomic
+  ceiling** (`sold_spend` table + `MAX_OXY_CALLS`).
+
+### Account usage & cap (the real budget risk)
+
+- **Account-wide usage API:** read via `https://data.oxylabs.io/v1/stats` (HTTP-basic with the
+  Oxylabs account creds). Use it to check month-to-date consumption.
+- **Monthly cap:** **262k non-JS requests/mo** (199.2k JS). Utilization was **~86%** (June
+  ~225k). **County expansion is the main breach risk** — budget any new geographies against
+  this cap before enabling. Do **not** launch paid Oxylabs runs without explicit per-run
+  go-ahead (offline smokes + existing CSVs are free).
+
+---
+
+## 5. Deploy Process
+
+**Canonical procedure is `deploy-instructions.md` (read fully).** Summary:
+
+1. Commit & push to **`master`** on GitHub.
+2. On the droplet: `cd /opt/hemnet-cohort-tracker && git pull`.
+3. Cron jobs pick up new code on their next run — **no process restart needed** (except the
+   `view-data-server` systemd unit, which would need `systemctl restart view-data-server`).
+4. If a `git pull` introduced a migration, run it manually: `node <migrate-file>.js`.
+
+**Invocation contract (critical):** every cron-scheduled script calls
+`require('./cron-wrapper').runJob` **at module load**. The crontab must invoke each script
+**directly** (`node cohort-track.js`), **NOT** `node cron-wrapper.js cohort-track.js` (which
+is a no-op require — `cron-wrapper.js` exports only `runJob`, no CLI entry).
+
+**Updating cron safely:**
+```bash
+crontab -l > /tmp/crontab-backup-$(date +%s).txt   # ALWAYS back up live state first
+crontab -e                                          # edit
+crontab -l                                          # verify
+```
+Note `crontab -e` is interactive — not usable from a non-interactive Claude/CI shell; do it in
+a real SSH/tmux session.
+
+**Deploy-drift risk (recurring, track it):** local ≠ origin ≠ droplet has bitten this project
+repeatedly. History: cohort-tracker was once **42 commits behind** prod (local≠prod drift);
+branch reconciliation for age-census / forsale-age is **outstanding** (unpushed branches,
+duplicate commit `70ba1c5` vs `ce4dbca` needs rebase-not-merge). Before deploying, confirm
+`git log origin/master` matches what the droplet has (`git -C /opt/hemnet-cohort-tracker rev-parse HEAD`).
+
+**cron-wrapper.js** (the wrapper every job runs through) provides: DB connect with
+exponential-backoff retry (3 attempts), inserts a `running` row in `cron_job_log`, sets
+`statement_timeout=120000`, runs `main()`, runs optional `validate()` (→ status `warning`),
+catches errors (→ `failure`), writes the final row, and posts a Slack alert on
+warning/failure. It installs `uncaughtException` / `unhandledRejection` / SIGHUP/SIGTERM/SIGINT
+handlers that flip the row to `failure`/`killed` via a fresh recovery client. **Caveat:** a
+naked interactive console disconnect can still orphan a `running` row — always re-run long jobs
+in **tmux** or via **nohup + disown** (see `deploy-instructions.md` §Re-run).
+
+**cron-health.js** (`npm run health`) is the local/CLI health checker; **cron-health-slack.js**
+is the deployed daily monitor (see §7).
+
+---
+
+## 6. Cron Schedule (all times UTC)
+
+Full annotated crontab is in `deploy-instructions.md`. Enumerated:
+
+**Weekly cohort pipeline (Sun→Mon fan-out):**
+| Time | Job | Script |
+|---|---|---|
+| Sun 22:00 | Booli fetch cohort (Job C) | `booli-targeted-discovery.js` |
+| Mon 03:00 | Hemnet match cohort (Job B) | `hemnet-targeted-match.js` |
+| Mon 06:00 | Cohort create | `cohort-create.js` |
+| Mon 06:30 | Spot-check QA gate | `cohort-spotcheck-gate.js` |
+| Mon 07:30 | Sold-match batch (**fortnightly effect** — no-ops on odd ISO weeks) | `sold-match-batch.js` |
+| Mon 08:50 | Pre-market flow measure (`SCRAPE_FORCE_OXYLABS=1`) | `scripts/premarket-flow-measure.js` |
+| Mon 09:00 | Weekly view report | `weekly-view-report.js` |
+| Mon 09:35 | Market-supply weekly pulse | `market-totals-weekly-report.js` |
+| Mon 09:40 | Pre-market flow weekly report | `premarket-flow-weekly-report.js` |
+| Mon 11:00 | Sold-match Slack report | `sold-match-report.js` |
+| Mon 11:05 | Sold-match trend chart | `sold-match-trend-chart.js` |
+| Mon 11:10 | Sold-match audit xlsx | `sold-match-xlsx.js` |
+
+**Every-2-days view-refresh cycle (odd days of month):**
+| Time | Job | Script |
+|---|---|---|
+| 14:00 (odd days) | Booli view data (Job D) — parallel | `booli-targeted-refresh.js` |
+| 14:00 (odd days) | Hemnet view data (Job A) — parallel | `hemnet-targeted-refresh.js` |
+| 22:00 (odd days) | Cohort track | `cohort-track.js` |
+
+**Daily:**
+| Time | Job | Script |
+|---|---|---|
+| 03:00 daily | Cron health monitor (→ Slack) | `cron-health-slack.js` |
+| 08:30 daily | Market-totals capture (3 Oxylabs reqs, 4 rows/day) | `market-totals-daily.js` |
+| 12:00 daily | Spot-check reaction poller | `spotcheck-reaction-poller.js` |
+
+Notes: Job C must finish before Job B (B reads C's rows). Combined Job A+D parallel load is
+~4% of the Oxylabs 50/sec cap. `cohort-track` daily 23:30/02:00 lines were **removed** (D-07) —
+it now only runs on the every-2-days cycle. The retired pre-v2.0 Pool & Flow Monday fan-out
+(4 scripts) is gone. `weekly-view-report.js` cron line is (re)installed by `setup-droplet.sh`.
+
+---
+
+## 7. Monitoring & Alerting
+
+Three layers, in order of usefulness:
+
+1. **Slack `Hemnet Status` channel (`SLACK_WEBHOOK_URL`)** — `cron-wrapper.js` posts
+   `[WARNING|FAILURE] <script>: <error>` within seconds of any run whose status is `warning`
+   or `failure`. **The operator MUST actively watch this channel** — a past deploy found it had
+   been firing unread warnings since 2026-05-17. Silent on success by design.
+2. **`cron-health-slack.js` (daily 03:00 UTC)** — reads the last **8 days** of `cron_job_log` and
+   judges each script against its own frequency window (daily 25 h, weekly 8 d — before
+   2026-08-13 a flat 25 h window false-alarmed on weekly `cohort-create` six days out of seven).
+   Builds a *Daily Health Report* posted to `SLACK_WEBHOOK_URL`. It checks: each expected
+   script ran, success/fail counts,
+   cohort-track "0 pairs tracked", a **view-growth check** (≥80% zero-growth pairs → "scrapers
+   may be down"), and **per-cohort null-view rates** (newest cohort >30% null Booli/Hemnet →
+   "scraper may be down" canary). Exits non-zero if `SLACK_WEBHOOK_URL` is unset.
+3. **`cron_job_log` table + `/var/log/hemnet/<job>.log`** — `node scripts/verify-cron-job-log.js`
+   prints the last 5 rows per script. A "NO ROWS in 14 days" line means a job stopped running.
+   The per-job log file holds full stdout/stderr for deep triage (and catches signal-kill cases
+   where `cron_job_log` only has a stuck `running` row).
+
+Per-job failure-mode triage (Oxylabs creds, low-match warnings, budget-exceeded, expected Booli
+100%-fallback noise, etc.) is documented job-by-job in `deploy-instructions.md` §Runbook — the
+first place to look when an alert fires.
+
+---
+
+## 8. Disk / Capacity & Retention
+
+**This (cohort-tracker) box:**
+- **2026-07-27 incident:** the droplet hit **100% disk** — the W30 `spotcheck-photos` run
+  crashed with `ENOSPC` (clean fail). Freed back to **68%** by pruning old spot-check dirs and
+  trimming ~1.1 GB of June sold-cache (ledger preserved). A **retention cron was installed**.
+  W30 was recovered read-only (0 mismatch). **Still deferred:** journal/log reclaim (~900 MB),
+  a durable 30-day cache cap, and the disk-resize question.
+- **Spot-check write-back incident (2026-W27):** `spotcheck-photos.js` died before its JSON
+  write-back and flooded 86 false "no-photos" UNCERTAIN reviews; a guard (abort if 0 galleries)
+  + on-disk recovery tool shipped (commit `496537b`). 86 stale rows + optional re-run remained
+  outstanding.
+- **Cache/artifact hygiene:** large scrape artifacts are git-ignored (`.gitignore`:
+  `view-data/`, `cohort-*-views.csv`, `verf-soldspike*/cache/`, `data/*.xlsx`, etc.). Keep
+  `/var/log/hemnet/*.log` under logrotate.
+
+**Price-scraper box (`170.64.181.89`, reference):** hit 100% disk history too; v4.0 Phase 24
+reclaimed ~17 GB (deleted a 4.4 GB `kill.log` from the malware suppressor, 6.6 GB
+`scraper_log_export`, Docker build cache). **~49 GB of `simple_history` DB bloat in the shared
+`defaultdb` remains DEFERRED** — worth watching since it's the same database this repo uses.
+
+---
+
+## Quick reference — first things a new operator should do
+
+1. SSH to `170.64.197.241` (the cohort-tracker box); code at `/opt/hemnet-cohort-tracker`.
+2. Confirm `.env` has `DB_*`, `OXYLABS_*`, `SLACK_WEBHOOK_URL` set; check droplet HEAD ==
+   `origin/master`.
+3. `node scripts/verify-cron-job-log.js` — confirm all jobs ran recently, none `failure`/`NO ROWS`.
+4. Watch the Slack `Hemnet Status` channel; confirm the daily 03:00 health report is arriving.
+5. Check Oxylabs month-to-date via `data.oxylabs.io/v1/stats` against the 262k cap before any
+   scope expansion.
+6. Read `deploy-instructions.md` end-to-end — it is the authoritative runbook this document
+   summarizes.

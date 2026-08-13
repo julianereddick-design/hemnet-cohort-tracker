@@ -18,7 +18,7 @@ const { createClient } = require('../db');
 const EXPECTED_SCRIPTS = [
   'cohort-create',
   'cohort-track',
-  'sfpl-region-snapshot',
+  // sfpl-region-snapshot retired 2026-08-13 — no downstream consumer.
   'hemnet-targeted-refresh',     // Job A
   'hemnet-targeted-match',       // Job B
   'booli-targeted-discovery',    // Job C

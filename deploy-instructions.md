@@ -53,7 +53,7 @@ echo 'SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../...' >> /opt/
 All times are UTC. Schedule respects:
 - Every-2-days view-refresh cycle (D-06 + D-17): odd days at 14:00 UTC (Job D and Job A in PARALLEL per 09-02 D-17) → 22:00 UTC cohort-track. Combined Oxylabs load at parallel start is ~4% of the 50/sec cap (09-02 analysis); each job opens its own pg.Client so no DB pool contention. Eight-hour gap to cohort-track covers worst-case runtimes (Job D ~30-60 min, Job A ~33-51 min with Oxylabs fallback headroom).
 - Weekly cohort kickoff: Job C Sun 22:00 UTC, Job B Mon 03:00 UTC, cohort-create Mon 06:00 UTC.
-- Daily SFPL ratio: sfpl-region-snapshot 08:00 UTC.
+- Daily SFPL ratio: RETIRED 2026-08-13 (sfpl-region-snapshot removed from crontab — no consumer).
 - Removed (D-07): cohort-track 23:30 UTC daily and 02:00 UTC daily — cohort-track now runs only on the every-2-days cycle.
 
 ```cron
@@ -88,7 +88,8 @@ All times are UTC. Schedule respects:
 5 11 * * 1   cd /opt/hemnet-cohort-tracker && node sold-match-trend-chart.js  >> /var/log/hemnet/sold-match-chart.log 2>&1
 10 11 * * 1  cd /opt/hemnet-cohort-tracker && node sold-match-xlsx.js          >> /var/log/hemnet/sold-match-xlsx.log 2>&1
 
-0 8 * * *   cd /opt/hemnet-cohort-tracker && node sfpl-region-snapshot.js       >> /var/log/hemnet/sfpl.log 2>&1
+# RETIRED 2026-08-13 — sfpl-region-snapshot (was `0 8 * * *`). No downstream consumer;
+# sfpl_region_daily table retained. See the deprecation header in sfpl-region-snapshot.js.
 
 # === Phase 9 weekly slots (D-08) ===
 # Job C: weekly Booli FS discovery. Walks 4 cohort counties, UPSERTs booli_listing.

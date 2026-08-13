@@ -1,3 +1,19 @@
+// DEPRECATED 2026-08-13 — unscheduled, no downstream consumer.
+//
+// Removed from the droplet crontab. Retired because:
+//   - nothing read `sfpl_region_daily` except cron-health-slack.js's own row-count
+//     check (the job's only consumer was the alarm confirming the job ran) and the
+//     manual console report sfpl-region-analysis.js;
+//   - the two for-sale columns are region TOTALS written identically into all six
+//     age buckets (see the UPSERT loop below), so 2/3 of the table is padding —
+//     only booli_pm_count is genuinely age-bucketed;
+//   - it counts our own booli_listing / hemnet_listingv2 (the 4 cohort counties),
+//     so "Rest" is not a national figure;
+//   - superseded by premarket_flow_weekly (national flow + dwell) and by the
+//     Booli/Hemnet age-census scripts under scripts/.
+//
+// The sfpl_region_daily table is intentionally LEFT IN PLACE (2,880 rows,
+// 2026-03-06 → 2026-08-12). To revive: restore the daily 08:00 UTC crontab line.
 const { runJob } = require('./cron-wrapper');
 
 function normalizeCounty(name) {

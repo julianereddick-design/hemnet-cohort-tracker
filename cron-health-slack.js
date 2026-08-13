@@ -2,12 +2,18 @@ require('dotenv').config();
 const https = require('https');
 const { createClient } = require('./db');
 
-const SCRIPTS = ['cohort-track', 'cohort-create', 'sfpl-region-snapshot'];
+const SCRIPTS = ['cohort-track', 'cohort-create'];
+
+// Each frequency carries its own lookback window, sized to the job's real cadence
+// plus a grace margin. Before 2026-08-13 every script was judged against a flat 25h
+// window, which produced two standing false alarms: weekly `cohort-create` warned on
+// the 6 non-Mondays, and every-2-days `cohort-track` (22:00 UTC on odd days) warned
+// on alternate days because its last run was ~29h old when the 03:00 check ran.
+const WINDOW_HOURS = { daily: 25, every2days: 50, weekly: 8 * 24 };
 
 const EXPECTED = {
-  'cohort-track': { frequency: 'daily', label: 'Daily' },
+  'cohort-track': { frequency: 'every2days', label: 'Every 2 days' },
   'cohort-create': { frequency: 'weekly', label: 'Weekly (Mon)' },
-  'sfpl-region-snapshot': { frequency: 'daily', label: 'Daily' },
 };
 
 function formatDuration(ms) {
@@ -34,8 +40,6 @@ function summarizeResult(scriptName, summary) {
     case 'cohort-create':
       if (summary.skipped) return `skipped (${summary.cohortId} exists)`;
       return `${summary.cohortId} matched=${summary.matched || 0} rate=${summary.matchRate || '-'}`;
-    case 'sfpl-region-snapshot':
-      return `rows=${summary.rowCount || 0}`;
     default:
       return '';
   }
@@ -64,9 +68,13 @@ async function sendSlack(webhookUrl, blocks) {
   });
 }
 
+// `node cron-health-slack.js --dry-run` renders and prints the report but never posts.
+// Needed because dotenv re-injects SLACK_WEBHOOK_URL, so `env -u` does NOT stop a post.
+const DRY_RUN = process.argv.includes('--dry-run');
+
 async function run() {
   const webhookUrl = process.env.SLACK_WEBHOOK_URL;
-  if (!webhookUrl) {
+  if (!webhookUrl && !DRY_RUN) {
     console.error('SLACK_WEBHOOK_URL not set in .env');
     process.exit(1);
   }
@@ -77,14 +85,22 @@ async function run() {
   const rows = await client.query(`
     SELECT script_name, started_at, duration_ms, status, error_message, result_summary
     FROM cron_job_log
-    WHERE started_at >= NOW() - INTERVAL '25 hours'
+    WHERE started_at >= NOW() - INTERVAL '8 days'
     ORDER BY started_at DESC
   `);
+
+  // Widest window is fetched once; each script is then judged against its own
+  // frequency window (daily 25h, weekly 8d) so weekly jobs don't false-alarm.
+  const cutoff = (frequency) => Date.now() - WINDOW_HOURS[frequency] * 3600 * 1000;
 
   const byScript = {};
   for (const s of SCRIPTS) byScript[s] = [];
   for (const r of rows.rows) {
-    if (byScript[r.script_name]) byScript[r.script_name].push(r);
+    if (!byScript[r.script_name]) continue;
+    const spec = EXPECTED[r.script_name];
+    if (new Date(r.started_at).getTime() >= cutoff(spec.frequency)) {
+      byScript[r.script_name].push(r);
+    }
   }
 
   const issues = [];
@@ -94,9 +110,11 @@ async function run() {
     const runs = byScript[scriptName];
     const spec = EXPECTED[scriptName];
 
+    const windowLabel = `last ${WINDOW_HOURS[spec.frequency]}h`;
+
     if (runs.length === 0) {
-      lines.push(`*${scriptName}* (${spec.label})  —  :warning: No runs in last 24h`);
-      issues.push(`No runs for ${scriptName}`);
+      lines.push(`*${scriptName}* (${spec.label})  —  :warning: No runs in ${windowLabel}`);
+      issues.push(`No runs for ${scriptName} in ${windowLabel}`);
       continue;
     }
 
@@ -120,25 +138,15 @@ async function run() {
       issues.push(`${scriptName} last run WARNING: ${latest.error_message}`);
     }
 
-    // Check daily scripts ran at least once successfully
-    if (spec.frequency === 'daily') {
-      const hasSuccess = runs.some(r => r.status === 'success');
-      if (!hasSuccess) issues.push(`${scriptName}: no successful run in last 24h`);
-    }
+    // Check each script ran at least once successfully inside its own window
+    const hasSuccess = runs.some(r => r.status === 'success');
+    if (!hasSuccess) issues.push(`${scriptName}: no successful run in ${windowLabel}`);
 
     // Check cohort-track result anomalies
     if (scriptName === 'cohort-track') {
       const lastSuccess = runs.find(r => r.status === 'success' && r.result_summary);
       if (lastSuccess && lastSuccess.result_summary.totalTracked === 0 && lastSuccess.result_summary.cohortsTracked > 0) {
         issues.push(`cohort-track: 0 pairs tracked with ${lastSuccess.result_summary.cohortsTracked} active cohorts`);
-      }
-    }
-
-    // Check sfpl row count
-    if (scriptName === 'sfpl-region-snapshot') {
-      const lastSuccess = runs.find(r => r.status === 'success' && r.result_summary);
-      if (lastSuccess && lastSuccess.result_summary.rowCount !== 18) {
-        issues.push(`sfpl-region-snapshot: ${lastSuccess.result_summary.rowCount} rows (expected 18)`);
       }
     }
   }
@@ -231,8 +239,14 @@ async function run() {
     message += '\n\n*Issues:*\n' + issues.map(i => `• ${i}`).join('\n');
   }
 
-  await sendSlack(webhookUrl, { text: message });
-  console.log('Health report sent to Slack');
+  if (DRY_RUN) {
+    console.log('--- DRY RUN (not posted) ---');
+    console.log(message);
+    console.log('--- END DRY RUN ---');
+  } else {
+    await sendSlack(webhookUrl, { text: message });
+    console.log('Health report sent to Slack');
+  }
   console.log(issues.length === 0 ? 'All healthy' : `${issues.length} issue(s) flagged`);
 }
 
