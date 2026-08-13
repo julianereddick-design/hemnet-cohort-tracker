@@ -20,6 +20,7 @@ const { walkFlow } = require('../lib/premarket-flow');
 const { getWithRetry, extractNextData, getOxylabsStats } = require('../lib/scrape-http');
 const { interiorVerdict } = require('../lib/booli-image-labels');
 const { bucketOf, NEEDS_PAGE, tally, WINDOW_DAYS } = require('../lib/premarket-quality');
+const { parsePublishedToUnix } = require('../lib/booli-fetch');
 
 const MAX_PAGES = 120;          // flow job uses 80; ~71 expected, so 80 could truncate
 const WALK_CALL_CEILING = 130;
@@ -63,7 +64,13 @@ function richCard(L, S) {
   return {
     booli_id: L.id != null ? String(L.id) : null,
     url: L.url || null,
-    published: L.published || null,
+    // Booli serves `published` as a 'YYYY-MM-DD HH:MM:SS' STRING on search
+    // cards, not Unix seconds. Passing it through raw makes every downstream
+    // numeric comparison (`published >= cutoff`) false, which empties the cohort
+    // AND stops walkFlow's `pageEntirelyOld` from ever firing — so the walk runs
+    // to maxPages. parsePublishedToUnix accepts both forms defensively.
+    published: parsePublishedToUnix(L.published),
+    publishedRaw: L.published || null,
     // walkFlow reads exactly these two keys — everything else rides along free.
     isNewBuild: L.isNewConstruction === true,
     upcomingSale: L.upcomingSale === true,
@@ -177,6 +184,23 @@ function smoke() {
     S4['Listing:1'].isNewConstruction = true;
     const c = parsePage(S4).cards[0];
     assert(c.isNewBuild === true, 'isNewBuild must be set for walkFlow and the filter');
+  });
+  check('string published (search-card form) is parsed to numeric Unix seconds', () => {
+    const S5 = JSON.parse(JSON.stringify(S));
+    S5['Listing:1'].published = '2026-08-12 09:30:00';
+    const c = parsePage(S5).cards[0];
+    assert(typeof c.published === 'number', `expected number, got ${typeof c.published}`);
+    assert(c.publishedRaw === '2026-08-12 09:30:00', 'publishedRaw must retain the original string');
+  });
+  check('numeric published (already Unix seconds) passes through unchanged', () => {
+    const c = parsePage(S).cards[0];
+    assert(c.published === 1786000000, `expected 1786000000, got ${c.published}`);
+  });
+  check('null/absent published yields null and does not throw', () => {
+    const S6 = JSON.parse(JSON.stringify(S));
+    delete S6['Listing:1'].published;
+    const c = parsePage(S6).cards[0];
+    assert(c.published === null, `expected null, got ${c.published}`);
   });
 
   console.log(failed === 0 ? '\nALL PASS' : `\n${failed} FAILED`);
