@@ -36,7 +36,7 @@ require('dotenv').config();
 // Self-test: node scripts/age-census-monthly.js --smoke   (offline, no DB, no network)
 const { runJob } = require('../cron-wrapper');
 const { createClient } = require('../db');
-const { persistPool, getPriorTotal } = require('../age-census-store');
+const { persistPool, getPriorTotal, getPriorMuniSizes } = require('../age-census-store');
 
 const log = (lvl, msg) => console.log(`  [${lvl}] ${msg}`);
 
@@ -49,14 +49,18 @@ const POOLS = [
 ];
 
 // Pure-ish orchestration: every side effect is injected so --smoke drives it offline.
-async function orchestrate({ pools, runDate, persist, priorTotal, logger = log }) {
+// priorMuniSizes defaults to a no-op: the two Booli pools ignore it entirely (they are national
+// binary-search estimates with no municipality partition), and the offline smoke drives
+// orchestrate() without it.
+async function orchestrate({ pools, runDate, persist, priorTotal, priorMuniSizes = async () => null, logger = log }) {
   const summary = { runDate, pools: [], persisted: 0, failed: [], gateFailed: [] };
   for (const p of pools) {
     const key = `${p.platform}:${p.pool}`;
     try {
       logger('INFO', `=== ${key} — starting ===`);
       const prior = await priorTotal(p);
-      const result = await p.run({ priorTotal: prior, logger });
+      const muniSizes = await priorMuniSizes(p);
+      const result = await p.run({ priorTotal: prior, priorMuniSizes: muniSizes, logger });
       await persist(result);
       summary.persisted++;
       summary.pools.push({ platform: p.platform, pool: p.pool, status: result.status, nTotal: result.nTotal });
@@ -88,6 +92,15 @@ async function main() {
       const client = createClient();
       await client.connect();
       try { return await getPriorTotal(client, { platform: p.platform, pool: p.pool, runDate }); }
+      finally { await client.end(); }
+    },
+    // Per-municipality sizes from the last gate-passed run, so gateCoverage can SIZE a coverage
+    // gap instead of failing the month over a 7-listing municipality. Same one-short-lived-
+    // connection-per-pool isolation as priorTotal above. The Booli pools ignore the value.
+    priorMuniSizes: async (p) => {
+      const client = createClient();
+      await client.connect();
+      try { return await getPriorMuniSizes(client, { platform: p.platform, pool: p.pool, runDate }); }
       finally { await client.end(); }
     },
     logger: log,
@@ -239,6 +252,31 @@ async function smoke() {
       priorTotal: async () => 33742, logger: () => {},
     });
     assert.strictEqual(sawPrior, 33742);
+  });
+
+  await check('prior muni sizes are fetched per pool and passed into run(); absent is harmless', async () => {
+    let sawSizes, sawPool = null;
+    const pools = [{
+      platform: 'hemnet', pool: 'forsale',
+      run: async ({ priorMuniSizes }) => { sawSizes = priorMuniSizes; return mkResult('hemnet', 'forsale'); },
+    }];
+    await orchestrate({
+      pools, runDate: '2026-09-01',
+      persist: async () => ({ runId: 1, muniRows: 0 }),
+      priorTotal: async () => null,
+      priorMuniSizes: async (p) => { sawPool = `${p.platform}:${p.pool}`; return { Stockholm: 5000 }; },
+      logger: () => {},
+    });
+    assert.deepStrictEqual(sawSizes, { Stockholm: 5000 }, 'the map must reach run()');
+    assert.strictEqual(sawPool, 'hemnet:forsale', 'it must be fetched per pool, not once globally');
+    // omitted entirely (the Booli pools ignore it, and this is how the other smokes call it)
+    sawSizes = 'untouched';
+    await orchestrate({
+      pools, runDate: '2026-09-01',
+      persist: async () => ({ runId: 1, muniRows: 0 }),
+      priorTotal: async () => null, logger: () => {},
+    });
+    assert.strictEqual(sawSizes, null, 'omitting priorMuniSizes must default cleanly, not throw');
   });
 
   console.log(`smoke: ${pass} pass, ${fail} fail`);

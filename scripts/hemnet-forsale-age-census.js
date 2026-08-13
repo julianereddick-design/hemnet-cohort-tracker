@@ -195,7 +195,7 @@ async function censusMuni(name, id, acc, nowSec, ctx) {
   return { name, id, headline: r.headline, counted: acc.distinct - before, p1Error: !!r.p1Error };
 }
 
-async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, priorTotal = null } = {}) {
+async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, priorTotal = null, priorMuniSizes = null } = {}) {
   const t0 = Math.floor(Date.now() / 1000);
   resetOxylabsStats();
   const seen = new Set();
@@ -235,12 +235,18 @@ async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, prio
   const nat = mergeAccumulators(accs);
   const ox = getOxylabsStats();
   const oxCalls = ox.oxylabsCallCount + ox.directSuccessCount;
+  // What the coverage gate is asked to size. Municipality names resolve against the prior
+  // month's per-muni rows; anything that does not (see item C) is unknown by construction.
+  const coverageFailures = [...ctx.failedMunis];
   const gates = [
     gateReconciliation({ headlineSum, distinct: nat.distinct, maxPct: 2 }),
     // A skipped municipality subtracts itself from BOTH sides of gateReconciliation, so that
     // gate cannot see it. gateCoverage is the only thing standing between a run missing a whole
-    // municipality and a status='ok' row posted to Slack as a validated figure.
-    gateCoverage({ failedMunis: ctx.failedMunis, totalMunis: names.length }),
+    // municipality and a status='ok' row posted to Slack as a validated figure. It is SIZED:
+    // last valid month's per-muni totals estimate the gap, so losing Alingsås (7 listings) does
+    // not void the month while losing Stockholm (~5,000) does. nationalTotal is the COUNTED
+    // total, which excludes the gap and so is a slightly conservative denominator.
+    gateCoverage({ failedMunis: coverageFailures, priorMuniSizes, nationalTotal: nat.distinct, maxPct: 0.5 }),
     gateErrorPages({ errorPages: ctx.errorPages, oxCalls, maxPct: 2 }),
     gateTotalDrift({ nTotal: nat.distinct, priorTotal, maxPct: 25 }),
   ];
@@ -455,6 +461,35 @@ async function selftest() {
       const cov = res.gates.find(g => g.name === 'coverage');
       assert.strictEqual(cov.passed, true, `a muni recovered by the retry must NOT count as skipped: ${cov.detail}`);
       assert.strictEqual(res.status, 'ok', `a fully recovered run must not be gate_failed (notes: ${res.notes})`);
+    } finally {
+      fetchScope = clean;
+    }
+  });
+
+  // --- the coverage gate is SIZED, and a passing gap stays visible ---------------------------
+  await check('a small known-size municipality gap passes the gate but is still named in notes', async () => {
+    const clean = fetchScope;
+    fetchScope = async (scope, p) => {
+      if ((scope.name || scope.locationId) === 'Tiny') return { status: 500, cards: null, total: undefined };
+      return clean(scope, p);
+    };
+    try {
+      const res = await run({
+        locations: { Small: 9001, Big: 9002, Tiny: 9005 }, nowSec: NOW_SEC, logger: () => {},
+        priorMuniSizes: { Tiny: 5, Small: 120, Big: 4200 },      // Tiny held 5 listings last month
+      });
+      const cov = res.gates.find(g => g.name === 'coverage');
+      assert.strictEqual(cov.passed, true, `5 of 4,320 = 0.12% must not void the month: ${cov.detail}`);
+      assert.ok(/0\.12%/.test(cov.detail), `the estimated share must be stated: ${cov.detail}`);
+      assert.strictEqual(res.status, 'ok', `a 0.12% gap must leave the row publishable (notes: ${res.notes})`);
+      assert.ok(/Tiny/.test(res.notes || ''), 'a gap that PASSES the threshold must still be named on the published row');
+      // …and the same gap, sized as Stockholm, must fail
+      const big = await run({
+        locations: { Small: 9001, Big: 9002, Tiny: 9005 }, nowSec: NOW_SEC, logger: () => {},
+        priorMuniSizes: { Tiny: 5000 },
+      });
+      assert.strictEqual(big.gates.find(g => g.name === 'coverage').passed, false, 'the same gap sized at 5,000 must fail');
+      assert.strictEqual(big.status, 'gate_failed');
     } finally {
       fetchScope = clean;
     }

@@ -103,7 +103,7 @@ async function walkMuni(name, id, acc, nowSec, ctx) {
   return { name, id, pages, total, counted, p1Error };
 }
 
-async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, priorTotal = null } = {}) {
+async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, priorTotal = null, priorMuniSizes = null } = {}) {
   const t0 = Math.floor(Date.now() / 1000);
   resetOxylabsStats();
   const seen = new Set();
@@ -145,8 +145,12 @@ async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, prio
     // A muni still failing p1 after the retry drops out of BOTH sides of gateReconciliation
     // (0 headline, 0 counted), so that gate stays ≈0% and passes. Recording the fact in `notes`
     // was not enough: the report renders notes only on the GATE FAILED branch, so an ok row
-    // printed numbers alone and a knowingly incomplete run read as clean. It is now a hard fail.
-    gateCoverage({ failedMunis: stillFailed, totalMunis: names.length }),
+    // printed numbers alone and a knowingly incomplete run read as clean. The gate is sized —
+    // it fails on the estimated missing share, using last valid month's per-muni totals, so
+    // losing Alingsås (7) does not void the month while losing Stockholm (~5,000) does.
+    // nationalTotal is the COUNTED total, which excludes the gap and so is a slightly
+    // conservative denominator (it reports a marginally larger missing share than the true one).
+    gateCoverage({ failedMunis: stillFailed, priorMuniSizes, nationalTotal: nat.distinct, maxPct: 0.5 }),
     gateErrorPages({ errorPages: ctx.errorPages, oxCalls, maxPct: 2 }),
     gateTotalDrift({ nTotal: nat.distinct, priorTotal, maxPct: 25 }),
   ];
@@ -386,6 +390,29 @@ async function selftest() {
   assert.strictEqual(resDead.status, 'gate_failed', `a knowingly incomplete run must not be stored as ok (got ${resDead.status})`);
   assert.ok(/Dead/.test(resDead.notes || ''), `the skipped muni must be named in notes (got: ${resDead.notes})`);
   console.log('SELFTEST PASS — a muni still failing p1 after the retry fails the coverage gate instead of passing as a silent note.');
+
+  // --- the coverage gate is SIZED: a tiny known-size gap must not void the month -------------
+  // Many Swedish munis carry 0-2 Kommande listings. Losing one of those to a p1 failure is a
+  // real gap and must stay visible in notes, but voiding a 300-listing national headline over
+  // it would be the wrong trade. priorMuniSizes (last valid month's per-muni rows) sizes it.
+  const sizedIds = Array.from({ length: 300 }, (_, i) => 'S' + i);
+  pageFetcher = async (muniId, p) => {
+    if (muniId === 'Dead') { if (p === 1) return { status: 500, cards: null, total: undefined }; return { status: 200, cards: [], total: undefined }; }
+    const start = (p - 1) * PAGE;
+    const slice = start >= sizedIds.length ? [sizedIds[sizedIds.length - 1]] : sizedIds.slice(start, start + PAGE);
+    const cards = slice.map(id => ({ id, published: CLOCK - 10 * DAY, isNewBuild: false, upcoming: true }));
+    return { status: 200, cards, total: p === 1 ? sizedIds.length : undefined };
+  };
+  const resSized = await run({
+    locations: { Sized: 'Sized', Dead: 'Dead' }, nowSec: CLOCK, logger: () => {},
+    priorMuniSizes: { Dead: 1 },                 // Dead held 1 listing last valid month
+  });
+  const sizedGate = resSized.gates.find(g => g.name === 'coverage');
+  assert.strictEqual(sizedGate.passed, true, `1 missing listing of 300 = 0.33% must pass: ${sizedGate.detail}`);
+  assert.ok(/0\.33%/.test(sizedGate.detail), `the estimated share must be stated: ${sizedGate.detail}`);
+  assert.strictEqual(resSized.status, 'ok', `a 0.33% gap must not void the month (notes: ${resSized.notes})`);
+  assert.ok(/Dead/.test(resSized.notes || ''), 'a gap that PASSES the threshold must still be named in notes on the published row');
+  console.log('SELFTEST PASS — coverage gate is sized: a 0.33% known-size gap passes and stays visible in notes.');
 
   // --- safeFetch: a transient THROW must not abort the pool ---------------------------------
   // getWithRetry throws once its own retries are exhausted; before safeFetch existed, one blip

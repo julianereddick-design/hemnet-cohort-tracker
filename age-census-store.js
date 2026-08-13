@@ -42,6 +42,19 @@ const SELECT_PRIOR = `
    WHERE platform = $1 AND pool = $2 AND run_date < $3::date AND status = 'ok'
    ORDER BY run_date DESC LIMIT 1`;
 
+// Per-municipality sizes from the most recent gate-PASSED prior run, keyed by muni name.
+// gateCoverage needs them to size a coverage gap: a municipality whose page 1 failed never
+// reported its own total, so its size is unknown at run time — but age_census_muni recorded it
+// last month. Same shape and the same status='ok' rule as SELECT_PRIOR above: anchoring on a
+// gate-failed month's muni rows would size this month's gap off a month we already rejected.
+const SELECT_PRIOR_MUNI = `
+  SELECT m.muni_name, m.headline_n
+    FROM age_census_muni m
+    JOIN age_census_run r ON r.id = m.run_id
+   WHERE r.platform = $1 AND r.pool = $2 AND r.run_date < $3::date AND r.status = 'ok'
+     AND r.run_date = (SELECT MAX(run_date) FROM age_census_run
+                        WHERE platform = $1 AND pool = $2 AND run_date < $3::date AND status = 'ok')`;
+
 async function upsertRun(client, row) {
   const res = await client.query(UPSERT_RUN, [
     row.run_date, row.platform, row.pool, row.method, row.n_total, row.n_newbuild,
@@ -67,6 +80,19 @@ async function insertMuniRows(client, runId, muniRows) {
 async function getPriorTotal(client, { platform, pool, runDate }) {
   const res = await client.query(SELECT_PRIOR, [platform, pool, runDate]);
   return res.rows.length ? Number(res.rows[0].n_total) : null;
+}
+
+// Returns { muniName: headlineN }. An empty object when there is no valid prior run — which
+// gateCoverage correctly reads as "every failed scope is of unknown size", so a first-ever run
+// that loses a municipality fails rather than guessing the gap is small.
+async function getPriorMuniSizes(client, { platform, pool, runDate }) {
+  const res = await client.query(SELECT_PRIOR_MUNI, [platform, pool, runDate]);
+  const out = {};
+  for (const r of res.rows) {
+    const n = Number(r.headline_n);
+    if (r.muni_name != null && isFinite(n)) out[r.muni_name] = n;
+  }
+  return out;
 }
 
 // Map scraper result (camelCase) to DB row shape (snake_case). Pure, testable function.
@@ -105,7 +131,7 @@ async function persistPool(result, { runDate }) {
   }
 }
 
-module.exports = { upsertRun, insertMuniRows, getPriorTotal, persistPool, toRunRow };
+module.exports = { upsertRun, insertMuniRows, getPriorTotal, getPriorMuniSizes, persistPool, toRunRow };
 
 if (require.main === module && process.argv.includes('--smoke')) {
   const assert = require('assert');
@@ -120,6 +146,7 @@ if (require.main === module && process.argv.includes('--smoke')) {
       async query(sql, params) {
         calls.push({ sql, params });
         if (/INSERT INTO age_census_run/.test(sql)) return { rows: [{ id: returns.runId || 42 }] };
+        if (/SELECT m\.muni_name/.test(sql)) return { rows: returns.muniSizeRows || [] };
         if (/SELECT n_total/.test(sql)) return { rows: returns.priorRows || [] };
         return { rows: [], rowCount: (params && params.length) || 0 };
       },
@@ -174,6 +201,26 @@ if (require.main === module && process.argv.includes('--smoke')) {
       // a row show 0% drift and pass, and a correct month after a broken one shows 111% drift
       // and is wrongly gate-failed. The baseline must be the most recent VALID prior row.
       assert.ok(/status = 'ok'/.test(q.sql), "must anchor drift only on gate-passed prior rows");
+    });
+
+    await check('getPriorMuniSizes: maps muni_name -> headline_n from the last VALID prior run', async () => {
+      const c = stubClient({ muniSizeRows: [
+        { muni_name: 'Stockholm', headline_n: 5000 },
+        { muni_name: 'Alingsås', headline_n: '7' },        // pg may hand back numerics as strings
+      ] });
+      const sizes = await getPriorMuniSizes(c, { platform: 'hemnet', pool: 'forsale', runDate: '2026-09-01' });
+      assert.deepStrictEqual(sizes, { Stockholm: 5000, 'Alingsås': 7 });
+      const q = c.calls[0];
+      assert.ok(/JOIN age_census_run r ON r\.id = m\.run_id/.test(q.sql), 'must join the muni rows to their run');
+      assert.ok(/r\.status = 'ok'/.test(q.sql), 'a gate-failed month must never size this month\'s gap');
+      assert.ok(/r\.run_date < \$3/.test(q.sql), 'must exclude the current run date');
+      assert.ok(/MAX\(run_date\)/.test(q.sql), 'must take the single most recent valid prior run, not every prior run');
+      assert.deepStrictEqual(q.params, ['hemnet', 'forsale', '2026-09-01']);
+    });
+
+    await check('getPriorMuniSizes: no valid prior run yields {} — every gap then reads as unmeasurable', async () => {
+      const c = stubClient({ muniSizeRows: [] });
+      assert.deepStrictEqual(await getPriorMuniSizes(c, { platform: 'booli', pool: 'premarket', runDate: '2026-09-01' }), {});
     });
 
     await check('toRunRow maps a scraper result to the DB row shape, both variants', () => {
