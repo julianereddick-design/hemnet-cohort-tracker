@@ -25,7 +25,7 @@ const { parseListingCards } = require('../lib/hemnet-fetch');
 const { bandIndex, DAY } = require('../lib/premarket-flow');
 const {
   EDGES, BAND_KEYS, newAccumulator, addCardTo, mergeAccumulators, bucketsToObject, secondhandToObject,
-  gateReconciliation, gateTotalDrift, gateErrorPages, evaluateGates,
+  gateReconciliation, gateTotalDrift, gateErrorPages, gateCoverage, evaluateGates,
 } = require('../lib/age-census');
 
 const NOW_SEC = Math.floor(Date.now() / 1000);
@@ -122,6 +122,11 @@ async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, prio
   const stillFailed = stats.filter(s => s.p1Error).map(s => s.name);
   const gates = [
     gateReconciliation({ headlineSum, distinct: nat.distinct, maxPct: 2 }),
+    // A muni still failing p1 after the retry drops out of BOTH sides of gateReconciliation
+    // (0 headline, 0 counted), so that gate stays ≈0% and passes. Recording the fact in `notes`
+    // was not enough: the report renders notes only on the GATE FAILED branch, so an ok row
+    // printed numbers alone and a knowingly incomplete run read as clean. It is now a hard fail.
+    gateCoverage({ failedMunis: stillFailed, totalMunis: names.length }),
     gateErrorPages({ errorPages: ctx.errorPages, oxCalls, maxPct: 2 }),
     gateTotalDrift({ nTotal: nat.distinct, priorTotal, maxPct: 25 }),
   ];
@@ -342,6 +347,25 @@ async function selftest() {
   const flakyNationalSum = BAND_KEYS.reduce((s, k) => s + resFlaky.buckets[k], 0);
   assert.strictEqual(flakyPerMuniSum, flakyNationalSum, 'Σ per-muni bands must equal the national histogram even after a p1-retry');
   console.log(`SELFTEST PASS — p1-retry preserves page-2+ data collected during the failed first attempt (Flaky: ${resFlaky.nTotal}/${flakyIds.length} recovered).`);
+
+  // --- a muni still failing p1 AFTER the retry must FAIL the run, not just leave a note ---
+  // Pre-fix this recorded "munis still failing p1: …" in notes while leaving status='ok', and
+  // the report renders notes only on the GATE FAILED branch — so a run that knowingly missed a
+  // municipality printed as a clean, unflagged number. The coverage gate makes it a hard stop.
+  let deadP1Calls = 0;
+  pageFetcher = async (muniId, p) => {
+    if (muniId !== 'Dead') return { status: 200, cards: [], total: 0 };
+    if (p === 1) { deadP1Calls++; return { status: 500, cards: null, total: undefined }; }
+    return { status: 200, cards: [], total: undefined };            // nothing recoverable past p1
+  };
+  const resDead = await run({ locations: { Dead: 'Dead' }, nowSec: CLOCK, logger: () => {} });
+  assert.strictEqual(deadP1Calls, 2, `p1 must be attempted twice (initial + retry), got ${deadP1Calls}`);
+  const covGate = resDead.gates.find(g => g.name === 'coverage');
+  assert.ok(covGate, 'a coverage gate must be evaluated on every muni-partition run');
+  assert.strictEqual(covGate.passed, false, 'a muni still failing p1 after the retry must fail the coverage gate');
+  assert.strictEqual(resDead.status, 'gate_failed', `a knowingly incomplete run must not be stored as ok (got ${resDead.status})`);
+  assert.ok(/Dead/.test(resDead.notes || ''), `the skipped muni must be named in notes (got: ${resDead.notes})`);
+  console.log('SELFTEST PASS — a muni still failing p1 after the retry fails the coverage gate instead of passing as a silent note.');
 }
 
 async function main() {

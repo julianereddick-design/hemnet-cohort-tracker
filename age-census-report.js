@@ -143,6 +143,10 @@ function renderReport(runDate, rows, priorRows) {
       `${lpad(pct(share(r, ['le1m', 'm1_3'])), 9)}${lpad(pct(share(r, ['gt24'])), 9)}` +
       `${delta(r, prior, ['le1m', 'm1_3'])}${clock}${basis}`
     );
+    // An ok row can still carry a caveat the reader must see — filtered cards, publishedAt
+    // anomalies, skipped sub-scopes. Rendering notes only on the GATE FAILED branch meant a
+    // run with a KNOWN gap printed as numbers alone. Indented continuation line beneath the row.
+    if (r.notes) L.push(`  ↳ ${r.notes}`);
   }
 
   L.push('```');
@@ -252,6 +256,26 @@ if (require.main === module && process.argv.includes('--smoke')) {
     b.buckets_secondhand = null;                      // binary-search: not available
     const out = renderReport('2026-09-01', [b], []);
     assert.ok(/incl\. new-build/.test(out), 'the definitional difference must be stated');
+  });
+
+  check('an ok row with notes shows them — a known coverage gap must never read as clean', () => {
+    const out = renderReport('2026-09-01', [
+      row('hemnet', 'forsale', 43338, 20889, 11224, 2600, { notes: '2 sub-scopes skipped: Göteborg/villa' }),
+    ], []);
+    assert.ok(/sub-scopes skipped/.test(out), 'notes on an ok row must be rendered, not swallowed');
+    assert.ok(/Göteborg\/villa/.test(out), 'the detail must survive');
+    const lines = out.split('\n');
+    const rowIdx = lines.findIndex(l => /^Hemnet for-sale/.test(l));
+    assert.ok(rowIdx >= 0, 'the pool row must still render its numbers');
+    assert.ok(/sub-scopes skipped/.test(lines[rowIdx + 1]), 'the note must be an indented continuation line directly beneath its row');
+    assert.ok(/^\s/.test(lines[rowIdx + 1]), 'the continuation line must be indented');
+  });
+
+  check('an ok row with no notes gains no continuation line', () => {
+    const out = renderReport('2026-09-01', [row('hemnet', 'forsale', 43338, 20889, 11224, 2600)], []);
+    const lines = out.split('\n');
+    const rowIdx = lines.findIndex(l => /^Hemnet for-sale/.test(l));
+    assert.ok(!/↳/.test(lines[rowIdx + 1] || ''), 'no notes → no empty continuation line');
   });
 
   check('a gate-failed prior row anchors no delta', () => {
