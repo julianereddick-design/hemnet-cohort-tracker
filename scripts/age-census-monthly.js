@@ -61,6 +61,9 @@ async function main() {
     pools: POOLS,
     runDate,
     persist: (result) => persistPool(result, { runDate }),
+    // Deliberate: one short-lived connection per pool (not one shared client for all four),
+    // so an earlier pool's already-banked row can never be rolled back or blocked by a
+    // later pool's connection trouble — same isolation rationale as persistPool() below.
     priorTotal: async (p) => {
       const client = createClient();
       await client.connect();
@@ -73,23 +76,44 @@ async function main() {
   return summary;
 }
 
-if (require.main === module && !process.argv.includes('--smoke')) {
-  runJob({
-    scriptName: 'age-census-monthly',
-    main,
-    validate: (summary) => {
-      if (!summary) return 'no summary returned';
-      if (summary.failed.length) return `pools failed: ${summary.failed.join(', ')}`;
-      if (summary.gateFailed.length) return `pools failed validation gates: ${summary.gateFailed.join(', ')}`;
-      if (summary.persisted !== 4) return `expected 4 pools persisted, got ${summary.persisted}`;
-      return null;
-    },
-  });
+// Entry gate: --smoke runs the offline self-test; otherwise the census runs for real —
+// ~3h, ~2,000 paid Oxylabs fetches, ~$5. RUN_DATE is read from the environment, not argv,
+// so --smoke is the only accepted flag; anything else — `--smoketest`, `--smoke=true`, a
+// stray typo — must never fall through to the live paid run. Mirrors the same defect fixed
+// on the sibling report job (premarket-flow-weekly-report.js, FIX6/ab1cc04).
+const ACCEPTED_ARGV = new Set(['--smoke']);
+const USAGE = 'Usage: node scripts/age-census-monthly.js [--smoke]';
+function validateArgv(argv) {
+  return argv.every(a => ACCEPTED_ARGV.has(a));
+}
+
+if (require.main === module) {
+  const argv = process.argv.slice(2);
+  if (!validateArgv(argv)) {
+    console.error(`Unrecognised argument(s): ${argv.filter(a => !ACCEPTED_ARGV.has(a)).join(', ')}`);
+    console.error(USAGE);
+    process.exit(1);
+  } else if (argv.includes('--smoke')) {
+    smoke();
+  } else {
+    runJob({
+      scriptName: 'age-census-monthly',
+      main,
+      validate: (summary) => {
+        if (!summary) return 'no summary returned';
+        if (summary.failed.length) return `pools failed: ${summary.failed.join(', ')}`;
+        if (summary.gateFailed.length) return `pools failed validation gates: ${summary.gateFailed.join(', ')}`;
+        if (summary.persisted !== 4) return `expected 4 pools persisted, got ${summary.persisted}`;
+        return null;
+      },
+    });
+  }
 }
 
 module.exports = { orchestrate, POOLS };
 
-if (require.main === module && process.argv.includes('--smoke')) {
+// --smoke self-test — fully offline (no DB, no network, no scraper module loaded).
+async function smoke() {
   const assert = require('assert');
   let pass = 0, fail = 0;
   const check = async (name, fn) => { try { await fn(); pass++; } catch (e) { console.error(`SMOKE FAIL [${name}]: ${e.message}`); fail++; } };
@@ -102,76 +126,101 @@ if (require.main === module && process.argv.includes('--smoke')) {
     gates: [], status: 'ok', notes: null,
   });
 
-  (async () => {
-    await check('runs pools cheapest-first and persists each as it completes', async () => {
-      const order = [], persisted = [];
-      const pools = [
-        { platform: 'booli', pool: 'premarket', run: async () => { order.push('bp'); return mkResult('booli', 'premarket'); } },
-        { platform: 'booli', pool: 'forsale', run: async () => { order.push('bf'); return mkResult('booli', 'forsale'); } },
-        { platform: 'hemnet', pool: 'premarket', run: async () => { order.push('hp'); return mkResult('hemnet', 'premarket'); } },
-        { platform: 'hemnet', pool: 'forsale', run: async () => { order.push('hf'); return mkResult('hemnet', 'forsale'); } },
-      ];
-      const summary = await orchestrate({
-        pools, runDate: '2026-09-01',
-        persist: async (r) => { persisted.push(`${r.platform}:${r.pool}`); return { runId: 1, muniRows: 0 }; },
-        priorTotal: async () => null,
-        logger: () => {},
-      });
-      assert.deepStrictEqual(order, ['bp', 'bf', 'hp', 'hf'], 'must run cheapest-first, sequentially');
-      assert.deepStrictEqual(persisted, ['booli:premarket', 'booli:forsale', 'hemnet:premarket', 'hemnet:forsale']);
-      assert.strictEqual(summary.persisted, 4);
-      assert.deepStrictEqual(summary.failed, []);
+  await check('runs pools cheapest-first, sequentially — never overlapping', async () => {
+    const order = [], persisted = [];
+    // inFlight tracks concurrent runs, not completion order. A regression to
+    // Promise.all(pools.map(...)) would invoke every run() before any of them resolves
+    // (each callback runs synchronously up to its own first await, then yields), so
+    // maxInFlight would climb to 4. The current sequential for-of loop keeps it at 1
+    // because each pool's run() (and persist()) fully resolves before the next starts —
+    // the scrapers share module-level mutable state, so overlap would corrupt them.
+    let inFlight = 0, maxInFlight = 0;
+    const mk = (platform, pool) => ({
+      platform, pool,
+      run: async () => {
+        order.push(`${platform}:${pool}`);
+        inFlight++; maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise(r => setTimeout(r, 5));   // a real suspension point
+        inFlight--;
+        return mkResult(platform, pool);
+      },
     });
-
-    await check('one failing pool does not abort the others, and is named in the summary', async () => {
-      const persisted = [];
-      const pools = [
-        { platform: 'booli', pool: 'premarket', run: async () => mkResult('booli', 'premarket') },
-        { platform: 'hemnet', pool: 'forsale', run: async () => { throw new Error('Oxylabs 613'); } },
-        { platform: 'hemnet', pool: 'premarket', run: async () => mkResult('hemnet', 'premarket') },
-      ];
-      const summary = await orchestrate({
-        pools, runDate: '2026-09-01',
-        persist: async (r) => { persisted.push(`${r.platform}:${r.pool}`); return { runId: 1, muniRows: 0 }; },
-        priorTotal: async () => null,
-        logger: () => {},
-      });
-      assert.strictEqual(summary.persisted, 2, 'the two healthy pools must still bank');
-      assert.deepStrictEqual(summary.failed, ['hemnet:forsale']);
-      assert.ok(persisted.includes('hemnet:premarket'), 'a later pool must still run after an earlier failure');
+    const pools = [
+      mk('booli', 'premarket'),
+      mk('booli', 'forsale'),
+      mk('hemnet', 'premarket'),
+      mk('hemnet', 'forsale'),
+    ];
+    const summary = await orchestrate({
+      pools, runDate: '2026-09-01',
+      persist: async (r) => { persisted.push(`${r.platform}:${r.pool}`); return { runId: 1, muniRows: 0 }; },
+      priorTotal: async () => null,
+      logger: () => {},
     });
+    assert.deepStrictEqual(order, ['booli:premarket', 'booli:forsale', 'hemnet:premarket', 'hemnet:forsale'], 'must run cheapest-first, sequentially');
+    assert.deepStrictEqual(persisted, ['booli:premarket', 'booli:forsale', 'hemnet:premarket', 'hemnet:forsale']);
+    assert.strictEqual(summary.persisted, 4);
+    assert.deepStrictEqual(summary.failed, []);
+    assert.strictEqual(maxInFlight, 1, 'pools must never overlap — the scrapers share module-level state');
+  });
 
-    await check('a gate_failed pool is still persisted, with its status preserved', async () => {
-      const rows = [];
-      const pools = [{
-        platform: 'booli', pool: 'premarket',
-        run: async () => ({ ...mkResult('booli', 'premarket'), status: 'gate_failed', notes: 'gates failed: total_drift' }),
-      }];
-      const summary = await orchestrate({
-        pools, runDate: '2026-09-01',
-        persist: async (r) => { rows.push(r); return { runId: 1, muniRows: 0 }; },
-        priorTotal: async () => null, logger: () => {},
-      });
-      assert.strictEqual(rows[0].status, 'gate_failed', 'a wrong number must land visibly, not be dropped');
-      assert.strictEqual(summary.persisted, 1);
-      assert.deepStrictEqual(summary.gateFailed, ['booli:premarket']);
+  await check('validateArgv accepts --smoke and no args; rejects any typo or variant', async () => {
+    assert.strictEqual(validateArgv(['--smoke']), true, '--smoke must be accepted');
+    assert.strictEqual(validateArgv([]), true, 'no args must be accepted (routes to the live-run path, not rejected)');
+    assert.strictEqual(validateArgv(['--smoketest']), false, '--smoketest must be rejected — it must not launch a live paid run');
+    assert.strictEqual(validateArgv(['--smoke=true']), false, '--smoke=true must be rejected');
+    assert.strictEqual(validateArgv(['--smok']), false, '--smok must be rejected');
+    assert.strictEqual(validateArgv(['--smoke', '--foo']), false, 'an extra unrecognised flag must be rejected');
+  });
+
+  await check('one failing pool does not abort the others, and is named in the summary', async () => {
+    const persisted = [];
+    const pools = [
+      { platform: 'booli', pool: 'premarket', run: async () => mkResult('booli', 'premarket') },
+      { platform: 'hemnet', pool: 'forsale', run: async () => { throw new Error('Oxylabs 613'); } },
+      { platform: 'hemnet', pool: 'premarket', run: async () => mkResult('hemnet', 'premarket') },
+    ];
+    const summary = await orchestrate({
+      pools, runDate: '2026-09-01',
+      persist: async (r) => { persisted.push(`${r.platform}:${r.pool}`); return { runId: 1, muniRows: 0 }; },
+      priorTotal: async () => null,
+      logger: () => {},
     });
+    assert.strictEqual(summary.persisted, 2, 'the two healthy pools must still bank');
+    assert.deepStrictEqual(summary.failed, ['hemnet:forsale']);
+    assert.ok(persisted.includes('hemnet:premarket'), 'a later pool must still run after an earlier failure');
+  });
 
-    await check('prior total is fetched per pool and passed into run()', async () => {
-      let sawPrior = null;
-      const pools = [{
-        platform: 'booli', pool: 'premarket',
-        run: async ({ priorTotal }) => { sawPrior = priorTotal; return mkResult('booli', 'premarket'); },
-      }];
-      await orchestrate({
-        pools, runDate: '2026-09-01',
-        persist: async () => ({ runId: 1, muniRows: 0 }),
-        priorTotal: async () => 33742, logger: () => {},
-      });
-      assert.strictEqual(sawPrior, 33742);
+  await check('a gate_failed pool is still persisted, with its status preserved', async () => {
+    const rows = [];
+    const pools = [{
+      platform: 'booli', pool: 'premarket',
+      run: async () => ({ ...mkResult('booli', 'premarket'), status: 'gate_failed', notes: 'gates failed: total_drift' }),
+    }];
+    const summary = await orchestrate({
+      pools, runDate: '2026-09-01',
+      persist: async (r) => { rows.push(r); return { runId: 1, muniRows: 0 }; },
+      priorTotal: async () => null, logger: () => {},
     });
+    assert.strictEqual(rows[0].status, 'gate_failed', 'a wrong number must land visibly, not be dropped');
+    assert.strictEqual(summary.persisted, 1);
+    assert.deepStrictEqual(summary.gateFailed, ['booli:premarket']);
+  });
 
-    console.log(`smoke: ${pass} pass, ${fail} fail`);
-    process.exit(fail === 0 ? 0 : 1);
-  })();
+  await check('prior total is fetched per pool and passed into run()', async () => {
+    let sawPrior = null;
+    const pools = [{
+      platform: 'booli', pool: 'premarket',
+      run: async ({ priorTotal }) => { sawPrior = priorTotal; return mkResult('booli', 'premarket'); },
+    }];
+    await orchestrate({
+      pools, runDate: '2026-09-01',
+      persist: async () => ({ runId: 1, muniRows: 0 }),
+      priorTotal: async () => 33742, logger: () => {},
+    });
+    assert.strictEqual(sawPrior, 33742);
+  });
+
+  console.log(`smoke: ${pass} pass, ${fail} fail`);
+  process.exit(fail === 0 ? 0 : 1);
 }
