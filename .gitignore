@@ -21,3 +21,4 @@ verf-soldspike*/**/photos/
 
 # Phase 28: large source workbook (Julian ARPL model) — do not commit
 data/*.xlsx
+.superpowers/
