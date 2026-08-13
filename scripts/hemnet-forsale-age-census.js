@@ -137,7 +137,9 @@ function noteScopeFailure(ctx, scope, level) {
     if (!ctx.failedMunis.includes(label)) ctx.failedMunis.push(label);
   } else {
     if (!ctx.failedSubScopes) ctx.failedSubScopes = [];
-    ctx.failedSubScopes.push(scopeLabel(scope));
+    // Stored as a RECORD, not just a label: run()'s retry pass needs the scope object and its
+    // level to re-attempt it, and the muni name to find the accumulator it belongs to.
+    ctx.failedSubScopes.push({ scope, level, label: scopeLabel(scope), muni: scope.name || String(scope.locationId) });
   }
 }
 
@@ -232,12 +234,35 @@ async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, prio
     }
   }
 
+  // Retry failed SUB-SCOPES the same way, reusing the municipality's accumulator. A failed
+  // item_type or price band inside a sub-partitioned muni is a hole in a big municipality —
+  // Stockholm's 3-4M apartments, say — and it was previously only ever caught if it happened to
+  // be large enough to trip gateReconciliation's 2% threshold. Anything smaller was a silent
+  // hole in a status='ok' row. Ordered AFTER the muni retry because a muni retry can itself
+  // spawn fresh sub-scope failures. The list is cleared first so the re-walk re-books only what
+  // is STILL failing; the re-walk adds through global dedupe, so nothing is double-counted.
+  const subErrs = ctx.failedSubScopes;
+  if (subErrs.length) {
+    ctx.failedSubScopes = [];
+    logger('WARN', `retrying ${subErrs.length} sub-scopes whose p1 errored: ${subErrs.map(r => r.label).join(', ')}`);
+    for (const rec of subErrs) {
+      const k = names.indexOf(rec.muni);
+      // A record we cannot place against a municipality cannot be retried — keep it booked as
+      // a failure rather than dropping it, since dropping it would hide the gap.
+      if (k < 0) { ctx.failedSubScopes.push(rec); continue; }
+      await censusScope(rec.scope, rec.level, accs[k], nowSec, ctx);
+    }
+  }
+
   const nat = mergeAccumulators(accs);
   const ox = getOxylabsStats();
   const oxCalls = ox.oxylabsCallCount + ox.directSuccessCount;
   // What the coverage gate is asked to size. Municipality names resolve against the prior
-  // month's per-muni rows; anything that does not (see item C) is unknown by construction.
-  const coverageFailures = [...ctx.failedMunis];
+  // month's per-muni rows. Sub-scope labels never do — they are unknown by construction, which
+  // per gateCoverage's rule fails the gate. That is the right outcome: a price band we could
+  // not fetch twice, inside a municipality large enough to need sub-partitioning, is a
+  // materially-sized hole whose size we have no way to estimate.
+  const coverageFailures = [...ctx.failedMunis, ...ctx.failedSubScopes.map(r => r.label)];
   const gates = [
     gateReconciliation({ headlineSum, distinct: nat.distinct, maxPct: 2 }),
     // A skipped municipality subtracts itself from BOTH sides of gateReconciliation, so that
@@ -253,7 +278,7 @@ async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, prio
   const ev = evaluateGates(gates);
   const notes = [
     ctx.failedMunis.length ? `munis skipped entirely (p1 never fetched): ${ctx.failedMunis.join(', ')}` : null,
-    ctx.failedSubScopes.length ? `${ctx.failedSubScopes.length} sub-scopes skipped: ${ctx.failedSubScopes.slice(0, 8).join(', ')}${ctx.failedSubScopes.length > 8 ? ', …' : ''}` : null,
+    ctx.failedSubScopes.length ? `${ctx.failedSubScopes.length} sub-scopes skipped: ${ctx.failedSubScopes.slice(0, 8).map(r => r.label).join(', ')}${ctx.failedSubScopes.length > 8 ? ', …' : ''}` : null,
     ctx.nonUpcoming ? `${ctx.nonUpcoming} upcoming cards filtered` : null,
     nat.anomalies ? `${nat.anomalies} publishedAt anomalies` : null,
     ev.passed ? null : `gates failed: ${ev.failures.join(', ')}`,
@@ -490,6 +515,60 @@ async function selftest() {
       });
       assert.strictEqual(big.gates.find(g => g.name === 'coverage').passed, false, 'the same gap sized at 5,000 must fail');
       assert.strictEqual(big.status, 'gate_failed');
+    } finally {
+      fetchScope = clean;
+    }
+  });
+
+  // --- a failed PRICE BAND inside a sub-partitioned muni ------------------------------------
+  // These 40 listings are deliberately small: 40 of 4,240 = 0.94%, UNDER gateReconciliation's
+  // 2% threshold. That is the whole point — a failed sub-scope was recorded in notes and
+  // errorPages but had no hard gate, so it was caught only when it happened to be big enough to
+  // trip reconciliation. Anything smaller was a silent hole in a status='ok' row.
+  addListings('Big', 'bostadsratt', 250000, 40, 3);          // Big/bostadsratt/0-1M
+  const BIG_WITH_BAND = BIG_TOTAL + 40;
+
+  await check('a price band failing BOTH attempts fails the coverage gate and is named in notes', async () => {
+    const clean = fetchScope;
+    let bandCalls = 0;
+    fetchScope = async (scope, p) => {
+      if ((scope.name || scope.locationId) === 'Big' && scope.itemType === 'bostadsratt' && scope.priceMax === 1000000 && p === 1) {
+        bandCalls++; return { status: 500, cards: null, total: undefined };
+      }
+      return clean(scope, p);
+    };
+    try {
+      const res = await run({ locations: { Big: 9002 }, nowSec: NOW_SEC, logger: () => {}, priorMuniSizes: { Big: BIG_WITH_BAND } });
+      assert.strictEqual(bandCalls, 2, `the failed band must be re-attempted exactly once (got ${bandCalls} attempts)`);
+      const rec = res.gates.find(g => g.name === 'reconciliation');
+      assert.strictEqual(rec.passed, true, `40 of 4,240 stays under the 2% reconciliation threshold — that is why a hard gate is needed: ${rec.detail}`);
+      const cov = res.gates.find(g => g.name === 'coverage');
+      assert.strictEqual(cov.passed, false, `an unfetchable price band must fail the coverage gate: ${cov.detail}`);
+      assert.ok(/NO prior-run size/.test(cov.detail), 'a sub-scope is unmeasurable by construction, and the gate must say so');
+      assert.strictEqual(res.status, 'gate_failed', `a materially-sized hole must not publish as ok (notes: ${res.notes})`);
+      assert.ok(/Big\/bostadsratt\/0-1M/.test(res.notes || ''), `the band must be named in notes (got: ${res.notes})`);
+      assert.strictEqual(res.nTotal, BIG_TOTAL, 'the 40 listings behind the failed band are genuinely missing');
+    } finally {
+      fetchScope = clean;
+    }
+  });
+
+  await check('a price band failing ONCE is retried and fully recovered', async () => {
+    const clean = fetchScope;
+    let bandCalls = 0;
+    fetchScope = async (scope, p) => {
+      if ((scope.name || scope.locationId) === 'Big' && scope.itemType === 'bostadsratt' && scope.priceMax === 1000000 && p === 1) {
+        bandCalls++;
+        if (bandCalls === 1) return { status: 500, cards: null, total: undefined };   // transient
+      }
+      return clean(scope, p);
+    };
+    try {
+      const res = await run({ locations: { Big: 9002 }, nowSec: NOW_SEC, logger: () => {}, priorMuniSizes: { Big: BIG_WITH_BAND } });
+      assert.strictEqual(bandCalls, 2, `expected fail-then-retry on the band, got ${bandCalls} attempts`);
+      assert.strictEqual(res.nTotal, BIG_WITH_BAND, `the retry must recover all ${BIG_WITH_BAND} listings, got ${res.nTotal}`);
+      assert.strictEqual(res.gates.find(g => g.name === 'coverage').passed, true, 'a recovered band must not count as a coverage failure');
+      assert.strictEqual(res.status, 'ok', `a fully recovered run must publish (notes: ${res.notes})`);
     } finally {
       fetchScope = clean;
     }
