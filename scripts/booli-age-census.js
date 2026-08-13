@@ -139,10 +139,19 @@ const { bucketsToObject, gateTotalDrift, gateErrorPages, evaluateGates } = requi
 // Estimate-only path used by the monthly job: preflight + binary-search, NO full census.
 // ~60 calls vs the bake-off's ~1,023. The census stage stays available via the default CLI
 // for method revalidation; it is never on the monthly path.
-async function run({ nowSec = NOW_SEC, logger = log, priorTotal = null } = {}) {
+// NOTE: run() deliberately takes NO nowSec. It used to accept one, but it was never plumbed
+// into preflight/binarySearch (both read the module-level NOW_SEC directly), so the parameter
+// silently did nothing while the selftest passed a value and believed it had taken effect.
+// A dead knob that looks live is worse than no knob; the module-level NOW_SEC is the single
+// clock for the whole run, which is also what makes the two stages comparable.
+async function run({ logger = log, priorTotal = null } = {}) {
   const t0 = Math.floor(Date.now() / 1000);
   resetOxylabsStats();
   errorPages = 0;
+  // Per-run state, reset together. stockTotal is module-level and is re-derived from page 1 by
+  // realFetchPage; without this reset a second in-process run() whose page 1 failed would
+  // silently inherit the PREVIOUS run's pool total and report it as this run's n_total.
+  stockTotal = null;
   const memo = new Map();
   const pf = await preflight(memo);
   const lastPage = stockTotal ? Math.ceil(stockTotal / pf.pageSize) : MAX_PAGES;
@@ -279,6 +288,9 @@ async function selftest() {
   const ageOf = (i) => i * 1.3;
   const pub = (i) => (i % 200 === 0) ? null : CLOCK - Math.round(ageOf(i) * DAY);
   pageFetcher = async (p) => {
+    // Mirror realFetchPage: page 1 is where the headline pool total comes from. run() resets
+    // stockTotal per run, so the synthetic fetcher has to supply it the same way the real one does.
+    if (p === 1) stockTotal = N;
     const start = (p - 1) * PAGE;
     if (start >= N) return { status: 200, cards: [] };
     const cards = [];
@@ -313,7 +325,11 @@ async function selftest() {
   console.log(`\nSELFTEST PASS — census==truth (${N} listings), binary-search within tolerance, report renders.`);
 
   // --- run() estimate-only contract (monthly job path) ---
-  const res = await run({ nowSec: CLOCK, logger: () => {} });
+  // A deliberately stale pool total: run() must reset it and re-derive from page 1, so a second
+  // in-process call can never report the previous run's total as its own.
+  stockTotal = 999999;
+  const res = await run({ logger: () => {} });
+  assert.strictEqual(res.nTotal, N, `run() must reset stockTotal and re-derive it from page 1, got ${res.nTotal}`);
   assert.strictEqual(res.platform, 'booli');
   assert.strictEqual(res.pool, 'premarket');
   assert.strictEqual(res.method, 'binary-search');
@@ -335,7 +351,7 @@ async function selftest() {
     if (p === 2) { brokenPageHit = true; return { status: 500, cards: null }; }   // persistent non-200 → error page
     return cleanFetcher(p);
   };
-  const resErr = await run({ nowSec: CLOCK, logger: () => {} });
+  const resErr = await run({ logger: () => {} });
   pageFetcher = cleanFetcher;
   assert.ok(brokenPageHit, 'synthetic broken-page fetcher was never invoked for page 2 — test setup is wrong');
   assert.ok(resErr.errorPages >= 1, `injecting one non-200 page must raise errorPages above 0, got ${resErr.errorPages}`);
