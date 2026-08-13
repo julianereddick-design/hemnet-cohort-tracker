@@ -216,7 +216,7 @@ async function main() {
 
 module.exports = { renderReport };
 
-if (require.main === module && process.argv.includes('--smoke')) {
+function smoke() {
   const assert = require('assert');
   let pass = 0, fail = 0;
   const check = (name, fn) => { try { fn(); pass++; } catch (e) { console.error(`SMOKE FAIL [${name}]: ${e.message}`); fail++; } };
@@ -339,10 +339,42 @@ if (require.main === module && process.argv.includes('--smoke')) {
     assert.ok(!/2026-08-01/.test(out), 'must not reference the excluded gate-failed prior date');
   });
 
+  check('validateArgv accepts --smoke and --dry-run and no args; rejects anything else', () => {
+    assert.strictEqual(validateArgv(['--smoke']), true);
+    assert.strictEqual(validateArgv(['--dry-run']), true, '--dry-run must be accepted — an operator WILL reach for it');
+    assert.strictEqual(validateArgv([]), true, 'no args routes to the live posting path, not a rejection');
+    assert.strictEqual(validateArgv(['--dryrun']), false, 'a near-miss must not fall through and POST to Slack');
+    assert.strictEqual(validateArgv(['--dry_run']), false);
+    assert.strictEqual(validateArgv(['--dry-run=1']), false);
+    assert.strictEqual(validateArgv(['--smoketest']), false);
+    assert.strictEqual(validateArgv(['--smoke', '--foo']), false, 'an extra unrecognised flag must be rejected');
+  });
+
   console.log(`smoke: ${pass} pass, ${fail} fail`);
   process.exit(fail === 0 ? 0 : 1);
 }
 
-if (require.main === module && !process.argv.includes('--smoke')) {
-  main().catch(e => { console.error('Error:', e.message); process.exit(1); });
+// Entry gate. Without this, `node age-census-report.js --dry-run` fell straight through to the
+// live path and POSTED TO SLACK: the old dispatch was "anything that isn't --smoke runs main()",
+// and DRY_RUN=1 is the only guard that works (dotenv re-injects SLACK_WEBHOOK_URL from .env, so
+// unsetting the env var does not prevent a post). --dry-run is therefore accepted AND mapped to
+// DRY_RUN=1, and every other argument is rejected. Same pattern as scripts/age-census-monthly.js.
+const ACCEPTED_ARGV = new Set(['--smoke', '--dry-run']);
+const USAGE = 'Usage: node age-census-report.js [--smoke] [--dry-run]';
+function validateArgv(argv) {
+  return argv.every(a => ACCEPTED_ARGV.has(a));
+}
+
+if (require.main === module) {
+  const argv = process.argv.slice(2);
+  if (!validateArgv(argv)) {
+    console.error(`Unrecognised argument(s): ${argv.filter(a => !ACCEPTED_ARGV.has(a)).join(', ')}`);
+    console.error(USAGE);
+    process.exit(1);
+  } else if (argv.includes('--smoke')) {
+    smoke();
+  } else {
+    if (argv.includes('--dry-run')) process.env.DRY_RUN = '1';
+    main().catch(e => { console.error('Error:', e.message); process.exit(1); });
+  }
 }
