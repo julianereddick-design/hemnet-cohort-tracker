@@ -31,9 +31,15 @@ const INSERT_MUNI = `
     counted_n=EXCLUDED.counted_n, buckets=EXCLUDED.buckets,
     buckets_secondhand=EXCLUDED.buckets_secondhand`;
 
+// status = 'ok' is load-bearing: this total is what gateTotalDrift anchors on. Anchoring on a
+// gate-failed month is wrong in both directions — a broken 16,000 followed by a still-broken
+// 16,000 shows 0% drift and PASSES, while a broken 16,000 followed by a CORRECT 33,742 shows
+// 111% drift and wrongly gate-fails the good month. So the baseline is the most recent VALID
+// prior row, which may be older than the immediately preceding one. Same rule the report's
+// delta baseline already applies (commit 8260b7a).
 const SELECT_PRIOR = `
   SELECT n_total FROM age_census_run
-   WHERE platform = $1 AND pool = $2 AND run_date < $3::date
+   WHERE platform = $1 AND pool = $2 AND run_date < $3::date AND status = 'ok'
    ORDER BY run_date DESC LIMIT 1`;
 
 async function upsertRun(client, row) {
@@ -164,6 +170,10 @@ if (require.main === module && process.argv.includes('--smoke')) {
       const q = c1.calls[0];
       assert.ok(/run_date < \$3/.test(q.sql), 'must exclude the current run date');
       assert.ok(/ORDER BY run_date DESC/.test(q.sql), 'must take the most recent prior');
+      // Without this filter gateTotalDrift anchors on gate-failed months: two broken months in
+      // a row show 0% drift and pass, and a correct month after a broken one shows 111% drift
+      // and is wrongly gate-failed. The baseline must be the most recent VALID prior row.
+      assert.ok(/status = 'ok'/.test(q.sql), "must anchor drift only on gate-passed prior rows");
     });
 
     await check('toRunRow maps a scraper result to the DB row shape, both variants', () => {
