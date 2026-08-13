@@ -13,6 +13,26 @@ require('dotenv').config();
 // the report job at 07:00 and clear of the Monday 08:50/09:00/10:30 jobs.
 // Cost: ~2,000 Oxylabs calls ≈ $5/month.
 //
+// RUN_DATE — the hand re-run mechanism
+// ------------------------------------
+// The run date comes from the RUN_DATE env var, defaulting to today (UTC). It is the primary
+// key of the month's row-set: age_census_run is keyed (run_date, platform, pool), so re-running
+// under the SAME date upserts over the existing rows — that is how you repair a month whose
+// pool failed or gate-failed. To redo the whole month:
+//
+//   RUN_DATE=2026-09-01 SCRAPE_FORCE_OXYLABS=1 node scripts/age-census-monthly.js
+//
+// ⚠ Re-running under a DIFFERENT date does not repair anything — it creates a SEPARATE row-set
+// that the scheduled report will not display. age-census-report.js reads exactly one run date
+// (REPORT_DATE, defaulting to today), so rows written under an off-schedule date are invisible
+// to Slack: they are not merged, not preferred, and not flagged as missing. They also become an
+// extra gate-passed baseline that a later month's drift gate and delta can anchor on. If you
+// deliberately re-run under a different date, drive the report with the same value:
+//
+//   REPORT_DATE=2026-09-03 node age-census-report.js --dry-run
+//
+// Set RUN_DATE to the 1st of the month whenever you are repairing that month's numbers.
+//
 // Self-test: node scripts/age-census-monthly.js --smoke   (offline, no DB, no network)
 const { runJob } = require('../cron-wrapper');
 const { createClient } = require('../db');
