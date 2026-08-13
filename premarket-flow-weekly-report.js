@@ -302,11 +302,27 @@ async function run() {
 // qualityBlock joins that set: it is pure (no I/O) and the --smoke cases drive it directly.
 module.exports = { addsShare, formatShareRow, formatShareHistory, ratio, metricRow, wowAdds, qualityBlock };
 
-// Entry gate: --smoke runs the offline self-test; otherwise the report runs.
-if (require.main === module && process.argv.includes('--smoke')) {
-  smoke();
-} else if (require.main === module) {
-  run().catch(err => { console.error(err); process.exit(1); });
+// Entry gate: --smoke runs the offline self-test; otherwise the report runs for real,
+// posting to a live Slack channel. REPORT_DATE is read from the environment, not argv,
+// so --smoke is the only accepted flag; anything else — `--smoketest`, `--smoke=true`,
+// `--smok` — must never fall through to the live-post path.
+const ACCEPTED_ARGV = new Set(['--smoke']);
+const USAGE = 'Usage: node premarket-flow-weekly-report.js [--smoke]';
+function validateArgv(argv) {
+  return argv.every(a => ACCEPTED_ARGV.has(a));
+}
+
+if (require.main === module) {
+  const argv = process.argv.slice(2);
+  if (!validateArgv(argv)) {
+    console.error(`Unrecognised argument(s): ${argv.filter(a => !ACCEPTED_ARGV.has(a)).join(', ')}`);
+    console.error(USAGE);
+    process.exit(1);
+  } else if (argv.includes('--smoke')) {
+    smoke();
+  } else {
+    run().catch(err => { console.error(err); process.exit(1); });
+  }
 }
 
 // --smoke self-test — fully offline (no DB, no network, no Slack post).
@@ -367,6 +383,15 @@ function smoke() {
   check('partial resolution is disclosed', () => {
     const out = qualityBlock({ quality: { ...quality, n_resolved: 500 }, hemnetAdds: 1150, flowWindowDays: 7 }).join('\n');
     assert(/500 of 537/.test(out), 'should disclose the resolution shortfall');
+  });
+
+  check('validateArgv accepts --smoke and no args; rejects any typo or variant', () => {
+    assert(validateArgv(['--smoke']) === true, '--smoke must be accepted');
+    assert(validateArgv([]) === true, 'no args must be accepted (routes to the live-post path, not rejected)');
+    assert(validateArgv(['--smoketest']) === false, '--smoketest must be rejected — it must not launch a live Slack post');
+    assert(validateArgv(['--smoke=true']) === false, '--smoke=true must be rejected');
+    assert(validateArgv(['--smok']) === false, '--smok must be rejected');
+    assert(validateArgv(['--smoke', '--foo']) === false, 'an extra unrecognised flag must be rejected');
   });
 
   console.log(failed === 0 ? '\nALL PASS' : `\n${failed} FAILED`);
