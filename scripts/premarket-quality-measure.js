@@ -18,7 +18,7 @@ require('dotenv').config();
 
 const { walkFlow } = require('../lib/premarket-flow');
 const { getWithRetry, extractNextData, getOxylabsStats } = require('../lib/scrape-http');
-const { interiorVerdict } = require('../lib/booli-image-labels');
+const { interiorVerdict, INTERIOR } = require('../lib/booli-image-labels');
 const { bucketOf, NEEDS_PAGE, tally, WINDOW_DAYS } = require('../lib/premarket-quality');
 const { parsePublishedToUnix } = require('../lib/booli-fetch');
 
@@ -112,15 +112,74 @@ async function collectWeek({ fetchPage, nowSec, logger }) {
   return { listings, pagesWalked: res.pagesWalked };
 }
 
+const RESOLVE_CALL_CEILING = 700;
+const RESOLVE_CONCURRENCY = 4;
+
+// The detail gallery is NOT limit-capped. Take the longest images array on the
+// canonical Listing node. (Lifted from scripts/premarket-quality-resolve.js:41-60.)
+function galleryOf(S) {
+  let L = null;
+  for (const k of Object.keys(S)) {
+    if (k.startsWith('Listing:') && S[k] && S[k].__typename === 'Listing') { L = S[k]; break; }
+  }
+  if (!L) return null;
+  let imgs = [];
+  for (const k of Object.keys(L)) {
+    if (!k.startsWith('images')) continue;
+    const r = (Array.isArray(L[k]) ? L[k] : []).map(x => (x && x.__ref ? S[x.__ref] : x)).filter(Boolean);
+    if (r.length > imgs.length) imgs = r;
+  }
+  const labels = imgs.map(i => (i.primaryLabel === undefined ? null : i.primaryLabel));
+  const labelCounts = {};
+  for (const l of labels) { const k = l == null ? 'NULL' : l; labelCounts[k] = (labelCounts[k] || 0) + 1; }
+  return { photos: imgs.length, labels, labelCounts, interiorN: labels.filter(l => INTERIOR.has(l)).length };
+}
+
+// Open EVERY listing the card could not settle. A failure leaves the listing
+// unresolved rather than mis-categorised — tally() counts the shortfall and
+// validate() escalates it.
+async function resolveAmbiguous({ listings, fetchDetail, logger }) {
+  const queue = listings.filter(l => NEEDS_PAGE.has(l.bucket));
+  let opened = 0, failed = 0, next = 0;
+
+  async function worker() {
+    while (next < queue.length) {
+      const l = queue[next++];
+      if (opened + failed >= RESOLVE_CALL_CEILING) {
+        logger('WARN', `resolve ceiling ${RESOLVE_CALL_CEILING} hit — ${queue.length - next} left unopened`);
+        return;
+      }
+      try {
+        const g = galleryOf(await fetchDetail(l.url));
+        if (!g) throw new Error('no Listing node in detail page');
+        l.interiorVerdict = g.interiorN > 0 ? 'yes' : 'no';
+        l.galleryPhotos = g.photos;
+        l.cardLabels = g.labelCounts;   // full gallery labels feed the taxonomy canary
+        l.resolved = true;
+        opened++;
+      } catch (e) {
+        failed++;
+        logger('WARN', `resolve failed for ${l.url}: ${e.message}`);
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: RESOLVE_CONCURRENCY }, worker));
+  logger('INFO', `resolve: ${opened} opened, ${failed} failed, of ${queue.length} needing a page`);
+  return { opened, failed };
+}
+
 if (require.main === module && process.argv.includes('--smoke')) {
   smoke();
 }
 
-function smoke() {
+async function smoke() {
   let failed = 0;
+  const results = [];
   const check = (name, fn) => {
-    try { fn(); console.log(`  PASS  ${name}`); }
-    catch (e) { failed++; console.log(`  FAIL  ${name}: ${e.message}`); }
+    results.push(Promise.resolve().then(fn).then(
+      () => console.log(`  PASS  ${name}`),
+      e => { failed++; console.log(`  FAIL  ${name}: ${e.message}`); }));
   };
   const assert = (cond, msg) => { if (!cond) throw new Error(msg || 'assertion failed'); };
 
@@ -203,6 +262,65 @@ function smoke() {
     assert(c.published === null, `expected null, got ${c.published}`);
   });
 
+  // --- resolve stage --------------------------------------------------------
+  const detailS = {
+    'Listing:9': {
+      __typename: 'Listing', id: 9,
+      'images(full)': [{ __ref: 'D1' }, { __ref: 'D2' }, { __ref: 'D3' }],
+      'images(small)': [{ __ref: 'D1' }],
+    },
+    D1: { primaryLabel: 'facade' }, D2: { primaryLabel: 'bedroom' }, D3: { primaryLabel: 'facade' },
+  };
+  check('galleryOf takes the longest images array', () => {
+    const g = galleryOf(detailS);
+    assert(g.photos === 3, `expected 3 photos, got ${g && g.photos}`);
+    assert(g.interiorN === 1, `expected 1 interior, got ${g && g.interiorN}`);
+  });
+
+  check('resolve rescues an ambiguous listing that has interiors', async () => {
+    const listings = [{ booli_id: '9', url: 'https://www.booli.se/annons/9',
+      bucket: 'ambiguous', interiorVerdict: 'no', resolved: false, cardLabels: {} }];
+    const r = await resolveAmbiguous({
+      listings, logger: () => {},
+      fetchDetail: async () => detailS,
+    });
+    assert(r.opened === 1, `opened ${r.opened}`);
+    assert(r.failed === 0, `failed ${r.failed}`);
+    assert(listings[0].interiorVerdict === 'yes', 'should be rescued to yes');
+    assert(listings[0].resolved === true, 'should be marked resolved');
+  });
+
+  check('resolve confirms no-interior when the full gallery has none', async () => {
+    const noInt = { 'Listing:8': { __typename: 'Listing', id: 8, 'images(full)': [{ __ref: 'E1' }] },
+      E1: { primaryLabel: 'facade' } };
+    const listings = [{ booli_id: '8', url: 'https://www.booli.se/annons/8',
+      bucket: 'ambiguous', interiorVerdict: 'no', resolved: false, cardLabels: {} }];
+    await resolveAmbiguous({ listings, logger: () => {}, fetchDetail: async () => noInt });
+    assert(listings[0].interiorVerdict === 'no', 'should stay no');
+    assert(listings[0].resolved === true, 'should still be marked resolved');
+  });
+
+  check('a failed detail fetch is tolerated, not fatal', async () => {
+    const listings = [{ booli_id: '7', url: 'https://www.booli.se/annons/7',
+      bucket: 'ambiguous', interiorVerdict: 'no', resolved: false, cardLabels: {} }];
+    const r = await resolveAmbiguous({
+      listings, logger: () => {},
+      fetchDetail: async () => { throw new Error('timeout'); },
+    });
+    assert(r.failed === 1, `expected 1 failure, got ${r.failed}`);
+    assert(listings[0].resolved === false, 'unresolved listing must not be marked resolved');
+  });
+
+  check('settled listings are never opened', async () => {
+    let calls = 0;
+    const listings = [{ booli_id: '6', url: 'u', bucket: 'has_interior',
+      interiorVerdict: 'yes', resolved: false, cardLabels: {} }];
+    await resolveAmbiguous({ listings, logger: () => {},
+      fetchDetail: async () => { calls++; return detailS; } });
+    assert(calls === 0, `settled listing must not be fetched, got ${calls} calls`);
+  });
+
+  await Promise.all(results);
   console.log(failed === 0 ? '\nALL PASS' : `\n${failed} FAILED`);
   process.exit(failed === 0 ? 0 : 1);
 }
