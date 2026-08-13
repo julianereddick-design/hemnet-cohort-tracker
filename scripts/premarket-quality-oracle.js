@@ -34,6 +34,13 @@ function run() {
 
   console.log(`=== premarket-quality oracle — ${D.listings.length} listings ===`);
 
+  // Guard the strict per-listing check's own scope: if a future fixture
+  // regeneration pushed rows into `unresolved`, `settled` would silently shrink
+  // and an empty array would pass the mismatch check vacuously (0 mismatches of
+  // 0 rows). Assert the audited scope directly.
+  check('settled scope matches the audited August cohort (2262 of 2264)',
+    settled.length === 2262, `expected 2262, got ${settled.length}`);
+
   // Strictest check: every stored per-listing category must be reproduced.
   const mismatches = settled.filter(l => categorise(l) !== l.category);
   check(`per-listing categories reproduce (${settled.length} settled)`,
