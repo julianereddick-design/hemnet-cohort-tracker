@@ -203,7 +203,20 @@ function validate(summary) {
     problems.push(`${summary.n_unknown_labels} unknown image label(s) — Booli taxonomy may have changed, check lib/booli-image-labels.js`);
   }
   if (summary.volumeAnomaly) problems.push(summary.volumeAnomaly);
+  if (summary.pagesWalked >= MAX_PAGES) {
+    problems.push(`walk hit maxPages=${MAX_PAGES} — the week may be truncated (undercount)`);
+  }
   return problems.length ? problems.join(' · ') : null;
+}
+
+// getOxylabsStats() exposes { oxylabsCallCount, oxylabsFailureCount,
+// directSuccessCount, oxylabsFallbackRate } — there is NO `requests` field.
+// Reading `.requests` yields undefined, so the subtraction yields NaN, which
+// node-pg serialises as "NaN" and Postgres rejects on an INTEGER column.
+// Total calls = Oxylabs + direct.
+function oxCallsTotal() {
+  const s = getOxylabsStats();
+  return s.oxylabsCallCount + s.directSuccessCount;
 }
 
 const UPSERT = `
@@ -229,7 +242,7 @@ const UPSERT = `
 async function main(client, log) {
   const nowSec = Math.floor(Date.now() / 1000);
   const today = process.env.REPORT_DATE || new Date().toISOString().slice(0, 10);
-  const callsAtStart = getOxylabsStats().requests;
+  const callsAtStart = oxCallsTotal();
 
   let walkCalls = 0;
   const fetchPage = async (p) => {
@@ -245,7 +258,7 @@ async function main(client, log) {
   await resolveAmbiguous({ listings, fetchDetail, logger: log });
 
   const counts = tally(listings);
-  const oxylabsCalls = getOxylabsStats().requests - callsAtStart;
+  const oxylabsCalls = oxCallsTotal() - callsAtStart;
 
   const prior = await client.query(
     `SELECT n_total FROM premarket_quality_weekly
@@ -446,10 +459,30 @@ async function smoke() {
     const v = validate({ ...base, volumeAnomaly: 'n_total 900 is -60% vs 4-week mean 2250' });
     assert(/vs 4-week mean/.test(v || ''), `expected volume warning, got ${v}`);
   });
+  check('validate: hitting maxPages warns of a possibly truncated week', () => {
+    const v = validate({ ...base, pagesWalked: MAX_PAGES });
+    assert(/maxPages/.test(v || ''), `expected truncation warning, got ${v}`);
+  });
+  check('validate: below maxPages does not warn of truncation', () => {
+    const v = validate({ ...base, pagesWalked: MAX_PAGES - 1 });
+    assert(!v, `walk under the cap should not warn, got ${v}`);
+  });
   check('validate: zero listings is a hard failure not a warning', () => {
     let threw = false;
-    try { assertCohortNonEmpty(0); } catch (e) { threw = true; }
+    try { assertCohortNonEmpty(0); } catch (e) {
+      threw = true;
+      assert(/refusing to persist/.test(e.message), `wrong error message: ${e.message}`);
+    }
     assert(threw, 'empty cohort must throw');
+  });
+  check('validate: a non-empty cohort does not throw', () => {
+    // Guards against an inverted condition in assertCohortNonEmpty.
+    assertCohortNonEmpty(2264);
+  });
+  check('oxCallsTotal() is a real integer, not NaN from a nonexistent field', () => {
+    // getOxylabsStats() has no `.requests` field — this is the exact bug that
+    // made every run fail on the final INSERT after already spending the money.
+    assert(Number.isInteger(oxCallsTotal()), `expected an integer, got ${oxCallsTotal()}`);
   });
 
   await Promise.all(results);
