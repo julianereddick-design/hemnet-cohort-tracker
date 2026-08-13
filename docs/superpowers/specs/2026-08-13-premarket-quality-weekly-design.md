@@ -116,10 +116,14 @@ The ambiguous bucket ran 23.6% of the August cohort; opening all 537 found 61.1%
 interiors. Galleries behind a 5-image card ran 8→99 photos, so hitting the cap says nothing
 about depth.
 
-**Full resolution, not sampling.** Sampling ~150 of the ambiguous bucket would cut the job to
-~$0.55 and 6 minutes, but it puts a confidence interval on the headline every week to save
-about $50 a year and makes the tier counts estimates rather than counts. Full resolve is the
-default; sampling is the lever if wall-clock ever becomes a problem.
+**Requirement: every ambiguous listing is opened, every week.** All listings whose card shows
+exactly 5 images with no interior label get a detail fetch — no cap on how many, no sampling.
+The only limit is the 700-call spend guard (§8), and hitting it is an alarm condition, not a
+normal operating mode.
+
+Sampling ~150 of the bucket was considered and **rejected** (Julian, 2026-08-13): it would cut
+the job to ~$0.55 and 6 minutes, but it puts a confidence interval on the headline every week
+to save about $50 a year, and it makes the tier counts estimates rather than counts.
 
 ## 6. Data model
 
