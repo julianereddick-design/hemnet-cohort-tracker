@@ -96,9 +96,15 @@ production flow job calls it; a regression there silently corrupts the weekly fl
 
 **Retired:** `scripts/premarket-quality-week.js`, `-resolve.js`, `-recompute.js`,
 `-categorise.js`. Their logic moves into `lib/premarket-quality.js`. Keeping them would leave
-two implementations of the same rubric to drift apart. Git history, the committed August JSON
-(`verf-premarket-quality/week-2026-08-11-resolved-fixed-categorised.json`) and
+two implementations of the same rubric to drift apart. Git history and
 `docs/handover/booli-premarket-quality.md` preserve the provenance of the August result.
+
+🚨 **The August artifact is NOT in git.** `verf-premarket-quality/` is entirely untracked, and
+`week-2026-08-11-resolved-fixed-categorised.json` is ~2 MB of raw scrape output. Since the
+regression oracle (§9) depends on it, the implementation must first derive a **trimmed,
+committed fixture** — the seven fields the rubric actually reads, for all 2,264 listings
+(~250 KB) — before the old scripts are deleted. Deleting them while the only copy of their
+output sits untracked on one laptop would destroy the oracle.
 
 ## 5. Method — the four-branch rule
 
@@ -226,10 +232,16 @@ fixture cards, the 4-branch bucket rule, the six-rung ladder, cumulative arithme
 suppression of >100% Hemnet cells, 0-dp rounding, and report rendering with a missing quality
 row.
 
-**Regression oracle.** Replay the committed August JSON — 2,264 real listings — through
+**Regression oracle.** Replay the trimmed August fixture — 2,264 real listings — through
 `lib/premarket-quality.js` and assert it reproduces the audited published figures: 19.7%
 genuinely coming to market, 6.4% filler, 87.1% interior, 54.3% price, 39.7% AVM shown, 21.1%
-viewing. If the rewrite cannot reproduce the August result, the rewrite is wrong.
+viewing. Also assert the per-listing category assignment matches the stored `category` for
+every row, which is a far stricter check than the aggregates alone. If the rewrite cannot
+reproduce the August result, the rewrite is wrong.
+
+**Test tooling:** this repo has no test framework. The convention is an in-script `--smoke`
+self-test run as `node <script> --smoke` (see `sold-match-report.js:513-528`). Follow it —
+do not introduce jest, mocha, or a `tests/` tree.
 
 **Live validation.** One gated wet run (~$1.51, requires explicit go-ahead) before the cron
 line is installed, compared against the same week's manual pipeline output.
