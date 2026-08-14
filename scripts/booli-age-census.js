@@ -152,7 +152,86 @@ async function binarySearch(memo, pageSize, lastPage, { filtered = false, poolTo
   return { buckets, cumulative, undatedEst, undatedRate };
 }
 
-const { bucketsToObject, gateTotalDrift, gateErrorPages, evaluateGates } = require('../lib/age-census');
+const { BAND_KEYS, bucketsToObject, gateTotalDrift, gateErrorPages, evaluateGates } = require('../lib/age-census');
+
+// ---------------------------------------------------------------------------
+// Second-hand basis validation. Kept local to each script (lib/age-census.js is owned
+// elsewhere); the twin lives in scripts/forsale-age-penetration.js and must stay in step.
+// ---------------------------------------------------------------------------
+
+// DID THE FILTER ACTUALLY APPLY?
+// Booli silently ignores query parameters it does not recognise. When it does, the "filtered"
+// URL serves the UNFILTERED pool and its page 1 carries the unfiltered headline total — so the
+// two totals come back EQUAL, or a listing or two apart in whichever direction the pool drifted
+// between the two page-1 reads. A `filtered > unfiltered` test therefore catches only the
+// coin-flip half of that; the other half publishes bucketsSecondhand == buckets and
+// nNewbuild == 0 as EXACT, unattended, with no note and no gate. That is precisely the silent
+// wrong number this whole feature exists to avoid, and it is why the discovery probe
+// (scripts/probe-booli-newconstruction-filter.js) asked for `=1` rather than trusting a small
+// `=0` delta. Two independent signals, EITHER of which is disqualifying:
+//
+//   (a) FLAG   — every card the filtered pass fetched carries isNewBuild. A working filter
+//                leaves essentially none behind. Needs a real sample before it can judge.
+//   (b) VOLUME — a working filter always removes at least the new-builds. Measured live
+//                2026-08-13: pre-market removes 0.59% of the pool, for-sale 2.62%. A removal
+//                under 0.1% is not a filter, it is noise.
+//
+// (a) is the sharper signal but the weaker one on THIS pool: Booli pre-market is only 0.59%
+// new-build, barely above the 0.5% threshold, so sampling noise can hide it. (b) is decisive
+// there (an ignored filter removes 0.00%). Requiring only one of them to trip is what makes
+// the pair robust — see the report's concerns section.
+const FILTER_MAX_NEWBUILD_RATE = 0.005;   // (a) >0.5% of cards seen still flagged new-build
+const FILTER_MIN_REMOVED_PCT = 0.001;     // (b) <0.1% of the pool removed
+const FILTER_MIN_FLAG_SAMPLE = 100;       // cards the filtered pass must have seen before (a) judges
+
+function filterApplied({ unfilteredTotal, filteredTotal, cardsSeen = 0, newbuildSeen = 0 }) {
+  if (!unfilteredTotal || filteredTotal == null) {
+    return { applied: false, reason: `no headline total to compare (unfiltered ${unfilteredTotal}, filtered ${filteredTotal})` };
+  }
+  const nbRate = cardsSeen ? newbuildSeen / cardsSeen : 0;
+  const removed = unfilteredTotal - filteredTotal;
+  const removedPct = removed / unfilteredTotal;
+  const canJudgeFlag = cardsSeen >= FILTER_MIN_FLAG_SAMPLE;
+  const flagTrips = canJudgeFlag && nbRate > FILTER_MAX_NEWBUILD_RATE;
+  const volumeTrips = removedPct < FILTER_MIN_REMOVED_PCT;
+  const evidence =
+    `${newbuildSeen}/${cardsSeen} cards seen on the filtered pass are still flagged new-build ` +
+    `(${(nbRate * 100).toFixed(2)}%, max ${(FILTER_MAX_NEWBUILD_RATE * 100).toFixed(2)}%` +
+    `${canJudgeFlag ? '' : `; under ${FILTER_MIN_FLAG_SAMPLE} cards, too small to judge`}); ` +
+    `filtered total ${filteredTotal} vs unfiltered ${unfilteredTotal} removes ${removed} ` +
+    `(${(removedPct * 100).toFixed(3)}%, min ${(FILTER_MIN_REMOVED_PCT * 100).toFixed(3)}%)`;
+  if (flagTrips || volumeTrips) {
+    return { applied: false, reason: `the isNewConstruction=0 filter appears to have been IGNORED — ${evidence}` };
+  }
+  return { applied: true, reason: evidence };
+}
+
+// BAND-SUBSET INVARIANT, ENFORCED AT RUN TIME.
+// The two bases come from two INDEPENDENT bisections, each carrying up to ±pageSize of error,
+// so a thin band can come back LARGER in the filtered basis than in the all-listings one —
+// which would imply a negative new-build count in that band. Within one page of slack that is
+// estimator noise: clamp to the all-listings band and say so on the row. Beyond a page the two
+// bisections genuinely disagree and the whole second basis is untrustworthy, so it is withheld.
+// Returns { bands, clamped:[label], withhold:<reason|null> }; bands is null when withholding.
+function reconcileSecondhandBands(bands, filteredBands, pageSize) {
+  const out = filteredBands.slice();
+  const clamped = [];
+  const slack = Math.max(1, pageSize || 1);
+  for (let k = 0; k < bands.length; k++) {
+    const excess = filteredBands[k] - bands[k];
+    if (excess <= 0) continue;
+    if (excess > slack) {
+      return {
+        bands: null, clamped,
+        withhold: `band ${BAND_KEYS[k]} is ${filteredBands[k]} in the 2nd-hand basis vs ${bands[k]} in the ` +
+          `all-listings one — an excess of ${excess}, more than one page (${slack}); the two bisections disagree`,
+      };
+    }
+    out[k] = bands[k];
+    clamped.push(`${BAND_KEYS[k]} (+${excess})`);
+  }
+  return { bands: out, clamped, withhold: null };
+}
 
 // Estimate-only path used by the monthly job: preflight + binary-search, NO full census —
 // run TWICE, once over all listings and once over the isNewConstruction=0 stream, so the
@@ -189,25 +268,43 @@ async function run({ logger = log, priorTotal = null } = {}) {
   if (p1f.cards == null) { errorPages++; log('WARN', `2nd-hand page 1 status ${p1f.status} → treated empty`); }
   memoFiltered.set(1, p1f.cards || []);
 
-  let bucketsSecondhand = null, nNewbuild = null, secondhandNote = null;
-  if (filteredTotal == null) {
-    secondhandNote = 'second-hand pass skipped: the isNewConstruction=0 stream returned no headline total on page 1';
-    log('WARN', secondhandNote);
-  } else if (filteredTotal > stockTotal) {
-    // A filtered pool LARGER than the unfiltered one means the filter was not applied (Booli
-    // silently ignores params it does not recognise) or the two page-1 fetches straddled a
-    // pool change. Either way the "exclusion" is not one — refuse to publish it as second-hand.
-    secondhandNote = `second-hand pass rejected: filtered total ${filteredTotal} exceeds unfiltered ${stockTotal} — the isNewConstruction=0 filter did not apply`;
-    log('WARN', secondhandNote);
+  let bucketsSecondhand = null, nNewbuild = null;
+  const secondhandNotes = [];
+  const withhold = (why) => { secondhandNotes.push(`second-hand basis withheld: ${why}`); log('WARN', why); };
+
+  if (!stockTotal || filteredTotal == null) {
+    // Either page 1 missing means there is no denominator and no pair of totals to difference.
+    withhold(filterApplied({ unfilteredTotal: stockTotal, filteredTotal }).reason);
   } else {
     // max(1, …) so a degenerate all-new-build pool (filteredTotal 0) bisects the single empty
     // page and yields all-zero bands, rather than falling back to a 1,200-page safety cap.
     const lastPageFiltered = Math.max(1, Math.ceil(filteredTotal / pf.pageSize));
     const bsf = await binarySearch(memoFiltered, pf.pageSize, lastPageFiltered, { filtered: true, poolTotal: filteredTotal });
     const bandsFiltered = bsf.buckets.map(v => Math.max(0, Math.round(v)));
-    bucketsSecondhand = bucketsToObject(bandsFiltered, bsf.undatedEst);
-    nNewbuild = stockTotal - filteredTotal;      // EXACT: two headline totals, not a sample
-    logger('INFO', `run() 2nd-hand bands=${JSON.stringify(bandsFiltered)} filteredTotal=${filteredTotal} newbuild=${nNewbuild}`);
+
+    // Signal (a) needs the cards the filtered pass actually fetched — every one carries
+    // isNewBuild, and a working filter leaves essentially none behind.
+    let cardsSeen = 0, newbuildSeen = 0;
+    for (const cards of memoFiltered.values()) for (const c of cards) { cardsSeen++; if (c.isNewBuild) newbuildSeen++; }
+    const verdict = filterApplied({ unfilteredTotal: stockTotal, filteredTotal, cardsSeen, newbuildSeen });
+
+    if (!verdict.applied) {
+      withhold(verdict.reason);
+    } else {
+      const rec = reconcileSecondhandBands(bands, bandsFiltered, pf.pageSize);
+      if (rec.withhold) {
+        withhold(rec.withhold);
+      } else {
+        bucketsSecondhand = bucketsToObject(rec.bands, bsf.undatedEst);
+        nNewbuild = stockTotal - filteredTotal;      // EXACT: two headline totals, not a sample
+        if (rec.clamped.length) {
+          const note = `2nd-hand bands clamped to the all-listings bands in ${rec.clamped.join(', ')} — within one page (${pf.pageSize}) of bisection noise`;
+          secondhandNotes.push(note);
+          log('WARN', note);
+        }
+        logger('INFO', `run() 2nd-hand bands=${JSON.stringify(rec.bands)} filteredTotal=${filteredTotal} newbuild=${nNewbuild}`);
+      }
+    }
   }
 
   const ox = getOxylabsStats();
@@ -217,9 +314,12 @@ async function run({ logger = log, priorTotal = null } = {}) {
     gateTotalDrift({ nTotal: stockTotal, priorTotal, maxPct: 25 }),
   ];
   const ev = evaluateGates(gates);
+  // A withheld second basis does NOT fail the pool's gates: the all-listings basis is still
+  // valid and must still publish. The report renders notes on ok rows, so this stays visible
+  // without destroying a good month.
   const notes = [];
   if (!ev.passed) notes.push(`gates failed: ${ev.failures.join(', ')}`);
-  if (secondhandNote) notes.push(secondhandNote);
+  notes.push(...secondhandNotes);
   logger('INFO', `run() bands=${JSON.stringify(bands)} undated=${bs.undatedEst} calls=${oxCalls} gates=${ev.passed ? 'ok' : ev.failures.join(',')}`);
   return {
     platform: 'booli', pool: 'premarket', method: 'binary-search',
@@ -387,7 +487,6 @@ async function selftest() {
   assert.strictEqual(res.platform, 'booli');
   assert.strictEqual(res.pool, 'premarket');
   assert.strictEqual(res.method, 'binary-search');
-  const BAND_KEYS = ['le1m', 'm1_3', 'm3_6', 'm6_12', 'm12_18', 'm18_24', 'gt24'];
   assert.deepStrictEqual(Object.keys(res.buckets), [...BAND_KEYS, 'undated']);
   const bandSum = BAND_KEYS.reduce((a, k) => a + res.buckets[k], 0);
   assert.ok(Math.abs(bandSum + res.buckets.undated - res.nTotal) <= 1, `bands+undated ${bandSum + res.buckets.undated} must reconcile to nTotal ${res.nTotal}`);
@@ -427,8 +526,145 @@ async function selftest() {
   assert.strictEqual(resNoSh.bucketsSecondhand, null, 'no filtered total → no 2nd-hand claim');
   assert.strictEqual(resNoSh.nNewbuild, null, 'no filtered total → no new-build count, not a fabricated 0');
   assert.strictEqual(resNoSh.nTotal, N, 'the all-listings pass must still stand on its own');
-  assert.ok(/second-hand pass skipped/.test(resNoSh.notes || ''), `the skip must be stated: ${resNoSh.notes}`);
+  assert.ok(/no headline total to compare/.test(resNoSh.notes || ''), `the skip must be stated: ${resNoSh.notes}`);
   console.log('SELFTEST PASS — a missing filtered total degrades honestly.');
+
+  // --- and the mirror case: UNFILTERED page 1 failed, so there is no denominator either ---
+  // The old guard compared `filteredTotal > stockTotal` with stockTotal null, which is always
+  // false, so it fell through to a note reading "exceeds unfiltered null".
+  pageFetcher = async (p, filtered = false) => (p === 1 && !filtered) ? { status: 500, cards: null } : cleanFetch(p, filtered);
+  const resNoAll = await run({ logger: () => {} });
+  pageFetcher = cleanFetch;
+  assert.strictEqual(resNoAll.nTotal, null, 'a failed unfiltered page 1 leaves no pool total');
+  assert.strictEqual(resNoAll.bucketsSecondhand, null, 'no unfiltered total → no 2nd-hand claim');
+  assert.strictEqual(resNoAll.nNewbuild, null, 'no unfiltered total → no new-build count');
+  assert.ok(/no headline total to compare \(unfiltered null/.test(resNoAll.notes || ''),
+    `a null pool total must be named, not compared: ${resNoAll.notes}`);
+  assert.ok(!/exceeds unfiltered null/.test(resNoAll.notes || ''), `no nonsense note: ${resNoAll.notes}`);
+  console.log('SELFTEST PASS — a null unfiltered total is handled explicitly.');
+
+  // --- the filter being IGNORED must be caught, not published as an exact zero ---
+  // Booli silently ignores unrecognised params: the filtered URL then serves the UNFILTERED
+  // pool, and its page 1 carries the unfiltered headline total. The two totals come back equal,
+  // or a listing or two apart in EITHER direction from pool drift between the two page-1 reads.
+  // Before the two-signal check this published bucketsSecondhand == buckets and nNewbuild == 0
+  // as EXACT, with notes=null and status=ok. Drift of 0 and −2 both slipped past the old
+  // `filtered > unfiltered` guard; +2 was the only half it caught.
+  const ignoringFetch = (drift) => async (p, filtered = false) => {
+    const r = await cleanFetch(p, false);              // BOTH URLs serve the UNFILTERED pool
+    if (p === 1 && filtered) filteredTotal = N - drift; // …and its total is booked as the filtered one
+    return r;
+  };
+  let ignoredNote = null;
+  for (const drift of [0, 2, -2]) {
+    pageFetcher = ignoringFetch(drift);
+    const r = await run({ logger: () => {} });
+    pageFetcher = cleanFetch;
+    assert.strictEqual(r.bucketsSecondhand, null, `drift ${drift}: an ignored filter must not publish a 2nd-hand histogram`);
+    assert.strictEqual(r.nNewbuild, null, `drift ${drift}: an ignored filter must not publish a new-build count`);
+    assert.strictEqual(r.newbuildSampled, false, `drift ${drift}: still not a sampled figure`);
+    assert.ok(/IGNORED/.test(r.notes || ''), `drift ${drift}: the note must say the filter was ignored: ${r.notes}`);
+    assert.ok(/flagged new-build/.test(r.notes) && /removes/.test(r.notes),
+      `drift ${drift}: both signals must be quoted in the note: ${r.notes}`);
+    // The all-listings basis is untouched by any of this and must still publish cleanly.
+    assert.strictEqual(r.status, 'ok', `drift ${drift}: a withheld 2nd basis must NOT fail the pool's gates`);
+    assert.strictEqual(r.nTotal, N, `drift ${drift}: the all-listings basis must still publish`);
+    const s = BAND_KEYS.reduce((a, k) => a + r.buckets[k], 0) + r.buckets.undated;
+    assert.ok(Math.abs(s - N) <= 1, `drift ${drift}: the all-listings histogram must survive intact`);
+    if (drift === 0) ignoredNote = r.notes;
+  }
+  console.log('SELFTEST PASS — an ignored filter is caught by the two-signal check (drift 0 / +2 / −2), all-listings basis survives.');
+  console.log(`  note published on the row: ${ignoredNote}`);
+
+  // Signal (b) alone: cards carry no new-build flag at all (so (a) cannot see anything), but
+  // the stream removed nothing. Volume must still catch it.
+  pageFetcher = async (p, filtered = false) => {
+    if (!filtered) return cleanFetch(p, false);
+    const r = await cleanFetch(p, false);
+    if (p === 1) filteredTotal = N;                             // removed nothing
+    return { status: 200, cards: r.cards.map(c => ({ ...c, isNewBuild: false })) };
+  };
+  const resVol = await run({ logger: () => {} });
+  pageFetcher = cleanFetch;
+  assert.strictEqual(resVol.bucketsSecondhand, null, 'the VOLUME signal alone must catch a stream that removed nothing');
+  assert.ok(/IGNORED/.test(resVol.notes || '') && /removes 0 \(0\.000%/.test(resVol.notes), resVol.notes);
+  console.log('SELFTEST PASS — the volume signal catches an unflagged but unfiltered stream.');
+
+  // Signal (a) alone: the stream claims a plausible 10% removal, but the cards it serves are
+  // still full of new-builds — it was not really filtered. The flag must catch it on its own.
+  pageFetcher = async (p, filtered = false) => {
+    const r = await cleanFetch(p, false);
+    if (p === 1 && filtered) filteredTotal = Math.round(N * 0.9);
+    return r;
+  };
+  const resFlag = await run({ logger: () => {} });
+  pageFetcher = cleanFetch;
+  assert.strictEqual(resFlag.bucketsSecondhand, null, 'the FLAG signal alone must catch a stream that only pretends to be filtered');
+  assert.ok(/IGNORED/.test(resFlag.notes || '') && /flagged new-build/.test(resFlag.notes), resFlag.notes);
+  console.log('SELFTEST PASS — the flag signal catches a stream that only pretends to be filtered.');
+
+  // --- band-subset invariant, enforced at run time (not just asserted in tests) ---
+  {
+    const all = [100, 50, 20, 10, 5, 3, 200];
+    const clean = reconcileSecondhandBands(all, [90, 45, 18, 9, 4, 2, 180], 35);
+    assert.deepStrictEqual(clean.bands, [90, 45, 18, 9, 4, 2, 180], 'a genuine subset passes through untouched');
+    assert.deepStrictEqual(clean.clamped, []);
+    assert.strictEqual(clean.withhold, null);
+
+    const nudged = reconcileSecondhandBands(all, [100, 50, 20, 10, 8, 3, 180], 35);
+    assert.strictEqual(nudged.bands[4], 5, 'a within-one-page excess clamps down to the all-listings band');
+    assert.deepStrictEqual(nudged.clamped, ['m12_18 (+3)'], 'and the clamp is named');
+    assert.strictEqual(nudged.withhold, null, 'one page of bisection noise is not a reason to bin the basis');
+    assert.strictEqual(nudged.bands[0], 100, 'an equal band is not an excess');
+
+    const broken = reconcileSecondhandBands(all, [100, 50, 20, 10, 5, 3, 300], 35);
+    assert.strictEqual(broken.bands, null, 'an excess beyond one page withholds the whole basis');
+    assert.ok(/gt24/.test(broken.withhold) && /disagree/.test(broken.withhold), broken.withhold);
+  }
+  console.log('SELFTEST PASS — reconcileSecondhandBands clamps within a page and withholds beyond it.');
+
+  // …and it is actually WIRED into run(). A filtered stream that is genuinely filtered (10%
+  // smaller, no new-build flags — both signals pass) but whose young end is compressed, so its
+  // first bands overshoot the all-listings ones.
+  const skewedFiltered = (total, ageOfIdx) => async (p, filtered = false) => {
+    if (!filtered) return cleanFetch(p, false);
+    if (p === 1) filteredTotal = total;
+    const start = (p - 1) * PAGE;
+    if (start >= total) return { status: 200, cards: [] };
+    const cards = [];
+    for (let j = 0; j < PAGE && start + j < total; j++) {
+      const i = start + j;
+      cards.push({ booli_id: `f${i}`, published: CLOCK - Math.round(ageOfIdx(i) * DAY), isNewBuild: false });
+    }
+    return { status: 200, cards };
+  };
+  pageFetcher = skewedFiltered(2700, (i) => (i < 100 ? i * 0.75 : 75 + (i - 100) * 1.5));
+  const resClamp = await run({ logger: () => {} });
+  pageFetcher = cleanFetch;
+  assert.ok(resClamp.bucketsSecondhand != null, 'a one-page overshoot must clamp, not withhold');
+  assert.ok(/clamped/.test(resClamp.notes || ''), `the clamp must be stated on the row: ${resClamp.notes}`);
+  for (const k of BAND_KEYS) {
+    assert.ok(resClamp.bucketsSecondhand[k] <= resClamp.buckets[k],
+      `after clamping, band ${k} must not exceed the all-listings band (${resClamp.bucketsSecondhand[k]} vs ${resClamp.buckets[k]})`);
+  }
+  assert.strictEqual(resClamp.status, 'ok');
+
+  pageFetcher = skewedFiltered(2700, (i) => (i < 400 ? i * 0.05 : 20 + (i - 400) * 1.5));
+  const resDisagree = await run({ logger: () => {} });
+  pageFetcher = cleanFetch;
+  assert.strictEqual(resDisagree.bucketsSecondhand, null, 'bisections disagreeing by more than a page must withhold the basis');
+  assert.strictEqual(resDisagree.nNewbuild, null);
+  assert.ok(/disagree/.test(resDisagree.notes || ''), `the disagreement must be stated: ${resDisagree.notes}`);
+  assert.strictEqual(resDisagree.status, 'ok', 'a withheld 2nd basis still must not fail the pool');
+  console.log('SELFTEST PASS — the band-subset invariant is enforced inside run(), clamping and withholding.');
+
+  // --- the load-bearing URL spelling, pinned ---
+  // Booli silently ignores every other spelling and returns the FULL pool, which would then be
+  // published as "second-hand". The unfiltered URL must also stay byte-identical.
+  assert.strictEqual(url(3), 'https://www.booli.se/sok/till-salu?upcomingSale=1&page=3');
+  assert.strictEqual(url(3, false), 'https://www.booli.se/sok/till-salu?upcomingSale=1&page=3');
+  assert.strictEqual(url(3, true), 'https://www.booli.se/sok/till-salu?upcomingSale=1&isNewConstruction=0&page=3');
+  console.log('SELFTEST PASS — pre-market URLs pinned (isNewConstruction=0, exact spelling).');
 
   // --- error_pages counter must actually count real fetch failures, not just default to 0 ---
   const cleanFetcher = pageFetcher;
