@@ -1,6 +1,7 @@
 require('dotenv').config();
 const https = require('https');
 const { createClient } = require('./db');
+const { postMessage } = require('./lib/slack-post');
 
 const SCRIPTS = ['cohort-track', 'cohort-create', 'age-census-monthly'];
 
@@ -67,40 +68,11 @@ function summarizeResult(scriptName, summary) {
   }
 }
 
-async function sendSlack(webhookUrl, blocks) {
-  const payload = JSON.stringify(blocks);
-  const parsed = new URL(webhookUrl);
-
-  return new Promise((resolve, reject) => {
-    const req = https.request(parsed, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
-    }, (res) => {
-      let data = '';
-      res.on('data', d => data += d);
-      res.on('end', () => {
-        if (res.statusCode === 200) resolve();
-        else reject(new Error(`Slack ${res.statusCode}: ${data}`));
-      });
-    });
-    req.on('error', reject);
-    req.setTimeout(10000, () => { req.destroy(); reject(new Error('Slack timeout')); });
-    req.write(payload);
-    req.end();
-  });
-}
-
-// `node cron-health-slack.js --dry-run` renders and prints the report but never posts.
+// Set the shared dry-run flag early, before postMessage is called.
 // Needed because dotenv re-injects SLACK_WEBHOOK_URL, so `env -u` does NOT stop a post.
-const DRY_RUN = process.argv.includes('--dry-run');
+if (process.argv.includes('--dry-run')) process.env.SLACK_DRY_RUN = '1';
 
 async function run() {
-  const webhookUrl = process.env.SLACK_WEBHOOK_URL;
-  if (!webhookUrl && !DRY_RUN) {
-    console.error('SLACK_WEBHOOK_URL not set in .env');
-    process.exit(1);
-  }
-
   const client = createClient();
   await client.connect();
 
@@ -268,14 +240,7 @@ async function run() {
     message += '\n\n*Issues:*\n' + issues.map(i => `• ${i}`).join('\n');
   }
 
-  if (DRY_RUN) {
-    console.log('--- DRY RUN (not posted) ---');
-    console.log(message);
-    console.log('--- END DRY RUN ---');
-  } else {
-    await sendSlack(webhookUrl, { text: message });
-    console.log('Health report sent to Slack');
-  }
+  await postMessage('cron-health-slack', message);
   console.log(issues.length === 0 ? 'All healthy' : `${issues.length} issue(s) flagged`);
 }
 
