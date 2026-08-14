@@ -34,6 +34,7 @@ const { computeSummary, renderSlackAlert, renderSummaryMd } = require('./lib/spo
 const { sharedPhotoPairs, filterDiscriminating } = require('./lib/spotcheck-dhash');
 const { postReviewMessage, postInfoMessage } = require('./lib/spotcheck-slack-bot');
 const { upsertReviewMessage } = require('./lib/spotcheck-review-store');
+const { resolveChannel } = require('./lib/slack-post');
 
 // ---------------------------------------------------------------
 // isoWeekId(date) — ISO-8601 week identifier (Thursday-anchored).
@@ -409,7 +410,12 @@ async function main(client, log) {
   const unreviewablePairs = uncertainAll.filter(isUnreviewable);
 
   const botToken = process.env.SLACK_BOT_TOKEN;
-  const reviewChannel = process.env.SLACK_REVIEW_CHANNEL;
+  let reviewChannel = null;
+  try {
+    reviewChannel = resolveChannel('cohort-spotcheck-gate');
+  } catch (err) {
+    log('INFO', `review queue: ${err.message} — skipping Slack post (verdicts still written)`);
+  }
   if (botToken && reviewChannel) {
     const uncertainPairs = uncertainAll.filter(v => !isUnreviewable(v));
     const mismatchPairs  = verdicts.filter(v => v.verdict === 'CONFIRMED_MISMATCH');
@@ -432,8 +438,9 @@ async function main(client, log) {
         unreviewablePairs.map(p => p.pair_id).join(', '));
     }
     log('INFO', `review queue: ${uncertainPairs.length} UNCERTAIN + ${mismatchPairs.length} MISMATCH posted individually; ${unreviewablePairs.length} unreviewable (delisted) diverted`);
-  } else {
-    log('INFO', 'review queue: SLACK_BOT_TOKEN/SLACK_REVIEW_CHANNEL not set — skipping Slack post (verdicts still written)');
+  } else if (!botToken) {
+    // reviewChannel-missing case is already logged by the resolveChannel catch above.
+    log('INFO', 'review queue: SLACK_BOT_TOKEN not set — skipping Slack post (verdicts still written)');
   }
 
   // 10. Build escalation message (passed through validate() → cron-wrapper Slack path).

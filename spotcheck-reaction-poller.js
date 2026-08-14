@@ -276,11 +276,18 @@ const { runJob }              = require('./cron-wrapper');
 const { getReactions }        = require('./lib/spotcheck-slack-bot');
 const { getOpenReviewMessages, markAdjudicated, removeConfirmedMismatchPair, isAlreadyAdjudicated }
                               = require('./lib/spotcheck-review-store');
+const { resolveChannel }      = require('./lib/slack-post');
 
 async function main(client, log) {
-  const channel = process.env.SLACK_REVIEW_CHANNEL;
-  if (!process.env.SLACK_BOT_TOKEN || !channel) {
-    log('WARN', 'SLACK_BOT_TOKEN or SLACK_REVIEW_CHANNEL not set — poller skipping');
+  if (!process.env.SLACK_BOT_TOKEN) {
+    log('WARN', 'SLACK_BOT_TOKEN not set — poller skipping');
+    return { skipped: true, reason: 'no bot token/channel', applied: 0 };
+  }
+  let channel = null;
+  try {
+    channel = resolveChannel('spotcheck-reaction-poller');
+  } catch (err) {
+    log('WARN', `${err.message} — poller skipping`);
     return { skipped: true, reason: 'no bot token/channel', applied: 0 };
   }
 

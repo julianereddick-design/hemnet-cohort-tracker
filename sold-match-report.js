@@ -21,6 +21,7 @@ require('dotenv').config();
 
 const { createClient } = require('./db');
 const { postInfoMessage } = require('./lib/spotcheck-slack-bot');
+const { resolveChannel } = require('./lib/slack-post');
 const panel = require('./config/sold-panel.json');
 // buildSeries computes, per fortnightly cohort, the on-Hemnet match share (firstPull +
 // incremental = matched/total) and the sample size — the exact numbers the trend chart
@@ -496,7 +497,7 @@ async function run() {
   console.log(message);
 
   if (process.env.SLACK_BOT_TOKEN) {
-    const channel = process.env.SOLD_MATCH_SLACK_CHANNEL || process.env.SLACK_REVIEW_CHANNEL;
+    const channel = resolveChannel('sold-match-report');
     const result = await postInfoMessage(channel, message);
     console.log(result ? '\nSlack notification sent' : '\nSlack post returned null');
   } else {
