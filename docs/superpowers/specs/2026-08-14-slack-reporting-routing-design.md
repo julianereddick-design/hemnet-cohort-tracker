@@ -1,9 +1,9 @@
 # Slack reporting + ops monitoring — design
 
 **Date:** 2026-08-14
-**Scope:** four related pieces of work, referred to below as D, E, F, G.
-**Status:** design agreed in conversation; awaiting review of this document before an
-implementation plan is written.
+**Scope:** three pieces of work to build now — D, E, F. A fourth, G, is designed here but
+**deferred** (§6).
+**Status:** APPROVED by the operator 2026-08-14, with G paused. Implementation plan next.
 
 ---
 
@@ -33,7 +33,7 @@ only by `cron-wrapper`'s event-driven failure alert, which catches a job that *r
 not a job that never fires — exactly the 2026-07-20 pre-market flow incident, where the measure
 job died silently and the weekly datapoint was lost.
 
-**G — ad-cost reporting cannot tell good data from garbage.** `adcost-report.py` renders whatever
+**G (deferred, §6) — ad-cost reporting cannot tell good data from garbage.** `adcost-report.py` renders whatever
 is in `hemnet_adcostv2` with no completeness check. The crawler has in fact been failing silently
 since its resume (5 of 6 fires degraded or empty — see
 `docs/handover/adcost-crawler-silent-failure.md`), and the report would happily have published
@@ -226,7 +226,20 @@ The stale-cohort null-view false alarms recorded in the 2026-08-13 pending todo.
 
 ---
 
-## 6. G — ad-cost gate and weekly post (report side)
+## 6. G — ad-cost gate and weekly post (report side) — **DEFERRED**
+
+> **Paused by the operator, 2026-08-14:** fix the underlying crawler before designing what it
+> outputs. Building a report gate on top of a feed that is known-broken means specifying the
+> shape of data we have not yet seen arrive correctly — the 420-cell target, the municipality
+> list and the tier breakdown should all be re-read from a *working* crawler before they are
+> hard-coded into a gate. The section below is retained as the starting point for that later
+> workstream; nothing in it is built now.
+>
+> Note what does NOT pause: **F Class 2 keeps its `hemnet_adcostv2` data-arrival check** (§5.2).
+> That is detection, not output — it answers "did the feed deliver?", which is precisely the
+> question the crawler workstream needs answered week to week, and it is the one monitor that
+> can see a job running on the other droplet. Expect it to report degraded until the crawler is
+> fixed; that is the monitor working, not noise.
 
 ### 6.1 Completeness gate, before anything renders
 
@@ -259,9 +272,9 @@ Reporting decisions already locked in Phase 28 are unchanged: 8 counties, gross 
 2. **F Class 1** — registry widened, `cron-wrapper` added to the 8 reporters.
 3. **F Class 2** — data-arrival checks, `hemnet_adcostv2` first since it is the known-broken feed.
 4. **E** — builders committed, renderer added, export folded into the Monday reporter.
-5. **G** — gate, then post.
 
-D and F Class 1 are the ones that reduce risk immediately; E and G are additive.
+D and F Class 1 are the ones that reduce risk immediately; E is additive. G is deferred (§6),
+so this workstream ends at E.
 
 ---
 
@@ -283,6 +296,8 @@ D and F Class 1 are the ones that reduce risk immediately; E and G are additive.
 ## 9. Out of scope
 
 - The ad-cost crawler fix (separate workstream and repo).
+- The ad-cost **report** gate and weekly post — deferred with it, see §6. F Class 2's ad-cost
+  data-arrival check is retained and is the only ad-cost work in this plan.
 - Universe B reporting (`listing_gap_weekly`, `sfpl_region_daily`).
 - The interactive HTML dashboard as a delivery mechanism; it stays a local build target.
 - Any change to what the existing reports *say* — this work changes where outputs go, whether they
