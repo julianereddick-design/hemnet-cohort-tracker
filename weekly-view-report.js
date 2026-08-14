@@ -1,33 +1,10 @@
 require('dotenv').config();
 const { execSync } = require('child_process');
-const https = require('https');
 const { createClient } = require('./db');
+const { postMessage } = require('./lib/slack-post');
 
 const MIN_DAYS = 5; // cohorts need at least 5 days of data for meaningful charts
 const SKIP_COHORTS = ['2026-W09', '2026-W10', '2026-W11']; // low data quality
-
-async function sendSlack(webhookUrl, message) {
-  const payload = JSON.stringify({ text: message });
-  const parsed = new URL(webhookUrl);
-
-  return new Promise((resolve, reject) => {
-    const req = https.request(parsed, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
-    }, (res) => {
-      let data = '';
-      res.on('data', d => data += d);
-      res.on('end', () => {
-        if (res.statusCode === 200) resolve();
-        else reject(new Error(`Slack ${res.statusCode}: ${data}`));
-      });
-    });
-    req.on('error', reject);
-    req.setTimeout(10000, () => { req.destroy(); reject(new Error('Slack timeout')); });
-    req.write(payload);
-    req.end();
-  });
-}
 
 async function run() {
   const today = new Date().toISOString().slice(0, 10);
@@ -92,11 +69,10 @@ async function run() {
   }
 
   // 4. Slack notification
-  const webhookUrl = process.env.SLACK_WEBHOOK_URL;
   const serverPort = process.env.VIEW_SERVER_PORT || 3800;
   const serverHost = process.env.VIEW_SERVER_HOST;
 
-  if (webhookUrl && serverHost) {
+  if (serverHost) {
     const chartUrl = `http://${serverHost}:${serverPort}/view-data/${today}/cross-cohort-hpct.html`;
     const cohortLinks = exportedCohorts.map(id =>
       `<http://${serverHost}:${serverPort}/view-data/${today}/${id}/charts.html|${id}>`
@@ -111,14 +87,13 @@ async function run() {
     ].join('\n');
 
     try {
-      await sendSlack(webhookUrl, message);
+      await postMessage('weekly-view-report', message);
       console.log('Slack notification sent');
     } catch (err) {
       console.error(`Slack failed: ${err.message}`);
     }
   } else {
-    if (!webhookUrl) console.log('Skipping Slack (SLACK_WEBHOOK_URL not set)');
-    if (!serverHost) console.log('Skipping Slack (VIEW_SERVER_HOST not set)');
+    console.log('Skipping Slack (VIEW_SERVER_HOST not set)');
   }
 
   console.log('\nDone.');

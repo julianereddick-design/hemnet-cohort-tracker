@@ -1,41 +1,17 @@
 // premarket-flow-weekly-report.js
 // Weekly Slack pulse for pre-market FLOW & staleness (Hemnet vs Booli, second-hand,
 // national). Reads premarket_flow_weekly for (CURRENT_DATE, CURRENT_DATE - 7 days) and
-// posts the locked comparison block to SLACK_WEBHOOK_URL. Companion to the measurement
-// job scripts/premarket-flow-measure.js (which populates the table). Mirrors the
-// market-totals-weekly-report.js Slack pattern (sendSlack, REPORT_DATE override, "?" on
+// posts the locked comparison block via lib/slack-post.js to the business channel. Companion
+// to the measurement job scripts/premarket-flow-measure.js (which populates the table). Mirrors
+// the market-totals-weekly-report.js pattern (postMessage, REPORT_DATE override, "?" on
 // missing prior week — never crashes).
 //
 // Spec: docs/superpowers/specs/2026-07-06-premarket-flow-measurement-design.md
 
 require('dotenv').config();
-const https = require('https');
 const { createClient } = require('./db');
 const { ladderRows } = require('./lib/premarket-quality');
-
-// VERBATIM from market-totals-weekly-report.js:13-34 (reporting-consumer Slack sender).
-async function sendSlack(webhookUrl, message) {
-  const payload = JSON.stringify({ text: message });
-  const parsed = new URL(webhookUrl);
-
-  return new Promise((resolve, reject) => {
-    const req = https.request(parsed, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
-    }, (res) => {
-      let data = '';
-      res.on('data', d => data += d);
-      res.on('end', () => {
-        if (res.statusCode === 200) resolve();
-        else reject(new Error(`Slack ${res.statusCode}: ${data}`));
-      });
-    });
-    req.on('error', reject);
-    req.setTimeout(10000, () => { req.destroy(); reject(new Error('Slack timeout')); });
-    req.write(payload);
-    req.end();
-  });
-}
+const { postMessage } = require('./lib/slack-post');
 
 // How many past snapshots to print in the ratio trend block. 8 ≈ two months of weekly
 // readings — enough to see the trend, short enough to keep the Slack message scannable.
@@ -283,16 +259,11 @@ async function run() {
 
   console.log(message);
 
-  const webhookUrl = process.env.SLACK_WEBHOOK_URL;
-  if (webhookUrl) {
-    try {
-      await sendSlack(webhookUrl, message);
-      console.log('\nSlack notification sent');
-    } catch (err) {
-      console.error(`Slack failed: ${err.message}`);
-    }
-  } else {
-    console.log('\nSkipping Slack (SLACK_WEBHOOK_URL not set)');
+  try {
+    await postMessage('premarket-flow-weekly-report', message);
+    console.log('\nSlack notification sent');
+  } catch (err) {
+    console.error(`Slack failed: ${err.message}`);
   }
 }
 

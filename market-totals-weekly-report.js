@@ -2,36 +2,12 @@
 // Phase 11 (v2.2) — Weekly market-supply Slack pulse.
 // Reads market_totals for (CURRENT_DATE, CURRENT_DATE - 7 days) × {hemnet, booli}
 // × {till_salu, kommande}. Renders two stacked blocks (For Sale + Pre-market) in
-// the locked Slack format (D-04) and posts to SLACK_WEBHOOK_URL.
+// the locked Slack format (D-04) and posts via lib/slack-post.js to the business channel.
 // Missing prior-week rows render as `?` (D-04); does NOT crash.
 
 require('dotenv').config();
-const https = require('https');
 const { createClient } = require('./db');
-
-// VERBATIM from weekly-view-report.js:9-30 — D-04 + PATTERNS.md Pattern A (reporting consumer).
-async function sendSlack(webhookUrl, message) {
-  const payload = JSON.stringify({ text: message });
-  const parsed = new URL(webhookUrl);
-
-  return new Promise((resolve, reject) => {
-    const req = https.request(parsed, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
-    }, (res) => {
-      let data = '';
-      res.on('data', d => data += d);
-      res.on('end', () => {
-        if (res.statusCode === 200) resolve();
-        else reject(new Error(`Slack ${res.statusCode}: ${data}`));
-      });
-    });
-    req.on('error', reject);
-    req.setTimeout(10000, () => { req.destroy(); reject(new Error('Slack timeout')); });
-    req.write(payload);
-    req.end();
-  });
-}
+const { postMessage } = require('./lib/slack-post');
 
 function fmtNumber(n) {
   return n.toLocaleString('en-US');
@@ -156,16 +132,11 @@ async function run() {
 
   console.log(message);
 
-  const webhookUrl = process.env.SLACK_WEBHOOK_URL;
-  if (webhookUrl) {
-    try {
-      await sendSlack(webhookUrl, message);
-      console.log('\nSlack notification sent');
-    } catch (err) {
-      console.error(`Slack failed: ${err.message}`);
-    }
-  } else {
-    console.log('\nSkipping Slack (SLACK_WEBHOOK_URL not set)');
+  try {
+    await postMessage('market-totals-weekly-report', message);
+    console.log('\nSlack notification sent');
+  } catch (err) {
+    console.error(`Slack failed: ${err.message}`);
   }
 }
 

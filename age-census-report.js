@@ -45,9 +45,9 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
 const { createClient } = require('./db');
 const { BAND_KEYS } = require('./lib/age-census');
+const { postMessage } = require('./lib/slack-post');
 
 const OUT_DIR = path.join(__dirname, 'verf-flow-probe');
 const BLOCKS = [
@@ -71,31 +71,6 @@ const AGE_COLS = [
   { key: 'le12m', header: '≤12mo' },
   { key: 'gt24', header: '>24mo' },
 ];
-
-// VERBATIM from premarket-flow-weekly-report.js:16-38 (itself verbatim from
-// market-totals-weekly-report.js:13-34 — the shared reporting-consumer Slack sender).
-async function sendSlack(webhookUrl, message) {
-  const payload = JSON.stringify({ text: message });
-  const parsed = new URL(webhookUrl);
-
-  return new Promise((resolve, reject) => {
-    const req = https.request(parsed, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
-    }, (res) => {
-      let data = '';
-      res.on('data', d => data += d);
-      res.on('end', () => {
-        if (res.statusCode === 200) resolve();
-        else reject(new Error(`Slack ${res.statusCode}: ${data}`));
-      });
-    });
-    req.on('error', reject);
-    req.setTimeout(10000, () => { req.destroy(); reject(new Error('Slack timeout')); });
-    req.write(payload);
-    req.end();
-  });
-}
 
 function lpad(s, w) { return (' '.repeat(w) + s).slice(-w); }
 function rpad(s, w) { return (s + ' '.repeat(w)).slice(0, w); }
@@ -339,12 +314,12 @@ async function main() {
   const poolTotals = computePoolTotals(rows);
   fs.writeFileSync(path.join(OUT_DIR, `age-census-${runDate}.json`), JSON.stringify({ runDate, rows, priorRows, poolTotals }, null, 2));
 
-  // DRY_RUN=1 is the ONLY reliable guard: dotenv re-injects SLACK_WEBHOOK_URL from .env even
-  // if the shell unsets it, so an unset-var trick does not prevent a live post.
-  if (process.env.DRY_RUN === '1') { console.log('DRY_RUN=1 — not posting to Slack'); return; }
-  if (!process.env.SLACK_WEBHOOK_URL) { console.log('No SLACK_WEBHOOK_URL — not posting'); return; }
-  await sendSlack(process.env.SLACK_WEBHOOK_URL, text);
-  console.log('Posted to Slack.');
+  try {
+    await postMessage('age-census-report', text);
+    console.log('Posted to Slack.');
+  } catch (err) {
+    console.error(`Slack failed: ${err.message}`);
+  }
 }
 
 module.exports = { renderReport, computePoolTotals };
