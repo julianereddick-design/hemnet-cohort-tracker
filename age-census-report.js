@@ -162,7 +162,17 @@ function renderPlatformRow(label, platform, cell) {
 
 // Booli ÷ Hemnet, per column, 2dp. "—" wherever either side is unusable (missing, gate-failed,
 // or Hemnet is 0) — a ratio must never be computed against a number the reader cannot see above.
+//
+// CRITICAL: a ratio is also unusable when the two sides are on DIFFERENT bases — one row
+// second-hand, the other fallen back to all-listings. Dividing across that boundary produces a
+// clean-looking number (e.g. "2.99×") in a table that exists specifically to compare like with
+// like, and on Hemnet for-sale the two bases differ by ~7% — a real distortion, not a rounding
+// nicety. Both sides must be 'ok' AND share the same fallback flag before any division happens;
+// otherwise the whole row is replaced with one explicit "not comparable" line.
 function renderRatioRow(booliCell, hemnetCell) {
+  if (booliCell.kind === 'ok' && hemnetCell.kind === 'ok' && booliCell.fallback !== hemnetCell.fallback) {
+    return `${rpad('Booli / Hemnet', LABEL_W)}  — mixed basis, not comparable`;
+  }
   const b = booliCell.kind === 'ok' ? booliCell.ages : null;
   const h = hemnetCell.kind === 'ok' ? hemnetCell.ages : null;
   let line = rpad('Booli / Hemnet', LABEL_W) + lpad('', POOL_W);
@@ -252,11 +262,21 @@ function renderBlock(L, title, rows, priorRows, poolKey) {
   if (momentum) L.push(momentum);
 }
 
+// A blanket "second-hand only" claim in the caption is false in exactly the months something
+// degraded — the fallback flag on the affected row exists, but a reader who only reads the
+// first line would never see it. The caption must hedge whenever ANY ok row fell back.
+function anyFallback(rows) {
+  return rows.some(r => r.status === 'ok' && !r.buckets_secondhand);
+}
+
 // Pure and testable — no DB, no network. Renders the whole Slack message body for one run
 // date given its rows and the prior month's rows (for deltas).
 function renderReport(runDate, rows, priorRows) {
   const L = [];
-  L.push(`Age penetration — ${runDate}        (second-hand only; new-builds excluded both platforms)`);
+  const caption = anyFallback(rows)
+    ? '(second-hand only, except where a row is flagged incl. new-build)'
+    : '(second-hand only; new-builds excluded both platforms)';
+  L.push(`Age penetration — ${runDate}        ${caption}`);
   L.push('```');
   renderBlock(L, BLOCKS[0].title, rows, priorRows, BLOCKS[0].key);
   L.push('');
@@ -366,6 +386,20 @@ function smoke() {
     assert.ok(out.indexOf('≤1mo') < out.indexOf('>24mo'), 'fresh end must lead');
   });
 
+  check('the header caption states plainly when a row fell back to all-listings, instead of a blanket claim', () => {
+    const clean = renderReport('2026-09-01', [booliPM, hemnetPM], []);
+    assert.ok(/\(second-hand only; new-builds excluded both platforms\)/.test(clean.split('\n')[0]),
+      'a fully second-hand month keeps the confident wording');
+
+    const hemnetFallback = row('hemnet', 'premarket', 8368,
+      { le1m: 3259, m1_3: 1899, m3_6: 677, m6_12: 790, m12_18: 500, m18_24: 408, gt24: 774 }, { secondhand: null });
+    const degraded = renderReport('2026-09-01', [booliPM, hemnetFallback], []);
+    const captionLine = degraded.split('\n')[0];
+    assert.ok(/second-hand only, except where a row is flagged incl\. new-build/.test(captionLine),
+      `the caption must not claim a blanket fact when a row fell back: ${captionLine}`);
+    assert.ok(!/excluded both platforms/.test(captionLine), 'the false blanket wording must not also appear');
+  });
+
   check('table shows ABSOLUTE counts, not percentages — pool prints the raw thousands-separated total', () => {
     const out = renderReport('2026-09-01', [booliPM], []);
     const line = out.split('\n').find(l => /^Booli\s/.test(l));
@@ -428,6 +462,23 @@ function smoke() {
     assert.ok(!/Infinity|NaN/.test(l2));
   });
 
+  check('CRITICAL: the ratio line is suppressed with a reason when the two platforms sit on DIFFERENT bases', () => {
+    // Booli is second-hand (its normal fixture); Hemnet fell back to all-listings this run. A
+    // ratio dividing across that boundary would look identical to a real one — this must not
+    // silently compute one.
+    const hemnetFallback = row('hemnet', 'premarket', 8368,
+      { le1m: 3259, m1_3: 1899, m3_6: 677, m6_12: 790, m12_18: 500, m18_24: 408, gt24: 774 }, { secondhand: null });
+    const out = renderReport('2026-09-01', [booliPM, hemnetFallback], []);
+    const ratioLine = out.split('\n').find(l => /^Booli \/ Hemnet/.test(l));
+    assert.ok(ratioLine, 'a ratio row must still render, even suppressed');
+    assert.ok(/mixed basis, not comparable/.test(ratioLine), `a mixed-basis pair must state the reason plainly: ${ratioLine}`);
+    assert.ok(!/\d\.\d\d×/.test(ratioLine), `no column may print a comparable-looking ratio across different bases: ${ratioLine}`);
+    // control: the SAME pair on the SAME basis (both second-hand) must compute real ratios
+    const bothSecondhand = renderReport('2026-09-01', [booliPM, hemnetPM], []);
+    const controlLine = bothSecondhand.split('\n').find(l => /^Booli \/ Hemnet/.test(l));
+    assert.ok(/\d\.\d\d×/.test(controlLine), `same-basis pair must NOT be suppressed: ${controlLine}`);
+  });
+
   check('a fallback row (buckets_secondhand null) uses all-listings and is flagged inline; pool == n_total', () => {
     const b = row('booli', 'premarket', 20244, { le1m: 8155, m1_3: 7280, gt24: 4809 }, { secondhand: null });
     const out = renderReport('2026-09-01', [b], []);
@@ -468,24 +519,43 @@ function smoke() {
     assert.ok(/publishedAt/.test(out), 'the caveat must be explained once in the footer');
   });
 
-  check('month-on-month line appears only when a prior row exists for that platform, and is exact', () => {
+  check('month-on-month line appears only when a prior row exists for that platform, and both its pool AND ≤3mo deltas are exact', () => {
     const priorBooli = row('booli', 'premarket', 30000,
       { le1m: 8000, m1_3: 7100, m3_6: 3900, m6_12: 4300, gt24: 4600 }, { run_date: '2026-08-01' });
     const out = renderReport('2026-09-01', [booliPM], [priorBooli]);
     const mLine = out.split('\n').find(l => /vs 2026-08-01/.test(l));
     assert.ok(mLine, 'a momentum line must render when a valid prior exists');
-    const currPool = 31418, priorPool = 30000 + 0; // priorBooli's undated=0 by default → pool==n_total path irrelevant here
+    const currPool = 31418;
     // recompute prior pool from its own bands the same way the renderer does
     const pb = priorBooli.buckets_secondhand;
     const priorPoolTotal = BAND_KEYS.reduce((a, k) => a + (pb[k] || 0), 0) + (pb.undated || 0);
-    const poolPct = (100 * (currPool - priorPoolTotal) / priorPoolTotal).toFixed(1);
-    assert.ok(mLine.includes(`pool +${poolPct}%`) || mLine.includes(`pool -${poolPct}%`) || mLine.includes(`pool −${poolPct}%`),
-      `expected a pool delta of ${poolPct}%: ${mLine}`);
+    const poolPct = 100 * (currPool - priorPoolTotal) / priorPoolTotal;
+    assert.ok(mLine.includes(`pool ${pctSigned(poolPct)}`), `expected a pool delta of ${pctSigned(poolPct)}: ${mLine}`);
+    // the ≤3mo delta — the check's own name promises this and the old version never asserted it
+    const currLe3m = 8148 + 7263; // booliPM's le1m + m1_3
+    const priorLe3m = pb.le1m + pb.m1_3;
+    const le3moPct = 100 * (currLe3m - priorLe3m) / priorLe3m;
+    assert.ok(mLine.includes(`≤3mo ${pctSigned(le3moPct)}`), `expected a ≤3mo delta of ${pctSigned(le3moPct)}: ${mLine}`);
   });
 
   check('no-prior-month produces no momentum line at all', () => {
     const out = renderReport('2026-09-01', [booliPM, hemnetPM], []);
     assert.ok(!/vs \d{4}-\d{2}-\d{2}/.test(out), 'a first month must not fabricate any delta');
+  });
+
+  check('momentum line uses per-platform date labels when the two platforms\' baselines diverge', () => {
+    // Booli's most recent ok prior is 2026-08-01; Hemnet's is 2026-07-01 (e.g. because a later
+    // Hemnet run gate-failed and was correctly skipped as a baseline). The two dates differ, so
+    // the shared "vs <date>:" prefix would misattribute one platform's delta to the wrong month.
+    const priorBooli = row('booli', 'premarket', 30000,
+      { le1m: 8000, m1_3: 7100, m3_6: 3900, m6_12: 4300, gt24: 4600 }, { run_date: '2026-08-01' });
+    const priorHemnet = row('hemnet', 'premarket', 8200,
+      { le1m: 3200, m1_3: 1850, m3_6: 650, m6_12: 770, gt24: 760 }, { run_date: '2026-07-01' });
+    const out = renderReport('2026-09-01', [booliPM, hemnetPM], [priorBooli, priorHemnet]);
+    const mLine = out.split('\n').find(l => /Booli vs 2026-08-01/.test(l));
+    assert.ok(mLine, `divergent baselines must render per-platform date labels: ${out}`);
+    assert.ok(/Hemnet vs 2026-07-01/.test(mLine), `both platforms' own dates must appear: ${mLine}`);
+    assert.ok(!/^  vs \d{4}-\d{2}-\d{2}:/.test(mLine), 'must not use the shared-date prefix when the dates differ');
   });
 
   check('a missing pool is named explicitly, never silently omitted', () => {

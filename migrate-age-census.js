@@ -4,8 +4,11 @@
 // Spec: docs/superpowers/specs/2026-08-13-age-penetration-monthly-design.md
 //
 // One row per (run_date, platform, pool). Written by scripts/age-census-monthly.js.
-// buckets_secondhand is NULLABLE: binary-search methods (both Booli pools) cannot
-// resolve new-builds per band, so only the muni-partition (Hemnet) pools populate it.
+// buckets_secondhand is NULLABLE: as of the 2026-08-14 sibling change, all four pools
+// (both Booli pools included) normally populate it. It is still nullable because any
+// single run can degrade and withhold the split (e.g. a scraper that couldn't compute
+// the new-build tally that month) — the reporting layer falls back to `buckets`
+// (all-listings) for that row and flags it, rather than treating null as by-design.
 const { createClient } = require('./db');
 
 const CREATE_RUN = `
