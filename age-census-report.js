@@ -19,11 +19,15 @@
 //    and is marked "incl. new-build" inline — a mixed-basis table must never look uniform.
 //  - `pool` is the total of the basis actually shown (its seven bands + undated), NOT n_total
 //    (which also counts new-builds). When a row falls back to all-listings, pool == n_total by
-//    construction, so the excluded-as-new-build line naturally reads ~0 for that row — the
-//    reader is not told a false "no new-builds" story, they are told "we don't know."
+//    construction. n_total − pool (what the second-hand basis excluded) is NOT rendered in the
+//    Slack post (client directive, 2026-08-14 fix round) — it still reaches the committed
+//    artifact JSON via computePoolTotals()'s `excluded`/`excluded_pct` fields, which is the
+//    audit trail for what got removed, without cluttering the post itself.
 //  - A Booli/Hemnet ratio line follows each block's rows, one column at a time, 2dp with a
-//    "x". "—" where either side is missing, gate-failed, or Hemnet is 0.
-//  - An excluded-as-new-build line (n_total − pool, as % of n_total) follows, per platform.
+//    "x". "—" where either side is missing, gate-failed, or Hemnet is 0. When the two sides sit
+//    on DIFFERENT bases (one second-hand, one fallen back to all-listings) the whole line is
+//    replaced with one "mixed basis, not comparable" line — a ratio must never be computed
+//    across incompatible universes.
 //  - A month-on-month line follows: % change in `pool` and in `≤3mo`, per platform, against the
 //    most recent PRIOR row whose own gates passed. Omitted per-platform when no valid prior
 //    exists for that platform; omitted entirely when neither platform has one. Never fabricated.
@@ -33,8 +37,8 @@
 //  - A missing pool is named explicitly ("MISSING"), never silently dropped — a partial month
 //    must look partial.
 //  - A row whose validation gates failed renders as a GATE FAILED banner with its reason,
-//    never as a clean, unflagged number, and contributes nothing to the ratio/excluded/momentum
-//    lines for its platform.
+//    never as a clean, unflagged number, and contributes nothing to the ratio/momentum lines
+//    for its platform.
 //
 // Cron: 07:00 UTC on the 1st of each month, after the 02:00 measure job.
 // Self-test: node age-census-report.js --smoke   (offline, no DB, no Slack)
@@ -126,9 +130,9 @@ function poolTotal(b) {
 }
 
 // Resolves one (platform, pool) cell to a render-ready shape: missing, gate-failed, or ok with
-// its computed pool/ages/fallback flag. Every downstream renderer (row, ratio, excluded,
-// momentum) consumes this instead of re-deriving status checks, so "gate-failed contributes
-// nothing to the ratio/excluded lines" is enforced in one place.
+// its computed pool/ages/fallback flag. Every downstream renderer (row, ratio, momentum)
+// consumes this instead of re-deriving status checks, so "gate-failed contributes nothing to
+// the ratio line" is enforced in one place.
 function cellFor(rows, platform, poolKey) {
   const r = rows.find(x => x.platform === platform && x.pool === poolKey);
   if (!r) return { kind: 'missing' };
@@ -178,20 +182,6 @@ function renderRatioRow(booliCell, hemnetCell) {
   let line = rpad('Booli / Hemnet', LABEL_W) + lpad('', POOL_W);
   for (const c of AGE_COLS) line += lpad(ratioStr(b && b[c.key], h && h[c.key]), COL_W);
   return line;
-}
-
-// n_total − pool, as % of n_total, per platform that rendered a real row. A fallback row's pool
-// equals its n_total by construction, so this naturally reads "0 (0.0%)" for it — never a false
-// "no new-builds", just "not measured this row" (visible via the "incl. new-build" flag above).
-function renderExcludedLine(booliCell, hemnetCell) {
-  const segs = [];
-  for (const [label, cell] of [['Booli', booliCell], ['Hemnet', hemnetCell]]) {
-    if (cell.kind !== 'ok') continue;
-    const excluded = cell.nTotal - cell.pool;
-    const pctOfTotal = cell.nTotal ? (100 * excluded / cell.nTotal) : 0;
-    segs.push(`${label} ${fmtN(excluded)} (${pctOfTotal.toFixed(1)}%)`);
-  }
-  return segs.length ? `  excluded as new-build:  ${segs.join('   ')}` : null;
 }
 
 // Picks the delta baseline for one (platform, pool): the most recent PRIOR row whose own gates
@@ -255,9 +245,6 @@ function renderBlock(L, title, rows, priorRows, poolKey) {
 
   L.push(renderRatioRow(cells.booli, cells.hemnet));
 
-  const excluded = renderExcludedLine(cells.booli, cells.hemnet);
-  if (excluded) L.push(excluded);
-
   const momentum = renderMomentumLine(rows, priorRows, poolKey);
   if (momentum) L.push(momentum);
 }
@@ -296,6 +283,30 @@ function renderReport(runDate, rows, priorRows) {
   return L.join('\n');
 }
 
+// The full computed shape per pool — the JSON audit trail for anyone reconstructing what a
+// published month actually contained without re-deriving it from raw buckets by hand. This is
+// where n_total − pool ("excluded as new-build") lives now that the client asked for it OFF the
+// Slack post (2026-08-14 fix round): the post drops the line, but the underlying figure must
+// still reach the committed artifact, so it is computed explicitly here rather than only being
+// implicitly derivable from n_total and pool_total.
+function computePoolTotals(rows) {
+  return rows.map(r => {
+    const fallback = !r.buckets_secondhand;
+    const b = headlineBuckets(r);
+    const poolT = b ? poolTotal(b) : null;
+    const excluded = (poolT != null && r.n_total != null) ? r.n_total - poolT : null;
+    const excludedPct = (excluded != null && r.n_total) ? 100 * excluded / r.n_total : null;
+    return {
+      platform: r.platform, pool: r.pool, status: r.status, fallback,
+      n_total: r.n_total,               // whole pool: new-builds + undated included
+      pool_total: poolT,                // basis actually shown (2nd-hand unless fallback)
+      excluded, excluded_pct: excludedPct, // n_total − pool_total — NOT rendered in the post
+      ages: b ? ageValues(b) : null,
+      ox_calls: r.ox_calls, error_pages: r.error_pages,
+    };
+  });
+}
+
 async function main() {
   const runDate = process.env.REPORT_DATE || new Date().toISOString().slice(0, 10);
   const client = createClient();
@@ -325,19 +336,7 @@ async function main() {
   console.log(text);
   fs.mkdirSync(OUT_DIR, { recursive: true });
   fs.writeFileSync(path.join(OUT_DIR, `age-census-${runDate}.md`), text);
-  // The full computed shape per pool, for anyone auditing a published month without re-deriving
-  // it from raw buckets by hand.
-  const poolTotals = rows.map(r => {
-    const fallback = !r.buckets_secondhand;
-    const b = headlineBuckets(r);
-    return {
-      platform: r.platform, pool: r.pool, status: r.status, fallback,
-      n_total: r.n_total,               // whole pool: new-builds + undated included
-      pool_total: b ? poolTotal(b) : null,  // basis actually shown (2nd-hand unless fallback)
-      ages: b ? ageValues(b) : null,
-      ox_calls: r.ox_calls, error_pages: r.error_pages,
-    };
-  });
+  const poolTotals = computePoolTotals(rows);
   fs.writeFileSync(path.join(OUT_DIR, `age-census-${runDate}.json`), JSON.stringify({ runDate, rows, priorRows, poolTotals }, null, 2));
 
   // DRY_RUN=1 is the ONLY reliable guard: dotenv re-injects SLACK_WEBHOOK_URL from .env even
@@ -348,7 +347,7 @@ async function main() {
   console.log('Posted to Slack.');
 }
 
-module.exports = { renderReport };
+module.exports = { renderReport, computePoolTotals };
 
 function smoke() {
   const assert = require('assert');
@@ -473,6 +472,11 @@ function smoke() {
     assert.ok(ratioLine, 'a ratio row must still render, even suppressed');
     assert.ok(/mixed basis, not comparable/.test(ratioLine), `a mixed-basis pair must state the reason plainly: ${ratioLine}`);
     assert.ok(!/\d\.\d\d×/.test(ratioLine), `no column may print a comparable-looking ratio across different bases: ${ratioLine}`);
+    // with the excluded-as-new-build line gone from the post, "incl. new-build" on the row
+    // itself is the ONLY remaining in-post signal that this pair is on different bases — it
+    // must still render even though the ratio line itself carries no per-column numbers.
+    const hemnetLine = out.split('\n').find(l => /^Hemnet\s/.test(l));
+    assert.ok(/incl\. new-build/.test(hemnetLine), `the fallback flag must still render on its row in a mixed-basis month: ${hemnetLine}`);
     // control: the SAME pair on the SAME basis (both second-hand) must compute real ratios
     const bothSecondhand = renderReport('2026-09-01', [booliPM, hemnetPM], []);
     const controlLine = bothSecondhand.split('\n').find(l => /^Booli \/ Hemnet/.test(l));
@@ -487,27 +491,38 @@ function smoke() {
     assert.ok(line.includes('20,244'), 'a fallback pool must equal n_total (all-listings basis)');
   });
 
-  check('the excluded-as-new-build line reads n_total − pool, as % of n_total, and is ~0 for a fallback row', () => {
-    const out = renderReport('2026-09-01', [booliPM], []);
-    const excludedLine = out.split('\n').find(l => /excluded as new-build/.test(l));
-    const excluded = booliPM.n_total - 31418; // 31,603 − 31,418 = 185
-    const pctOfTotal = (100 * excluded / booliPM.n_total).toFixed(1);
-    assert.ok(excludedLine.includes(`Booli ${excluded.toLocaleString('en-US')} (${pctOfTotal}%)`), excludedLine);
+  check('the excluded-as-new-build line no longer appears in the Slack post, in any shape (normal, fallback, gate-failed, missing)', () => {
+    // 2026-08-14 client directive: the line is off the post entirely. This is a hard regression
+    // guard — the audit figure moves to computePoolTotals() (checked below), not to the text.
+    const normal = renderReport('2026-09-01', [booliPM, hemnetPM], []);
+    assert.ok(!/excluded as new-build/.test(normal), `the line must not render at all: ${normal}`);
 
     const fb = row('booli', 'premarket', 20244, { le1m: 8155, m1_3: 7280, gt24: 4809 }, { secondhand: null });
-    const fbOut = renderReport('2026-09-01', [fb], []);
-    const fbLine = fbOut.split('\n').find(l => /excluded as new-build/.test(l));
-    assert.ok(fbLine.includes('Booli 0 (0.0%)'), `a fallback row must show ~0 excluded, never a fabricated split: ${fbLine}`);
-  });
-
-  check('the excluded-as-new-build line omits a platform with no ok row, and disappears entirely if neither has one', () => {
-    const out = renderReport('2026-09-01', [booliPM], []);
-    const line = out.split('\n').find(l => /excluded as new-build/.test(l));
-    assert.ok(line && !/Hemnet/.test(line), `only the present platform should appear: ${line}`);
+    const fallbackOut = renderReport('2026-09-01', [fb], []);
+    assert.ok(!/excluded as new-build/.test(fallbackOut), 'a fallback row must not resurrect the line either');
 
     const gateFailed = row('booli', 'premarket', 16000, {}, { status: 'gate_failed', notes: 'gates failed: total_drift' });
     const missing = renderReport('2026-09-01', [gateFailed], []);
-    assert.ok(!/excluded as new-build/.test(missing), 'a gate-failed-only block must print no excluded line');
+    assert.ok(!/excluded as new-build/.test(missing));
+  });
+
+  check('the excluded-as-new-build figure still reaches the JSON audit trail via computePoolTotals, exactly as before', () => {
+    // The post lost the line; the underlying arithmetic must not have been lost with it — this
+    // is what a human re-derives the removed-from-post figure from.
+    const [booliRow] = computePoolTotals([booliPM]);
+    const excluded = booliPM.n_total - 31418; // 31,603 − 31,418 = 185
+    assert.strictEqual(booliRow.excluded, excluded, `computePoolTotals must still compute n_total − pool: got ${booliRow.excluded}`);
+    assert.strictEqual(booliRow.excluded_pct.toFixed(1), (100 * excluded / booliPM.n_total).toFixed(1));
+    assert.strictEqual(booliRow.pool_total, 31418);
+    assert.strictEqual(booliRow.n_total, 31603);
+
+    // a fallback row's basis IS n_total, so its audit-trail excluded figure is correctly ~0 —
+    // not a fabricated split, just "nothing was excluded because nothing could be split out".
+    const fb = row('booli', 'premarket', 20244, { le1m: 8155, m1_3: 7280, gt24: 4809 }, { secondhand: null });
+    const [fbRow] = computePoolTotals([fb]);
+    assert.strictEqual(fbRow.excluded, 0, `a fallback row's excluded figure must be exactly 0: got ${fbRow.excluded}`);
+    assert.strictEqual(fbRow.excluded_pct, 0);
+    assert.strictEqual(fbRow.fallback, true);
   });
 
   check('Hemnet rows carry the publishedAt-refresh clock caveat; Booli rows do not', () => {
