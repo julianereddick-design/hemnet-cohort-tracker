@@ -631,6 +631,11 @@ async function selftest() {
     const res = await run({ platform: plat, nowSec: CLOCK, logger: () => {} });
     assert.strictEqual(res.bucketsSecondhand, null, 'cards still flagged new-build mean the filter did not apply');
     assert.ok(/IGNORED/.test(res.notes || '') && /flagged new-build/.test(res.notes), res.notes);
+    // This fixture's lying total also skews the filtered basis's own crosscheck. That must not
+    // gate-fail the pool: the basis was withheld, so none of its numbers are on the row.
+    assert.strictEqual(res.status, 'ok', `a withheld basis's crosscheck must not fail the pool: ${JSON.stringify(res.gates)}`);
+    const g = res.gates.find(x => x.name === 'crosscheck');
+    assert.ok(/2nd-hand: not evaluated/.test(g.detail), `the gate must rest on the all-listings basis alone: ${g.detail}`);
   });
 
   await check('run(): the crosscheck gate covers BOTH bases and fails if either breaches', async () => {
@@ -640,22 +645,35 @@ async function selftest() {
     assert.strictEqual(g.passed, true, g.detail);
     assert.ok(/all-listings:/.test(g.detail) && /2nd-hand:/.test(g.detail), `both bases must be reported: ${g.detail}`);
 
-    // Break the FILTERED basis only: shift its oldest-first stream's ages far off, so its two
-    // ends disagree at 90d while the all-listings basis stays perfect. The gate must still fail.
+    // Break the FILTERED basis's two ends against each other at the 90d overlap while leaving
+    // its published bands untouched — otherwise the band reconciler withholds the basis first
+    // and the crosscheck never gets a say.
+    //
+    // The lever is that older(90) feeds ONLY the crosscheck: the merged histogram takes 30d/90d
+    // from the newest pass and 180d+ from the oldest pass, so nothing reads older(90) except
+    // the consistency check itself. Rewriting the oldest-first view of the (90, 180] age slice
+    // down to 50d therefore moves older(90) by ~74 listings (3.9% of the pool, past the 3%
+    // gate) and moves older(180), older(365), older(548) and older(730) not at all — those
+    // cards were already younger than 180d. Every published band is identical to the clean run.
     const skewed = mkPool('clean', AGES_ALL);
     const shBase = mkPool('clean-2ndhand', AGES_SH);
     skewed.secondhand = {
       name: 'clean-2ndhand-skewed',
       async fetch(p, asc = false) {
         const r = await shBase.fetch(p, asc);
-        if (asc && r.cards) r.cards = r.cards.map(c => ({ ...c, published: c.published - 400 * DAY }));
+        if (asc && r.cards) r.cards = r.cards.map(c => {
+          const age = (CLOCK - c.published) / DAY;
+          return (age > 90 && age <= 180) ? { ...c, published: CLOCK - 50 * DAY } : c;
+        });
         return r;
       },
     };
     const bad = await run({ platform: skewed, nowSec: CLOCK, logger: () => {} });
+    assert.ok(bad.bucketsSecondhand != null,
+      `this fixture must PUBLISH the 2nd basis — a withheld one is a different case: ${bad.notes}`);
     const gb = bad.gates.find(x => x.name === 'crosscheck');
-    assert.strictEqual(gb.passed, false, `a 2nd-hand basis whose ends disagree must fail the gate: ${gb.detail}`);
-    assert.ok(/all-listings:/.test(gb.detail) && /2nd-hand:/.test(gb.detail), gb.detail);
+    assert.strictEqual(gb.passed, false, `a PUBLISHED 2nd-hand basis whose ends disagree must fail the gate: ${gb.detail}`);
+    assert.ok(/all-listings:/.test(gb.detail) && /2nd-hand: 90d/.test(gb.detail), gb.detail);
     assert.strictEqual(bad.status, 'gate_failed');
   });
 
@@ -1035,13 +1053,18 @@ async function run({ platform = booli, nowSec = NOW_SEC, logger = log, priorTota
   const ox = getOxylabsStats();
   const oxCalls = ox.oxylabsCallCount + ox.directSuccessCount;   // covers BOTH bases
   // The crosscheck is the gate that says "the two ends of this pool agree where they meet".
-  // A filtered basis whose ends disagree is exactly as untrustworthy as an unfiltered one, so
-  // BOTH are evaluated and reported, and either breach fails the single named gate. When the
-  // filtered basis never completed there is nothing to evaluate on that side — the gate then
-  // rests on the all-listings basis alone and says so, because the second basis has already
-  // been withheld with its own note rather than published unchecked.
+  // A PUBLISHED filtered basis whose ends disagree is exactly as untrustworthy as an unfiltered
+  // one, so both are evaluated and reported and either breach fails the single named gate.
+  // A WITHHELD basis is the different case: none of its numbers reach the row, so holding its
+  // crosscheck against the pool would gate-fail a month whose only published histogram is
+  // sound — and the withholding already carries its own explicit note. The gate then rests on
+  // the all-listings basis alone and says so. This keeps one rule intact in both directions:
+  // a breach fails loudly whenever the numbers it describes are the ones being published, and
+  // never when they are not. (Without this, an ignored filter that ALSO tripped the filtered
+  // basis's crosscheck would gate-fail the pool, contradicting the rule that a withheld second
+  // basis must not cost a good all-listings month.)
   const ccAll = gateCrosscheck({ newestPass: all.est.crosscheck.newestPass, oldestPass: all.est.crosscheck.oldestPass, headlineTotal: all.headlineTotal, maxPct: 3 });
-  const ccSh = sh
+  const ccSh = bucketsSecondhand
     ? gateCrosscheck({ newestPass: sh.est.crosscheck.newestPass, oldestPass: sh.est.crosscheck.oldestPass, headlineTotal: sh.headlineTotal, maxPct: 3 })
     : { passed: true, detail: 'not evaluated — basis withheld' };
   const gates = [
