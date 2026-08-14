@@ -4,14 +4,14 @@ require('dotenv').config();
 
 // scripts/age-census-monthly.js — monthly age-penetration census across all four pools.
 //
-// Runs cheapest-first (Booli PM ~60 calls → Booli FS ~84 → Hemnet PM ~656 → Hemnet FS
+// Runs cheapest-first (Booli PM ~110 calls → Booli FS ~168 → Hemnet PM ~656 → Hemnet FS
 // ~1,208) and PERSISTS EACH POOL THE MOMENT IT COMPLETES. That ordering plus per-pool
 // persistence is deliberate: on 2026-07-20 a transient Oxylabs 613 on one platform cost the
 // entire weekly flow datapoint. A Hemnet failure must never cost the banked Booli rows.
 //
 // Cron: 02:00 UTC on the 1st of each month. Runtime ~2.5-3h, so it lands ~05:00, well before
 // the report job at 07:00 and clear of the Monday 08:50/09:00/10:30 jobs.
-// Cost: ~2,000 Oxylabs calls ≈ $5/month.
+// Cost: ~2,142 Oxylabs calls ≈ $5/month.
 //
 // RUN_DATE — the hand re-run mechanism
 // ------------------------------------
