@@ -277,8 +277,11 @@ module.exports = { addsShare, formatShareRow, formatShareHistory, ratio, metricR
 // posting to a live Slack channel. REPORT_DATE is read from the environment, not argv,
 // so --smoke is the only accepted flag; anything else — `--smoketest`, `--smoke=true`,
 // `--smok` — must never fall through to the live-post path.
-const ACCEPTED_ARGV = new Set(['--smoke']);
-const USAGE = 'Usage: node premarket-flow-weekly-report.js [--smoke]';
+// Entry gate. Without this, an unrecognised flag falls straight through to the
+// live path and POSTS: dotenv re-injects the token, so unsetting env vars does
+// not prevent a post. Same pattern as age-census-report.js.
+const ACCEPTED_ARGV = new Set(['--smoke', '--dry-run']);
+const USAGE = 'Usage: node premarket-flow-weekly-report.js [--smoke] [--dry-run]';
 function validateArgv(argv) {
   return argv.every(a => ACCEPTED_ARGV.has(a));
 }
@@ -292,6 +295,7 @@ if (require.main === module) {
   } else if (argv.includes('--smoke')) {
     smoke();
   } else {
+    if (argv.includes('--dry-run')) process.env.SLACK_DRY_RUN = '1';
     run().catch(err => { console.error(err); process.exit(1); });
   }
 }
@@ -356,8 +360,9 @@ function smoke() {
     assert(/500 of 537/.test(out), 'should disclose the resolution shortfall');
   });
 
-  check('validateArgv accepts --smoke and no args; rejects any typo or variant', () => {
+  check('validateArgv accepts --smoke, --dry-run, and no args; rejects any typo or variant', () => {
     assert(validateArgv(['--smoke']) === true, '--smoke must be accepted');
+    assert(validateArgv(['--dry-run']) === true, '--dry-run must be accepted — an operator WILL reach for it');
     assert(validateArgv([]) === true, 'no args must be accepted (routes to the live-post path, not rejected)');
     assert(validateArgv(['--smoketest']) === false, '--smoketest must be rejected — it must not launch a live Slack post');
     assert(validateArgv(['--smoke=true']) === false, '--smoke=true must be rejected');

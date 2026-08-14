@@ -7,7 +7,8 @@ require('dotenv').config();
 // (the Phase-19 orchestrator stamps `"<muni>:<FAMILY>"` — e.g. "Stockholm:APARTMENT",
 // "Täby:HOUSE", see lib/sold-sample.js sampleNational / sold-match-batch.js), rolls up to
 // region (config/sold-panel.json muni→region) and national, and posts a monospace Slack
-// block via lib/spotcheck-slack-bot.js postInfoMessage.
+// block via lib/slack-post.js postMessage (routes to the business channel, honours
+// SLACK_DRY_RUN).
 //
 // THE decision-grade headline is the SETTLED genuine-non-Hemnet rate (D-03):
 //   settledRate = genuine_non_hemnet / (matched + genuine_non_hemnet)   over TERMINAL
@@ -16,12 +17,13 @@ require('dotenv').config();
 //   rate (D-04: booli_only / total) so slutpris-lag contamination is never read as genuine
 //   non-Hemnet presence.
 //
-//   node sold-match-report.js          # production run (needs DB; posts to Slack if token set)
-//   node sold-match-report.js --smoke  # offline self-test (no DB, no network, no Slack post)
+//   node sold-match-report.js             # production run (needs DB; posts to Slack)
+//   node sold-match-report.js --dry-run   # renders the message, posts nothing
+//   node sold-match-report.js --smoke     # offline self-test (no DB, no network, no Slack post)
 
 const { createClient } = require('./db');
 const { postInfoMessage } = require('./lib/spotcheck-slack-bot');
-const { resolveChannel } = require('./lib/slack-post');
+const { postMessage } = require('./lib/slack-post');
 const panel = require('./config/sold-panel.json');
 // buildSeries computes, per fortnightly cohort, the on-Hemnet match share (firstPull +
 // incremental = matched/total) and the sample size — the exact numbers the trend chart
@@ -496,12 +498,11 @@ async function run() {
   const message = renderMatchRateSummary(series, { chartUrl });
   console.log(message);
 
-  if (process.env.SLACK_BOT_TOKEN) {
-    const channel = resolveChannel('sold-match-report');
-    const result = await postInfoMessage(channel, message);
-    console.log(result ? '\nSlack notification sent' : '\nSlack post returned null');
-  } else {
-    console.log('\nSkipping Slack (SLACK_BOT_TOKEN not set)');
+  try {
+    const result = await postMessage('sold-match-report', message);
+    console.log(result && result.ok ? '\nSlack notification sent' : '\nSlack post returned null');
+  } catch (err) {
+    console.error(`Slack failed: ${err.message}`);
   }
 }
 
@@ -511,12 +512,27 @@ module.exports = {
 };
 
 // ---------------------------------------------------------------------------
-// Entry gate: --smoke runs the offline self-test; otherwise run().
+// Entry gate. Without this, an unrecognised flag falls straight through to the
+// live path and POSTS: dotenv re-injects the token, so unsetting env vars does
+// not prevent a post. Same pattern as age-census-report.js.
+//   --smoke runs the offline self-test; --dry-run renders and posts nothing;
+//   anything else is rejected before the DB is even touched.
 // ---------------------------------------------------------------------------
-if (require.main === module && process.argv.includes('--smoke')) {
-  runSmoke();
-} else if (require.main === module) {
-  run().catch((err) => { console.error(err); process.exit(1); });
+const ACCEPTED_ARGV = new Set(['--smoke', '--dry-run']);
+const USAGE = 'Usage: node sold-match-report.js [--smoke] [--dry-run]';
+
+if (require.main === module) {
+  const argv = process.argv.slice(2);
+  const bad = argv.filter(a => !ACCEPTED_ARGV.has(a));
+  if (bad.length) {
+    console.error(`Unrecognised argument(s): ${bad.join(' ')}\n${USAGE}`);
+    process.exit(1);
+  } else if (argv.includes('--smoke')) {
+    runSmoke();
+  } else {
+    if (argv.includes('--dry-run')) process.env.SLACK_DRY_RUN = '1';
+    run().catch((err) => { console.error(err); process.exit(1); });
+  }
 }
 
 // ---------------------------------------------------------------------------

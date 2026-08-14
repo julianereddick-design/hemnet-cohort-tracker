@@ -67,10 +67,6 @@ function summarizeResult(scriptName, summary) {
   }
 }
 
-// Set the shared dry-run flag early, before postMessage is called.
-// Needed because dotenv re-injects SLACK_WEBHOOK_URL, so `env -u` does NOT stop a post.
-if (process.argv.includes('--dry-run')) process.env.SLACK_DRY_RUN = '1';
-
 async function run() {
   const client = createClient();
   await client.connect();
@@ -243,7 +239,21 @@ async function run() {
   console.log(issues.length === 0 ? 'All healthy' : `${issues.length} issue(s) flagged`);
 }
 
-run().catch(err => {
-  console.error('Error:', err.message);
-  process.exit(1);
-});
+// Entry gate. Without this, an unrecognised flag falls straight through to the
+// live path and POSTS: dotenv re-injects the token, so unsetting env vars does
+// not prevent a post. Same pattern as age-census-report.js. Folds in the
+// --dry-run -> SLACK_DRY_RUN mapping that used to run at module load, unguarded
+// by require.main (so requiring this file for tests would set it as a side effect).
+const ACCEPTED_ARGV = new Set(['--dry-run']);
+const USAGE = 'Usage: node cron-health-slack.js [--dry-run]';
+
+if (require.main === module) {
+  const argv = process.argv.slice(2);
+  const bad = argv.filter(a => !ACCEPTED_ARGV.has(a));
+  if (bad.length) {
+    console.error(`Unrecognised argument(s): ${bad.join(' ')}\n${USAGE}`);
+    process.exit(1);
+  }
+  if (argv.includes('--dry-run')) process.env.SLACK_DRY_RUN = '1';
+  run().catch(err => { console.error('Error:', err.message); process.exit(1); });
+}

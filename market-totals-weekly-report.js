@@ -140,7 +140,19 @@ async function run() {
   }
 }
 
-run().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+// Entry gate. Without this, an unrecognised flag falls straight through to the
+// live path and POSTS: dotenv re-injects the token, so unsetting env vars does
+// not prevent a post. Same pattern as age-census-report.js.
+const ACCEPTED_ARGV = new Set(['--dry-run']);
+const USAGE = 'Usage: node market-totals-weekly-report.js [--dry-run]';
+
+if (require.main === module) {
+  const argv = process.argv.slice(2);
+  const bad = argv.filter(a => !ACCEPTED_ARGV.has(a));
+  if (bad.length) {
+    console.error(`Unrecognised argument(s): ${bad.join(' ')}\n${USAGE}`);
+    process.exit(1);
+  }
+  if (argv.includes('--dry-run')) process.env.SLACK_DRY_RUN = '1';
+  run().catch(err => { console.error(err); process.exit(1); });
+}
