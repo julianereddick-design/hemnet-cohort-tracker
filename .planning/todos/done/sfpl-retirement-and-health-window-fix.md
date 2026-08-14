@@ -40,3 +40,12 @@ another ("No runs for sfpl-region-snapshot").
 
 Should ship in the same deploy as [[slack-output-routing-split]]. Mind the existing local↔prod
 drift — the droplet's master is behind and carries none of the `scripts/` age or quality tools.
+
+---
+
+**Closed 2026-08-14 — verified already shipped, not just planned.** This work was completed and
+deployed before this todo was filed as pending: commit `3e56610` (the sfpl-retirement +
+health-window-fix change) is in `master`, the droplet's checked-out commit is `d4add9e` (which
+contains `3e56610` in its history), and the `sfpl-region-snapshot` line is already gone from the
+live droplet crontab. No further action needed; this todo had simply been sitting in `pending`
+describing work that was already live.

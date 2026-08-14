@@ -4,12 +4,44 @@
 
 ## APIs & External Services
 
-**Slack (Incoming Webhook):**
-- Purpose: Alert on cron job failures and warnings
-- SDK/Client: Native Node.js `https` module (no SDK)
-- Auth: `SLACK_WEBHOOK_URL` env var (configured + live on the Droplet since ~2026-05-17)
-- Implementation: `cron-wrapper.js` lines 32-55 (auto-alert on failure/warning), `cron-health-slack.js` (daily health digest)
-- Request timeout: 10,000ms
+**Slack (audience-routed, via `lib/slack-post.js`):**
+- Purpose: every report/alert in the repo, routed by **audience** (business vs. ops) rather than
+  by which credential a script happens to hold. `lib/slack-post.js` is the only outbound path,
+  except `cron-wrapper.js`'s own failure alert (see below).
+- SDK/Client: Native Node.js `https` module (no SDK), two transports:
+  - `chat.postMessage` (bot token, `SLACK_BOT_TOKEN`) — the default transport for
+    `postMessage(job, text)`, used by every report.
+  - Incoming webhook (`SLACK_WEBHOOK_URL`) — used only as `postMessage`'s degraded fallback (if
+    the bot call fails) and as the sole transport for `postAlert(text)`, `cron-wrapper.js`'s own
+    job failure/warning line (kept separate deliberately so the alert path shares no failure
+    mode with the bot token it reports on).
+- Auth env vars:
+  - `SLACK_BOT_TOKEN=xoxb-…` — scopes `chat:write` + `reactions:read`. **`files:write` is NOT
+    yet added** (outstanding as of 2026-08-14; needed only by the not-yet-built market-totals
+    file-delivery work, not by anything currently deployed).
+  - `SLACK_STATUS_CHANNEL` — business audience channel, `#hemnet-status` (`C0B9X2WDC4C`).
+  - `SLACK_OPS_CHANNEL` — ops audience channel, `#hemnet-ops` (`C0BQ66YQX8S`, created
+    2026-08-14).
+  - `SLACK_WEBHOOK_URL` — created against `#hemnet-ops` (a webhook is bound to the channel it was
+    created against and cannot be re-pointed in code).
+  - **Retired:** `SLACK_REVIEW_CHANNEL` (honoured only as `SLACK_OPS_CHANNEL`'s fallback while
+    unset) and `SOLD_MATCH_SLACK_CHANNEL` (dropped outright — do not reintroduce a per-job
+    channel override; every job routes through the shared `AUDIENCE` table).
+- Routing table: `AUDIENCE` in `lib/slack-post.js` — job name → `business`/`ops`, resolved to a
+  channel id. A job absent from the table throws at call time. Full audience list:
+  `docs/handover/04-REPORTING-AND-SLACK.md` §1.
+- Implementation: `lib/slack-post.js` (`postMessage`, `postAlert`, `resolveChannel`,
+  `isDryRun`); `lib/spotcheck-slack-bot.js` (retained for review-message + reaction-reading
+  mechanics only — `postReviewMessage`, `getReactions` — channel resolution moved to
+  `lib/slack-post.js`); `cron-wrapper.js` (`postAlert` on failure/warning); `cron-health-slack.js`
+  (daily health digest, ops).
+- Dry-run: every reporter accepts `--dry-run` (or `SLACK_DRY_RUN=1`/`DRY_RUN=1`), which renders
+  to stdout and makes no network call. `dotenv.config()` re-injects `SLACK_BOT_TOKEN` /
+  `SLACK_WEBHOOK_URL` on every run, so `env -u VAR node …` does **not** produce a dry run — use
+  `--dry-run` instead. With no `SLACK_BOT_TOKEN`, `postMessage` falls back to the webhook rather
+  than skipping, so a bare local run (no flag) on a machine whose `.env` carries
+  `SLACK_WEBHOOK_URL` will post for real.
+- Request timeout: 10,000ms (both transports)
 
 **DigitalOcean API:**
 - Purpose: Update database firewall trusted sources (whitelist current IP)
@@ -106,7 +138,10 @@
 - `DB_NAME` - Database name
 
 **Optional env vars:**
-- `SLACK_WEBHOOK_URL` - Slack incoming webhook for alerts
+- `SLACK_WEBHOOK_URL` - Slack incoming webhook; created against `#hemnet-ops`, used as
+  `postAlert`'s sole transport and `postMessage`'s degraded fallback (see Slack entry above)
+- `SLACK_BOT_TOKEN`, `SLACK_STATUS_CHANNEL`, `SLACK_OPS_CHANNEL` - business/ops audience routing
+  (see Slack entry above). `SLACK_REVIEW_CHANNEL` and `SOLD_MATCH_SLACK_CHANNEL` are retired.
 
 **Secrets location:**
 - `.env` file at project root (local development)
@@ -119,8 +154,11 @@
 - None - No HTTP server, no incoming webhooks
 
 **Outgoing:**
-- Slack webhook POST on cron job failure/warning (`cron-wrapper.js`)
-- Slack webhook POST for daily health digest (`cron-health-slack.js`)
+- Slack webhook POST on cron job failure/warning (`cron-wrapper.js` `postAlert`) — the one path
+  that stays webhook-only by design.
+- Slack `chat.postMessage` (bot token) for every other report, routed by audience via
+  `lib/slack-post.js` — daily health digest (`cron-health-slack.js`), weekly business reports,
+  and the spot-check review queue. See the Slack entry above for the full routing table.
 
 ## Data Flow Summary
 

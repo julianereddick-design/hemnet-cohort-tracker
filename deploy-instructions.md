@@ -28,7 +28,7 @@ Optional vars:
 
 Phase 13 vars (required for the image-confirmation + review-loop go-live):
 - `SLACK_BOT_TOKEN=xoxb-…` — Slack bot OAuth token for posting review-queue messages and reading reactions (`chat:write` + `reactions:read` scopes). Obtained by following `SLACK-REVIEW-SETUP.md`. **Separate from `SLACK_WEBHOOK_URL`** — the webhook stays for Phase 12 threshold/fetch-failure alerts; the bot token is used only by `cohort-spotcheck-gate.js` and `spotcheck-reaction-poller.js`.
-- `SLACK_REVIEW_CHANNEL=C0……` — Slack channel id (not name) for the review queue. The bot must be invited to this channel (`/invite @<bot-name>`).
+- `SLACK_REVIEW_CHANNEL=C0……` — Slack channel id (not name) for the review queue. The bot must be invited to this channel (`/invite @<bot-name>`). **Retired as of the Slack audience-routing split (see "Slack routing (audience split)" below)** — `SLACK_OPS_CHANNEL` is now the primary var for the review queue; `SLACK_REVIEW_CHANNEL` is honoured only as its fallback while `SLACK_OPS_CHANNEL` is unset.
 - `SLACK_ALLOWED_REACTORS=U0……` — comma-separated Slack user id(s) authorised to confirm removals via emoji reaction. **REQUIRED before trusting auto-removal.** Without it, the poller falls back to accepting reactions from ALL users (documented first-run fallback only). Set to the operator's own Slack user id at go-live.
 - `DHASH_THRESHOLD=6` — (default: 6) dHash distance threshold for auto-confirming a shared-image match. Do not raise without reviewing the per-pair minDist distribution from several gate runs (see Phase 13 runbook below).
 
@@ -47,6 +47,76 @@ To set the Slack webhook:
 ssh root@<droplet>
 echo 'SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../...' >> /opt/hemnet-cohort-tracker/.env
 ```
+
+## Slack routing (audience split)
+
+Every Slack output now goes through `lib/slack-post.js`, which routes on the caller's job
+name — `postMessage(job, text)` for reports, `postAlert(text)` for `cron-wrapper`'s own
+failure/warning line — never on a channel a caller names itself. See `AUDIENCE` in that file
+for the full routing table and `docs/handover/04-REPORTING-AND-SLACK.md` §1 for the audience
+design. A job missing from `AUDIENCE` throws at call time rather than defaulting anywhere.
+
+**Operator setup — done, 2026-08-14.** The three one-time Slack actions this change needed are
+already complete:
+
+1. `#hemnet-ops` created (`C0BQ66YQX8S`, private) and `@hemnet_status` invited — verified a
+   member.
+2. A new incoming webhook was created against `#hemnet-ops` (a webhook is bound to the channel
+   it was created against and cannot be re-pointed in code, so this is what lets
+   `cron-wrapper`'s failure alert — and `postMessage`'s degraded fallback — reach ops).
+3. The bot is confirmed a member of both `#hemnet-status` (`C0B9X2WDC4C`) and `#hemnet-ops`
+   (`C0BQ66YQX8S`).
+
+The droplet's `.env` is already updated to match (backup at `.env.bak-2026-08-14`):
+
+    SLACK_STATUS_CHANNEL=C0B9X2WDC4C     # #hemnet-status (private, bot is a member)
+    SLACK_OPS_CHANNEL=C0BQ66YQX8S        # #hemnet-ops (private, created 2026-08-14, bot is a member)
+    SLACK_WEBHOOK_URL=<the new #hemnet-ops webhook — already live in .env, not reproduced here>
+    # SLACK_REVIEW_CHANNEL is retired but left in place deliberately: the helper reads it only
+    # as a fallback for SLACK_OPS_CHANNEL, so the review queue keeps working whether the code
+    # or the .env edit lands first. Safe to delete once SLACK_OPS_CHANNEL has been live a while.
+    # SOLD_MATCH_SLACK_CHANNEL is retired outright — do not re-add a per-job channel override;
+    # sold-match-report.js routes through the same AUDIENCE table as every other business report.
+
+**Outstanding — two items, neither blocks this deploy:**
+
+- `files:write` has **not** been added to the Slack app. Only the later market-totals
+  file-delivery work needs it (`uploadFiles` in the design spec, §4); nothing in this change
+  calls it.
+- The new ops webhook has not yet been proven with a **live** post — every verification so far
+  is `--dry-run`. The first daily `cron-health-slack` run at **03:00 UTC** after this deploys is
+  the proof; confirm the message lands in `#hemnet-ops`.
+
+**Deploy steps** (code only — the `.env` and channel setup above are already done):
+
+```bash
+cd /opt/hemnet-cohort-tracker && git pull
+```
+
+No process restart needed; cron jobs pick up the new code on their next fire.
+
+**Verify before the next Monday cron, from the droplet, with no post:**
+
+    node cron-health-slack.js --dry-run
+    node sold-match-report.js --dry-run
+
+Each prints `--- DRY RUN: <job> -> C0… ---`. Check the channel id on each line is the one you
+intended — that line is the whole point of the change. `cron-health-slack` (ops) must show
+`C0BQ66YQX8S`; `sold-match-report` (business) must show `C0B9X2WDC4C`.
+
+**A local-run footgun — read before running any reporter off the droplet.** With no
+`SLACK_BOT_TOKEN` set, `postMessage` falls back to `SLACK_WEBHOOK_URL` rather than skipping —
+deliberately, so a report is mis-routed rather than silently lost. That means a bare
+`node sold-match-report.js` (or any of the other reporters) on a developer machine whose
+`.env` happens to carry a webhook URL **will post**, to whatever channel that webhook targets.
+Always pass `--dry-run` (or set `SLACK_DRY_RUN=1`) when running a reporter locally.
+
+**A known monitoring gap.** `sold-match-report.js` is not wrapped by `cron-wrapper.runJob`, so
+a failed post writes no `cron_job_log` row — the daily health report cannot see it fail. It now
+exits non-zero on a failed post (both transports down, or a routing error such as
+`SLACK_STATUS_CHANNEL` unset), but nothing currently watches that exit code. Closing this is the
+job of the separate health-monitoring workstream (spec §5, Class 1: widening `cron-health-slack`'s
+registry to the reporters that don't yet log to `cron_job_log`), not this change.
 
 ## Crontab
 
@@ -221,7 +291,8 @@ inviting the bot to the review channel, and smoke-testing the connection.
 ```bash
 # Required for Phase 13 review queue (Slack bot — separate from SLACK_WEBHOOK_URL):
 SLACK_BOT_TOKEN=xoxb-…          # bot OAuth token from SLACK-REVIEW-SETUP.md step 4
-SLACK_REVIEW_CHANNEL=C0……       # the Slack channel id for the review queue
+SLACK_REVIEW_CHANNEL=C0……       # RETIRED — see "Slack routing (audience split)" below.
+                                 # Kept only as the fallback for SLACK_OPS_CHANNEL.
 
 # REQUIRED before trusting auto-removal. Without it, the poller falls back to allowing
 # ALL reactors — document-only first-run fallback; set to your own Slack user id immediately.
