@@ -273,13 +273,12 @@ async function run() {
 // qualityBlock joins that set: it is pure (no I/O) and the --smoke cases drive it directly.
 module.exports = { addsShare, formatShareRow, formatShareHistory, ratio, metricRow, wowAdds, qualityBlock };
 
-// Entry gate: --smoke runs the offline self-test; otherwise the report runs for real,
-// posting to a live Slack channel. REPORT_DATE is read from the environment, not argv,
-// so --smoke is the only accepted flag; anything else — `--smoketest`, `--smoke=true`,
-// `--smok` — must never fall through to the live-post path.
-// Entry gate. Without this, an unrecognised flag falls straight through to the
-// live path and POSTS: dotenv re-injects the token, so unsetting env vars does
-// not prevent a post. Same pattern as age-census-report.js.
+// Entry gate: --smoke runs the offline self-test; --dry-run renders and posts nothing;
+// otherwise the report runs for real, posting to a live Slack channel. REPORT_DATE is read
+// from the environment, not argv. Without this gate, an unrecognised flag — `--smoketest`,
+// `--smoke=true`, `--smok` — would fall straight through to the live path and POST: dotenv
+// re-injects the token, so unsetting env vars does not prevent a post. Same pattern as
+// age-census-report.js.
 const ACCEPTED_ARGV = new Set(['--smoke', '--dry-run']);
 const USAGE = 'Usage: node premarket-flow-weekly-report.js [--smoke] [--dry-run]';
 function validateArgv(argv) {

@@ -22,7 +22,6 @@ require('dotenv').config();
 //   node sold-match-report.js --smoke     # offline self-test (no DB, no network, no Slack post)
 
 const { createClient } = require('./db');
-const { postInfoMessage } = require('./lib/spotcheck-slack-bot');
 const { postMessage } = require('./lib/slack-post');
 const panel = require('./config/sold-panel.json');
 // buildSeries computes, per fortnightly cohort, the on-Hemnet match share (firstPull +
@@ -498,11 +497,24 @@ async function run() {
   const message = renderMatchRateSummary(series, { chartUrl });
   console.log(message);
 
+  // A failed or throwing post must exit non-zero: this script is NOT wrapped by
+  // cron-wrapper.runJob, so a swallowed failure here means nothing lands in
+  // cron_job_log and cron-health-slack never flags it — the weekly report just
+  // vanishes silently. process.exitCode (not process.exit) lets the process finish
+  // naturally while still failing the run.
   try {
     const result = await postMessage('sold-match-report', message);
-    console.log(result && result.ok ? '\nSlack notification sent' : '\nSlack post returned null');
+    if (result.dryRun) {
+      console.log('\nDry run — no Slack notification sent');
+    } else if (result.ok) {
+      console.log('\nSlack notification sent');
+    } else {
+      console.error('\nSlack post failed on both the bot and the webhook fallback');
+      process.exitCode = 1;
+    }
   } catch (err) {
     console.error(`Slack failed: ${err.message}`);
+    process.exitCode = 1;
   }
 }
 
@@ -750,12 +762,6 @@ function runSmoke() {
       assert.ok(/Apartments/.test(text), 'has Apartments row');
       assert.ok(/Focus areas/.test(text), 'has Focus areas block');
       assert.ok(/Stockholm innerstad/.test(text) && /Östermalm/.test(text), 'has both overlays');
-    });
-
-    // 9. with no token, postInfoMessage returns null (no post, no throw).
-    await checkAsync('postInfoMessage returns null with no SLACK_BOT_TOKEN', async () => {
-      const result = await postInfoMessage('C0test', 'hello');
-      assert.strictEqual(result, null, `expected null, got ${JSON.stringify(result)}`);
     });
 
     // renderMatchRateSummary — the minimal weekly message: most-recent-first table of
