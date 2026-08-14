@@ -102,7 +102,9 @@ degradation. A report may be mis-routed but must never be silently lost.
 
 ### 3.3 Migration and env
 
-- New: `SLACK_STATUS_CHANNEL`, `SLACK_OPS_CHANNEL`.
+- New: `SLACK_STATUS_CHANNEL` = `C0B9X2WDC4C` (#hemnet-status), `SLACK_OPS_CHANNEL` = `C0BQ66YQX8S`
+  (#hemnet-ops, created 2026-08-14). Both private; the bot is a member of both, verified
+  2026-08-14.
 - `SLACK_REVIEW_CHANNEL` is retired, but read as a fallback for `SLACK_OPS_CHANNEL` while it is
   unset, so the review queue keeps working regardless of whether code or `.env` lands first.
 - `SLACK_BOT_TOKEN` needs `files:write` in addition to `chat:write`; the bot must be a member of

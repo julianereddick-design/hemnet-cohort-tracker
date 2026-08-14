@@ -868,9 +868,9 @@ Three one-time operator actions, all in Slack, before deploying this change:
 
 Then on the droplet, in `.env`:
 
-    SLACK_STATUS_CHANNEL=C0B9X2WDC4C     # #hemnet-status
-    SLACK_OPS_CHANNEL=<the new C0… id>
-    SLACK_WEBHOOK_URL=<the new ops webhook url>
+    SLACK_STATUS_CHANNEL=C0B9X2WDC4C     # #hemnet-status (private, bot is a member)
+    SLACK_OPS_CHANNEL=C0BQ66YQX8S        # #hemnet-ops (private, created 2026-08-14, bot is a member)
+    SLACK_WEBHOOK_URL=<the new ops webhook url — operator pastes directly, never into a transcript>
     # SLACK_REVIEW_CHANNEL is retired — the helper reads it only as a fallback
     # for SLACK_OPS_CHANNEL, so it is safe to leave in place during the deploy
     # and delete afterwards.
