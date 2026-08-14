@@ -1,7 +1,5 @@
-const https = require('https');
-const http = require('http');
-const url = require('url');
 const { createClient } = require('./db');
+const { postAlert } = require('./lib/slack-post');
 
 function makeLogger(scriptName) {
   return function log(level, message) {
@@ -26,31 +24,6 @@ async function connectWithRetry(client, log, maxRetries = 3) {
       const delay = Math.pow(2, attempt - 1) * 1000;
       await new Promise(r => setTimeout(r, delay));
     }
-  }
-}
-
-async function sendSlackAlert(webhookUrl, text, log) {
-  try {
-    const parsed = new URL(webhookUrl);
-    const transport = parsed.protocol === 'https:' ? https : http;
-    const payload = JSON.stringify({ text });
-
-    await new Promise((resolve, reject) => {
-      const req = transport.request(parsed, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
-      }, (res) => {
-        res.resume();
-        resolve();
-      });
-      req.on('error', reject);
-      req.setTimeout(10000, () => { req.destroy(); reject(new Error('Slack request timeout')); });
-      req.write(payload);
-      req.end();
-    });
-    log('INFO', 'Slack alert sent');
-  } catch (err) {
-    log('ERROR', `Slack alert failed: ${err.message}`);
   }
 }
 
@@ -152,12 +125,11 @@ async function runJob({ scriptName, main, validate }) {
     log('ERROR', `Failed to update job log: ${err.message}`);
   }
 
-  // Slack alert on failure/warning
-  const webhookUrl = process.env.SLACK_WEBHOOK_URL;
-  if (webhookUrl && (status === 'failure' || status === 'warning')) {
+  // Slack alert on failure/warning. Webhook only, by design — see lib/slack-post.js postAlert.
+  if (status === 'failure' || status === 'warning') {
     const emoji = status === 'failure' ? 'FAILURE' : 'WARNING';
-    const text = `[${emoji}] ${scriptName}: ${errorMessage}`;
-    await sendSlackAlert(webhookUrl, text, log);
+    const res = await postAlert(`[${emoji}] ${scriptName}: ${errorMessage}`);
+    log(res.ok ? 'INFO' : 'ERROR', res.ok ? 'Slack alert sent' : 'Slack alert failed');
   }
 
   // Cleanup

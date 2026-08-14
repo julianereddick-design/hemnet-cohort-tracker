@@ -1,5 +1,4 @@
 require('dotenv').config();
-const https = require('https');
 const { createClient } = require('./db');
 const { postMessage } = require('./lib/slack-post');
 
