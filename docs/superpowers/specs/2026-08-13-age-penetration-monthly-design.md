@@ -146,7 +146,33 @@ re-run") for the Hemnet side. A muni→county rollup needs a muni→county map, 
 in the repo (`lib/hemnet-locations-full.json` is only `{muni: id}`); the per-muni rows make
 that map a purely offline addition whenever it's wanted.
 
-## 5. New-builds — what is exact and what is not
+## 5. New-builds — SUPERSEDED 2026-08-14: exact on all four pools
+
+> **This section's premise was disproved.** A probe on 2026-08-14
+> (`scripts/probe-booli-newconstruction-filter.js`, commit `3a5e51b`) showed Booli's search
+> honours `isNewConstruction=0` and `isNewConstruction=1`. The binary search can therefore
+> run a second time against the filtered stream, giving **exact per-band second-hand counts
+> for both Booli pools** at ~144 extra calls/month (~$0.36). `buckets_secondhand` is no
+> longer NULL for Booli, `n_newbuild` is now the exact difference of the two headline
+> totals, and `n_newbuild_sampled` is FALSE for all four pools.
+>
+> Only the exact spelling works — `newConstruction=1`, `isNewConstruction=true`,
+> `isNewConstruction=false` and `newProduction=1` are all SILENTLY IGNORED and return the
+> unfiltered pool, which is why the probe tests `=1` (a 20-40× collapse in the total) and
+> cross-checks the per-card flag rather than trusting a small `=0` delta.
+>
+> Measured 2026-08-14: for-sale 56,493 → 1,481 new-build (2.62%); pre-market 31,602 → 185
+> (0.59%). The July **sampled** for-sale rate (0.7%) was understated ~3.7×. The July
+> pre-market figure (0.2%) came from the full census and was exact for that date, so the
+> move to 0.59% is probably real change, not measurement error.
+>
+> Consequence for reporting: the Slack table now leads with the **ex-new-build** basis on
+> both platforms (Julian, 2026-08-14), with all-listings retained in the DB and artifacts.
+> The like-for-like problem this section agonised over no longer exists.
+>
+> The original reasoning is preserved below for the record.
+
+### Original section (superseded)
 
 Agreed rule: **tally both, headline 2nd-hand.** The implementation is asymmetric, and the
 asymmetry is a property of the scraping methods, not a shortcut.
@@ -194,6 +220,25 @@ quietly.
 - **All:** `error_pages` = 0 expected; > 2% of calls fails the gate.
 
 ## 7. Reporting
+
+> **REVISED 2026-08-14 (Julian).** The shares-based table below is superseded by an
+> **absolute-count** table, because the job's purpose is comparing the NUMBER of properties
+> on each platform, and shares hid the most interesting finding: Booli leads pre-market by
+> ~2.5-3.6× across every band, but Hemnet carries MORE fresh for-sale listings than Booli
+> (ratio 0.46× at ≤1mo) and only overtakes on the aged tail.
+>
+> Revised shape — two blocks (PRE-MARKET, FOR-SALE), each with a Booli row, a Hemnet row and
+> a Booli/Hemnet ratio line. Columns: pool total, then CUMULATIVE counts at ≤1mo, ≤3mo,
+> ≤6mo, ≤12mo, plus the >24mo tail. Basis is **ex new-build on both platforms** (possible
+> since the §5 probe), with each block stating the new-build counts it excluded so
+> all-listings can be reconstructed.
+>
+> Everything else in this section still binds: fresh end leads, the Hemnet clock caveat
+> rides on every Hemnet row, month-on-month deltas only against the most recent
+> `status='ok'` prior run, missing pools named explicitly, gate-failed pools rendered as
+> failures rather than as numbers, notes surfaced on ok rows.
+
+### Original shares-based design (superseded)
 
 One Slack post per month, in the same channel as the weekly flow pulse. Shape (not final —
 Julian expects to iterate on the table):
