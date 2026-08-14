@@ -16,7 +16,9 @@ const { getWithRetry, extractNextData, getOxylabsStats, resetOxylabsStats } = re
 const { parseBooliSearchCards } = require('../lib/booli-fetch');
 const { bandIndex, cardAgeDays, pageMedianAge, findCrossoverPage, DAY } = require('../lib/premarket-flow');
 
-const NOW_SEC = Math.floor(Date.now() / 1000);
+// `let`, not `const`: --selftest pins this to a FIXED epoch so synthetic pools cannot drift
+// with wall-clock time. Every stage reads it directly, so pinning it here pins the whole run.
+let NOW_SEC = Math.floor(Date.now() / 1000);
 const EDGES = [30, 90, 180, 365, 548, 730];              // day cutoffs → 7 bands + undated
 const LABELS = ['≤1mo', '1–3mo', '3–6mo', '6–12mo', '12–18mo', '18–24mo', '>24mo'];
 const DEFAULT_PAGE_SIZE = 35;
@@ -213,10 +215,38 @@ function filterApplied({ unfilteredTotal, filteredTotal, cardsSeen = 0, newbuild
 // estimator noise: clamp to the all-listings band and say so on the row. Beyond a page the two
 // bisections genuinely disagree and the whole second basis is untrustworthy, so it is withheld.
 // Returns { bands, clamped:[label], withhold:<reason|null> }; bands is null when withholding.
-function reconcileSecondhandBands(bands, filteredBands, pageSize) {
+// SECOND-HAND BAND TOLERANCE — derived from the estimator's error model, not chosen by feel.
+//
+//   * A cumulative count from one bisection carries ~±pageSize: findCrossoverPage resolves the
+//     boundary to a PAGE and then counts within it, so the residual error is a page at most.
+//   * A BAND is the difference of two cumulative estimates -> ~±2·pageSize.
+//   * We compare a band from the all-listings bisection against a band from a COMPLETELY
+//     INDEPENDENT filtered bisection, so the difference of those two carries ~±4·pageSize.
+//        -> floor 1: 4 × pageSize.
+//   * That alone under-covers the residual >24mo band, which is not a difference of two
+//     crossover estimates but datedBase − c730, where datedBase = headlineTotal × (1 −
+//     undatedRate) and undatedRate is SAMPLED from the few hundred cards the pass happened to
+//     see. At Booli's ~0.5% undated rate that sampling error is ~±0.29pp — ~±150 listings on a
+//     52,000 pool. It scales with the POOL, not the page.
+//        -> floor 2: 0.5% of the pool total.
+//
+// MEASURED (scratch simulation, July-shaped 52,349-listing pool, pageSize 35, the two bases
+// given independently perturbed orderings): on a cleanly sorted pool the estimator is EXACT and
+// every band excess is negative. Healthy excesses climb to +102 at 7 days of ordering
+// perturbation and +140 at 14 days. A one-page tolerance (35) withheld the basis on healthy
+// data in 2 of 15 trials — i.e. the second basis would have been withheld most months, and the
+// whole exact-second-hand feature would silently never have appeared. max(4·pageSize, 0.5%) =
+// 262 on that pool leaves ~1.9× margin over the worst observed healthy case while still being
+// only ~15% of the thinnest real band (18-24mo, ~3.3% of pool), so a genuine contradiction is
+// still caught.
+function secondhandBandTolerance(pageSize, poolTotal) {
+  return Math.max(4 * (pageSize || 1), Math.round(0.005 * (poolTotal || 0)));
+}
+
+function reconcileSecondhandBands(bands, filteredBands, pageSize, poolTotal) {
   const out = filteredBands.slice();
   const clamped = [];
-  const slack = Math.max(1, pageSize || 1);
+  const slack = Math.max(1, secondhandBandTolerance(pageSize, poolTotal));
   for (let k = 0; k < bands.length; k++) {
     const excess = filteredBands[k] - bands[k];
     if (excess <= 0) continue;
@@ -224,7 +254,7 @@ function reconcileSecondhandBands(bands, filteredBands, pageSize) {
       return {
         bands: null, clamped,
         withhold: `band ${BAND_KEYS[k]} is ${filteredBands[k]} in the 2nd-hand basis vs ${bands[k]} in the ` +
-          `all-listings one — an excess of ${excess}, more than one page (${slack}); the two bisections disagree`,
+          `all-listings one — an excess of ${excess}, beyond the ${slack}-listing tolerance (4x page ${pageSize} / 0.5% of pool); the two bisections disagree`,
       };
     }
     out[k] = bands[k];
@@ -291,14 +321,14 @@ async function run({ logger = log, priorTotal = null } = {}) {
     if (!verdict.applied) {
       withhold(verdict.reason);
     } else {
-      const rec = reconcileSecondhandBands(bands, bandsFiltered, pf.pageSize);
+      const rec = reconcileSecondhandBands(bands, bandsFiltered, pf.pageSize, stockTotal);
       if (rec.withhold) {
         withhold(rec.withhold);
       } else {
         bucketsSecondhand = bucketsToObject(rec.bands, bsf.undatedEst);
         nNewbuild = stockTotal - filteredTotal;      // EXACT: two headline totals, not a sample
         if (rec.clamped.length) {
-          const note = `2nd-hand bands clamped to the all-listings bands in ${rec.clamped.join(', ')} — within one page (${pf.pageSize}) of bisection noise`;
+          const note = `2nd-hand bands clamped to the all-listings bands in ${rec.clamped.join(', ')} — within the ${secondhandBandTolerance(pf.pageSize, stockTotal)}-listing bisection tolerance`;
           secondhandNotes.push(note);
           log('WARN', note);
         }
@@ -433,7 +463,11 @@ function buildMd(dateStr, pf, bs, censusRes, cmp, oxTotal, timings) {
 async function selftest() {
   const assert = require('assert');
   const PAGE = 35, N = 3000;                 // synthetic pool of 3000 listings, 35/page
-  const CLOCK = NOW_SEC;
+  // FIXED epoch, never Date.now() — see the sibling note in forsale-age-penetration.js.
+  // preflight/binarySearch/census all read the module NOW_SEC directly, so pinning it here is
+  // what makes every synthetic age, band edge and bisection outcome reproducible run to run.
+  const CLOCK = 1755000000;   // 2025-08-12T13:20:00Z, arbitrary but FIXED
+  NOW_SEC = CLOCK;
   // card i: age = i*1.3 days (ascending, globally sorted); every 200th undated; ~1% new-build.
   const ageOf = (i) => i * 1.3;
   const pub = (i) => (i % 200 === 0) ? null : CLOCK - Math.round(ageOf(i) * DAY);
@@ -605,23 +639,40 @@ async function selftest() {
 
   // --- band-subset invariant, enforced at run time (not just asserted in tests) ---
   {
-    const all = [100, 50, 20, 10, 5, 3, 200];
-    const clean = reconcileSecondhandBands(all, [90, 45, 18, 9, 4, 2, 180], 35);
-    assert.deepStrictEqual(clean.bands, [90, 45, 18, 9, 4, 2, 180], 'a genuine subset passes through untouched');
+    // Tolerance is max(4 x pageSize, 0.5% of pool) — see secondhandBandTolerance's derivation.
+    assert.strictEqual(secondhandBandTolerance(35, 3000), 140, '4 x page dominates on a small pool');
+    assert.strictEqual(secondhandBandTolerance(35, 52349), 262, '0.5% of pool dominates on a real one');
+    assert.strictEqual(secondhandBandTolerance(20, 2000), 80);
+
+    const all = [100, 50, 20, 10, 5, 3, 2000];
+    const clean = reconcileSecondhandBands(all, [90, 45, 18, 9, 4, 2, 1800], 35, 3000);
+    assert.deepStrictEqual(clean.bands, [90, 45, 18, 9, 4, 2, 1800], 'a genuine subset passes through untouched');
     assert.deepStrictEqual(clean.clamped, []);
     assert.strictEqual(clean.withhold, null);
 
-    const nudged = reconcileSecondhandBands(all, [100, 50, 20, 10, 8, 3, 180], 35);
-    assert.strictEqual(nudged.bands[4], 5, 'a within-one-page excess clamps down to the all-listings band');
+    const nudged = reconcileSecondhandBands(all, [100, 50, 20, 10, 8, 3, 1800], 35, 3000);
+    assert.strictEqual(nudged.bands[4], 5, 'an in-tolerance excess clamps down to the all-listings band');
     assert.deepStrictEqual(nudged.clamped, ['m12_18 (+3)'], 'and the clamp is named');
-    assert.strictEqual(nudged.withhold, null, 'one page of bisection noise is not a reason to bin the basis');
+    assert.strictEqual(nudged.withhold, null, 'ordinary bisection noise is not a reason to bin the basis');
     assert.strictEqual(nudged.bands[0], 100, 'an equal band is not an excess');
 
-    const broken = reconcileSecondhandBands(all, [100, 50, 20, 10, 5, 3, 300], 35);
-    assert.strictEqual(broken.bands, null, 'an excess beyond one page withholds the whole basis');
+    const broken = reconcileSecondhandBands(all, [100, 50, 20, 10, 5, 3, 2200], 35, 3000);
+    assert.strictEqual(broken.bands, null, 'an excess beyond tolerance withholds the whole basis');
     assert.ok(/gt24/.test(broken.withhold) && /disagree/.test(broken.withhold), broken.withhold);
+
+    // The calibration itself, on REAL pool geometry: a +200 band excess is measured bisection
+    // noise (healthy simulated runs reached +140), so it must clamp rather than bin the basis.
+    // Under the old one-page rule (35) it withheld — which would have suppressed the second
+    // basis most months and made the whole feature invisible.
+    const realistic = reconcileSecondhandBands([26436, 11307, 4136, 3246, 2251, 1728, 3246],
+                                               [25750, 11507, 4021, 3148, 2192, 1692, 3153], 35, 52349);
+    assert.strictEqual(realistic.withhold, null, `a +200 excess on a 52k pool is noise, not contradiction: ${realistic.withhold}`);
+    assert.deepStrictEqual(realistic.clamped, ['m1_3 (+200)']);
+    assert.strictEqual(reconcileSecondhandBands([26436, 11307, 4136, 3246, 2251, 1728, 3246],
+                                               [25750, 11607, 4021, 3148, 2192, 1692, 3153], 35, 52349).bands,
+      null, 'but +300 is past the 262 tolerance and still withholds');
   }
-  console.log('SELFTEST PASS — reconcileSecondhandBands clamps within a page and withholds beyond it.');
+  console.log('SELFTEST PASS — reconcileSecondhandBands clamps inside the derived tolerance, withholds beyond it.');
 
   // …and it is actually WIRED into run(). A filtered stream that is genuinely filtered (10%
   // smaller, no new-build flags — both signals pass) but whose young end is compressed, so its
