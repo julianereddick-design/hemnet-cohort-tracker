@@ -13,6 +13,13 @@
 //   Hemnet FS   https://www.hemnet.se/bostader?sort=NEWEST&page=N            (~44.5k)
 //   Booli  FS   https://www.booli.se/sok/till-salu?upcomingSale=0&page=N     (~53k)
 //
+// TWO BASES (monthly run() only, since 2026-08-13): Booli honours `isNewConstruction=0` on
+// this search, so the whole two-pass procedure runs a SECOND time over the filtered stream.
+// The unfiltered basis fills `buckets`, the filtered one `bucketsSecondhand`, and the two
+// headline totals give an EXACT new-build count instead of a sampled rate. Four searches,
+// ~168 calls. The standalone CLI paths (--preflight / --sortprobe / the default full report)
+// are unchanged and still walk the unfiltered stream only.
+//
 // DESIGN RISK the preflight guards against:
 //   Hemnet clamps NATIONAL pagination (pre-market Kommande capped ~2,500 of 8,368 — see
 //   hemnet-age-census.js header). If national FS pagination is likewise capped, the deep
@@ -97,23 +104,46 @@ const hemnet = {
     return { status: 200, cards, total: p === 1 ? hemnetForSaleTotal(apollo) : undefined };
   },
 };
-const booli = {
-  name: 'booli',
-  // Default (no sort param) is newest-first. Oldest-first requires the EXPLICIT pair
-  // `sort=published&ascending=1` (verified in Booli's own sort UI 2026-07-09 — the old
-  // "any sort=* flips ascending" note is stale). upcomingSale=0 = FS-only complement of the
-  // pre-market census's upcomingSale=1.
-  url: (p, asc) => `https://www.booli.se/sok/till-salu?upcomingSale=0&page=${p}${asc ? '&sort=published&ascending=1' : ''}`,
-  async fetch(p, asc = false) {
-    const res = await getWithRetry(this.url(p, asc), { logger: () => {} });
-    if (res.status !== 200) return { status: res.status, cards: null, total: undefined };
-    const parsed = parseBooliSearchCards(apolloFrom(res.html));
-    const cards = parsed.cards.map(c => ({
-      id: c.booli_id, published: c.published, isNewBuild: c.isNewConstruction, upcoming: c.upcomingSale,
-    }));
-    return { status: 200, cards, total: parsed.totalCount };
-  },
-};
+// Booli FS adapter factory. `excludeNewConstruction` appends `isNewConstruction=0`, which
+// turns the same stream into a second-hand-only one carrying its own headline total — that is
+// what makes an EXACT second-hand histogram possible from a method that never sees most cards.
+//
+// ONLY that exact spelling works: scripts/probe-booli-newconstruction-filter.js verified live
+// (2026-08-13) that `newConstruction=1`, `isNewConstruction=true`, `isNewConstruction=false`
+// and `newProduction=1` are all SILENTLY IGNORED and return the unfiltered pool — a wrong
+// number that looks right. Do not "tidy" the spelling. Live totals that day for upcomingSale=0:
+// 56,493 all / 55,067 filtered / 1,481 new-build (2.62%).
+//
+// The unfiltered URL is byte-identical to the one this adapter has always produced.
+function makeBooli({ excludeNewConstruction = false } = {}) {
+  return {
+    name: excludeNewConstruction ? 'booli-2ndhand' : 'booli',
+    excludeNewConstruction,
+    // Default (no sort param) is newest-first. Oldest-first requires the EXPLICIT pair
+    // `sort=published&ascending=1` (verified in Booli's own sort UI 2026-07-09 — the old
+    // "any sort=* flips ascending" note is stale). upcomingSale=0 = FS-only complement of the
+    // pre-market census's upcomingSale=1.
+    url(p, asc) {
+      return `https://www.booli.se/sok/till-salu?upcomingSale=0${excludeNewConstruction ? '&isNewConstruction=0' : ''}` +
+        `&page=${p}${asc ? '&sort=published&ascending=1' : ''}`;
+    },
+    async fetch(p, asc = false) {
+      const res = await getWithRetry(this.url(p, asc), { logger: () => {} });
+      if (res.status !== 200) return { status: res.status, cards: null, total: undefined };
+      const parsed = parseBooliSearchCards(apolloFrom(res.html));
+      const cards = parsed.cards.map(c => ({
+        id: c.booli_id, published: c.published, isNewBuild: c.isNewConstruction, upcoming: c.upcomingSale,
+      }));
+      return { status: 200, cards, total: parsed.totalCount };
+    },
+  };
+}
+const booli = makeBooli();
+const booliSecondhand = makeBooli({ excludeNewConstruction: true });
+// run() reaches the filtered stream through `platform.secondhand`, never through a separate
+// default parameter. That is deliberate: a test injecting only `platform` would otherwise
+// silently fall through to the REAL Booli adapter and put a synthetic run on the network.
+booli.secondhand = booliSecondhand;
 
 // Is a page "reachable" (real, deeper content) vs a clamp artifact (404 / empty / repeats
 // the page-1 tail)? Returns { reachable, medianAge } given page-1 IDs for repeat-detection.
@@ -388,20 +418,31 @@ async function selftest() {
 
   const PAGE = 20, TOTAL = 2000, LAST = TOTAL / PAGE;  // 100 pages
   const CLOCK = NOW_SEC;   // synthetic pools share the module clock the code reads
-  // Clean pool: card global index i has ageDays = i (strictly increasing with depth).
-  const cleanPlat = {
-    name: 'clean',
+  // Clean pool: card global index i has ageDays = i (strictly increasing with depth), and
+  // every 25th listing is a new-build (80 of 2,000 — the same order of magnitude as Booli's
+  // real 2.62% FS share). Ages are unchanged by that flag, so every pre-existing assertion
+  // that reads ages off this pool still holds.
+  const NB_EVERY = 25;
+  const AGES_ALL = Array.from({ length: TOTAL }, (_, i) => i);
+  const AGES_SH = AGES_ALL.filter(a => a % NB_EVERY !== 0);   // the isNewConstruction=0 stream
+  // A stream is just an ordered age list. The filtered stream is the same pool with the
+  // new-builds dropped and the remainder RE-PAGINATED under its OWN headline total — page p
+  // of one stream is not page p of the other, which is exactly how the site behaves.
+  const mkPool = (name, ages) => ({
+    name,
     async fetch(p, asc = false) {
-      if (p < 1 || p > LAST) return { status: 200, cards: [], total: TOTAL };
-      const cards = [];
-      for (let j = 0; j < PAGE; j++) {
-        const idx = (p - 1) * PAGE + j;
-        const age = asc ? (TOTAL - 1 - idx) : idx;      // oldest-first reverses the age axis
-        cards.push({ id: `c${age}`, published: CLOCK - age * DAY, isNewBuild: false, upcoming: false });
-      }
-      return { status: 200, cards, total: p === 1 ? TOTAL : undefined };
+      const last = Math.ceil(ages.length / PAGE);
+      if (p < 1 || p > last) return { status: 200, cards: [], total: ages.length };
+      const ordered = asc ? ages.slice().reverse() : ages;   // oldest-first reverses the age axis
+      const cards = ordered.slice((p - 1) * PAGE, p * PAGE).map(age => ({
+        id: `c${age}`, published: CLOCK - age * DAY, isNewBuild: age % NB_EVERY === 0, upcoming: false,
+      }));
+      return { status: 200, cards, total: p === 1 ? ages.length : undefined };
     },
-  };
+  });
+  const cleanPlat = mkPool('clean', AGES_ALL);
+  cleanPlat.secondhand = mkPool('clean-2ndhand', AGES_SH);
+  const TOTAL_SH = AGES_SH.length;                            // 1,920 — 80 new-builds removed
   // Clamped pool: past page CAP the site repeats page-1 tail (Hemnet-style clamp).
   const CAP = 50;
   const clampPlat = {
@@ -491,18 +532,104 @@ async function selftest() {
     assert.strictEqual(bands.slice(0, 6).reduce((a, b) => a + b, 0) + bands[6], datedBase);
   });
 
+  const KEYS = ['le1m', 'm1_3', 'm3_6', 'm6_12', 'm12_18', 'm18_24', 'gt24'];
+
   await check('run(): returns the standard result shape with a crosscheck gate', async () => {
     const res = await run({ platform: cleanPlat, nowSec: CLOCK, logger: () => {} });
     assert.strictEqual(res.pool, 'forsale');
     assert.strictEqual(res.method, 'sort-flip');
-    assert.strictEqual(res.bucketsSecondhand, null);
     assert.ok(res.gates.some(g => g.name === 'crosscheck'), 'two-pass must report a crosscheck gate');
-    const keys = ['le1m', 'm1_3', 'm3_6', 'm6_12', 'm12_18', 'm18_24', 'gt24'];
-    assert.deepStrictEqual(Object.keys(res.buckets), [...keys, 'undated']);
-    const sum = keys.reduce((a, k) => a + res.buckets[k], 0);
+    assert.deepStrictEqual(Object.keys(res.buckets), [...KEYS, 'undated']);
+    const sum = KEYS.reduce((a, k) => a + res.buckets[k], 0);
     assert.ok(Math.abs(sum + res.buckets.undated - res.nTotal) <= 1, 'bands must reconcile to nTotal');
     assert.strictEqual(res.errorPages, 0, 'clean synthetic pool must report zero error pages');
     assert.ok(res.gates.some(g => g.name === 'error_pages'), 'gate list must include an error_pages gate');
+    assert.strictEqual(res.status, 'ok', `clean pool must pass every gate: ${JSON.stringify(res.gates)}`);
+  });
+
+  await check('run(): the isNewConstruction=0 basis yields EXACT second-hand bands', async () => {
+    const res = await run({ platform: cleanPlat, nowSec: CLOCK, logger: () => {} });
+    assert.strictEqual(res.nTotal, TOTAL, 'the all-listings basis keeps the unfiltered headline total');
+    assert.ok(res.bucketsSecondhand != null, 'the filtered basis must yield a 2nd-hand histogram, not null');
+    assert.deepStrictEqual(Object.keys(res.bucketsSecondhand), [...KEYS, 'undated']);
+    // A filtered stream is the same pool minus some cards, so no band can grow.
+    for (const k of KEYS) {
+      assert.ok(res.bucketsSecondhand[k] <= res.buckets[k],
+        `2nd-hand band ${k} (${res.bucketsSecondhand[k]}) must not exceed the all-listings band (${res.buckets[k]})`);
+    }
+    // …and it must reconcile to the FILTERED total, not the pool total.
+    const shSum = KEYS.reduce((a, k) => a + res.bucketsSecondhand[k], 0) + res.bucketsSecondhand.undated;
+    assert.ok(Math.abs(shSum - TOTAL_SH) <= 1, `2nd-hand bands ${shSum} must reconcile to the filtered total ${TOTAL_SH}`);
+    // Exact new-build count from the two headline totals — no sampling anywhere.
+    assert.strictEqual(res.nNewbuild, TOTAL - TOTAL_SH, `nNewbuild must be ${TOTAL} − ${TOTAL_SH}, got ${res.nNewbuild}`);
+    assert.strictEqual(res.newbuildSampled, false);
+    assert.strictEqual(res.newbuildSampleN, null);
+    assert.strictEqual(res.notes, null, `a clean two-basis run has nothing to note: ${res.notes}`);
+  });
+
+  await check('run(): the crosscheck gate covers BOTH bases and fails if either breaches', async () => {
+    // Clean pool: both bases agree at 90d, so the single gate passes and its detail names both.
+    const ok = await run({ platform: cleanPlat, nowSec: CLOCK, logger: () => {} });
+    const g = ok.gates.find(x => x.name === 'crosscheck');
+    assert.strictEqual(g.passed, true, g.detail);
+    assert.ok(/all-listings:/.test(g.detail) && /2nd-hand:/.test(g.detail), `both bases must be reported: ${g.detail}`);
+
+    // Break the FILTERED basis only: shift its oldest-first stream's ages far off, so its two
+    // ends disagree at 90d while the all-listings basis stays perfect. The gate must still fail.
+    const skewed = mkPool('clean', AGES_ALL);
+    const shBase = mkPool('clean-2ndhand', AGES_SH);
+    skewed.secondhand = {
+      name: 'clean-2ndhand-skewed',
+      async fetch(p, asc = false) {
+        const r = await shBase.fetch(p, asc);
+        if (asc && r.cards) r.cards = r.cards.map(c => ({ ...c, published: c.published - 400 * DAY }));
+        return r;
+      },
+    };
+    const bad = await run({ platform: skewed, nowSec: CLOCK, logger: () => {} });
+    const gb = bad.gates.find(x => x.name === 'crosscheck');
+    assert.strictEqual(gb.passed, false, `a 2nd-hand basis whose ends disagree must fail the gate: ${gb.detail}`);
+    assert.ok(/all-listings:/.test(gb.detail) && /2nd-hand:/.test(gb.detail), gb.detail);
+    assert.strictEqual(bad.status, 'gate_failed');
+  });
+
+  await check('run(): the overlap check applies to the FILTERED basis too', async () => {
+    // The filtered pool is smaller, so its reachable pages differ. Clamp only the filtered
+    // stream's newest-first end hard enough that the two ends cannot meet: run() must throw
+    // rather than publish a 2nd-hand histogram with a hole in the middle.
+    const plat = mkPool('clean', AGES_ALL);
+    const shBase = mkPool('clean-2ndhand', AGES_SH);
+    plat.secondhand = {
+      name: 'clean-2ndhand-clamped',
+      async fetch(p, asc = false) {
+        // both ends clamp at page 5 → 100 + 100 reachable of 1,920: a hole in the middle.
+        const r = await shBase.fetch(p > 5 ? 1 : p, asc);
+        return { ...r, total: p === 1 ? TOTAL_SH : undefined };
+      },
+    };
+    await assert.rejects(
+      () => run({ platform: plat, nowSec: CLOCK, logger: () => {} }),
+      /second-hand.*ends do not overlap/i,
+      'a filtered basis whose ends do not meet must throw, naming the basis');
+  });
+
+  await check('run(): a platform with no .secondhand adapter throws instead of hitting the network', async () => {
+    const bare = mkPool('bare', AGES_ALL);           // deliberately no .secondhand
+    await assert.rejects(
+      () => run({ platform: bare, nowSec: CLOCK, logger: () => {} }),
+      /no \.secondhand adapter/,
+      'the filtered stream must come from the injected platform, never from a live default');
+  });
+
+  await check('booli adapters: the unfiltered URL is unchanged and only isNewConstruction=0 is added', () => {
+    // The exact spelling is load-bearing — Booli silently ignores anything else and returns the
+    // FULL pool, which would be published as "second-hand" without a single error.
+    assert.strictEqual(booli.url(3, false), 'https://www.booli.se/sok/till-salu?upcomingSale=0&page=3');
+    assert.strictEqual(booli.url(3, true), 'https://www.booli.se/sok/till-salu?upcomingSale=0&page=3&sort=published&ascending=1');
+    assert.strictEqual(booliSecondhand.url(3, false), 'https://www.booli.se/sok/till-salu?upcomingSale=0&isNewConstruction=0&page=3');
+    assert.strictEqual(booliSecondhand.url(3, true), 'https://www.booli.se/sok/till-salu?upcomingSale=0&isNewConstruction=0&page=3&sort=published&ascending=1');
+    assert.strictEqual(booli.secondhand, booliSecondhand, 'the production adapter must carry its filtered sibling');
+    assert.strictEqual(booli.excludeNewConstruction, false);
   });
 
   // errorPages must count REAL fetch failures, not be hardcoded to 0 (the defect an earlier
@@ -519,6 +646,7 @@ async function selftest() {
     let hit = false;
     const flaky = {
       name: 'flaky',
+      secondhand: cleanPlat.secondhand,        // the 2nd-hand basis stays clean, so the count is unambiguous
       async fetch(p, asc = false) {
         if (p === 25 && asc === false) { hit = true; return { status: 500, cards: null, total: undefined }; }
         return cleanPlat.fetch(p, asc);
@@ -527,6 +655,30 @@ async function selftest() {
     const res = await run({ platform: flaky, nowSec: CLOCK, logger: () => {} });
     assert.ok(hit, 'the injected broken page (25, newest-first) was never queried — test setup is wrong');
     assert.strictEqual(res.errorPages, 1, `expected exactly 1 error page from the injected failure, got ${res.errorPages}`);
+  });
+
+  // The mirror of the check above: errorPages must span BOTH bases, not just the first. The
+  // failure is injected ONLY on the filtered stream, at page 12 of its newest-first pass —
+  // traced against that stream's geometry (1,920 listings / 20 per page = 96 pages, so
+  // findCrossoverPage descends 48 -> 24 -> 12), and NOT visited by probeEnd's own reachability
+  // bisection on that stream ({48, 72, 84, 90, 93, 95, 96}) nor by anything on the unfiltered
+  // stream. The all-listings basis runs perfectly clean, so any count at all comes from the
+  // second basis, and the expected total is exactly 1.
+  await check('run(): errorPages accumulates across BOTH bases', async () => {
+    let hitSh = false;
+    const shBase = mkPool('clean-2ndhand', AGES_SH);
+    const plat = mkPool('clean', AGES_ALL);
+    plat.secondhand = {
+      name: 'clean-2ndhand-flaky',
+      async fetch(p, asc = false) {
+        if (p === 12 && asc === false) { hitSh = true; return { status: 500, cards: null, total: undefined }; }
+        return shBase.fetch(p, asc);
+      },
+    };
+    const res = await run({ platform: plat, nowSec: CLOCK, logger: () => {} });
+    assert.ok(hitSh, 'the injected 2nd-hand-basis failure (page 12, newest-first) was never queried — test setup is wrong');
+    assert.strictEqual(res.errorPages, 1,
+      `a failure on the 2nd-hand basis alone must raise errorPages to exactly 1, got ${res.errorPages} — the counter must span both bases`);
   });
 
   await check('gateErrorPages reacts to a real errorPages/oxCalls pair (synthetic run has oxCalls=0, so assert the gate directly)', () => {
@@ -593,44 +745,80 @@ async function runSortProbe(only) {
 
 const { bucketsToObject, gateCrosscheck, gateTotalDrift, gateErrorPages, evaluateGates } = require('../lib/age-census');
 
-// Monthly-job entry point: Booli FS two-pass estimate (newest-first for the young bands,
-// oldest-first for the deep ones). `platform` is injectable so --selftest drives a synthetic
-// pool; production always passes the module's `booli` adapter.
-async function run({ platform = booli, nowSec = NOW_SEC, logger = log, priorTotal = null } = {}) {
-  const t0 = Math.floor(Date.now() / 1000);
-  resetOxylabsStats();
-  errorPages = 0;
-  const newest = await probeEnd(platform, false);
-  const oldest = await probeEnd(platform, true);
+// One full two-pass estimate (newest-first + oldest-first) over ONE stream. Everything that
+// used to sit inline in run() lives here, so the second basis reuses it verbatim instead of a
+// parallel copy. `label` only names the stream in errors and logs.
+//
+// The overlap check applies per stream: the filtered pool is SMALLER, so its page count and
+// therefore its reachable pages differ from the unfiltered one's. A basis whose two ends do
+// not meet cannot cover the age axis and must not be silently published.
+async function estimateBasis(plat, label) {
+  const newest = await probeEnd(plat, false);
+  const oldest = await probeEnd(plat, true);
   const overlap = newest.reachableListings + oldest.reachableListings - newest.total;
-  if (overlap <= 0) throw new Error(`two-pass ends do not overlap (gap ${-overlap}) — cannot cover the age axis`);
-
-  const est = await estimateTwoPass(platform, {
+  if (overlap <= 0) throw new Error(`${label}: two-pass ends do not overlap (gap ${-overlap}) — cannot cover the age axis`);
+  const est = await estimateTwoPass(plat, {
     newestHi: newest.reachablePage, oldestHi: oldest.reachablePage,
     pageSize: newest.pageSize, headlineTotal: newest.total,
   });
   const { bands, undatedEst } = bandsFromCumulative(est.cumulative, newest.total, est.undatedRate);
+  return { newest, oldest, overlap, est, bands, undatedEst, headlineTotal: newest.total };
+}
+
+// Monthly-job entry point: Booli FS estimate, run over TWO streams.
+//   all listings          -> buckets            (the two-pass sort-flip, unchanged)
+//   isNewConstruction=0   -> bucketsSecondhand  (the SAME procedure, filtered stream)
+// nNewbuild is then the difference of the two headline totals — exact, not sampled.
+// `platform` is injectable so --selftest drives a synthetic pool; the filtered stream is taken
+// from `platform.secondhand` so an injected platform can never leak onto the real network.
+// Production always passes the module's `booli` adapter.
+//
+// Cost: ~84 calls per basis, ~168 total (four searches: two ends x two streams).
+async function run({ platform = booli, nowSec = NOW_SEC, logger = log, priorTotal = null } = {}) {
+  const t0 = Math.floor(Date.now() / 1000);
+  resetOxylabsStats();
+  errorPages = 0;
+  if (!platform.secondhand) {
+    throw new Error(`platform "${platform.name}" has no .secondhand adapter — the second-hand basis cannot be measured`);
+  }
+  const all = await estimateBasis(platform, 'all listings');
+  const sh = await estimateBasis(platform.secondhand, 'second-hand (isNewConstruction=0)');
+
   const ox = getOxylabsStats();
-  const oxCalls = ox.oxylabsCallCount + ox.directSuccessCount;
-  const cc = est.crosscheck;
+  const oxCalls = ox.oxylabsCallCount + ox.directSuccessCount;   // covers BOTH bases
+  // The crosscheck is the gate that says "the two ends of this pool agree where they meet".
+  // A filtered basis whose ends disagree is exactly as untrustworthy as an unfiltered one, so
+  // BOTH are evaluated and reported, and either breach fails the single named gate.
+  const ccAll = gateCrosscheck({ newestPass: all.est.crosscheck.newestPass, oldestPass: all.est.crosscheck.oldestPass, headlineTotal: all.headlineTotal, maxPct: 3 });
+  const ccSh = gateCrosscheck({ newestPass: sh.est.crosscheck.newestPass, oldestPass: sh.est.crosscheck.oldestPass, headlineTotal: sh.headlineTotal, maxPct: 3 });
   const gates = [
-    gateCrosscheck({ newestPass: cc.newestPass, oldestPass: cc.oldestPass, headlineTotal: newest.total, maxPct: 3 }),
+    { name: 'crosscheck', passed: ccAll.passed && ccSh.passed, detail: `all-listings: ${ccAll.detail} | 2nd-hand: ${ccSh.detail}` },
     gateErrorPages({ errorPages, oxCalls, maxPct: 2 }),
-    gateTotalDrift({ nTotal: newest.total, priorTotal, maxPct: 25 }),
+    gateTotalDrift({ nTotal: all.headlineTotal, priorTotal, maxPct: 25 }),
   ];
   const ev = evaluateGates(gates);
-  logger('INFO', `run() bands=${JSON.stringify(bands)} calls=${oxCalls} gates=${ev.passed ? 'ok' : ev.failures.join(',')}`);
+  // A filtered pool LARGER than the unfiltered one means the filter did not apply (Booli
+  // silently ignores params it does not recognise) or the two page-1 reads straddled a pool
+  // change. Either way it is not an exclusion, so it must not be published as second-hand.
+  const filterApplied = all.headlineTotal != null && sh.headlineTotal != null && sh.headlineTotal <= all.headlineTotal;
+  const notes = [];
+  if (!ev.passed) notes.push(`gates failed: ${ev.failures.join(', ')}`);
+  if (!filterApplied) {
+    notes.push(`second-hand basis rejected: filtered total ${sh.headlineTotal} exceeds unfiltered ${all.headlineTotal} — the isNewConstruction=0 filter did not apply`);
+    logger('WARN', notes[notes.length - 1]);
+  }
+  logger('INFO', `run() bands=${JSON.stringify(all.bands)} 2ndHandBands=${JSON.stringify(sh.bands)} calls=${oxCalls} gates=${ev.passed ? 'ok' : ev.failures.join(',')}`);
   return {
     platform: 'booli', pool: 'forsale', method: 'sort-flip',
-    nTotal: newest.total, nUndated: undatedEst,
-    nNewbuild: Math.round(newest.total * est.newbuildRate),
-    newbuildSampled: true, newbuildSampleN: est.seenPages * (newest.pageSize || 0),
-    buckets: bucketsToObject(bands, undatedEst),
-    bucketsSecondhand: null,
+    nTotal: all.headlineTotal, nUndated: all.undatedEst,
+    nNewbuild: filterApplied ? all.headlineTotal - sh.headlineTotal : null,
+    newbuildSampled: false, newbuildSampleN: null,
+    buckets: bucketsToObject(all.bands, all.undatedEst),
+    bucketsSecondhand: filterApplied ? bucketsToObject(sh.bands, sh.undatedEst) : null,
     muni: [],
     oxCalls, errorPages, runtimeS: Math.floor(Date.now() / 1000) - t0,
     gates, status: ev.passed ? 'ok' : 'gate_failed',
-    notes: ev.passed ? null : `gates failed: ${ev.failures.join(', ')}`,
+    notes: notes.length ? notes.join('; ') : null,
   };
 }
 
@@ -690,4 +878,4 @@ if (require.main === module) {
   else runFull().catch(e => { console.error(e); process.exit(1); });
 }
 
-module.exports = { preflightPlatform, estimatePlatform, estimateTwoPass, findCrossoverOlder, bandsFromCumulative, hemnet, booli, run };
+module.exports = { preflightPlatform, estimatePlatform, estimateTwoPass, estimateBasis, findCrossoverOlder, bandsFromCumulative, makeBooli, hemnet, booli, booliSecondhand, run };
