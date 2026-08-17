@@ -207,12 +207,28 @@ async function run() {
       const r = nullViewRes.rows[i];
       const bPct = Math.round((r.null_booli / r.total_pairs) * 100);
       const hPct = Math.round((r.null_hemnet / r.total_pairs) * 100);
-      const warn = (bPct > 50 || hPct > 50) ? '  :warning:' : '';
       const canary = (i === lastIdx) ? '  ← canary' : '';
-      lines.push(`      ${r.cohort_id}: ${r.null_booli}/${r.total_pairs} null Booli (${bPct}%), ${r.null_hemnet}/${r.total_pairs} null Hemnet (${hPct}%)${warn}${canary}`);
-
-      if (bPct > 50) issues.push(`Cohort ${r.cohort_id}: ${bPct}% null Booli views`);
-      if (hPct > 50) issues.push(`Cohort ${r.cohort_id}: ${hPct}% null Hemnet views`);
+      // No per-cohort warning marker and no issue is raised off these rows. A high null
+      // rate on an OLD cohort is not a fault: a null means the listing had no active row
+      // when cohort-track asked, i.e. the ad is gone — sold, withdrawn or expired. Cohorts
+      // therefore decay monotonically with age (measured 2026-08-17: 7% at 14d, 25% at 21d,
+      // 33% at 28d, 41% at 42d, 52% at 56d, 64% at 63d), so ANY flat threshold is crossed by
+      // every cohort eventually and the alert never stops. cohort-track.js already settled
+      // this — see its "10-03 retarget" (line ~292), which scopes null-view alerting to the
+      // most recent 4 cohorts and additionally requires a >10pp jump vs the same cohort's
+      // previous run. This block used to re-implement the check with neither refinement,
+      // and so re-fired exactly the alarms that retarget existed to silence.
+      //
+      // Two further reasons the numbers here were not trustworthy as an alert: the query
+      // filters on `removed_at IS NULL`, but removed_at is set on only 5 of ~5,200 pairs —
+      // the real liveness flags are dropped_booli_on/dropped_hemnet_on, which it ignores;
+      // and for cohorts past the 56d tracking window the denominator is a straggler tail
+      // (W25 showed n=55 against 672 real pairs).
+      //
+      // The rows stay — they are useful context, and the canary check below is the live
+      // detector: the NEWEST cohort's listings are still on the market, so a high null rate
+      // there is a genuine scraper signal rather than market decay.
+      lines.push(`      ${r.cohort_id}: ${r.null_booli}/${r.total_pairs} null Booli (${bPct}%), ${r.null_hemnet}/${r.total_pairs} null Hemnet (${hPct}%)${canary}`);
     }
 
     // Canary check: newest cohort should have low null rates
