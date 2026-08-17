@@ -235,8 +235,21 @@ async function run() {
     message += '\n\n*Issues:*\n' + issues.map(i => `• ${i}`).join('\n');
   }
 
-  await postMessage('cron-health-slack', message);
-  console.log(issues.length === 0 ? 'All healthy' : `${issues.length} issue(s) flagged`);
+  // The health monitor must never report success it did not deliver. postMessage
+  // RETURNS {ok:false} on a failed delivery rather than throwing, and this script is
+  // NOT wrapped by cron-wrapper.runJob — so without this branch a monitor that could
+  // not reach Slack still exits 0 printing "All healthy", which is precisely the blind
+  // spot it exists to close. The exit code is the only signal available here.
+  const result = await postMessage('cron-health-slack', message);
+  const summary = issues.length === 0 ? 'All healthy' : `${issues.length} issue(s) flagged`;
+  if (result.dryRun) {
+    console.log(`${summary} (dry run — not posted)`);
+  } else if (result.ok) {
+    console.log(summary);
+  } else {
+    console.error(`${summary} — but the Slack post FAILED on both the bot and the webhook fallback`);
+    process.exitCode = 1;
+  }
 }
 
 // Entry gate. Without this, an unrecognised flag falls straight through to the

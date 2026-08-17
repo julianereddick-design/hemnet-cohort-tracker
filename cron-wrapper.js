@@ -128,8 +128,18 @@ async function runJob({ scriptName, main, validate }) {
   // Slack alert on failure/warning. Webhook only, by design — see lib/slack-post.js postAlert.
   if (status === 'failure' || status === 'warning') {
     const emoji = status === 'failure' ? 'FAILURE' : 'WARNING';
-    const res = await postAlert(`[${emoji}] ${scriptName}: ${errorMessage}`);
-    log(res.ok ? 'INFO' : 'ERROR', res.ok ? 'Slack alert sent' : 'Slack alert failed');
+    // Guarded because postAlert can REJECT, not just resolve falsy: webhookPostMessage
+    // calls new URL(webhookUrl) synchronously inside an async function, so a malformed
+    // SLACK_WEBHOOK_URL (a scheme dropped in an .env edit) rejects. Unguarded, that
+    // rejection skips client.end() and the process.exit() below and escapes as an
+    // unhandledRejection — turning a 'warning' run into a hard failure for every one of
+    // the ~13 jobs that route through runJob. The old sendSlackAlert had this try/catch.
+    try {
+      const res = await postAlert(`[${emoji}] ${scriptName}: ${errorMessage}`);
+      log(res.ok ? 'INFO' : 'ERROR', res.ok ? 'Slack alert sent' : 'Slack alert failed');
+    } catch (err) {
+      log('ERROR', `Slack alert failed: ${err.message}`);
+    }
   }
 
   // Cleanup

@@ -86,11 +86,23 @@ async function run() {
       `Per-cohort charts: ${cohortLinks}`,
     ].join('\n');
 
+    // postMessage RETURNS {ok:false} on a failed delivery — it does not throw — so the
+    // catch below never sees a transport failure. Branch on result.ok or a lost report
+    // is logged as "sent". This script is not wrapped by cron-wrapper.runJob, so the
+    // exit code is the only signal that anything went wrong.
     try {
-      await postMessage('weekly-view-report', message);
-      console.log('Slack notification sent');
+      const result = await postMessage('weekly-view-report', message);
+      if (result.dryRun) {
+        console.log('Dry run — no Slack notification sent');
+      } else if (result.ok) {
+        console.log('Slack notification sent');
+      } else {
+        console.error('Slack post failed on both the bot and the webhook fallback');
+        process.exitCode = 1;
+      }
     } catch (err) {
       console.error(`Slack failed: ${err.message}`);
+      process.exitCode = 1;
     }
   } else {
     console.log('Skipping Slack (VIEW_SERVER_HOST not set)');

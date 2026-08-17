@@ -314,11 +314,23 @@ async function main() {
   const poolTotals = computePoolTotals(rows);
   fs.writeFileSync(path.join(OUT_DIR, `age-census-${runDate}.json`), JSON.stringify({ runDate, rows, priorRows, poolTotals }, null, 2));
 
+  // postMessage RETURNS {ok:false} on a failed delivery — it does not throw — so the
+  // catch below never sees a transport failure. Branch on result.ok or a lost report
+  // is logged as "Posted to Slack." The exit code is the only signal that anything
+  // went wrong.
   try {
-    await postMessage('age-census-report', text);
-    console.log('Posted to Slack.');
+    const result = await postMessage('age-census-report', text);
+    if (result.dryRun) {
+      console.log('Dry run — no Slack notification sent');
+    } else if (result.ok) {
+      console.log('Posted to Slack.');
+    } else {
+      console.error('Slack post failed on both the bot and the webhook fallback');
+      process.exitCode = 1;
+    }
   } catch (err) {
     console.error(`Slack failed: ${err.message}`);
+    process.exitCode = 1;
   }
 }
 
