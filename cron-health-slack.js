@@ -2,6 +2,8 @@ require('dotenv').config();
 const { createClient } = require('./db');
 const { postMessage } = require('./lib/slack-post');
 const { runReporter } = require('./cron-wrapper');
+const { JOBS } = require('./lib/job-registry');
+const { runAssertions } = require('./lib/job-assertions');
 
 const SCRIPTS = ['cohort-track', 'cohort-create', 'age-census-monthly'];
 
@@ -147,6 +149,39 @@ async function run() {
       }
     }
   }
+
+  // ---------------------------------------------------------------
+  // ASSERTIONS (Phase 3) — "did the work actually produce output?"
+  //
+  // Exit code 0 is not evidence of work done. Each tier-1 job asserts on its own
+  // output, evaluated against last_expected_fire + grace — NEVER against a
+  // calendar period, because this digest runs at 03:00 and most jobs fire later.
+  // Jobs in flight inside their duration budget are skipped, not failed.
+  // ---------------------------------------------------------------
+  const assertions = await runAssertions(client, JOBS, { now: new Date(), rows: rows.rows });
+  if (assertions.length > 0) {
+    lines.push('');
+    lines.push(':dart:  *Assertions* (tier 1 — did the data actually arrive?)');
+    for (const a of assertions) {
+      if (a.skipped) {
+        lines.push(`      :heavy_minus_sign: ${a.job} — skipped: ${a.reason}`);
+        continue;
+      }
+      lines.push(`      ${a.ok ? ':white_check_mark:' : ':x:'} ${a.job} — ${a.detail}`);
+      if (!a.ok) issues.push(`${a.job} assertion FAILED: ${a.detail}`);
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // CROSS-CUTTING CHECKS — these belong to NO single job and must keep an
+  // explicit slot here. A registry-shaped rewrite that iterates jobs would
+  // otherwise drop them as "not registry-shaped", and they are the only
+  // detectors for their respective failures:
+  //   * zero-growth  — the only detector for a SUCCESSFUL but degraded scrape
+  //   * newest-cohort canary — the fix for the age-decay false alarms; its
+  //     comment records the measured decay curve and why a flat all-cohort
+  //     threshold was wrong. Losing that comment re-introduces the bug.
+  // ---------------------------------------------------------------
 
   // Check cohort view growth — flag if most pairs had zero incremental views
   const growthRes = await client.query(`
