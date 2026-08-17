@@ -4,44 +4,22 @@ const { postMessage } = require('./lib/slack-post');
 const { runReporter } = require('./cron-wrapper');
 const { JOBS } = require('./lib/job-registry');
 const { runAssertions } = require('./lib/job-assertions');
+const { buildLiveness } = require('./lib/job-liveness');
 
-const SCRIPTS = ['cohort-track', 'cohort-create', 'age-census-monthly'];
-
-// Each frequency carries its own lookback window, sized to the job's real cadence
-// plus a grace margin. Before 2026-08-13 every script was judged against a flat 25h
-// window, which produced two standing false alarms: weekly `cohort-create` warned on
-// the 6 non-Mondays, and every-2-days `cohort-track` (22:00 UTC on odd days) warned
-// on alternate days because its last run was ~29h old when the 03:00 check ran.
-//
-// `monthly` (added 2026-08-14 for age-census-monthly, which fires 02:00 on the 1st):
-// the longest real gap between runs is 31 days, so the window is 33 days — long enough
-// that a healthy job is never flagged on the 31st, short enough that a job which stopped
-// firing is caught within ~2 days of its missed slot.
-const WINDOW_HOURS = { daily: 25, every2days: 50, weekly: 8 * 24, monthly: 33 * 24 };
-
-// FETCH_DAYS must cover the widest window above, or a monthly job's last run falls
-// outside the single query below and reads as "never ran".
+// FETCH_DAYS must cover the longest gap between two fires of any registered job.
+// The monthly age census is the widest at 31 days, so a shorter window would put
+// a healthy monthly job's last run outside this query and read it as "never ran".
 const FETCH_DAYS = 34;
 
-const EXPECTED = {
-  'cohort-track': { frequency: 'every2days', label: 'Every 2 days' },
-  'cohort-create': { frequency: 'weekly', label: 'Weekly (Mon)' },
-  // `notBefore`: the job is deployed but has never run — its first fire is 02:00 UTC on
-  // 2026-09-01 (~3h). Until the day after that, "no runs" is expected, not a fault, so
-  // it renders as pending and raises no issue. Delete the key once it has run once.
-  'age-census-monthly': { frequency: 'monthly', label: 'Monthly (1st)', notBefore: '2026-09-02' },
-};
-
-function formatDuration(ms) {
-  if (ms == null) return '-';
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
-}
-
-function formatTimestamp(ts) {
-  if (!ts) return '-';
-  return new Date(ts).toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
-}
+// The liveness check — "did it fire at all?" — used to live here behind a
+// hardcoded SCRIPTS = ['cohort-track','cohort-create','age-census-monthly'] and a
+// frequency-keyed WINDOW_HOURS map. It now lives in lib/job-liveness.js and is
+// derived from lib/job-registry.js, so all ~21 scheduled Node jobs are covered
+// rather than 3. The two false alarms the WINDOW_HOURS map existed to fix (weekly
+// `cohort-create` warning on the six non-Mondays; every-2-days `cohort-track`
+// warning on alternate days because its last run was ~29h old at the 03:00 check)
+// are pinned as smoke checks there, phrased against lastExpectedFire instead of a
+// lookback window. `notBefore` moved to the registry entry.
 
 function summarizeResult(scriptName, summary) {
   if (!summary) return '';
@@ -81,73 +59,26 @@ async function run() {
     ORDER BY started_at DESC
   `, [FETCH_DAYS]);
 
-  // Widest window is fetched once; each script is then judged against its own
-  // frequency window (daily 25h, weekly 8d) so weekly jobs don't false-alarm.
-  const cutoff = (frequency) => Date.now() - WINDOW_HOURS[frequency] * 3600 * 1000;
+  const now = new Date();
 
-  const byScript = {};
-  for (const s of SCRIPTS) byScript[s] = [];
-  for (const r of rows.rows) {
-    if (!byScript[r.script_name]) continue;
-    const spec = EXPECTED[r.script_name];
-    if (new Date(r.started_at).getTime() >= cutoff(spec.frequency)) {
-      byScript[r.script_name].push(r);
-    }
-  }
+  // ---------------------------------------------------------------
+  // LIVENESS (Phase 3.1) — "did it fire at all?"
+  //
+  // The one question event-driven alerting structurally cannot answer: a job
+  // that never started never reached cron-wrapper, so nothing alerted. Derived
+  // from the registry, so adding a job monitors it. See lib/job-liveness.js for
+  // the anchoring rules and the false alarms they exist to prevent.
+  // ---------------------------------------------------------------
+  const liveness = buildLiveness(JOBS, { now, rows: rows.rows, summarize: summarizeResult });
+  const issues = [...liveness.issues];
+  const lines = [':satellite_antenna:  *Liveness* (did each scheduled job fire?)', ...liveness.lines];
 
-  const issues = [];
-  const lines = [];
-
-  for (const scriptName of SCRIPTS) {
-    const runs = byScript[scriptName];
-    const spec = EXPECTED[scriptName];
-
-    const windowLabel = `last ${WINDOW_HOURS[spec.frequency]}h`;
-
-    if (runs.length === 0) {
-      // A job that is deployed but not yet due (see EXPECTED.notBefore) is pending, not
-      // broken — flagging it daily until its first fire would train the reader to ignore
-      // this report, which is the one failure mode a monitor cannot afford.
-      if (spec.notBefore && new Date().toISOString().slice(0, 10) < spec.notBefore) {
-        lines.push(`:hourglass_flowing_sand:  *${scriptName}* (${spec.label})  —  deployed, first run due ${spec.notBefore}`);
-        continue;
-      }
-      lines.push(`*${scriptName}* (${spec.label})  —  :warning: No runs in ${windowLabel}`);
-      issues.push(`No runs for ${scriptName} in ${windowLabel}`);
-      continue;
-    }
-
-    const latest = runs[0];
-    const icon = latest.status === 'success' ? ':white_check_mark:' :
-                 latest.status === 'warning' ? ':warning:' : ':x:';
-    const result = summarizeResult(scriptName, latest.result_summary);
-    const successCount = runs.filter(r => r.status === 'success').length;
-    const failCount = runs.filter(r => r.status === 'failure').length;
-
-    let statusLine = `${successCount}/${runs.length} succeeded`;
-    if (failCount > 0) statusLine += `, ${failCount} failed`;
-
-    lines.push(`${icon}  *${scriptName}* (${spec.label})  —  ${statusLine}`);
-    lines.push(`      Last: ${formatTimestamp(latest.started_at)}  ${formatDuration(latest.duration_ms)}  ${result}`);
-
-    if (latest.status === 'failure') {
-      issues.push(`${scriptName} last run FAILED: ${latest.error_message}`);
-    }
-    if (latest.status === 'warning') {
-      issues.push(`${scriptName} last run WARNING: ${latest.error_message}`);
-    }
-
-    // Check each script ran at least once successfully inside its own window
-    const hasSuccess = runs.some(r => r.status === 'success');
-    if (!hasSuccess) issues.push(`${scriptName}: no successful run in ${windowLabel}`);
-
-    // Check cohort-track result anomalies
-    if (scriptName === 'cohort-track') {
-      const lastSuccess = runs.find(r => r.status === 'success' && r.result_summary);
-      if (lastSuccess && lastSuccess.result_summary.totalTracked === 0 && lastSuccess.result_summary.cohortsTracked > 0) {
-        issues.push(`cohort-track: 0 pairs tracked with ${lastSuccess.result_summary.cohortsTracked} active cohorts`);
-      }
-    }
+  // cohort-track anomaly: a run can succeed having tracked nothing at all, which
+  // no liveness or status check can see — it is a result-shape fault.
+  const trackRow = liveness.results.find(r => r.job === 'cohort-track');
+  const trackSummary = trackRow && trackRow.lastRow && trackRow.lastRow.result_summary;
+  if (trackSummary && trackSummary.totalTracked === 0 && trackSummary.cohortsTracked > 0) {
+    issues.push(`cohort-track: 0 pairs tracked with ${trackSummary.cohortsTracked} active cohorts`);
   }
 
   // ---------------------------------------------------------------
@@ -158,7 +89,7 @@ async function run() {
   // calendar period, because this digest runs at 03:00 and most jobs fire later.
   // Jobs in flight inside their duration budget are skipped, not failed.
   // ---------------------------------------------------------------
-  const assertions = await runAssertions(client, JOBS, { now: new Date(), rows: rows.rows });
+  const assertions = await runAssertions(client, JOBS, { now, rows: rows.rows });
   if (assertions.length > 0) {
     lines.push('');
     lines.push(':dart:  *Assertions* (tier 1 — did the data actually arrive?)');
@@ -278,10 +209,10 @@ async function run() {
   await client.end();
 
   // Build Slack message
-  const now = new Date().toISOString().slice(0, 10);
+  const today = now.toISOString().slice(0, 10);
   const overall = issues.length === 0 ? ':white_check_mark: All healthy' : `:warning: ${issues.length} issue(s)`;
 
-  let message = `*Hemnet Monitor — Daily Health Report*\n${now}  |  ${overall}\n\n${lines.join('\n')}`;
+  let message = `*Hemnet Monitor — Daily Health Report*\n${today}  |  ${overall}\n\n${lines.join('\n')}`;
 
   if (issues.length > 0) {
     message += '\n\n*Issues:*\n' + issues.map(i => `• ${i}`).join('\n');
