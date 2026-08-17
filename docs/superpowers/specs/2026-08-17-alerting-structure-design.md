@@ -338,6 +338,43 @@ Cross-cutting slot retaining the zero-growth check and the newest-cohort canary.
 **Accept when:** every tier-1 job has an assertion; a full digest on the 1st of a month with the
 age census mid-flight raises **no** issue; a simulated 3-of-4 `market_totals` write is caught.
 
+#### Phases 1-3 verified live 2026-08-17 (`88b0993`, local = origin = droplet)
+
+Offline: 154 `--smoke` checks green on dev and on the droplet.
+
+**Phase 1.** `sold-match-xlsx` run live → `cron_job_log` row `success`, 890ms. Before Phase 1 that
+script wrote **no row at all**. Distinct jobs logging in 30d: **12 → 14** and climbing as the
+weekly reporters fire on their own schedules. The 3-of-4 partial-write and forced-post-failure
+cases are covered by offline assertions rather than by mutating production data.
+
+**Phase 2.** First `--check` reported drift on 14 lines — every `MISSING` paired with an `EXTRA`
+differing only in whitespace, i.e. pure formatting, **no unknown job on the box**. Backed up to
+`/root/crontab-backup-2026-08-17.txt`, installed the rendered crontab, and `--check` then
+reported *in sync*, still **24 job lines**. Proved it can go red: injecting
+`0 0 * * * node /opt/rogue.js` produced `EXTRA … /opt/rogue.js` and exit 1; re-rendering restored
+in-sync. `premarket-quality-measure` — the proven live drift — is present.
+
+**Phase 3.** The first live digest exposed **two false alarms in my own assertions**, which is
+precisely what this phase exists to prevent shipping:
+- `cohort-track` counted every active pair ever (11,992) rather than those inside the 56-day
+  tracking window (3,749), so a healthy run read as 38%. Fixed — now scoped and anchored on
+  `lastFire`.
+- `premarket-quality-measure` was red for a job deployed 2026-08-13 that has never run (zero
+  `cron_job_log` rows, empty table; first fire Mon 2026-08-17 09:00). Fixed with `notBefore`.
+
+After the fixes the digest reports **1 issue**, and it is a **true finding**:
+`cohort-spotcheck-gate` — no `spotcheck_review` rows since the last expected fire, with 3
+consecutive weekly failures and last success 2026-07-20. That is incident 1 from §1, correctly
+surfaced. It should clear after the first successful gate run under the `8496706` fix.
+
+Both `notBefore` skips render as `heavy_minus_sign … skipped`, not as failures — the acceptance
+case for "a job deployed but not yet due raises no issue". The zero-growth check and the
+newest-cohort canary both still render, under an explicit CROSS-CUTTING banner.
+
+⚠️ Minor, open: `cohort-track` now displays `4576/3749 (122%)` — it passes a floor check, but the
+denominator is narrower than what `cohort-track` actually tracks, so the floor is more lenient
+than intended. Cosmetically odd and worth tightening.
+
 ### Phase 4 — tiering, ladder, sweep
 Tier-gated `cron-wrapper`, `conditionKey` contract, flap debounce, `--sweep` mode.
 
