@@ -136,7 +136,18 @@ runJob({
   main,
   validate: (summary) => {
     if (!summary || summary.rowsWritten !== 4) {
-      return `Expected 4 rows upserted, got ${summary && summary.rowsWritten}`;
+      // A DECLARED conditionKey (Phase 4). This is the one perfectly stable error
+      // signature in the codebase, on a tier-1 DAILY job — spec §4.2 names it as
+      // the reason the re-notify ladder exists at all. Keyed, it gets the
+      // 0h/+24h/+72h/daily ladder instead of one alert a day forever; and because
+      // the ladder never terminates, no permanently-lost snapshot goes unreported.
+      // The count is in the MESSAGE, never in the key — a key that varied with the
+      // count would make every partial write look like a brand-new incident.
+      return {
+        key: 'partial-upsert',
+        severity: 'warning',
+        message: `Expected 4 rows upserted, got ${summary && summary.rowsWritten}`,
+      };
     }
     // No oxylabsFallbackRate check (D-07; Plan 10-02 lesson — those alerts became permanent noise).
     // No delta check (D-03 — deferred to future plan).
