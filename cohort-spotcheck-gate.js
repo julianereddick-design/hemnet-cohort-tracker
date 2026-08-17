@@ -419,10 +419,28 @@ async function main(client, log) {
   if (botToken && reviewChannel) {
     const uncertainPairs = uncertainAll.filter(v => !isUnreviewable(v));
     const mismatchPairs  = verdicts.filter(v => v.verdict === 'CONFIRMED_MISMATCH');
+    const reviewable     = [...uncertainPairs, ...mismatchPairs];
+
+    // Phase 0 (2026-08-17 alerting design §4.5): ONE parent message, every pair
+    // threaded under it. This was the dominant volume in the ops channel — one
+    // top-level message per reviewable pair, dozens on a bad Monday — which is
+    // what buried three cohort-spotcheck-gate failures in a stream of 59 alerts.
+    // Threading removes ~90% of channel-level volume and changes nothing about
+    // the reaction protocol: each reply still gets its own ts.
+    let threadTs = null;
+    if (reviewable.length > 0 || unreviewablePairs.length > 0) {
+      const parent = await postInfoMessage(reviewChannel,
+        `[REVIEW] ${cohortId}: ${reviewable.length} pair(s) need review` +
+        (unreviewablePairs.length > 0 ? `, ${unreviewablePairs.length} unreviewable` : ''));
+      // A failed parent must NOT cost us the queue — fall back to top-level posts.
+      if (parent && parent.ts) threadTs = parent.ts;
+      else log('WARN', 'review queue: parent post failed — posting pairs top-level this run');
+    }
+    const threadOpts = threadTs ? { threadTs } : {};
 
     // One message per reviewable pair — UNCERTAIN and MISMATCH alike (own ts each).
-    for (const p of [...uncertainPairs, ...mismatchPairs]) {
-      const res = await postReviewMessage(reviewChannel, p);
+    for (const p of reviewable) {
+      const res = await postReviewMessage(reviewChannel, p, threadOpts);
       if (res && res.ts) {
         await upsertReviewMessage(client, {
           pairId: p.pair_id, cohortId, channel: reviewChannel, ts: res.ts,
@@ -435,9 +453,9 @@ async function main(client, log) {
     if (unreviewablePairs.length > 0) {
       await postInfoMessage(reviewChannel,
         `[SPOT-CHECK] ${cohortId}: ${unreviewablePairs.length} pair(s) unreviewable — listing removed since cohort build: ` +
-        unreviewablePairs.map(p => p.pair_id).join(', '));
+        unreviewablePairs.map(p => p.pair_id).join(', '), threadOpts);
     }
-    log('INFO', `review queue: ${uncertainPairs.length} UNCERTAIN + ${mismatchPairs.length} MISMATCH posted individually; ${unreviewablePairs.length} unreviewable (delisted) diverted`);
+    log('INFO', `review queue: ${uncertainPairs.length} UNCERTAIN + ${mismatchPairs.length} MISMATCH posted${threadTs ? ` threaded under ${threadTs}` : ' top-level'}; ${unreviewablePairs.length} unreviewable (delisted) diverted`);
   } else if (!botToken) {
     // reviewChannel-missing case is already logged by the resolveChannel catch above.
     log('INFO', 'review queue: SLACK_BOT_TOKEN not set — skipping Slack post (verdicts still written)');
