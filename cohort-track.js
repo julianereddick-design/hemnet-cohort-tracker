@@ -307,8 +307,16 @@ const ABSOLUTE_NULL_THRESHOLD = 0.50;
 const DELTA_NULL_THRESHOLD = 0.10;
 
 function validateCohortTrack(summary) {
+  // DECLARED conditionKeys (Phase 4, spec §4.2). Suppression must key on an
+  // identity the JOB states, never on rendered text: every message below embeds
+  // cohort ids and live percentages, so a text signature would suppress nothing
+  // and would break silently the first time one of these strings was edited.
   if (summary.totalTracked === 0 && summary.cohortsTracked > 0) {
-    return `0 pairs tracked across ${summary.cohortsTracked} active cohort(s) — expected hundreds`;
+    return {
+      key: 'zero-tracked',
+      severity: 'warning',
+      message: `0 pairs tracked across ${summary.cohortsTracked} active cohort(s) — expected hundreds`,
+    };
   }
   if (!Array.isArray(summary.perCohortNull) || summary.perCohortNull.length === 0) {
     return null;
@@ -345,7 +353,14 @@ function validateCohortTrack(summary) {
     }
   }
 
-  if (warnings.length > 0) return warnings.join('; ');
+  // One key for the whole null-view family, deliberately NOT one per cohort. This
+  // job runs every 2 days and a cohort's null rate straddles the hard threshold as
+  // it decays, so a per-cohort key would open and close incidents on every swing —
+  // the flap the N=2 debounce exists to absorb. The affected cohorts stay in the
+  // message, where they are read, rather than in the key, where they would churn.
+  if (warnings.length > 0) {
+    return { key: 'null-views', severity: 'warning', message: warnings.join('; ') };
+  }
   return null;
 }
 

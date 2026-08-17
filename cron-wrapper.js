@@ -1,6 +1,79 @@
 const { createClient } = require('./db');
 const { postAlert } = require('./lib/slack-post');
 const { tierOf } = require('./lib/job-registry');
+const { normalizeValidation, decideAlert, applyOutcome } = require('./lib/alert-policy');
+const { loadOpen, saveState } = require('./lib/alert-state');
+
+// conditionOf({ status, errorMessage, validation, error }) -> condition | null
+//
+// The three ways a run can end badly, reduced to one shape for the policy.
+//
+// A thrown error's MESSAGE is not a stable identity — it carries pair ids, live
+// counts and timestamps — so a failure is keyless by default and therefore
+// alerts every time. A job that knows its own failure modes can opt into the
+// ladder by attaching `err.conditionKey`, which is the only way to declare a
+// stable identity without the policy ever parsing prose.
+function conditionOf({ status, errorMessage, validation, error }) {
+  if (status === 'failure' || status === 'killed') {
+    return {
+      key: (error && error.conditionKey) || null,
+      severity: status === 'killed' ? 'killed' : 'failure',
+      message: errorMessage || (error && error.message) || 'unknown',
+    };
+  }
+  if (status === 'warning') {
+    const v = normalizeValidation(validation != null ? validation : errorMessage);
+    return v || { key: null, severity: 'warning', message: errorMessage || 'unknown' };
+  }
+  return null;
+}
+
+// evaluateAlert({ scriptName, tier, condition, now, load, save }) -> { alert, reason }
+//
+// Load -> decide -> record. `load(scriptName)` returns EVERY open condition for
+// the script, not just the one that fired. That is load-bearing: the N=2 flap
+// debounce only works if a run that is CLEAN still ticks the open incidents
+// forward. Loading by key alone would mean a clean run saw no state, resolved
+// nothing, and the debounce never happened — so an oscillating job would restart
+// its ladder on every swing, which is the exact volume-doubling this rule exists
+// to prevent.
+//
+// `load`/`save` are injected so this is testable offline against a fake store,
+// and so a broken store cannot fail the job it is only observing.
+//
+// FAILURE POSTURE: if the store throws, this returns alert:true. Phase 4 exists
+// to make the channel quiet, which means a bug that makes it quiet for the WRONG
+// reason is indistinguishable from success until an incident is missed.
+async function evaluateAlert({ scriptName, tier, condition, now = new Date(), load, save }) {
+  let open = [];
+  try {
+    open = (await load(scriptName)) || [];
+  } catch (_) {
+    return { alert: !!condition && tier !== 2, reason: 'state store unavailable — alerting' };
+  }
+
+  const state = condition && condition.key
+    ? open.find(s => s.condition_key === condition.key) || null
+    : null;
+
+  const decision = decideAlert({ tier, condition, state, now });
+
+  try {
+    if (condition && condition.key) {
+      await save(applyOutcome(state, { condition, alerted: decision.alert, now }));
+    }
+    // Every OTHER open condition did not recur this run: tick its clear streak.
+    for (const s of open) {
+      if (condition && condition.key && s.condition_key === condition.key) continue;
+      await save(Object.assign(
+        { condition_key: s.condition_key },
+        applyOutcome(s, { condition: null, alerted: false, now }),
+      ));
+    }
+  } catch (_) { /* the store must never fail the job it is observing */ }
+
+  return decision;
+}
 
 function makeLogger(scriptName) {
   return function log(level, message) {
@@ -96,6 +169,8 @@ async function runJob({ scriptName, main, validate }) {
   let status = 'success';
   let errorMessage = null;
   let resultSummary = null;
+  let validation = null;
+  let caughtError = null;
 
   // Best-effort UPDATE on cron_job_log when the process is going down unexpectedly.
   // Uses a fresh client because the main `client` may be mid-query (concurrent queries
@@ -176,18 +251,22 @@ async function runJob({ scriptName, main, validate }) {
     // Run the main logic
     resultSummary = await main(client, log);
 
-    // Validate result
+    // Validate result. A validator may return a plain string (all twelve live
+    // jobs do today) or a structured { key, severity, message } — see
+    // lib/alert-policy.js normalizeValidation. `severity: 'failure'` lets a
+    // validator declare that a bad OUTPUT is a failure rather than a warning.
     if (validate) {
-      const warning = validate(resultSummary);
-      if (warning) {
-        status = 'warning';
-        errorMessage = warning;
-        log('WARN', warning);
+      validation = normalizeValidation(validate(resultSummary));
+      if (validation) {
+        status = validation.severity === 'failure' ? 'failure' : 'warning';
+        errorMessage = validation.message;
+        log(status === 'failure' ? 'ERROR' : 'WARN', validation.message);
       }
     }
   } catch (err) {
     status = 'failure';
     errorMessage = err.message;
+    caughtError = err;
     log('ERROR', err.message);
   }
 
@@ -203,8 +282,28 @@ async function runJob({ scriptName, main, validate }) {
     log('ERROR', `Failed to update job log: ${err.message}`);
   }
 
-  // Slack alert on failure/warning. Webhook only, by design — see lib/slack-post.js postAlert.
-  if (status === 'failure' || status === 'warning') {
+  // Slack alert on failure/warning, GATED BY POLICY (Phase 4). Webhook only, by
+  // design — see lib/slack-post.js postAlert.
+  //
+  // This runs on EVERY outcome including success, not just on failure: the N=2
+  // flap debounce needs a clean run to tick open incidents forward, or an
+  // oscillating condition never clears and its ladder never restarts.
+  if (client) {
+    const condition = conditionOf({ status, errorMessage, validation, error: caughtError });
+    const decision = await evaluateAlert({
+      scriptName, tier: tierOf(scriptName), condition, now: new Date(),
+      load: (name) => loadOpen(client, 'run', name),
+      save: (state) => saveState(client, 'run', scriptName, state),
+    });
+    if (decision.alert) {
+      await sendAlert(status === 'failure' ? 'FAILURE' : 'WARNING', `${scriptName}: ${errorMessage}`);
+    } else if (condition) {
+      log('INFO', `alert not sent — ${decision.reason}`);
+    }
+  } else if (status === 'failure' || status === 'warning') {
+    // No DB client at all, so no suppression state is readable. Alert rather
+    // than stay quiet: a quiet channel for the wrong reason is indistinguishable
+    // from a healthy one until an incident is missed.
     await sendAlert(status === 'failure' ? 'FAILURE' : 'WARNING', `${scriptName}: ${errorMessage}`);
   }
 
@@ -250,7 +349,10 @@ function runReporter({ scriptName, run }) {
   return runJob({ scriptName, main: buildReporterMain(scriptName, run) });
 }
 
-module.exports = { runJob, makeFatalHandlers, buildAlertText, runReporter, buildReporterMain };
+module.exports = {
+  runJob, makeFatalHandlers, buildAlertText, runReporter, buildReporterMain,
+  conditionOf, evaluateAlert,
+};
 
 // ---------------------------------------------------------------
 // --smoke self-test (offline: no network, no DB, no Slack, no exit)
@@ -439,6 +541,158 @@ if (require.main === module && process.argv.includes('--smoke')) {
       const res = await main(null, () => {});
       assert.strictEqual(res.reporter, true, 'a clean run must not inherit an earlier exitCode');
       process.exitCode = saved;
+    });
+
+    // ---------------------------------------------------------------
+    // Phase 4 — tier gating, conditionKey suppression, ladder, debounce.
+    // ---------------------------------------------------------------
+    const { conditionOf, evaluateAlert } = module.exports;
+
+    // conditionOf turns the THREE ways a run can end badly into one shape.
+    check('a thrown error becomes an un-keyed condition, so it always alerts', () => {
+      const c = conditionOf({ status: 'failure', errorMessage: 'boom', error: new Error('boom') });
+      assert.strictEqual(c.severity, 'failure');
+      assert.strictEqual(c.key, null, 'an arbitrary error message is not a stable identity');
+    });
+
+    // A job CAN declare a stable identity for its own failure, and then it gets
+    // the ladder instead of alerting on every single run.
+    check('a thrown error may declare its own conditionKey', () => {
+      const err = Object.assign(new Error('0 galleries'), { conditionKey: 'photo-enrichment-empty' });
+      assert.strictEqual(conditionOf({ status: 'failure', errorMessage: '0 galleries', error: err }).key,
+        'photo-enrichment-empty');
+    });
+
+    check('a legacy string validator becomes a keyless warning', () => {
+      const c = conditionOf({ status: 'warning', errorMessage: '4 stale', validation: '4 stale' });
+      assert.strictEqual(c.severity, 'warning');
+      assert.strictEqual(c.key, null);
+    });
+
+    check('a successful run has no condition', () => {
+      assert.strictEqual(conditionOf({ status: 'success' }), null);
+    });
+
+    // The integration proper, with the store injected so it runs offline.
+    // load() returns EVERY open condition for the script — see evaluateAlert on
+    // why loading by key alone breaks the debounce.
+    function fakeStore(initial) {
+      const rows = new Map(initial ? [[initial.condition_key, initial]] : []);
+      return {
+        load: async () => [...rows.values()],
+        save: async (s) => {
+          if (!s || !s.condition_key) return;
+          if (s.resolved) rows.delete(s.condition_key); else rows.set(s.condition_key, s);
+        },
+        peek: (k) => rows.get(k) || null,
+        openCount: () => rows.size,
+      };
+    }
+    const now = new Date('2026-08-17T00:00:00Z');
+
+    // The single change that removes ~56 of the 59 baseline alerts in 60 days.
+    await checkAsync('a tier-2 warning does not post, however many times it repeats', async () => {
+      const store = fakeStore();
+      const cond = { key: 'stale-reviews', severity: 'warning', message: '17 unanswered' };
+      let alerts = 0;
+      for (let i = 0; i < 5; i++) {
+        const d = await evaluateAlert({
+          scriptName: 'spotcheck-reaction-poller', tier: 2, condition: cond,
+          now: new Date(now.getTime() + i * 86400000), ...store,
+        });
+        if (d.alert) alerts++;
+      }
+      assert.strictEqual(alerts, 0, 'tier 2 is digest-only — it must never interrupt');
+    });
+
+    await checkAsync('a tier-1 failure repeated 5 days alerts on the ladder, never silence', async () => {
+      const store = fakeStore();
+      const cond = { key: 'partial-upsert', severity: 'failure', message: 'got 3 of 4' };
+      const days = [];
+      for (let i = 0; i < 5; i++) {
+        const d = await evaluateAlert({
+          scriptName: 'market-totals-daily', tier: 1, condition: cond,
+          now: new Date(now.getTime() + i * 86400000), ...store,
+        });
+        if (d.alert) days.push(i);
+      }
+      assert.deepStrictEqual(days, [0, 1, 3, 4],
+        `expected the 0h/+24h/+72h/daily ladder over 5 daily runs, got ${days}`);
+    });
+
+    // The market-totals-daily case from §4.2: a perfectly stable error signature
+    // on a tier-1 DAILY job. Naive suppression alerts once and then silently eats
+    // every subsequent permanently-lost snapshot.
+    await checkAsync('a standing tier-1 failure is still reported on day 30', async () => {
+      const store = fakeStore();
+      const cond = { key: 'partial-upsert', severity: 'failure', message: 'got 3 of 4' };
+      let last = -1;
+      for (let i = 0; i < 30; i++) {
+        const d = await evaluateAlert({
+          scriptName: 'market-totals-daily', tier: 1, condition: cond,
+          now: new Date(now.getTime() + i * 86400000), ...store,
+        });
+        if (d.alert) last = i;
+      }
+      assert.strictEqual(last, 29, 'a permanently-lost daily snapshot must never go quiet');
+    });
+
+    await checkAsync('an unregistered job alerts — an unknown tier is treated as perishable', async () => {
+      const store = fakeStore();
+      const d = await evaluateAlert({
+        scriptName: 'brand-new-job', tier: null,
+        condition: { key: 'k', severity: 'failure', message: 'm' }, now, ...store,
+      });
+      assert.strictEqual(d.alert, true);
+    });
+
+    // cohort-track straddles a hard >50% boundary as a cohort decays, every 2
+    // days. Without N=2 debounce this alerts in BOTH directions and DOUBLES
+    // today's volume rather than reducing it.
+    await checkAsync('a flapping tier-1 condition alerts once, not once per oscillation', async () => {
+      const store = fakeStore();
+      const cond = { key: 'null-views', severity: 'warning', message: '51% null' };
+      let alerts = 0;
+      // bad, good, bad, good, bad — two hours apart, well inside the ladder.
+      for (const [i, c] of [cond, null, cond, null, cond].entries()) {
+        const d = await evaluateAlert({
+          scriptName: 'cohort-track', tier: 1, condition: c,
+          now: new Date(now.getTime() + i * 7200000), ...store,
+        });
+        if (d.alert) alerts++;
+      }
+      assert.strictEqual(alerts, 1, 'an oscillation is one incident, not three');
+    });
+
+    await checkAsync('two clean runs clear the incident, so a later recurrence alerts again', async () => {
+      const store = fakeStore();
+      const cond = { key: 'null-views', severity: 'warning', message: '51% null' };
+      const seq = [cond, null, null, cond];
+      let alerts = 0;
+      for (const [i, c] of seq.entries()) {
+        const d = await evaluateAlert({
+          scriptName: 'cohort-track', tier: 1, condition: c,
+          now: new Date(now.getTime() + i * 7200000), ...store,
+        });
+        if (d.alert) alerts++;
+      }
+      assert.strictEqual(alerts, 2, 'a genuinely new incident after a clean spell must be heard');
+      const reopened = store.peek('null-views');
+      assert.strictEqual(reopened.alert_count, 1,
+        'the second incident must start a FRESH ladder, not resume the first one');
+    });
+
+    // If the suppression store is broken or absent, the system must get LOUDER,
+    // not quieter. A quiet channel for the wrong reason is indistinguishable from
+    // success until an incident is missed.
+    await checkAsync('a broken state store degrades to alerting, not to silence', async () => {
+      const d = await evaluateAlert({
+        scriptName: 'cohort-create', tier: 1,
+        condition: { key: 'k', severity: 'failure', message: 'm' }, now,
+        load: async () => { throw new Error('db gone'); },
+        save: async () => { throw new Error('db gone'); },
+      });
+      assert.strictEqual(d.alert, true);
     });
 
     console.log(`smoke: ${pass} pass, ${fail} fail`);

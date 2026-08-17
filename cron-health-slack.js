@@ -1,7 +1,9 @@
 require('dotenv').config();
 const { createClient } = require('./db');
-const { postMessage } = require('./lib/slack-post');
-const { runReporter } = require('./cron-wrapper');
+const { postMessage, postAlert } = require('./lib/slack-post');
+const { runReporter, evaluateAlert } = require('./cron-wrapper');
+const { loadOpen, saveState } = require('./lib/alert-state');
+const { selectSweepTargets, sweepConditionKey, renderSweep } = require('./lib/alert-sweep');
 const { JOBS } = require('./lib/job-registry');
 const { runAssertions } = require('./lib/job-assertions');
 const { buildLiveness } = require('./lib/job-liveness');
@@ -235,13 +237,90 @@ async function run() {
   }
 }
 
+// ---------------------------------------------------------------
+// SWEEP MODE (Phase 4, spec §4.4)
+//
+// The SAME script, not a second one — two scripts sharing 90% of their logic is
+// how the null-view check came to be re-implemented badly in one place after
+// being fixed in another.
+//
+// It closes a LATENCY gap the daily digest cannot: a Monday 08:50
+// premarket-flow miss surfaces at 03:00 on Tuesday, eighteen hours after the
+// perishable thing stopped being recoverable.
+//
+// CHEAP QUERIES ONLY. One indexed read of cron_job_log, and nothing else. The
+// expensive quality queries — the ROW_NUMBER() over 63 days of
+// cohort_daily_views and the per-cohort GROUP BY at the table max date — stay in
+// the daily digest. They run once a day today; 4x/day against a managed Postgres
+// shared with the other droplet is a real change, not a rounding error.
+// ---------------------------------------------------------------
+async function runSweep() {
+  const client = createClient();
+  await client.connect();
+  try {
+    const rows = await client.query(`
+      SELECT script_name, started_at, duration_ms, status, error_message, result_summary
+      FROM cron_job_log
+      WHERE started_at >= NOW() - INTERVAL '1 day' * $1
+      ORDER BY started_at DESC
+    `, [FETCH_DAYS]);
+
+    const now = new Date();
+    const { results } = buildLiveness(JOBS, { now, rows: rows.rows });
+    const targets = selectSweepTargets(results);
+
+    // Each target is decided independently against its own incident ladder, but
+    // only ONE message goes out. A DB outage or an expired credential fails every
+    // tier-1 job at once; one message per job would rebuild the 56-warning
+    // pathology out of its own fix.
+    const due = [];
+    for (const t of targets) {
+      const key = sweepConditionKey(t);
+      const decision = await evaluateAlert({
+        scriptName: t.job, tier: 1,
+        condition: { key, severity: 'failure', message: t.detail }, now,
+        load: (name) => loadOpen(client, 'sweep', name),
+        save: (state) => saveState(client, 'sweep', t.job, state),
+      });
+      if (decision.alert) due.push(t);
+    }
+
+    // Jobs that recovered must have their sweep incidents ticked forward too, or
+    // the N=2 debounce never clears and the ladder never restarts.
+    const unhealthy = new Set(targets.map(t => t.job));
+    for (const rec of results) {
+      if (rec.tier !== 1 || unhealthy.has(rec.job)) continue;
+      await evaluateAlert({
+        scriptName: rec.job, tier: 1, condition: null, now,
+        load: (name) => loadOpen(client, 'sweep', name),
+        save: (state) => saveState(client, 'sweep', rec.job, state),
+      });
+    }
+
+    const message = renderSweep(due);
+    if (!message) {
+      console.log(`sweep: ${targets.length} unhealthy, 0 due to alert`);
+      return;
+    }
+    const res = await postAlert(message);
+    if (res && res.ok === false) {
+      console.error(`sweep: ${due.length} tier-1 job(s) unhealthy — but the Slack post FAILED`);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(`sweep: alerted on ${due.length} of ${targets.length} unhealthy tier-1 job(s)`);
+  } finally {
+    await client.end();
+  }
+}
+
 // Entry gate. Without this, an unrecognised flag falls straight through to the
 // live path and POSTS: dotenv re-injects the token, so unsetting env vars does
 // not prevent a post. Same pattern as age-census-report.js. Folds in the
 // --dry-run -> SLACK_DRY_RUN mapping that used to run at module load, unguarded
 // by require.main (so requiring this file for tests would set it as a side effect).
-const ACCEPTED_ARGV = new Set(['--dry-run']);
-const USAGE = 'Usage: node cron-health-slack.js [--dry-run]';
+const ACCEPTED_ARGV = new Set(['--dry-run', '--sweep']);
+const USAGE = 'Usage: node cron-health-slack.js [--dry-run] [--sweep]';
 
 if (require.main === module) {
   const argv = process.argv.slice(2);
@@ -251,5 +330,11 @@ if (require.main === module) {
     process.exit(1);
   }
   if (argv.includes('--dry-run')) process.env.SLACK_DRY_RUN = '1';
-  runReporter({ scriptName: 'cron-health-slack', run });
+  // Separate scriptName so the sweep's own liveness is answerable independently
+  // of the digest's — they run on different schedules and can fail separately.
+  if (argv.includes('--sweep')) {
+    runReporter({ scriptName: 'cron-health-sweep', run: runSweep });
+  } else {
+    runReporter({ scriptName: 'cron-health-slack', run });
+  }
 }
