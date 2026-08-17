@@ -423,35 +423,194 @@ def build_json(data, dates, latest, anchor, report_date):
 # ---------------------------------------------------------------------------
 # Excel: all data points
 # ---------------------------------------------------------------------------
-def write_excel(data, dates, path):
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "AllData"
-    bold = Font(bold=True)
-    header = ["County", "Municipality", "Tier", "Price point"] + [d.isoformat() for d in dates]
-    ws.append(header)
-    for c in ws[1]:
-        c.font = bold
-        c.alignment = Alignment(horizontal="center")
-    ws.freeze_panes = "E2"
+BOLD = Font(bold=True)
+CELL_HEADERS = ["County", "Municipality", "Product", "Price point"]
+
+# Diverging scale for % change: blue = cheaper, white = unchanged, red = dearer.
+# The stops are FIXED at +/-10% rather than percentile-based, deliberately. A
+# percentile scale re-normalises every time the workbook is rebuilt, so the same
+# colour means a different thing each month and two sheets cannot be compared by
+# eye. Fixed stops mean white always means "did not move" — which, on a grid where
+# most cells are unchanged most months, is the whole point. Bigger moves (MAX at
+# -20%) simply saturate, which is the correct emphasis.
+PCT_SCALE = ColorScaleRule(
+    start_type="num", start_value=-0.10, start_color="5B8FF9",   # blue
+    mid_type="num", mid_value=0, mid_color="FFFFFF",
+    end_type="num", end_value=0.10, end_color="F8696B")          # red
+
+
+def _cell_rows():
+    """The 420 (muni, product, price) rows, grouped by county then municipality."""
     for mid, (name, county) in sorted(MUNI.items(), key=lambda kv: (kv[1][1], kv[1][0])):
         for tier in ALL_TIERS:
             for price in PRICE_POINTS:
-                row = [county, name, tier, price]
-                for d in dates:
-                    v = data.get(d, {}).get(mid, {}).get(tier, {}).get(price)
-                    row.append(v)
-                ws.append(row)
-    # color scale across the value columns for visual change
-    first_col = openpyxl.utils.get_column_letter(5)
-    last_col = openpyxl.utils.get_column_letter(4 + len(dates))
-    rng = f"{first_col}2:{last_col}{ws.max_row}"
-    ws.conditional_formatting.add(rng, ColorScaleRule(
-        start_type="min", start_color="63BE7B",
-        mid_type="percentile", mid_value=50, mid_color="FFEB84",
-        end_type="max", end_color="F8696B"))
-    for col in range(1, 5):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 16
+                yield mid, name, county, tier, price
+
+
+def _get(data, d, mid, tier, price):
+    if d is None:
+        return None
+    return data.get(d, {}).get(mid, {}).get(tier, {}).get(price)
+
+
+def _finish_sheet(ws, n_fixed, n_value_cols, number_format=None, rule=None):
+    """Header styling, freeze panes, widths and conditional formatting."""
+    for c in ws[3]:   # row 1 = subtitle, row 2 = spacer, row 3 = header
+        c.font = BOLD
+        c.alignment = Alignment(horizontal="center", wrap_text=True)
+    ws.freeze_panes = ws.cell(row=4, column=n_fixed + 1).coordinate
+    for col in range(1, n_fixed + 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 17
+    for col in range(n_fixed + 1, n_fixed + n_value_cols + 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 12
+    if not n_value_cols or ws.max_row < 4:
+        return
+    first = openpyxl.utils.get_column_letter(n_fixed + 1)
+    last = openpyxl.utils.get_column_letter(n_fixed + n_value_cols)
+    rng = f"{first}4:{last}{ws.max_row}"
+    if number_format:
+        for row in ws.iter_rows(min_row=4, min_col=n_fixed + 1, max_col=n_fixed + n_value_cols):
+            for c in row:
+                c.number_format = number_format
+    if rule:
+        ws.conditional_formatting.add(rng, rule)
+
+
+def _pop_header(d, ref):
+    """"2026-08-17 / vs 2026-07-12 (36d)".
+
+    The gap is spelled out because the columns are NOT evenly spaced: the scrape ran
+    weekly until 2026-03-16, then nothing until 2026-07-01, and is monthly from
+    2026-08. Without the baseline in the header, the 2026-07-12 column looks like
+    every other one while actually spanning 118 days across the outage.
+    """
+    return f"{d.isoformat()}\nvs {ref.isoformat()} ({(d - ref).days}d)"
+
+
+def _pct_cell_sheet(wb, title, subtitle, data, cols, show_ref=True):
+    """One row per grid cell, one column per (date, reference) pair, % change.
+
+    `cols` is a list of (column_date, reference_date). A cell is left EMPTY when it
+    is absent from either side — never 0 — so "not scraped" can always be told apart
+    from "did not move", which is the distinction the whole sheet exists to show.
+    """
+    ws = wb.create_sheet(title)
+    ws.append([subtitle])
+    ws["A1"].font = BOLD
+    ws.append([])
+    ws.append(CELL_HEADERS + [(_pop_header(d, ref) if show_ref else d.isoformat())
+                              for d, ref in cols])
+    for mid, name, county, tier, price in _cell_rows():
+        row = [county, name, tier, price]
+        for d, ref in cols:
+            cur = _get(data, d, mid, tier, price)
+            base = _get(data, ref, mid, tier, price)
+            row.append(None if (cur is None or base is None or not base)
+                       else float(cur) / float(base) - 1.0)
+        ws.append(row)
+    _finish_sheet(ws, len(CELL_HEADERS), len(cols), "0.0%", PCT_SCALE)
+
+
+def _prices_sheet(wb, data, dates, complete_set):
+    """Raw prices, every snapshot including the partial ones (flagged in the header)."""
+    ws = wb.create_sheet("Prices")
+    ws.append(["Raw ad price in SEK, net of 25% moms, pay-when-removed basis. "
+               "A header marked PARTIAL is a run that died mid-grid — its blanks are "
+               "cells that were never scraped, not price removals."])
+    ws["A1"].font = BOLD
+    ws.append([])
+    ws.append(CELL_HEADERS + [d.isoformat() + ("" if d in complete_set else " PARTIAL")
+                              for d in dates])
+    for mid, name, county, tier, price in _cell_rows():
+        ws.append([county, name, tier, price]
+                  + [_get(data, d, mid, tier, price) for d in dates])
+    _finish_sheet(ws, len(CELL_HEADERS), len(dates), "#,##0")
+
+
+def _county_pop_sheet(wb, data, complete):
+    """County x product basket change, period on period — the audit trail for the
+    two tables in the Slack post, computed by the SAME county_matrix function."""
+    ws = wb.create_sheet("County PoP")
+    ws.append(["Equal-weighted basket (each county's municipalities x all six price "
+               "points), % change against the PREVIOUS COMPLETE snapshot. These are the "
+               "same figures the Slack post's tables quote."])
+    ws["A1"].font = BOLD
+    ws.append([])
+    pairs = list(zip(complete[:-1], complete[1:]))
+    mats = {cur: county_matrix(data, cur, prev) for prev, cur in pairs}
+    ws.append(["County", "Product"] + [_pop_header(cur, prev) for prev, cur in pairs])
+    for county in COUNTIES:
+        for tier in CORE_TIERS:
+            row = [county, tier]
+            for _, cur in pairs:
+                r = next(x for x in mats[cur]["rows"] if x["county"] == county)
+                v = r["tiers"][tier]
+                row.append(None if v is None else v / 100.0)
+            ws.append(row)
+    for tier in CORE_TIERS:
+        row = ["TOTAL (all counties)", tier]
+        for _, cur in pairs:
+            v = mats[cur]["total_row"][tier]
+            row.append(None if v is None else v / 100.0)
+        ws.append(row)
+    _finish_sheet(ws, 2, len(pairs), "0.0%", PCT_SCALE)
+
+
+def _snapshots_sheet(wb, data, dates, complete_set):
+    """The index: what exists, what is complete, and where the gaps are."""
+    ws = wb.create_sheet("Snapshots")
+    ws.append(["Every snapshot in hemnet_adcostv2. Only COMPLETE runs are used as a "
+               "baseline anywhere in this workbook or in the Slack post."])
+    ws["A1"].font = BOLD
+    ws.append([])
+    ws.append(["Snapshot", "Cells", "Expected", "Municipalities", "Complete?",
+               "Days since previous", "Used in PoP"])
+    prev = None
+    for d in dates:
+        st = snapshot_stats(data, d)
+        ws.append([d.isoformat(), st["cells"], EXPECTED_CELLS, st["munis"],
+                   "yes" if st["complete"] else "NO",
+                   (d - prev).days if prev else None,
+                   "yes" if d in complete_set else "no"])
+        prev = d
+    _finish_sheet(ws, 7, 0)
+    ws.freeze_panes = "A4"
+
+
+def write_excel(data, dates, path, anchor):
+    """Five sheets, built for spotting CHANGE rather than reading levels.
+
+    The previous single sheet colour-scaled RAW PRICES from min to max, which made a
+    20,000 kr MAX cell permanently red and a 900 kr TOPLISTING permanently green — it
+    encoded the price list, not its movement, so period-on-period change was invisible.
+    """
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+
+    complete = [d for d in dates if is_complete(data, d)]
+    complete_set = set(complete)
+
+    # Period on period: each complete snapshot against the previous COMPLETE one.
+    # Partial runs are excluded as baselines for the same reason they are everywhere
+    # else here — comparing against 2026-08-09 (35 of 420 cells) would paint ~385
+    # never-scraped cells as changes.
+    pop_cols = list(zip(complete[1:], complete[:-1]))
+    _pct_cell_sheet(
+        wb, "PoP change",
+        "% change vs the PREVIOUS COMPLETE snapshot, per cell. White = unchanged, "
+        "red = dearer, blue = cheaper (scale fixed at +/-10% so colour means the same "
+        "thing in every column and every month). Blank = not scraped on one side.",
+        data, pop_cols)
+
+    _pct_cell_sheet(
+        wb, "vs Anchor",
+        f"% change vs the fixed {anchor} baseline, per cell — the cumulative index. "
+        f"Same colour scale as the PoP sheet.",
+        data, [(d, anchor) for d in complete], show_ref=False)
+
+    _county_pop_sheet(wb, data, complete)
+    _prices_sheet(wb, data, dates, complete_set)
+    _snapshots_sheet(wb, data, dates, complete_set)
     wb.save(path)
 
 
@@ -599,7 +758,7 @@ def main(argv=None):
         os.makedirs(out_dir, exist_ok=True)
         xlsx = os.path.join(out_dir, "adcost-all-data.xlsx")
         html = os.path.join(out_dir, "adcost-heatmap.html")
-        write_excel(data, dates, xlsx)
+        write_excel(data, dates, xlsx, anchor)
         write_html(latest, prior, anchor, data, baseline, html, prior_ok)
         log(f"wrote {xlsx}")
         log(f"wrote {html}")
