@@ -1,5 +1,6 @@
 const { createClient } = require('./db');
 const { postAlert } = require('./lib/slack-post');
+const { tierOf } = require('./lib/job-registry');
 
 function makeLogger(scriptName) {
   return function log(level, message) {
@@ -25,6 +26,28 @@ async function connectWithRetry(client, log, maxRetries = 3) {
       await new Promise(r => setTimeout(r, delay));
     }
   }
+}
+
+// buildAlertText(scriptName, label, message, tier) — PURE alert renderer.
+//
+// Tier 1 and the daily digest share one channel by operator decision. Slack
+// notifies on MENTIONS, not on channels, so the mention is what gives the
+// two-channel effect inside one channel at no cost — and it is the only thing
+// separating "a perishable observation was just lost forever" from "a report
+// is late". Everything else keeps today's exact `[LABEL] text` shape.
+//
+// <!channel> is the escaped form Slack resolves without needing link_names on
+// the webhook payload, which `@channel` as plain text would.
+//
+// tier === null means the job is not in lib/job-registry.js. That alerts AND
+// names the gap: defaulting it to tier 2 would silence a newly added
+// perishable job, which is precisely what the registry exists to prevent.
+function buildAlertText(scriptName, label, message, tier) {
+  if (tier === 2) return `[${label}] ${message}`;
+  const gap = tier == null
+    ? ` (job "${scriptName}" is not in lib/job-registry.js — add it with an explicit tier)`
+    : '';
+  return `🚨 TIER1 <!channel> [${label}] ${message}${gap}`;
 }
 
 // makeFatalHandlers({ scriptName, log, recoverRow, alert, exit })
@@ -103,8 +126,9 @@ async function runJob({ scriptName, main, validate }) {
   // rejects. Unguarded, that rejection would escape as an unhandledRejection for
   // every one of the ~13 jobs routed through runJob.
   async function sendAlert(label, message) {
+    const text = buildAlertText(scriptName, label, message, tierOf(scriptName));
     try {
-      const res = await postAlert(`[${label}] ${message}`);
+      const res = await postAlert(text);
       log(res.ok ? 'INFO' : 'ERROR', res.ok ? 'Slack alert sent' : 'Slack alert failed');
     } catch (err) {
       log('ERROR', `Slack alert failed: ${err.message}`);
@@ -193,7 +217,7 @@ async function runJob({ scriptName, main, validate }) {
   process.exit(status === 'failure' ? 1 : 0);
 }
 
-module.exports = { runJob, makeFatalHandlers };
+module.exports = { runJob, makeFatalHandlers, buildAlertText };
 
 // ---------------------------------------------------------------
 // --smoke self-test (offline: no network, no DB, no Slack, no exit)
@@ -297,6 +321,49 @@ if (require.main === module && process.argv.includes('--smoke')) {
       await handleFatal(new Error('boom'));
       const names = s.calls.filter(c => c[0] !== 'log').map(c => c[0]);
       assert.deepStrictEqual(names, ['alert', 'exit']);
+    });
+
+    const { buildAlertText } = module.exports;
+
+    // Slack notifies on mentions, not on channels. Tier 1 and the digest share
+    // #hemnet-ops by operator decision, so the mention IS the two-channel effect.
+    await checkAsync('tier 1 carries the greppable prefix and the mention', async () => {
+      const t = buildAlertText('cohort-create', 'FAILURE', 'cohort-create: 0 matched', 1);
+      assert.ok(t.startsWith('🚨 TIER1 '), `expected the 🚨 TIER1 prefix, got: ${t}`);
+      assert.ok(t.includes('<!channel>'), 'a tier-1 alert must notify');
+      assert.ok(t.includes('[FAILURE]'), 'the existing [LABEL] shape must survive');
+      assert.ok(t.includes('cohort-create: 0 matched'));
+    });
+
+    await checkAsync('tier 2 never mentions — it must not interrupt', async () => {
+      const t = buildAlertText('spotcheck-reaction-poller', 'WARNING', 'x: 4 stale', 2);
+      assert.ok(!t.includes('<!channel>'), 'a tier-2 alert must never notify');
+      assert.ok(!t.includes('!here') && !t.includes('@here'), 'no @here either');
+      assert.ok(!t.startsWith('🚨 TIER1'), 'TIER1 is a reserved, greppable prefix');
+      assert.strictEqual(t, '[WARNING] x: 4 stale', 'tier 2 keeps today\'s exact shape');
+    });
+
+    // A job absent from the registry is a fault. Silence would hide a newly
+    // added perishable job; this alerts AND names the gap.
+    await checkAsync('an unregistered job alerts loudly and flags the registry gap', async () => {
+      const t = buildAlertText('brand-new-job', 'FAILURE', 'brand-new-job: boom', null);
+      assert.ok(t.includes('<!channel>'), 'an unknown tier must be treated as perishable');
+      assert.ok(/not in lib\/job-registry\.js/.test(t), `the gap must be named, got: ${t}`);
+    });
+
+    await checkAsync('the KILLED label from the signal path is tiered too', async () => {
+      const t = buildAlertText('age-census-monthly', 'KILLED', 'age-census-monthly: killed by SIGTERM', 1);
+      assert.ok(t.includes('<!channel>') && t.includes('[KILLED]'));
+    });
+
+    // The digest is a report, not an interrupt. It posts via postMessage in
+    // cron-health-slack.js and must never acquire a mention.
+    check('the digest never mentions', () => {
+      const fs = require('fs');
+      const path = require('path');
+      const src = fs.readFileSync(path.join(__dirname, 'cron-health-slack.js'), 'utf8');
+      assert.ok(!/<!channel>|<!here>/.test(src),
+        'cron-health-slack.js contains a mention — the daily digest must not interrupt');
     });
 
     console.log(`smoke: ${pass} pass, ${fail} fail`);
