@@ -48,6 +48,7 @@ const path = require('path');
 const { createClient } = require('./db');
 const { BAND_KEYS } = require('./lib/age-census');
 const { postMessage } = require('./lib/slack-post');
+const { runReporter } = require('./cron-wrapper');
 
 const OUT_DIR = path.join(__dirname, 'verf-flow-probe');
 const BLOCKS = [
@@ -660,6 +661,6 @@ if (require.main === module) {
     smoke();
   } else {
     if (argv.includes('--dry-run')) process.env.DRY_RUN = '1';
-    main().catch(e => { console.error('Error:', e.message); process.exit(1); });
+    runReporter({ scriptName: 'age-census-report', run: main });
   }
 }

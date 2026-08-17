@@ -23,6 +23,7 @@ require('dotenv').config();
 
 const { createClient } = require('./db');
 const { postMessage } = require('./lib/slack-post');
+const { runReporter } = require('./cron-wrapper');
 const panel = require('./config/sold-panel.json');
 // buildSeries computes, per fortnightly cohort, the on-Hemnet match share (firstPull +
 // incremental = matched/total) and the sample size — the exact numbers the trend chart
@@ -543,7 +544,7 @@ if (require.main === module) {
     runSmoke();
   } else {
     if (argv.includes('--dry-run')) process.env.SLACK_DRY_RUN = '1';
-    run().catch((err) => { console.error(err); process.exit(1); });
+    runReporter({ scriptName: 'sold-match-report', run });
   }
 }
 

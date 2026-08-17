@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { createClient } = require('./db');
 const { postMessage } = require('./lib/slack-post');
+const { runReporter } = require('./cron-wrapper');
 
 const SCRIPTS = ['cohort-track', 'cohort-create', 'age-census-monthly'];
 
@@ -284,5 +285,5 @@ if (require.main === module) {
     process.exit(1);
   }
   if (argv.includes('--dry-run')) process.env.SLACK_DRY_RUN = '1';
-  run().catch(err => { console.error('Error:', err.message); process.exit(1); });
+  runReporter({ scriptName: 'cron-health-slack', run });
 }

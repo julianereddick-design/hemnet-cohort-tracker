@@ -17,6 +17,7 @@ const path = require('path');
 const fs = require('fs');
 const ExcelJS = require('exceljs');
 const { createClient } = require('./db');
+const { runReporter } = require('./cron-wrapper');
 
 // ---------------------------------------------------------------------------
 // Pure link/label helpers.
@@ -229,7 +230,7 @@ module.exports = { booliUrl, hemnetUrl, hemnetSearchUrl, onHemnet, foundVia, bui
 if (require.main === module && process.argv.includes('--smoke')) {
   runSmoke();
 } else if (require.main === module) {
-  run().catch((err) => { console.error('Error:', err.message); process.exit(1); });
+  runReporter({ scriptName: 'sold-match-xlsx', run });
 }
 
 // ---------------------------------------------------------------------------
