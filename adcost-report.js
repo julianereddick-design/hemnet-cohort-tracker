@@ -12,23 +12,37 @@
 //    local and droplet copies had already drifted apart). A published monthly number
 //    must not rest on that, so the post reports SCRAPED PRICES only. The linked heat
 //    map still carries its ARPL block; the Slack post does not.
-//  - ONE anchor: 2025-12-21, pinned in the Python. No second "vs last run" comparison
-//    in the post. The anchor is a complete snapshot (420/420, verified).
-//  - The headline is CHANGE. Prices are sticky — between 2026-07-12 and 2026-08-17
-//    exactly 60 of 420 observations moved, all of them MAX — so "nothing moved" is a
-//    real and useful result, not an empty report.
+//  - TWO tables, in the shape of the v6 workbook's county x package matrix: counties
+//    down, BASIC/PLUS/PREMIUM/MAX across, a Total column and a TOTAL row.
+//      table 1 — vs the fixed December-2025 baseline (2025-12-21, pinned in the Python)
+//      table 2 — vs roughly a quarter back
+//    This supersedes the earlier "single anchor only" rule, which was locked on the
+//    assumption that few cells would move against a fixed baseline. They did not: all
+//    420 of 420 already differ from 2025-12-21, and because that anchor never advances
+//    the moved set can only grow. A fixed baseline is a cumulative index; it can never
+//    answer "what changed lately". Hence the second table.
+//  - The quarter table NEVER implies its own length. The 2026-03-16 -> 2026-06-30
+//    outage means the 90-day mark can land in a hole, so the heading prints the actual
+//    reference date and the actual elapsed days, and only says "quarter" when it is
+//    within QUARTER_TOLERANCE_DAYS of one. It self-corrects as monthly data accrues.
+//  - Every cell is an EQUAL-WEIGHTED basket (that county's munis x all six price
+//    points). Unweighted on purpose — the v6 listing-mix weights were dropped. It is a
+//    price index, not a revenue estimate: counties are not scaled by market size.
+//  - One basis only. An earlier draft showed a per-product roll-up of median-of-percent
+//    changes beside the matrices, which printed BASIC +3.4% under a table saying BASIC
+//    +1.8%. Both were right; two numbers under one label is a defect. The add-on block
+//    therefore uses the same basket basis as the matrices.
 //  - Artifacts are LINKED, never uploaded (that would need files:write). They are
 //    written to view-data/<date>/adcost/ and served by view-data-server.js on :3800.
 //
-// Two rendering regimes, chosen by how much moved:
-//  - Few movers (<= LIST_MAX): every moved cell is listed individually, which is the
-//    format the client asked for.
-//  - Many movers: a per-PRODUCT roll-up. This is not a stylistic preference. The anchor
-//    is FIXED, so the moved set only grows: as of 2026-08-17 all 420 of 420 cells differ
-//    from 2025-12-21, and listing 420 lines every month forever is not a report. The
-//    roll-up says the same thing at a readable altitude and the heat map carries the detail.
+// Below the tables: the add-ons (PAID_REPUBLISH / TOPLISTING / TOPLISTING_5_DAYS) are
+// not packages and are not in the workbook table, but they do move — TOPLISTING is up
+// ~18% on the anchor — so they get one national row per window rather than being
+// dropped. Then, when few enough cells moved (<= LIST_MAX), each is named individually;
+// otherwise just the single largest mover. "Nothing moved" stays a real result: prices
+// are sticky, and between 2026-07-12 and 2026-08-17 only MAX moved at all.
 //
-// Cron: 07:00 UTC on the 1st, five hours after the 02:00 UTC scrape on the price droplet.
+// Cron: 07:10 UTC on the 1st, five hours after the 02:00 UTC scrape on the price droplet.
 // Self-test: node adcost-report.js --smoke   (offline: no DB, no Python, no Slack)
 require('dotenv').config();
 const fs = require('fs');
@@ -90,20 +104,53 @@ function renderMovedCell(c) {
     + lpad(pctSigned(c.pct), 9);
 }
 
-// The per-product roll-up. `moved` is counted, never assumed: "unchanged in all 10
-// municipalities" is a claim about data and is only printed when munis_moved is 0.
-function renderProductTable(products) {
-  const L = [];
-  L.push(rpad('Product', 20) + lpad('moved', 9) + lpad('median', 9) + '   range');
-  for (const p of products) {
-    if (p.moved === 0) {
-      L.push(rpad(p.product, 20) + lpad(`0/${p.compared}`, 9) + lpad('—', 9)
-        + `   unchanged in all ${p.munis_compared} municipalities`);
-      continue;
-    }
-    const range = `${pctSigned(p.min_pct)} … ${pctSigned(p.max_pct)}`;
-    L.push(rpad(p.product, 20) + lpad(`${p.moved}/${p.compared}`, 9)
-      + lpad(pctSigned(p.median_pct), 9) + '   ' + range);
+// ---- the two county × package matrices (the shape of the v6 workbook table) ----
+const CORE = ['BASIC', 'PLUS', 'PREMIUM', 'MAX'];
+const COUNTY_W = 18;
+const MCOL_W = 9;
+
+function mcell(p) { return lpad(p == null ? '—' : pctSigned(p), MCOL_W); }
+
+// One matrix: a row per county, a column per package, a Total column, a TOTAL row.
+// Every cell is the % change in an equal-weighted basket of that county's
+// municipalities × all six price points — deliberately unweighted, because the v6
+// listing-mix weights were dropped as a frozen one-off.
+function renderMatrix(matrix, heading) {
+  const L = [heading];
+  L.push(rpad('', COUNTY_W) + CORE.map(t => lpad(t, MCOL_W)).join('') + lpad('Total', MCOL_W));
+  for (const r of matrix.rows) {
+    L.push(rpad(r.county, COUNTY_W) + CORE.map(t => mcell(r.tiers[t])).join('') + mcell(r.total));
+  }
+  L.push(rpad('TOTAL', COUNTY_W) + CORE.map(t => mcell(matrix.total_row[t])).join('')
+    + mcell(matrix.grand_total));
+  return L;
+}
+
+// The heading above each matrix always states the reference date AND how long ago it
+// was. The second table is nominally "past quarter", but the 2026-03-16 → 2026-06-30
+// outage means the nearest complete snapshot to the 90-day mark can be far off it —
+// so the elapsed time is never implied by the word "quarter", it is printed.
+function quarterHeading(q) {
+  if (!q || !q.ref) return 'Past quarter — unavailable (no earlier complete snapshot)';
+  const months = (q.days_back / 30.44).toFixed(1);
+  return q.on_target
+    ? `Past quarter — vs ${q.ref} (${q.days_back} days)`
+    : `Past ${months} months — vs ${q.ref} (${q.days_back} days; the 90-day mark falls inside the scrape outage)`;
+}
+
+// The three add-ons, national, one row per reference window. Same basket basis as the
+// matrices above so no product ever carries two different numbers in one post.
+const ADDONS = ['PAID_REPUBLISH', 'TOPLISTING', 'TOPLISTING_5_DAYS'];
+const ADDON_W = 19;
+
+function renderAddons(m) {
+  const windows = [m.anchor, m.quarter && m.quarter.ref ? m.quarter : null].filter(Boolean);
+  const present = windows.filter(w => w.addons);
+  if (!present.length) return [];
+  const L = [rpad('Add-ons (national)', COUNTY_W) + ADDONS.map(a => lpad(a, ADDON_W)).join('')];
+  for (const w of present) {
+    L.push(rpad(`  vs ${w.ref}`, COUNTY_W) + ADDONS.map(a => lpad(
+      w.addons[a] == null ? '—' : pctSigned(w.addons[a]), ADDON_W)).join(''));
   }
   return L;
 }
@@ -129,23 +176,48 @@ function renderReport(report, links = {}) {
   const moved = report.moved_cells || [];
   const anchor = report.anchor.date;
   L.push(`Changes vs ${anchor}: ${fmtN(report.moved_count)} of ${fmtN(report.compared_cells)} observations moved`);
-  L.push('```');
+
+  // The two headline tables, in the shape of the v6 workbook: county rows, package
+  // columns, % change. Table 1 is the fixed December-2025 baseline (cumulative);
+  // table 2 is the recent window (what has moved lately). The anchor alone cannot
+  // answer "what changed" — against a FIXED baseline the moved set only grows, and
+  // all 420 observations already differ from it.
+  const m = report.matrices;
+  if (m) {
+    L.push('```');
+    for (const line of renderMatrix(m.anchor, `vs December 2025 baseline — ${m.anchor.ref} (${m.anchor.days_back} days)`)) L.push(line);
+    if (m.quarter && m.quarter.ref) {
+      L.push('');
+      for (const line of renderMatrix(m.quarter, quarterHeading(m.quarter))) L.push(line);
+    } else {
+      L.push('', quarterHeading(m.quarter));
+    }
+    L.push('```');
+  }
+
+  // Detail beneath the tables. The matrices cover the four packages only — the same
+  // four the workbook table shows — so the add-ons get their own compact block, on the
+  // SAME basket basis, rather than a median-of-percentages roll-up that would print a
+  // second, different number under the same product name.
+  const detail = [];
+  if (m) detail.push(...renderAddons(m));
 
   if (report.moved_count === 0) {
     // Not an empty report. Hemnet's prices are sticky, and a month in which nothing
     // moved is a finding — it is why the anchor comparison is worth publishing at all.
-    L.push(`No price changed. All ${fmtN(report.compared_cells)} observations are identical to ${anchor}.`);
+    if (detail.length) detail.push('');
+    detail.push(`No price changed. All ${fmtN(report.compared_cells)} observations are identical to ${anchor}.`);
   } else if (moved.length <= LIST_MAX) {
-    for (const c of moved) L.push(renderMovedCell(c));
-    const still = (report.products || []).filter(p => p.moved === 0).map(p => p.product);
-    if (still.length) L.push('', `${still.join(' / ')} unchanged in every municipality.`);
+    // Few enough to name. In a month where the tables read ~0.0% everywhere, this is
+    // what tells the reader exactly which cells moved.
+    if (detail.length) detail.push('');
+    for (const c of moved) detail.push(renderMovedCell(c));
   } else {
-    for (const line of renderProductTable(report.products || [])) L.push(line);
     const top = renderLargestMover(moved);
-    if (top) L.push('', top);
+    if (top) { if (detail.length) detail.push(''); detail.push(top); }
   }
 
-  L.push('```');
+  if (detail.length) { L.push('```'); for (const d of detail) L.push(d); L.push('```'); }
 
   // Every warning the Python raised, verbatim. A stale or partial scrape must never
   // be inferable only from a number the reader has to compare against last month.
@@ -157,7 +229,9 @@ function renderReport(report, links = {}) {
   if (artifacts.length) L.push(artifacts.join('   ·   '));
   else L.push('(artifacts not linked — VIEW_SERVER_HOST is unset)');
 
-  L.push(`Prices are SEK per ad, net of 25% moms, on the pay-when-removed basis; `
+  L.push(`Each cell is the % change in an equal-weighted basket (that county's municipalities `
+    + `× all six price points) — a price index, not a revenue estimate: counties are not `
+    + `scaled by market size. Prices are SEK per ad, net of 25% moms, pay-when-removed; `
     + `% changes are VAT-agnostic. Anchor ${anchor} is a complete 420/420 run.`);
   return L.join('\n');
 }
@@ -241,7 +315,7 @@ async function main() {
 // `main` is exported so a dry run can be driven WITHOUT runReporter, which would
 // otherwise write a real cron_job_log row into the shared production DB and make the
 // health digest believe the scheduled job had run.
-module.exports = { renderReport, renderCoverage, renderProductTable, runPython, monthLabel, main };
+module.exports = { renderReport, renderCoverage, renderMatrix, renderAddons, runPython, monthLabel, main };
 
 // ---------------------------------------------------------------
 // --smoke self-test (offline: no DB, no Python, no Slack)
@@ -263,7 +337,38 @@ function smoke() {
     compared, moved, median_pct: med, min_pct: lo, max_pct: hi,
     munis_moved: munisMoved, munis_compared: 10,
   });
+  // A county × package matrix. `vals` maps county -> [basic, plus, premium, max];
+  // the Total column and TOTAL row are supplied explicitly so the fixture cannot
+  // accidentally re-implement (and thereby validate) the renderer's own arithmetic.
+  const matrix = (ref, daysBack, vals, extra = {}) => ({
+    ref, days_back: daysBack,
+    rows: Object.entries(vals).map(([county, v]) => ({
+      county,
+      tiers: { BASIC: v[0], PLUS: v[1], PREMIUM: v[2], MAX: v[3] },
+      total: v[4], cells: 24,
+    })),
+    total_row: { BASIC: 3.4, PLUS: 5.2, PREMIUM: 6.1, MAX: -21.6 },
+    grand_total: -1.7, cells_compared: 240,
+    addons: { PAID_REPUBLISH: 5.4, TOPLISTING: 18.3, TOPLISTING_5_DAYS: 13.6 },
+    ...extra,
+  });
+  const MATRICES = {
+    anchor: matrix('2025-12-21', 239, {
+      'Hallands': [3.5, 5.2, 6.2, -21.6, -1.7],
+      'Stockholms': [3.5, 5.3, 6.2, -21.6, -1.7],
+    }),
+    quarter: matrix('2026-07-12', 36, {
+      'Hallands': [0, 0, 0, -20.0, -5.0],
+      'Stockholms': [0, 0, 0, -20.0, -5.0],
+    }, {
+      target: '2026-05-19', off_target_days: 54, actual_days_back: 36, on_target: false,
+      total_row: { BASIC: 0, PLUS: 0, PREMIUM: 0, MAX: -20.0 }, grand_total: -5.0,
+      addons: { PAID_REPUBLISH: 0, TOPLISTING: 0, TOPLISTING_5_DAYS: 0 },
+    }),
+  };
+
   const base = (over = {}) => ({
+    matrices: MATRICES,
     report_date: '2026-09-01',
     anchor: { date: '2025-12-21', cells: 420, expected_cells: 420, munis: 10, complete: true },
     latest: { date: '2026-09-01', cells: 420, expected_cells: 420, munis: 10, complete: true, age_days: 0 },
@@ -350,11 +455,23 @@ function smoke() {
     }), LINKS);
     assert.ok(/Stockholms\s+MAX\s+@5\.0M\s+23,150\s+→\s+18,146\s+−21\.6%/.test(out),
       `per-cell format must match the agreed shape: ${out}`);
-    assert.ok(/BASIC \/ PLUS \/ PREMIUM/.test(out), 'products with zero movers must be named as unchanged');
-    assert.ok(!/median/.test(out), 'a short list must not also render the roll-up table');
+    assert.ok(!/median/.test(out), 'the per-product roll-up was removed — it printed a second, different number per product');
   });
 
-  check('CRITICAL: many movers collapse to a per-product roll-up instead of hundreds of lines', () => {
+  check('no product ever carries two different numbers in one post', () => {
+    // The roll-up quoted a median-of-percentages (BASIC +3.4%) while the matrix quotes
+    // a basket change (BASIC +1.8%). Both correct, both labelled BASIC — that is a
+    // defect, and this locks the fix: add-ons use the SAME basket basis as the matrices.
+    const out = renderReport(base({ moved_count: 420, moved_cells: [cell('Stockholms', 'MAX', 5000000, 23150, 18146)] }), LINKS);
+    assert.ok(!/median/.test(out), 'no median-of-percentages block may return');
+    assert.ok(/Add-ons \(national\)/.test(out), `add-ons must still be visible: ${out}`);
+    assert.ok(/PAID_REPUBLISH/.test(out) && /TOPLISTING_5_DAYS/.test(out));
+    // one row per reference window, each naming its own date
+    assert.ok(/vs 2025-12-21\s+\+5\.4%\s+\+18\.3%\s+\+13\.6%/.test(out), `anchor add-on row: ${out}`);
+    assert.ok(/vs 2026-07-12\s+\+0\.0%/.test(out), `quarter add-on row: ${out}`);
+  });
+
+  check('CRITICAL: many movers never produce hundreds of per-cell lines', () => {
     // The live 2026-08-17 case: all 420 cells differ from the 2025-12-21 anchor. A
     // per-cell list would be 420 lines in Slack, every month, forever.
     const moved = [];
@@ -371,24 +488,26 @@ function smoke() {
         product('TOPLISTING_5_DAYS', 60, 60, 13.62, -0.82, 42.14, 10),
       ],
     }), LINKS);
-    assert.ok(out.split('\n').length < 30, `the post must stay readable: got ${out.split('\n').length} lines`);
-    assert.ok(/MAX\s+60\/60\s+−21\.6%\s+−22\.6% … −7\.2%/.test(out), `roll-up row shape: ${out}`);
-    assert.ok(/Largest single move/.test(out), 'the roll-up must still name the single biggest mover');
+    // Bound sized for the real post: two 8-county matrices (~11 lines each) plus the
+    // add-on block and footers. The guard exists to catch the 420-line explosion,
+    // not to police layout.
+    assert.ok(out.split('\n').length < 50, `the post must stay readable: got ${out.split('\n').length} lines`);
+    // No per-cell rows (renderMovedCell indents by two spaces). The "Largest single
+    // move" line does quote one cell, by design, and is not indented.
+    assert.ok(!out.split('\n').some(l => /^ {2}\S+\s+(BASIC|PLUS|PREMIUM|MAX)\s+@/.test(l)),
+      'no per-cell rows may leak in when hundreds moved');
+    assert.ok(/Largest single move/.test(out), 'the single biggest mover must still be named');
     assert.ok(/420 of 420 observations moved/.test(out));
   });
 
-  check('the roll-up prints "unchanged in all N municipalities" only when nothing in that product moved', () => {
-    const moved = [];
-    for (let i = 0; i < 60; i++) moved.push(cell('Stockholms', 'MAX', 5000000, 23150, 18146));
-    const out = renderReport(base({
-      moved_count: 60, moved_cells: moved,
-      products: [
-        product('BASIC', 0, 60, null, null, null, 0),
-        product('MAX', 60, 60, -21.6, -22.6, -7.2, 10),
-      ],
-    }), LINKS);
-    assert.ok(/BASIC\s+0\/60\s+—\s+unchanged in all 10 municipalities/.test(out), out);
-    assert.ok(!/MAX.*unchanged/.test(out), 'a product that moved must never be called unchanged');
+  check('a table of all-zero cells reads as genuinely unchanged, not as missing data', () => {
+    // The realistic steady state once monthly data accrues: packages are sticky, so the
+    // quarter table is mostly +0.0%. That must be visibly different from "—" (no data).
+    const out = renderReport(base(), LINKS);
+    const qRow = out.split('\n').filter(l => /^Stockholms/.test(l))[1];
+    assert.ok(qRow, 'the quarter table must have its own Stockholms row');
+    assert.ok(/\+0\.0%/.test(qRow), `an unchanged cell prints +0.0%: ${qRow}`);
+    assert.ok(!/—/.test(qRow), 'unchanged must never render as the missing-data dash');
   });
 
   check('both artifacts are LINKED, never uploaded, and the post says so when they are missing', () => {
@@ -413,12 +532,63 @@ function smoke() {
     assert.ok(/VAT-agnostic/.test(out));
   });
 
-  check('exactly ONE anchor is quoted, everywhere it appears', () => {
+  check('both tables render as county rows × package columns, with a Total column and TOTAL row', () => {
     const out = renderReport(base(), LINKS);
-    const dates = out.match(/\d{4}-\d{2}-\d{2}/g).filter(d => d !== '2026-09-01');
-    assert.deepStrictEqual([...new Set(dates)], ['2025-12-21'],
-      `the post must quote one and only one baseline: ${[...new Set(dates)]}`);
-    assert.ok(!/2025-12-28/.test(out), 'the old heat-map anchor must not survive anywhere');
+    assert.ok(/vs December 2025 baseline — 2025-12-21 \(239 days\)/.test(out), out);
+    // header row carries all four packages plus Total, in workbook order
+    const hdr = out.split('\n').find(l => /BASIC/.test(l) && /Total/.test(l));
+    assert.ok(hdr, 'a matrix header row must render');
+    assert.ok(hdr.indexOf('BASIC') < hdr.indexOf('PLUS')
+      && hdr.indexOf('PLUS') < hdr.indexOf('PREMIUM')
+      && hdr.indexOf('PREMIUM') < hdr.indexOf('MAX')
+      && hdr.indexOf('MAX') < hdr.indexOf('Total'), `column order must match the workbook: ${hdr}`);
+    // a county row, and the TOTAL row
+    assert.ok(/^Stockholms\s+\+3\.5%\s+\+5\.3%\s+\+6\.2%\s+−21\.6%\s+−1\.7%$/m.test(out),
+      `county row shape: ${out}`);
+    assert.ok(/^TOTAL\s+\+3\.4%\s+\+5\.2%\s+\+6\.1%\s+−21\.6%\s+−1\.7%$/m.test(out),
+      `TOTAL row must render: ${out}`);
+    // TWO tables, not one — this is what the single-anchor lock used to forbid
+    assert.strictEqual((out.match(/^TOTAL\s/gm) || []).length, 2, 'both matrices must render');
+  });
+
+  check('CRITICAL: the quarter table states its real elapsed time when 90 days is unreachable', () => {
+    // The 2026-03-16 → 2026-06-30 outage removes the true quarter mark. Labelling a
+    // 36-day comparison "past quarter" would silently misstate the period.
+    const out = renderReport(base(), LINKS);
+    assert.ok(/vs 2026-07-12 \(36 days/.test(out), `the real reference and gap must be printed: ${out}`);
+    assert.ok(/Past 1\.2 months/.test(out), 'an off-target window must not be called a quarter');
+    assert.ok(/scrape outage/.test(out), 'the reason must be stated, not left as a puzzle');
+
+    // and when it IS a true quarter, it says so plainly
+    const onTarget = renderReport(base({
+      matrices: { ...MATRICES, quarter: { ...MATRICES.quarter, ref: '2026-09-01', days_back: 91, on_target: true } },
+    }), LINKS);
+    assert.ok(/Past quarter — vs 2026-09-01 \(91 days\)/.test(onTarget), onTarget);
+    assert.ok(!/months/.test(onTarget.split('\n').find(l => /Past quarter/.test(l))));
+  });
+
+  check('a missing quarter reference is stated, never silently dropped to one table', () => {
+    const out = renderReport(base({ matrices: { anchor: MATRICES.anchor, quarter: { ref: null } } }), LINKS);
+    assert.ok(/Past quarter — unavailable/.test(out), out);
+    assert.strictEqual((out.match(/^TOTAL\s/gm) || []).length, 1, 'only the anchor table can render');
+    assert.ok(!/undefined|NaN|null/.test(out), out);
+  });
+
+  check('an empty matrix cell renders as an em dash, never NaN or undefined', () => {
+    const out = renderReport(base({
+      matrices: {
+        anchor: matrix('2025-12-21', 239, { 'Jämtlands': [null, null, null, null, null] }),
+        quarter: MATRICES.quarter,
+      },
+    }), LINKS);
+    assert.ok(/^Jämtlands\s+—\s+—\s+—\s+—\s+—$/m.test(out), `missing county data must degrade visibly: ${out}`);
+    assert.ok(!/NaN|undefined/.test(out));
+  });
+
+  check('the old heat-map anchor never survives anywhere in the post', () => {
+    const out = renderReport(base(), LINKS);
+    assert.ok(!/2025-12-28/.test(out), 'the report re-anchored to 2025-12-21');
+    assert.ok(/2025-12-21/.test(out));
   });
 
   check('monthLabel maps every month index correctly', () => {

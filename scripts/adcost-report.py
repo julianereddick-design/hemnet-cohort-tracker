@@ -240,6 +240,98 @@ def diff_cells(data, latest, anchor):
     return out, len(a.keys() & l.keys())
 
 
+# ---------------------------------------------------------------------------
+# County x package matrices — the two tables in the Slack post
+# ---------------------------------------------------------------------------
+QUARTER_DAYS = 90
+# How far the chosen quarter reference may sit from the 90-day target before the
+# post stops calling it a quarter and states the real elapsed time instead.
+QUARTER_TOLERANCE_DAYS = 30
+
+
+def pick_ref_near(data, dates, latest, days_back):
+    """The COMPLETE snapshot closest to `days_back` before `latest`.
+
+    Returns (date, meta) or (None, meta). Deliberately nearest-to-target rather
+    than first-older-than-target: the 2026-03-16 -> 2026-07-01 outage means the
+    true 90-day mark can land inside a hole, and the honest answer is "here is
+    the closest real snapshot, and here is how far off it actually is" — never a
+    fabricated quarter. As monthly snapshots accrue this converges on a real
+    quarter by itself (from 2026-12 the 90-day target is 2026-09-01, which exists).
+    """
+    target = latest - datetime.timedelta(days=days_back)
+    candidates = [d for d in dates if d < latest and is_complete(data, d)]
+    if not candidates:
+        return None, {"target": target.isoformat(), "reason": "no earlier complete snapshot"}
+    best = min(candidates, key=lambda d: abs((d - target).days))
+    return best, {
+        "target": target.isoformat(),
+        "actual_days_back": (latest - best).days,
+        "off_target_days": abs((best - target).days),
+        "on_target": abs((best - target).days) <= QUARTER_TOLERANCE_DAYS,
+    }
+
+
+def county_matrix(data, latest, ref):
+    """County x {BASIC,PLUS,PREMIUM,MAX} % change, with Total column and TOTAL row.
+
+    Each cell is the % change in an EQUAL-WEIGHTED BASKET: the mean ad_price over
+    that county's municipalities x all six price points. Equal-weighted on purpose
+    — the v6 listing-mix weights were dropped as a frozen, drifted one-off, so this
+    deliberately carries no weighting a reader would have to trust. It is a price
+    index, not a revenue estimate: counties are not scaled by market size.
+
+    Only cells present in BOTH snapshots contribute, so a partial run shrinks the
+    basket rather than inventing movement.
+    """
+    a, l = flatten(data[ref]), flatten(data[latest])
+    common = a.keys() & l.keys()
+
+    def pct_for(keys):
+        keys = list(keys)
+        if not keys:
+            return None
+        av = sum(float(a[k]) for k in keys) / len(keys)
+        lv = sum(float(l[k]) for k in keys) / len(keys)
+        p = pct(lv, av)
+        return None if p is None else p * 100.0
+
+    rows = []
+    for county in COUNTIES:
+        in_county = [k for k in common if MUNI[k[0]][1] == county]
+        rows.append({
+            "county": county,
+            "tiers": {t: pct_for(k for k in in_county if k[1] == t) for t in CORE_TIERS},
+            "total": pct_for(k for k in in_county if k[1] in CORE_TIERS),
+            "cells": len([k for k in in_county if k[1] in CORE_TIERS]),
+        })
+    return {
+        "rows": rows,
+        "total_row": {t: pct_for(k for k in common if k[1] == t) for t in CORE_TIERS},
+        "grand_total": pct_for(k for k in common if k[1] in CORE_TIERS),
+        "cells_compared": len([k for k in common if k[1] in CORE_TIERS]),
+        # The three add-ons are not packages and are not in the workbook's table, but
+        # they do move (TOPLISTING is up ~18% on the anchor) and would otherwise be
+        # invisible. National basket only, computed the SAME way as the matrix cells —
+        # mixing a basket figure and a median-of-percentages under one product name
+        # puts two different numbers for "BASIC" in one post.
+        "addons": {t: pct_for(k for k in common if k[1] == t)
+                   for t in ALL_TIERS if t not in CORE_TIERS},
+    }
+
+
+def build_matrices(data, dates, latest, anchor):
+    """The two tables: vs the fixed anchor, and vs roughly a quarter back."""
+    out = {"anchor": {"ref": anchor.isoformat(),
+                      "days_back": (latest - anchor).days,
+                      **county_matrix(data, latest, anchor)}}
+    qref, qmeta = pick_ref_near(data, dates, latest, QUARTER_DAYS)
+    out["quarter"] = ({"ref": qref.isoformat(), "days_back": (latest - qref).days,
+                       **qmeta, **county_matrix(data, latest, qref)}
+                      if qref else {"ref": None, **qmeta})
+    return out
+
+
 def product_summary(moved, data, latest, anchor):
     """Per-product roll-up: how many of its cells moved, and by how much.
 
@@ -299,6 +391,16 @@ def build_json(data, dates, latest, anchor, report_date):
 
     moved, compared = diff_cells(data, latest, anchor)
     prior = prior_complete(data, dates, latest)
+    matrices = build_matrices(data, dates, latest, anchor)
+
+    q = matrices.get("quarter") or {}
+    if q.get("ref") and not q.get("on_target"):
+        warnings.append(
+            f"the quarter table compares against {q['ref']}, {q['actual_days_back']} days back "
+            f"({q['off_target_days']} days off the 90-day target) — the nearest complete snapshot "
+            f"to a true quarter, which the 2026-03-16 to 2026-06-30 scrape outage removed")
+    elif not q.get("ref"):
+        warnings.append("no earlier complete snapshot exists, so the quarter table cannot be built")
 
     return {
         "report_date": report_date.isoformat(),
@@ -311,6 +413,7 @@ def build_json(data, dates, latest, anchor, report_date):
         "compared_cells": compared,
         "moved_count": len(moved),
         "moved_cells": moved,
+        "matrices": matrices,
         "products": product_summary(moved, data, latest, anchor),
         "snapshots_total": len(dates),
         "warnings": warnings,
