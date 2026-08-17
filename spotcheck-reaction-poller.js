@@ -246,6 +246,31 @@ if (require.main === module && process.argv.includes('--smoke')) {
     assert.deepStrictEqual(partitionSharedTs(null), { safe: [], shared: [] });
   });
 
+  // Phase 0 threading: replies in a thread each get their OWN ts, so they must
+  // all land in `safe`. If Slack ever returned the parent ts for replies, this
+  // check turns the whole cohort into unactionable `shared` rows — which is the
+  // failure we would rather see here than in production.
+  check('partitionSharedTs: threaded per-pair replies are all safe', () => {
+    const rows = [
+      { pair_id: 1, channel: 'C1', ts: '1755000000.000100' },
+      { pair_id: 2, channel: 'C1', ts: '1755000000.000200' },
+      { pair_id: 3, channel: 'C1', ts: '1755000000.000300' },
+    ];
+    const { safe, shared } = partitionSharedTs(rows);
+    assert.deepStrictEqual(safe.map(r => r.pair_id), [1, 2, 3]);
+    assert.deepStrictEqual(shared, []);
+  });
+
+  check('partitionSharedTs: a regression to the parent ts is caught, not acted on', () => {
+    const rows = [
+      { pair_id: 1, channel: 'C1', ts: '1755000000.000001' },  // parent ts reused —
+      { pair_id: 2, channel: 'C1', ts: '1755000000.000001' },  //   the digest-era bug
+    ];
+    const { safe, shared } = partitionSharedTs(rows);
+    assert.deepStrictEqual(safe, []);
+    assert.deepStrictEqual(shared.map(r => r.pair_id), [1, 2]);
+  });
+
   // 15. staleOpenRows: only rows older than the cutoff are stale
   check('staleOpenRows: >7d old rows flagged, fresh rows not', () => {
     const now = Date.parse('2026-06-12T12:00:00Z');
