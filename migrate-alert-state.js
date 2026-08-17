@@ -14,28 +14,40 @@
 require('dotenv').config();
 const { createClient } = require('./db');
 const { DDL } = require('./lib/alert-state');
+const { DISK_DDL } = require('./lib/disk-floor');
 
 const CHECK = process.argv.includes('--check');
+
+// Both alerting tables. `disk_sample` (Phase 5) lives here rather than in its own
+// migration because it has the same one-line, idempotent, deploy-time shape and a
+// second script is a second thing to forget.
+const TABLES = [
+  { name: 'alert_state', ddl: DDL },
+  { name: 'disk_sample', ddl: DISK_DDL },
+];
 
 async function main() {
   const client = createClient();
   await client.connect();
   try {
-    const before = await client.query(`SELECT to_regclass('public.alert_state') AS t`);
-    const exists = before.rows[0].t !== null;
+    let missing = 0;
+    for (const { name, ddl } of TABLES) {
+      const before = await client.query(`SELECT to_regclass($1) AS t`, [`public.${name}`]);
+      const exists = before.rows[0].t !== null;
 
-    if (CHECK) {
-      console.log(exists ? 'alert_state: present' : 'alert_state: MISSING — run node migrate-alert-state.js');
-      process.exitCode = exists ? 0 : 1;
-      return;
+      if (CHECK) {
+        console.log(exists ? `${name}: present` : `${name}: MISSING — run node migrate-alert-state.js`);
+        if (!exists) missing++;
+        continue;
+      }
+
+      await client.query(ddl);
+      const cols = await client.query(
+        `SELECT column_name FROM information_schema.columns
+          WHERE table_name = $1 ORDER BY ordinal_position`, [name]);
+      console.log(`${name}: ${exists ? 'already existed' : 'created'} — ${cols.rows.map(r => r.column_name).join(', ')}`);
     }
-
-    await client.query(DDL);
-    const cols = await client.query(
-      `SELECT column_name FROM information_schema.columns
-        WHERE table_name = 'alert_state' ORDER BY ordinal_position`);
-    console.log(exists ? 'alert_state already existed' : 'alert_state created');
-    console.log(`columns: ${cols.rows.map(r => r.column_name).join(', ')}`);
+    if (CHECK) process.exitCode = missing === 0 ? 0 : 1;
   } finally {
     await client.end();
   }

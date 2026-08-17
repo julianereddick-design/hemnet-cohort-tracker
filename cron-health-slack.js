@@ -1,9 +1,40 @@
 require('dotenv').config();
 const { createClient } = require('./db');
 const { postMessage, postAlert } = require('./lib/slack-post');
-const { runReporter, evaluateAlert } = require('./cron-wrapper');
+const { runReporter, evaluateAlert, connectWithRetry } = require('./cron-wrapper');
 const { loadOpen, saveState } = require('./lib/alert-state');
 const { selectSweepTargets, sweepConditionKey, renderSweep } = require('./lib/alert-sweep');
+const { parseDf, assessDisk, recordSample, recentSamples } = require('./lib/disk-floor');
+const { execFileSync } = require('child_process');
+
+// connectHardened (Phase 5, spec §4.3 "Hardening")
+//
+// The watchdog was the LEAST hardened process in the system: a bare
+// createClient() + connect() with no retry and no statement_timeout, where
+// cron-wrapper has had connectWithRetry (3 attempts, backoff) and a 120s timeout
+// for months. One transient DB blip meant no digest — and no digest is
+// indistinguishable from health, which is the accepted limit in §5 made worse
+// than it needs to be.
+async function connectHardened(log = () => {}) {
+  const client = createClient();
+  await connectWithRetry(client, log);
+  await client.query("SET statement_timeout = '120000'");
+  return client;
+}
+
+// readDisk() — free space as an OUTCOME, not as a job (spec §2 principle 4).
+// Monitoring headroom rather than the prune jobs that protect it also catches
+// pressure from causes nobody thought of. Returns null on any failure: a digest
+// that cannot read df must still deliver everything else.
+function readDisk() {
+  try {
+    const bytes = parseDf(execFileSync('df', ['-P', '-k', '/'], { encoding: 'utf8' }));
+    const inodes = parseDf(execFileSync('df', ['-P', '-i', '/'], { encoding: 'utf8' }), { blockSize: 1 });
+    return bytes && inodes ? { bytes, inodes } : null;
+  } catch (_) {
+    return null;
+  }
+}
 const { JOBS } = require('./lib/job-registry');
 const { runAssertions } = require('./lib/job-assertions');
 const { buildLiveness } = require('./lib/job-liveness');
@@ -51,8 +82,7 @@ function summarizeResult(scriptName, summary) {
 }
 
 async function run() {
-  const client = createClient();
-  await client.connect();
+  const client = await connectHardened((lvl, m) => console.error(`[${lvl}] ${m}`));
 
   const rows = await client.query(`
     SELECT script_name, started_at, duration_ms, status, error_message, result_summary
@@ -103,6 +133,54 @@ async function run() {
       lines.push(`      ${a.ok ? ':white_check_mark:' : ':x:'} ${a.job} — ${a.detail}`);
       if (!a.ok) issues.push(`${a.job} assertion FAILED: ${a.detail}`);
     }
+  }
+
+  // ---------------------------------------------------------------
+  // TIER-1 BACKSTOP (Phase 5, spec §4.6)
+  //
+  // Re-states every tier-1 failure/warning/kill in the last 24h REGARDLESS of
+  // whether an alert was attempted or delivered. Once tier 2 goes quiet,
+  // incidental chatter no longer proves the channel works — and a tier-1 alert
+  // whose webhook delivery failed is simply gone: postAlert returns {ok:false},
+  // cron-wrapper logs "Slack alert failed", and a warning run still exits 0.
+  //
+  // This is deliberately a BACKSTOP over the same facts, not a parallel channel:
+  // it reads cron_job_log, which is written before any Slack call is made, so it
+  // survives exactly the failure that loses the alert.
+  // ---------------------------------------------------------------
+  const since24h = new Date(now.getTime() - 24 * 3600 * 1000);
+  const tier1Bad = rows.rows.filter(r =>
+    JOBS[r.script_name] && JOBS[r.script_name].tier === 1 &&
+    ['failure', 'warning', 'killed'].includes(r.status) &&
+    new Date(r.started_at) >= since24h);
+
+  lines.push('');
+  if (tier1Bad.length === 0) {
+    lines.push(':shield:  *Tier-1 backstop* (last 24h)  —  no tier-1 failures or warnings');
+  } else {
+    lines.push(`:shield:  *Tier-1 backstop* (last 24h)  —  ${tier1Bad.length} event(s), re-stated whether or not an alert was delivered`);
+    for (const r of tier1Bad) {
+      lines.push(`      ${r.status === 'warning' ? ':warning:' : ':x:'} ${r.script_name} ${r.status} — ${(r.error_message || '').slice(0, 140)}`);
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // DISK HEADROOM (Phase 5, spec §3 and §2 principle 4)
+  //
+  // Monitored as an OUTCOME rather than by watching the three prune jobs, which
+  // also catches pressure from causes nobody thought of. Bytes AND inodes: the
+  // spot-check gate writes thousands of small JPEGs a week, which exhausts
+  // inodes long before gigabytes. days_to_full is reported as context, never as
+  // a breach in itself.
+  // ---------------------------------------------------------------
+  const diskRaw = readDisk();
+  if (diskRaw) {
+    await recordSample(client, diskRaw);
+    const samples = await recentSamples(client, 30);
+    const disk = assessDisk(Object.assign({ samples }, diskRaw));
+    lines.push('');
+    lines.push(`:floppy_disk:  *Disk headroom*  —  ${disk.detail}`);
+    for (const b of disk.breaches) issues.push(`Disk: ${b}`);
   }
 
   // ---------------------------------------------------------------
@@ -255,8 +333,7 @@ async function run() {
 // shared with the other droplet is a real change, not a rounding error.
 // ---------------------------------------------------------------
 async function runSweep() {
-  const client = createClient();
-  await client.connect();
+  const client = await connectHardened((lvl, m) => console.error(`[${lvl}] ${m}`));
   try {
     const rows = await client.query(`
       SELECT script_name, started_at, duration_ms, status, error_message, result_summary
@@ -314,13 +391,38 @@ async function runSweep() {
   }
 }
 
+// ---------------------------------------------------------------
+// HEARTBEAT (Phase 5, spec §4.6 "Proof of life")
+//
+// Goes out over the WEBHOOK path specifically — postAlert, not postMessage.
+// That is the whole point: the webhook is the path tier-1 alerts take, and once
+// tier 2 goes quiet nothing else exercises it. A tier-1 alert whose delivery
+// failed is simply gone, so the last line of defence has to be tested on a
+// schedule rather than assumed.
+//
+// Dated, so a stale pinned message cannot be mistaken for a fresh one. No
+// mention: proof of life is not an interrupt.
+// ---------------------------------------------------------------
+async function runHeartbeat() {
+  const stamp = new Date().toISOString().replace('T', ' ').slice(0, 16);
+  const res = await postAlert(
+    `:green_heart: [HEARTBEAT] alerting webhook alive — ${stamp} UTC. ` +
+    `If this stops arriving weekly, tier-1 alerts are not being delivered either.`);
+  if (res && res.ok === false) {
+    console.error('heartbeat: the webhook path is DOWN — tier-1 alerts would not be delivered');
+    process.exitCode = 1;
+    return;
+  }
+  console.log(`heartbeat sent ${stamp} UTC`);
+}
+
 // Entry gate. Without this, an unrecognised flag falls straight through to the
 // live path and POSTS: dotenv re-injects the token, so unsetting env vars does
 // not prevent a post. Same pattern as age-census-report.js. Folds in the
 // --dry-run -> SLACK_DRY_RUN mapping that used to run at module load, unguarded
 // by require.main (so requiring this file for tests would set it as a side effect).
-const ACCEPTED_ARGV = new Set(['--dry-run', '--sweep']);
-const USAGE = 'Usage: node cron-health-slack.js [--dry-run] [--sweep]';
+const ACCEPTED_ARGV = new Set(['--dry-run', '--sweep', '--heartbeat']);
+const USAGE = 'Usage: node cron-health-slack.js [--dry-run] [--sweep | --heartbeat]';
 
 if (require.main === module) {
   const argv = process.argv.slice(2);
@@ -334,6 +436,8 @@ if (require.main === module) {
   // of the digest's — they run on different schedules and can fail separately.
   if (argv.includes('--sweep')) {
     runReporter({ scriptName: 'cron-health-sweep', run: runSweep });
+  } else if (argv.includes('--heartbeat')) {
+    runReporter({ scriptName: 'alerting-heartbeat', run: runHeartbeat });
   } else {
     runReporter({ scriptName: 'cron-health-slack', run });
   }
