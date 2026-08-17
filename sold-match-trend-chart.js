@@ -19,6 +19,7 @@
 //   node sold-match-trend-chart.js --smoke  # offline self-test (no DB, no network)
 
 const { createClient } = require('./db');
+const { runReporter } = require('./cron-wrapper');
 const fs = require('fs');
 const path = require('path');
 
@@ -246,7 +247,7 @@ module.exports = { isoWeekKey, buildSeries, renderHtml, writeChart, EXCLUDED_COH
 if (require.main === module && process.argv.includes('--smoke')) {
   runSmoke();
 } else if (require.main === module) {
-  run().catch((err) => { console.error('Error:', err.message); process.exit(1); });
+  runReporter({ scriptName: 'sold-match-trend-chart', run });
 }
 
 // ---------------------------------------------------------------------------

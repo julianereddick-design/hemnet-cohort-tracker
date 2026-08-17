@@ -12,6 +12,7 @@ require('dotenv').config();
 const { createClient } = require('./db');
 const { ladderRows } = require('./lib/premarket-quality');
 const { postMessage } = require('./lib/slack-post');
+const { runReporter } = require('./cron-wrapper');
 
 // How many past snapshots to print in the ratio trend block. 8 ≈ two months of weekly
 // readings — enough to see the trend, short enough to keep the Slack message scannable.
@@ -307,7 +308,7 @@ if (require.main === module) {
     smoke();
   } else {
     if (argv.includes('--dry-run')) process.env.SLACK_DRY_RUN = '1';
-    run().catch(err => { console.error(err); process.exit(1); });
+    runReporter({ scriptName: 'premarket-flow-weekly-report', run });
   }
 }
 

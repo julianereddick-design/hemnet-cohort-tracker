@@ -2,6 +2,7 @@ require('dotenv').config();
 const { execSync } = require('child_process');
 const { createClient } = require('./db');
 const { postMessage } = require('./lib/slack-post');
+const { runReporter } = require('./cron-wrapper');
 
 const MIN_DAYS = 5; // cohorts need at least 5 days of data for meaningful charts
 const SKIP_COHORTS = ['2026-W09', '2026-W10', '2026-W11']; // low data quality
@@ -125,5 +126,5 @@ if (require.main === module) {
     process.exit(1);
   }
   if (argv.includes('--dry-run')) process.env.SLACK_DRY_RUN = '1';
-  run().catch(err => { console.error('Error:', err.message); process.exit(1); });
+  runReporter({ scriptName: 'weekly-view-report', run });
 }

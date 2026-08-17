@@ -8,6 +8,7 @@
 require('dotenv').config();
 const { createClient } = require('./db');
 const { postMessage } = require('./lib/slack-post');
+const { runReporter } = require('./cron-wrapper');
 
 function fmtNumber(n) {
   return n.toLocaleString('en-US');
@@ -166,5 +167,5 @@ if (require.main === module) {
     process.exit(1);
   }
   if (argv.includes('--dry-run')) process.env.SLACK_DRY_RUN = '1';
-  run().catch(err => { console.error(err); process.exit(1); });
+  runReporter({ scriptName: 'market-totals-weekly-report', run });
 }

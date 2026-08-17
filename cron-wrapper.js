@@ -217,7 +217,40 @@ async function runJob({ scriptName, main, validate }) {
   process.exit(status === 'failure' ? 1 : 0);
 }
 
-module.exports = { runJob, makeFatalHandlers, buildAlertText };
+// buildReporterMain(scriptName, run) — the pure inner half of runReporter,
+// exported so the exitCode bridge is testable without a DB.
+//
+// The seven reporters wrapped in Phase 1 are self-contained: each opens its own
+// client and signals a FAILED Slack delivery by setting process.exitCode = 1 and
+// continuing, rather than by throwing. (That contract is asserted by
+// lib/slack-post.js --smoke, so it must not be removed.) Without this bridge a
+// lost report would still be recorded as a `success` row.
+//
+// Only a transition to 1 DURING run() counts — a value already set before the
+// run began belongs to something else and must not be blamed on this job.
+function buildReporterMain(scriptName, run) {
+  return async function main(_client, _log) {
+    const before = process.exitCode;
+    await run();
+    const after = process.exitCode;
+    if (after === 1 && before !== 1) {
+      throw new Error(
+        `${scriptName}: reporter set process.exitCode=1 — Slack delivery failed (see the log above)`
+      );
+    }
+    return { reporter: true, exitCode: after == null ? 0 : after };
+  };
+}
+
+// runReporter({ scriptName, run }) — wrap a legacy self-contained reporter in
+// runJob without touching its body. It keeps its own DB client; runJob's client
+// is used only for the cron_job_log row, which also means runJob's 120s
+// statement_timeout does not constrain the reporter's own heavy queries.
+function runReporter({ scriptName, run }) {
+  return runJob({ scriptName, main: buildReporterMain(scriptName, run) });
+}
+
+module.exports = { runJob, makeFatalHandlers, buildAlertText, runReporter, buildReporterMain };
 
 // ---------------------------------------------------------------
 // --smoke self-test (offline: no network, no DB, no Slack, no exit)
@@ -364,6 +397,48 @@ if (require.main === module && process.argv.includes('--smoke')) {
       const src = fs.readFileSync(path.join(__dirname, 'cron-health-slack.js'), 'utf8');
       assert.ok(!/<!channel>|<!here>/.test(src),
         'cron-health-slack.js contains a mention — the daily digest must not interrupt');
+    });
+
+    const { runReporter, buildReporterMain } = module.exports;
+
+    // These seven reporters are self-contained: each opens its own client and
+    // signals a failed Slack delivery with process.exitCode = 1 rather than by
+    // throwing. runReporter is the bridge that turns that into a failure row.
+    await checkAsync('runReporter is exported and is a function', async () => {
+      assert.strictEqual(typeof runReporter, 'function');
+    });
+
+    await checkAsync('a reporter that sets exitCode=1 is turned into a throw', async () => {
+      const main = buildReporterMain('weekly-view-report', async () => { process.exitCode = 1; });
+      const saved = process.exitCode;
+      await assert.rejects(() => main(null, () => {}), /exitCode/,
+        'a failed Slack delivery must become a failure row, not a silent success');
+      process.exitCode = saved;
+    });
+
+    await checkAsync('a clean reporter run resolves and reports its exit code', async () => {
+      let ran = false;
+      const main = buildReporterMain('sold-match-xlsx', async () => { ran = true; });
+      const res = await main(null, () => {});
+      assert.strictEqual(ran, true, 'run() must actually be invoked');
+      assert.strictEqual(res.reporter, true);
+    });
+
+    await checkAsync('a throwing reporter propagates its own error unchanged', async () => {
+      const main = buildReporterMain('sold-match-report', async () => { throw new Error('db exploded'); });
+      await assert.rejects(() => main(null, () => {}), /db exploded/,
+        'the original error must survive — it is what lands in cron_job_log.error_message');
+    });
+
+    // A reporter left exitCode=1 from a PREVIOUS unrelated cause would otherwise
+    // be misreported. Only a transition during run() counts.
+    await checkAsync('a pre-existing non-zero exitCode is not blamed on this run', async () => {
+      const saved = process.exitCode;
+      process.exitCode = 1;
+      const main = buildReporterMain('age-census-report', async () => { /* clean run */ });
+      const res = await main(null, () => {});
+      assert.strictEqual(res.reporter, true, 'a clean run must not inherit an earlier exitCode');
+      process.exitCode = saved;
     });
 
     console.log(`smoke: ${pass} pass, ${fail} fail`);
