@@ -2,7 +2,7 @@ require('dotenv').config();
 const { createClient } = require('./db');
 const { postMessage, postAlert } = require('./lib/slack-post');
 const { runReporter, evaluateAlert, connectWithRetry } = require('./cron-wrapper');
-const { loadOpen, saveState } = require('./lib/alert-state');
+const { loadOpen, listOpen, saveState } = require('./lib/alert-state');
 const { selectSweepTargets, sweepConditionKey, renderSweep } = require('./lib/alert-sweep');
 const { parseDf, assessDisk, recordSample, recentSamples } = require('./lib/disk-floor');
 const { execFileSync } = require('child_process');
@@ -132,6 +132,30 @@ async function run() {
       }
       lines.push(`      ${a.ok ? ':white_check_mark:' : ':x:'} ${a.job} — ${a.detail}`);
       if (!a.ok) issues.push(`${a.job} assertion FAILED: ${a.detail}`);
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // OPEN CONDITIONS (Phase 4, §7 acceptance)
+  //
+  // "a tier-2 warning repeated 5 runs produces ... a digest line reading
+  // 'continuing since X, 5 consecutive'".
+  //
+  // This is what makes tier-2 silence honest rather than merely quiet: the
+  // condition is still visible, as a GAUGE with a start date and a run count,
+  // which is exactly the shape §2 principle 2 asks for. seen_count is used, not
+  // alert_count — a tier-2 condition never alerts, so its alert_count is 0 no
+  // matter how long it has persisted.
+  // ---------------------------------------------------------------
+  const openConditions = await listOpen(client, 'run');
+  if (openConditions.length > 0) {
+    lines.push('');
+    lines.push(':repeat:  *Open conditions* (suppressed, still true)');
+    for (const c of openConditions) {
+      const tier = JOBS[c.script_name] ? `tier ${JOBS[c.script_name].tier}` : 'unregistered';
+      const since = new Date(c.first_seen_at).toISOString().slice(0, 10);
+      const alerted = c.alert_count > 0 ? `${c.alert_count} alert(s)` : 'never alerted';
+      lines.push(`      ${c.script_name} / ${c.condition_key} (${tier}) — continuing since ${since}, ${c.seen_count} consecutive, ${alerted}`);
     }
   }
 

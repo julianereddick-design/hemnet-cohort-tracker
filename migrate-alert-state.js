@@ -13,7 +13,7 @@
 'use strict';
 require('dotenv').config();
 const { createClient } = require('./db');
-const { DDL } = require('./lib/alert-state');
+const { DDL, DDL_ALTER } = require('./lib/alert-state');
 const { DISK_DDL } = require('./lib/disk-floor');
 
 const CHECK = process.argv.includes('--check');
@@ -22,7 +22,7 @@ const CHECK = process.argv.includes('--check');
 // migration because it has the same one-line, idempotent, deploy-time shape and a
 // second script is a second thing to forget.
 const TABLES = [
-  { name: 'alert_state', ddl: DDL },
+  { name: 'alert_state', ddl: DDL, alters: [DDL_ALTER] },
   { name: 'disk_sample', ddl: DISK_DDL },
 ];
 
@@ -42,6 +42,11 @@ async function main() {
       }
 
       await client.query(ddl);
+      // ALTERs for columns added after the table first shipped. Each is
+      // ADD COLUMN IF NOT EXISTS, so re-running the migration stays safe.
+      for (const alter of (TABLES.find(t => t.name === name).alters || [])) {
+        await client.query(alter);
+      }
       const cols = await client.query(
         `SELECT column_name FROM information_schema.columns
           WHERE table_name = $1 ORDER BY ordinal_position`, [name]);
