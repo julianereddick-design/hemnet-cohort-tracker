@@ -375,6 +375,28 @@ newest-cohort canary both still render, under an explicit CROSS-CUTTING banner.
 denominator is narrower than what `cohort-track` actually tracks, so the floor is more lenient
 than intended. Cosmetically odd and worth tightening.
 
+### Phase 3.1 — registry-derived liveness (gap closed 2026-08-17, `a3bfc35`)
+
+Phase 3 asserted tier-1 OUTPUT for all 12 tier-1 jobs but left `cron-health-slack.js`'s liveness
+section behind a hardcoded `SCRIPTS = ['cohort-track','cohort-create','age-census-monthly']`, so
+"it never ran at all" was detected for **3 jobs out of ~22**. `lib/job-liveness.js` now derives
+the set from the registry and anchors on `lastExpectedFire + grace`.
+
+Excluded, each for a reason that would otherwise produce a permanent false "never ran": `shell`
+retention lines (no node, no row), the `external` ad-cost crawler (another droplet), and
+unscheduled/deprecated entries. A row is not enough — the state must be a **terminal success or
+warning**; a stale `running` row reports as an orphan, and a failure since the last fire reports
+as *failed* rather than "no runs", because it did fire and the event-driven alert already went out.
+
+**Verified live 2026-08-17** by dry-run against the production DB from the droplet. 22 `--smoke`
+checks. Two false alarms caught before merge, both the same shape — a job Phase 1 made loggable
+*after* its last expected fire, whose next fire is weeks away:
+- `age-census-report` (monthly, last fire 2026-08-01, next 2026-09-01) → `notBefore`.
+- `adcost-report` (Phase 28, built the same day, first fire 2026-09-01) → `notBefore`.
+
+The five **weekly** reporters wrapped in Phase 1 needed no key: they fire the same day and
+self-heal within hours.
+
 ### Phase 4 — tiering, ladder, sweep
 Tier-gated `cron-wrapper`, `conditionKey` contract, flap debounce, `--sweep` mode.
 
@@ -382,12 +404,68 @@ Tier-gated `cron-wrapper`, `conditionKey` contract, flap debounce, `--sweep` mod
 reading "continuing since X, 5 consecutive"; a tier-1 failure repeated 5 runs produces alerts on
 the ladder, never silence; a simulated all-jobs-down produces **one** rolled-up message, not N.
 
+#### Built 2026-08-17 (`fd4bb33`), deployed; 84 new `--smoke` checks
+
+- `lib/alert-policy.js` (23) — pure: no DB, no Slack, no clock, so the ladder and the debounce are
+  tested over **simulated days** rather than waited out in production.
+- `lib/alert-state.js` (14) — `(scope, script_name, condition_key)`. `scope` keeps cron-wrapper's
+  per-run rule and the sweep's incident rule on separate ladders, as §4.4 requires.
+- `lib/alert-sweep.js` (11) + `cron-wrapper` integration (11 added, 27 total).
+
+**⚠️ Spec conflict, resolved in favour of §4.2.** The acceptance line above says a repeated tier-2
+warning should produce "exactly 1 alert"; §4.2 says "tier 2 → log row only, **no Slack**". Built to
+§4.2 — it is the normative mechanism section, and tier-2 standing state is already visible in the
+digest's liveness section. It sits behind a single `TIER2_ALERTS_ENABLED = false` constant, so
+first-occurrence-only is a one-line change. **Operator decision outstanding.**
+
+**Verified:**
+- ✅ **Storm cap, live against the real registry.** A simulated total blackout resolved **11**
+  tier-1 jobs unhealthy and rendered **ONE** message. This is the §7 acceptance case.
+- ✅ Ladder over 30 simulated daily runs of a standing tier-1 failure: fires on days 0, 1, 3, then
+  daily — still reporting on day 30, never silent. `+48h` is correctly *not* a rung.
+- ✅ Flap: bad/good/bad/good/bad produces **1** alert, not 3. Two clean runs clear it, and a later
+  recurrence opens a **fresh** ladder (`alert_count` back to 1).
+- ✅ A broken or absent state store degrades to **alerting**, proven on three paths.
+- ✅ `--sweep` live dry-run: `0 unhealthy` while `cohort-spotcheck-gate` was mid-run — correctly
+  read as `in-flight`, not as missing.
+- ⏳ **The decisive live proof is still pending**: `spotcheck-reaction-poller` (tier 2) is the job
+  that produced **56 of the 59** baseline alerts. Its next run is 12:00 daily. It should write a
+  `warning` row and post **nothing**.
+
+Two `conditionKey`s declared, both named in §4.2: `market-totals-daily` → `partial-upsert` (the one
+perfectly stable signature in the codebase, on a tier-1 daily job), and `cohort-track` →
+`zero-tracked` / `null-views` (the >50% boundary it straddles every 2 days). Counts and cohort ids
+stay in the **message**, never in the key — a key that varied with the count would make every
+occurrence a brand-new incident. Every validator not yet keyed normalises to `key: null` and keeps
+exactly today's behaviour.
+
 ### Phase 5 — hardening
 `connectWithRetry` + `statement_timeout` on the watchdog; digest backstop; weekly webhook
 heartbeat; disk floor with inodes and `days_to_full`.
 
 **Accept when:** the watchdog survives a simulated transient DB failure and still posts; the
 heartbeat lands via the webhook path; the disk check reports inode headroom.
+
+#### Built 2026-08-17 (`fd4bb33`), deployed; 15 new `--smoke` checks
+
+- **Watchdog hardening.** Both connect sites now use `connectWithRetry` + a 120s
+  `statement_timeout`, matching `cron-wrapper`. It was the least-hardened process in the system.
+- **Tier-1 backstop.** Re-states every tier-1 failure/warning/kill in the last 24h regardless of
+  whether an alert was attempted. It reads `cron_job_log`, which is written *before* any Slack
+  call, so it survives exactly the failure that loses the alert. ✅ Live: correctly re-stated
+  `hemnet-targeted-match warning — high postcode-mismatch rate: 379/3718 (10.2%)`.
+- **Heartbeat.** Weekly Thu 12:00 over `postAlert` — the **webhook** path specifically, since
+  nothing else exercises it once tier 2 is quiet. ✅ Renders correctly in dry-run.
+- **Disk floor.** Bytes **and** inodes, 15% / 1 GiB. `days_to_full` is reported as context and is
+  never itself a breach — a runway alert would fire on any disk that is merely growing.
+
+**§5's warning did not materialise.** The spec expected the disk check to "fire immediately"
+against the broken spot-check image prune. Measured on the droplet 2026-08-17:
+**3.8G free (44%), inodes 86% free** — comfortably inside both floors, so it ships **quiet** and
+does not need an owner on day one. The 2026-08-14 logrotate + cache-retention work is the likely
+reason. `days_to_full` reads "not enough history" until `disk_sample` accumulates two days.
+
+⚠️ The broken image prune is still a real defect — it is simply no longer an emergency.
 
 ---
 
