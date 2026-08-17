@@ -290,6 +290,33 @@ signal to a test job); a gate run posts one parent plus N replies rather than N 
 messages, and `partitionSharedTs` still adjudicates them correctly; a tier-1 alert notifies and a
 digest does not.
 
+#### Verified live 2026-08-17 (merged `a2c6a05`, deployed to the droplet)
+
+Offline: 93 `--smoke` checks green on both dev and the droplet.
+
+- ✅ **SIGTERM produces an alert.** A real `kill -TERM` against a real `runJob` process on the
+  droplet logged `Received SIGTERM — marking cron_job_log row killed` then `Slack alert sent`,
+  and exited **1** (our handler) rather than 143 (default disposition). Before this change the
+  same signal produced no alert at all. The `cron_job_log` row settled at `killed` /
+  `killed by SIGTERM` — no orphan left at `running`.
+- ✅ **A tier-1 alert notifies.** Delivered to `#hemnet-ops` and rendered as a live `@channel`
+  mention (operator-confirmed):
+  `🚨 TIER1 @channel [KILLED] alerting-signal-test: killed by SIGTERM (job "alerting-signal-test"
+  is not in lib/job-registry.js — add it with an explicit tier)`
+  **`<!channel>` is parsed by Slack on the webhook path — `link_names` is NOT required.** This
+  closes the open question in §4.5.
+- ✅ **The unregistered-job path works** (bonus): the test job was deliberately absent from the
+  registry and alerted loudly while naming the gap, rather than defaulting to quiet.
+- ✅ **The `#hemnet-ops` webhook is proven** (§4.6 flagged it as never proven). ⚠️ **Note:** the
+  *local dev* `.env` carries a DIFFERENT `SLACK_WEBHOOK_URL` welded to a DM with the Claude Code
+  app. A local Slack test therefore proves nothing about routing — always probe from the droplet.
+- ✅ **A digest does not notify.** The 13:00 daily health report sits in the same channel
+  carrying no mention.
+- ⏳ **Gate threading is NOT yet verified live** — it needs a full gate run (Oxylabs + vision
+  spend), so it rides on the next scheduled Monday fire. Check then that the channel shows one
+  `[REVIEW] <cohort>: N pair(s) need review` parent with N threaded replies, and that no
+  `spotcheck_review` rows share a `(channel, ts)`.
+
 ### Phase 1 — make liveness answerable
 Wrap the seven unwrapped scripts in `runJob`: the five reporters, `sold-match-trend-chart`,
 `sold-match-xlsx`. They are DB-only and already have argv gates and `result.ok` branches.
