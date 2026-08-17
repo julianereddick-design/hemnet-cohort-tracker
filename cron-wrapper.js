@@ -351,7 +351,7 @@ function runReporter({ scriptName, run }) {
 
 module.exports = {
   runJob, makeFatalHandlers, buildAlertText, runReporter, buildReporterMain,
-  conditionOf, evaluateAlert,
+  conditionOf, evaluateAlert, connectWithRetry,
 };
 
 // ---------------------------------------------------------------
