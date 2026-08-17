@@ -2,20 +2,33 @@
 """adcost-report.py — Phase 28 ad-cost reporting (rerunnable).
 
 Pulls the full AdCostV2 history from the shared defaultdb and produces:
-  1. exports/adcost-all-data.xlsx  — every snapshot x muni x tier x price point
+  1. <out>/adcost-all-data.xlsx  — every snapshot x muni x tier x price point
      (muni-level detail, color-scaled) so price change is visible at a glance.
-  2. exports/adcost-heatmap.html   — 8-county x {Bas,Plus,Premium,Max} heat map of
-     % change WoW and vs end-2025, plus the weighted ARPL block.
+  2. <out>/adcost-heatmap.html   — 8-county x {Bas,Plus,Premium,Max} heat map of
+     % change vs the previous complete snapshot and vs the fixed anchor, plus the
+     weighted ARPL block.
+  3. --json                      — the machine-readable shape adcost-report.js
+     renders the monthly Slack post from. Printed to STDOUT; every human-readable
+     diagnostic goes to stderr so stdout stays parseable.
 
 Pricing basis: PAY_WHEN_LISTING_IS_REMOVED (matches the historical series).
+Amounts are as returned by Hemnet's webPricingCalculator, i.e. NET of the 25%
+Swedish moms. Percentage changes are VAT-agnostic (the ratio cancels).
 County rollup + ARPL weights use the v6 listing mix in data/arpl-baseline.json
 (county x tier x price-band listing counts). See docs/ad-cost-scrape-gap.md for the
 2026-03-16 -> 2026-06-30 no-backfill gap.
+
+  python scripts/adcost-report.py                       # artifacts into exports/
+  python scripts/adcost-report.py --json                # JSON on stdout, no files
+  python scripts/adcost-report.py --json --out-dir DIR  # both, one DB pull
 """
+import argparse
 import datetime
 import json
 import os
 import re
+import statistics
+import sys
 
 import openpyxl
 from openpyxl.formatting.rule import ColorScaleRule
@@ -30,6 +43,13 @@ CORE_TIERS = ["BASIC", "PLUS", "PREMIUM", "MAX"]
 ALL_TIERS = ["BASIC", "PLUS", "PREMIUM", "MAX",
              "PAID_REPUBLISH", "TOPLISTING", "TOPLISTING_5_DAYS"]
 PRICE_POINTS = [2000000, 5000000, 7500000, 10000000, 15000000, 20000000]
+
+# The ONE anchor every published comparison is made against (decision locked
+# 2026-08-17). It is pinned rather than derived as "the last snapshot of 2025"
+# so that the Slack post and the heat map it links to can never drift apart, and
+# so a future backfill cannot silently move the baseline under a published
+# number. 2025-12-21 is verified complete: 420/420 cells, 10 munis.
+ANCHOR_DATE = datetime.date(2025, 12, 21)
 MOMS = 1.25  # Swedish VAT. webPricingCalculator amounts are NET (ex-VAT); the v6
              # Output reports GROSS (inc-moms). net × MOMS ≈ v6 reported figures.
 
@@ -48,7 +68,16 @@ MUNI = {
 }
 COUNTIES = ["Gävleborgs", "Hallands", "Jämtlands", "Skåne",
             "Stockholms", "Uppsala", "Västra Götalands", "Östergötlands"]
-WOW_MAX_GAP_DAYS = 12  # if the prior snapshot is older than this, WoW is n/a (gap)
+
+# A complete run is every muni x every price point x every product.
+EXPECTED_CELLS = len(MUNI) * len(PRICE_POINTS) * len(ALL_TIERS)   # 10 * 6 * 7 = 420
+
+# If the previous complete snapshot is older than this, the period-on-period panel
+# renders "n/a (gap)" instead of a number. Sized for the MONTHLY cadence the scrape
+# moved to on 2026-08-17 (was 12 days, which made the panel permanently n/a): a
+# 31-day month plus slack, but short enough that comparing across the
+# 2026-03-16 -> 2026-06-30 outage still refuses to render.
+PRIOR_MAX_GAP_DAYS = 40
 
 
 def load_env():
@@ -68,12 +97,20 @@ def fetch_rows(env):
                            user=env["DB_USER"], password=env["DB_PASSWORD"],
                            dbname=env["DB_NAME"], sslmode="require", connect_timeout=15)
     cur = conn.cursor()
-    cur.execute("""select property_municipality_id, property_price, ad_type, ad_price,
-                          (crawled at time zone 'UTC')::date
+    # DEDUPED at the source. 2025-10-19 is a DOUBLE-RUN: 742 raw rows, two per cell.
+    # Verified 2026-08-17 that no duplicated cell disagrees on ad_price (0 groups
+    # with min <> max), so max() collapses them losslessly. Without this, any
+    # "rows == 420" completeness test is wrong and the cube's last-writer-wins
+    # depends on row order.
+    cur.execute("""select property_municipality_id, property_price, ad_type,
+                          max(ad_price) as ad_price,
+                          (crawled at time zone 'UTC')::date as d
                    from hemnet_adcostv2
                    where property_municipality_id = any(%s)
                      and property_price = any(%s)
-                   order by 5""", (list(MUNI), PRICE_POINTS))
+                     and ad_type = any(%s)
+                   group by 1, 2, 3, 5
+                   order by 5""", (list(MUNI), PRICE_POINTS, ALL_TIERS))
     rows = cur.fetchall()
     conn.close()
     return rows
@@ -85,6 +122,43 @@ def build_cube(rows):
     for muni_id, price, tier, ad_price, d in rows:
         data.setdefault(d, {}).setdefault(muni_id, {}).setdefault(tier, {})[price] = ad_price
     return data, sorted(data)
+
+
+# ---------------------------------------------------------------------------
+# Snapshot completeness — the guard against phantom price changes
+# ---------------------------------------------------------------------------
+def cell_count(data_date):
+    """Number of (muni, tier, price) observations present on one snapshot date."""
+    return sum(len(prices) for tiers in data_date.values() for prices in tiers.values())
+
+
+def snapshot_stats(data, d):
+    cells = cell_count(data[d])
+    return {
+        "date": d.isoformat(),
+        "cells": cells,
+        "expected_cells": EXPECTED_CELLS,
+        "munis": len(data[d]),
+        "complete": cells == EXPECTED_CELLS,
+    }
+
+
+def is_complete(data, d):
+    return cell_count(data[d]) == EXPECTED_CELLS
+
+
+def prior_complete(data, dates, before):
+    """Most recent COMPLETE snapshot strictly before `before`, or None.
+
+    Completeness is mandatory, not cosmetic. The 2026-08-02 (42 cells, Stockholm
+    only) and 2026-08-09 (35 cells) runs died after the first municipality; taking
+    either as a baseline would report ~385 cells as "changed" when they were merely
+    never scraped. Missing is not moved.
+    """
+    for d in reversed([x for x in dates if x < before]):
+        if is_complete(data, d):
+            return d
+    return None
 
 
 def county_price(data_date, county, tier, price):
@@ -130,6 +204,117 @@ def pct(latest, ref):
     if latest is None or ref is None or ref == 0:
         return None
     return latest / ref - 1.0
+
+
+# ---------------------------------------------------------------------------
+# JSON: what the monthly Slack post is rendered from (adcost-report.js)
+# ---------------------------------------------------------------------------
+def flatten(data_date):
+    """-> {(muni_id, tier, price): ad_price} for one snapshot."""
+    return {(mid, tier, price): v
+            for mid, tiers in data_date.items()
+            for tier, prices in tiers.items()
+            for price, v in prices.items()}
+
+
+def diff_cells(data, latest, anchor):
+    """Cells present in BOTH snapshots whose price differs. -> list of dicts.
+
+    Only the intersection is compared, deliberately. A cell absent from either
+    side was not observed, and an unobserved cell is not a price change — that
+    distinction is the entire defence against a partial run reporting hundreds
+    of phantom moves.
+    """
+    a, l = flatten(data[anchor]), flatten(data[latest])
+    out = []
+    for key in sorted(a.keys() & l.keys(), key=lambda k: (k[1], k[0], k[2])):
+        mid, tier, price = key
+        av, lv = float(a[key]), float(l[key])
+        if av == lv:
+            continue
+        out.append({
+            "municipality": MUNI[mid][0], "county": MUNI[mid][1], "municipality_id": mid,
+            "product": tier, "price_point": price,
+            "from": av, "to": lv, "pct": pct(lv, av) * 100.0,
+        })
+    return out, len(a.keys() & l.keys())
+
+
+def product_summary(moved, data, latest, anchor):
+    """Per-product roll-up: how many of its cells moved, and by how much.
+
+    With a FIXED anchor, "which cells moved" saturates — 420 of 420 have moved
+    since 2025-12-21 — so the per-product shape, not the per-cell list, is what
+    stays readable month after month. The per-cell list is still emitted in full
+    for the months where it is short enough to print.
+    """
+    a, l = flatten(data[anchor]), flatten(data[latest])
+    common = a.keys() & l.keys()
+    out = []
+    for tier in ALL_TIERS:
+        in_tier = [k for k in common if k[1] == tier]
+        mv = [m for m in moved if m["product"] == tier]
+        pcts = sorted(m["pct"] for m in mv)
+        out.append({
+            "product": tier,
+            "core": tier in CORE_TIERS,
+            "compared": len(in_tier),
+            "moved": len(mv),
+            "median_pct": statistics.median(pcts) if pcts else None,
+            "min_pct": pcts[0] if pcts else None,
+            "max_pct": pcts[-1] if pcts else None,
+            # Municipalities whose price for this product moved — "unchanged in
+            # all 10 municipalities" has to be a counted claim, not an assumption.
+            "munis_moved": len({m["municipality"] for m in mv}),
+            "munis_compared": len({k[0] for k in in_tier}),
+        })
+    return out
+
+
+def build_json(data, dates, latest, anchor, report_date):
+    """The full machine-readable report. Pure over the cube — no DB, no files."""
+    warnings = []
+    latest_stats = snapshot_stats(data, latest)
+    anchor_stats = snapshot_stats(data, anchor)
+
+    if not latest_stats["complete"]:
+        warnings.append(
+            f"latest snapshot {latest} is PARTIAL: {latest_stats['cells']}/{EXPECTED_CELLS} cells "
+            f"across {latest_stats['munis']} of {len(MUNI)} municipalities — only the cells it does "
+            f"carry are compared")
+    if not anchor_stats["complete"]:
+        warnings.append(
+            f"anchor {anchor} is PARTIAL ({anchor_stats['cells']}/{EXPECTED_CELLS}) — every published "
+            f"comparison rests on it, so this must be investigated before the numbers are trusted")
+
+    # Age of the data relative to the day the report runs. The scrape fires at
+    # 02:00 UTC on the 1st and the report at 07:00 UTC the same day, so anything
+    # older than a couple of days means the scrape did not land and the post is
+    # about to re-publish last month's prices as if they were this month's.
+    age_days = (report_date - latest).days
+    if age_days > 2:
+        warnings.append(
+            f"the newest snapshot is {age_days} days old ({latest}) — this month's scrape "
+            f"appears not to have landed")
+
+    moved, compared = diff_cells(data, latest, anchor)
+    prior = prior_complete(data, dates, latest)
+
+    return {
+        "report_date": report_date.isoformat(),
+        "anchor": anchor_stats,
+        "latest": {**latest_stats, "age_days": age_days},
+        "prior_complete": snapshot_stats(data, prior) if prior else None,
+        "grid": {"municipalities": len(MUNI), "price_points": len(PRICE_POINTS),
+                 "products": len(ALL_TIERS), "expected_cells": EXPECTED_CELLS},
+        "price_basis": "net",   # ex-25% moms, as webPricingCalculator returns it
+        "compared_cells": compared,
+        "moved_count": len(moved),
+        "moved_cells": moved,
+        "products": product_summary(moved, data, latest, anchor),
+        "snapshots_total": len(dates),
+        "warnings": warnings,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -230,11 +415,12 @@ def write_html(latest_date, prior_date, end2025_date, data, baseline, path, wow_
     dl = data[latest_date]
     de = data.get(end2025_date)
     dp = data.get(prior_date)
-    wow_sub = (f"latest {latest_date} vs prior snapshot {prior_date}"
+    wow_sub = (f"latest {latest_date} vs previous complete snapshot {prior_date}"
                if wow_ok else
-               f"n/a — only one post-resume snapshot ({latest_date}); prior weekly run "
-               f"was {prior_date} (across the Mar-16→Jun-30 gap). Valid once two adjacent "
-               f"post-resume weeks exist.")
+               f"n/a — no complete snapshot within {PRIOR_MAX_GAP_DAYS} days before "
+               f"{latest_date}"
+               + (f" (nearest complete run was {prior_date}, across a scrape gap)"
+                  if prior_date else " (no earlier complete run at all)"))
     parts = [
         "<!doctype html><meta charset='utf-8'><title>Hemnet ad-cost heat map</title>",
         "<style>body{font-family:-apple-system,Segoe UI,Arial,sans-serif;margin:28px;color:#111}"
@@ -247,25 +433,48 @@ def write_html(latest_date, prior_date, end2025_date, data, baseline, path, wow_
         ".arpl th{background:#fafafa} .legend{font-size:12px;color:#666;margin-top:6px}"
         "</style>",
         "<h1>Hemnet ad-cost — county heat map & ARPL</h1>",
-        f"<div class='meta'>Basis: pay-when-removed price · pulled from AdCostV2 · "
-        f"latest snapshot <b>{latest_date}</b> · end-2025 anchor <b>{end2025_date}</b>. "
+        f"<div class='meta'>Basis: pay-when-removed price, net of 25% moms · pulled from "
+        f"AdCostV2 · latest snapshot <b>{latest_date}</b> · anchor <b>{end2025_date}</b>. "
         f"Rows = the 8 priced counties; cols = ad package tier. "
         f"Cell = % change in the baseline-weighted price. "
         f"<span style='color:#c0392b'>red = cost up</span>, "
         f"<span style='color:#2c6fbf'>blue = cost down</span>.</div>",
-        heat_table("% change vs end of 2025",
+        heat_table(f"% change vs the {end2025_date} anchor",
                    f"latest {latest_date} vs {end2025_date}", dl, de, baseline),
-        heat_table("% change week-over-week", wow_sub, dl, dp if wow_ok else None, baseline),
+        heat_table("% change vs the previous complete snapshot", wow_sub,
+                   dl, dp if wow_ok else None, baseline),
         arpl_block(latest_date, dl, end2025_date, de, baseline),
         "<p class='legend'>Gap 2026-03-16 → 2026-06-30 has no data (Hemnet prices are "
-        "current-only; no backfill). WoW resumes once two adjacent post-resume weeks exist.</p>",
+        "current-only; no backfill). Partial runs are never used as a baseline — a cell that "
+        "was not scraped is not a price change.</p>",
     ]
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(parts))
 
 
-def main():
-    os.makedirs(OUT_DIR, exist_ok=True)
+def parse_args(argv=None):
+    p = argparse.ArgumentParser(description="Phase 28 ad-cost reporting")
+    p.add_argument("--json", action="store_true",
+                   help="print the machine-readable report on stdout (for adcost-report.js)")
+    p.add_argument("--out-dir", default=None,
+                   help=f"where to write the xlsx + heat map (default {OUT_DIR}; "
+                        f"pass this with --json to get both from one DB pull)")
+    p.add_argument("--report-date", default=None,
+                   help="YYYY-MM-DD the report is being run for (default: today, UTC)")
+    return p.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    # In --json mode stdout is a data channel, so diagnostics go to stderr. Without
+    # --json, --out-dir alone still writes artifacts and logs to stdout as before.
+    write_files = (not args.json) or bool(args.out_dir)
+    out_dir = args.out_dir or OUT_DIR
+    log = (lambda *a: print(*a, file=sys.stderr)) if args.json else print
+
+    report_date = (datetime.date.fromisoformat(args.report_date) if args.report_date
+                   else datetime.datetime.now(datetime.timezone.utc).date())
+
     baseline = json.load(open(BASELINE, encoding="utf-8"))
     env = load_env()
     rows = fetch_rows(env)
@@ -274,23 +483,38 @@ def main():
         raise SystemExit("no AdCostV2 rows found")
 
     latest = dates[-1]
-    prior = dates[-2] if len(dates) > 1 else None
-    wow_ok = bool(prior and (latest - prior).days <= WOW_MAX_GAP_DAYS)
-    end2025 = max((d for d in dates if d.year == 2025), default=None)
+    prior = prior_complete(data, dates, latest)
+    prior_ok = bool(prior and (latest - prior).days <= PRIOR_MAX_GAP_DAYS)
 
-    xlsx = os.path.join(OUT_DIR, "adcost-all-data.xlsx")
-    html = os.path.join(OUT_DIR, "adcost-heatmap.html")
-    write_excel(data, dates, xlsx)
-    write_html(latest, prior, end2025, data, baseline, html, wow_ok)
+    if ANCHOR_DATE not in data:
+        raise SystemExit(
+            f"anchor {ANCHOR_DATE} has no rows — every published comparison is anchored on it, "
+            f"so this is a hard stop rather than a silent fallback to another date")
+    anchor = ANCHOR_DATE
 
-    print(f"snapshots={len(dates)}  first={dates[0]}  latest={latest}")
-    print(f"prior={prior}  WoW_valid={wow_ok}  end2025_anchor={end2025}")
-    bl, pt = arpl(data[latest], baseline, CORE_TIERS)
-    print("ARPL latest per tier (inc-moms):",
-          {k: (round(v * MOMS) if v else None) for k, v in pt.items()})
-    print("ARPL latest blended (inc-moms):", round(bl * MOMS) if bl else None)
-    print(f"wrote {xlsx}")
-    print(f"wrote {html}")
+    if write_files:
+        os.makedirs(out_dir, exist_ok=True)
+        xlsx = os.path.join(out_dir, "adcost-all-data.xlsx")
+        html = os.path.join(out_dir, "adcost-heatmap.html")
+        write_excel(data, dates, xlsx)
+        write_html(latest, prior, anchor, data, baseline, html, prior_ok)
+        log(f"wrote {xlsx}")
+        log(f"wrote {html}")
+
+    log(f"snapshots={len(dates)}  first={dates[0]}  latest={latest} "
+        f"({cell_count(data[latest])}/{EXPECTED_CELLS} cells)")
+    log(f"anchor={anchor}  prior_complete={prior}  prior_panel_valid={prior_ok}")
+
+    if args.json:
+        report = build_json(data, dates, latest, anchor, report_date)
+        for w in report["warnings"]:
+            log(f"WARNING: {w}")
+        log(f"moved={report['moved_count']} of {report['compared_cells']} compared cells")
+        # ensure_ascii=True deliberately: municipality names carry å/ä/ö, and this
+        # stdout is a pipe read by Node. On Windows that pipe defaults to cp1252,
+        # which mangles them; \uXXXX escapes decode identically on every platform.
+        json.dump(report, sys.stdout, ensure_ascii=True)
+        sys.stdout.write("\n")
 
 
 if __name__ == "__main__":
