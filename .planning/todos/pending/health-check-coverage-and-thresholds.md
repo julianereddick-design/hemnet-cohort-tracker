@@ -25,7 +25,14 @@ per-frequency windows, so each new script just needs a `{ frequency, label }` en
 Note the fortnightly wrinkle: `sold-match-batch` runs weekly but no-ops on odd ISO weeks, so
 it needs either a 15-day window or awareness that a `skipped: true` result is a healthy run.
 
-**2. Stale-cohort null-view warnings are permanent noise (MEDIUM).**
+**2. Stale-cohort null-view warnings are permanent noise (MEDIUM). — ✅ FIXED 2026-08-17 (`aaf91d8`).**
+The per-cohort issue and its ⚠ marker were removed; the rows stay as context and the canary
+(newest cohort, >30%) is now the only detector, verified firing by temporarily lowering its
+threshold. Measured decay curve at the time: 7% at 14d, 25% at 21d, 33% at 28d, 41% at 42d,
+52% at 56d, 64% at 63d — any flat threshold is crossed by every cohort eventually. Original
+write-up below for the record.
+
+
 The per-cohort null-view check warns at a flat `>50%` regardless of cohort age. Old cohorts
 decay naturally — their listings get delisted and stop returning view counts — so they cross
 50% and then warn forever. Live example (2026-08-13): W25 at 53%/60% and W26 at 54% produce 3
