@@ -416,8 +416,7 @@ sites — the site-headline "market totals" universe (distinct from the our-DB p
 - **Schedule:** `35 9 * * 1` (Mon 09:35), 5 min after `weekly-view-report`.
 - **Run manually:** `node market-totals-weekly-report.js`
 
-Related helpers (manual): `scripts/show-market-totals.js` (droplet-safe DB query, no psql),
-`scripts/build-market-totals-chart.js` / `scripts/build-market-totals-dashboard.js` (chart/HTML builders).
+Related helper (manual): `scripts/show-market-totals.js` (droplet-safe DB query, no psql).
 
 ---
 

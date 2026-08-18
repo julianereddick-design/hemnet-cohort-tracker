@@ -402,7 +402,6 @@ weekly Slack reports as clickable full URLs). xlsx/csv are written to disk (`vie
 | `sold-match-xlsx.js` | `view-data/<date>/sold-match/sold-audit-<cohort>.xlsx` (per-cohort audit, clickable links) | on-disk audit artifact |
 | `scripts/export-sold-match.js` | `view-data/<label>/sold-match/sold-match-national-<label>.xlsx` + `.csv` (Records / Uncertain / Summary sheets) | read-only export by created_at date |
 | `scripts/adcost-report.py` | `exports/adcost-all-data.xlsx` + `exports/adcost-heatmap.html` (8-county × tier heat map + weighted ARPL, inc-25%-moms) | **local only — not on Slack** (see §5) |
-| `scripts/build-market-totals-dashboard.js` | `market-totals-dashboard.html` (4 supply charts) | WIP, not deployed (see §5) |
 | `scripts/build-supply-universes-xlsx.js` | `exports/hemnet-booli-supply-universes.xlsx` (7 tabs) | ad-hoc |
 
 ### Rule: export links must be clickable full URLs
@@ -427,21 +426,17 @@ uses Python **openpyxl** (color-scale conditional formatting).
 
 ## 5. Reports built but NOT yet wired to Slack
 
-Two dashboards produce files but have **no Slack delivery** because the Slack app lacks the
-`files:write` scope (the bot token currently has only `chat:write` + `reactions:read`; the
-audience-routing split in §1 did not add it — that work only needed `chat:write`). **Still
-outstanding as of 2026-08-14.** Adding files delivery requires Julian to add `files:write` and
-reinstall the app — Claude cannot touch Slack admin. Details in `MARKET-TOTALS-REPORTING-WIP.md`
-and design spec §4 (`uploadFiles`, not yet built).
+One report produces files with **no Slack delivery**, because the Slack app lacks the
+`files:write` scope (the bot token has only `chat:write` + `reactions:read` — the audience-routing
+split in §1 did not add it, as that work only needed `chat:write`). Adding file delivery requires
+Julian to grant `files:write` and reinstall the app; Claude cannot touch Slack admin. Design
+spec §4 (`uploadFiles`) is not built.
 
 1. **Ad-cost (Phase 28)** — `scripts/adcost-report.py` produces `exports/adcost-all-data.xlsx`
    and `exports/adcost-heatmap.html` from the `hemnet_adcostv2` table (shared `defaultdb`).
    Weighted ARPL uses `data/arpl-baseline.json`. Rerunnable, **local/manual only** — run
    `python scripts/adcost-report.py` (needs `psycopg` + `openpyxl` + DB whitelist). Note the
    2026-03-16→06-30 no-backfill gap that blanks WoW until two adjacent post-resume weeks exist.
-2. **Market-totals dashboard** — `scripts/build-market-totals-dashboard.js` +
-   `scripts/build-supply-universes-xlsx.js`. Written, not deployed; delivery decision open
-   (Slack file upload vs git-commit vs local).
 
 ---
 
