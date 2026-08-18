@@ -69,6 +69,27 @@ function renderBlock(title, seg) {
   ];
 }
 
+// Sum two segments cell by cell, for the combined For Sale + Pre-market total.
+//
+// A missing part propagates as null so the cell renders `?` (D-04) rather than a
+// number. This is the whole point of the helper: Booli's pre-market pool is ~4x
+// Hemnet's, so a "total" computed from For Sale alone would understate Booli by
+// tens of thousands of listings and still look like a plausible figure. A visibly
+// absent number is recoverable; a quietly wrong one is not.
+function sumSegments(a, b) {
+  const add = (x, y) => (x == null || y == null) ? null : x + y;
+  return {
+    hemnet: {
+      prior: add(a.hemnet.prior, b.hemnet.prior),
+      curr:  add(a.hemnet.curr,  b.hemnet.curr),
+    },
+    booli: {
+      prior: add(a.booli.prior, b.booli.prior),
+      curr:  add(a.booli.curr,  b.booli.curr),
+    },
+  };
+}
+
 async function run() {
   // Report "current" date. Defaults to today; REPORT_DATE=YYYY-MM-DD re-runs a past
   // week (e.g. to backfill a missed pulse or eyeball a prior week's numbers).
@@ -128,6 +149,9 @@ async function run() {
     ...renderBlock('Till salu (For Sale)', buckets.till_salu),
     '',
     ...renderBlock('Kommande (Pre-market)', buckets.kommande),
+    '',
+    ...renderBlock('Total listings (For Sale + Pre-market)',
+      sumSegments(buckets.till_salu, buckets.kommande)),
   ];
   const message = '```\n' + bodyLines.join('\n') + '\n```';
 
@@ -156,8 +180,72 @@ async function run() {
 // Entry gate. Without this, an unrecognised flag falls straight through to the
 // live path and POSTS: dotenv re-injects the token, so unsetting env vars does
 // not prevent a post. Same pattern as age-census-report.js.
-const ACCEPTED_ARGV = new Set(['--dry-run']);
-const USAGE = 'Usage: node market-totals-weekly-report.js [--dry-run]';
+const ACCEPTED_ARGV = new Set(['--dry-run', '--smoke']);
+const USAGE = 'Usage: node market-totals-weekly-report.js [--dry-run] [--smoke]';
+
+// ---------------------------------------------------------------
+//   node market-totals-weekly-report.js --smoke   (offline; no DB, no Slack)
+// ---------------------------------------------------------------
+function smoke() {
+  const assert = require('assert');
+  let pass = 0, fail = 0;
+  const check = (name, fn) => {
+    try { fn(); pass++; } catch (e) { fail++; console.log(`  FAIL ${name}: ${e.message}`); }
+  };
+  const seg = (hp, hc, bp, bc) => ({ hemnet: { prior: hp, curr: hc }, booli: { prior: bp, curr: bc } });
+
+  check('sums both platforms across both slots', () => {
+    const t = sumSegments(seg(45405, 45500, 55827, 56000), seg(7814, 7900, 31901, 32000));
+    assert.strictEqual(t.hemnet.prior, 53219);
+    assert.strictEqual(t.hemnet.curr, 53400);
+    assert.strictEqual(t.booli.prior, 87728);
+    assert.strictEqual(t.booli.curr, 88000);
+  });
+
+  // The reason this helper exists. Booli's pre-market pool is ~4x Hemnet's, so a
+  // total that silently fell back to For Sale alone would understate Booli by tens
+  // of thousands and still look like a plausible number.
+  check('a missing part makes the TOTAL null, never a partial sum', () => {
+    const t = sumSegments(seg(45405, null, 55827, null), seg(7814, null, 31901, null));
+    assert.strictEqual(t.hemnet.curr, null, 'must not fall back to the For Sale figure');
+    assert.strictEqual(t.booli.curr, null);
+    assert.strictEqual(t.hemnet.prior, 53219, 'the complete slot still totals');
+  });
+
+  check('a missing pre-market half nulls the total even when For Sale is present', () => {
+    const t = sumSegments(seg(45405, 45500, 55827, 56000), seg(null, null, null, null));
+    assert.strictEqual(t.hemnet.prior, null);
+    assert.strictEqual(t.booli.curr, null);
+  });
+
+  check('zero is a real value, not treated as missing', () => {
+    const t = sumSegments(seg(0, 0, 0, 0), seg(5, 5, 5, 5));
+    assert.strictEqual(t.hemnet.prior, 5);
+  });
+
+  check('inputs are not mutated', () => {
+    const a = seg(1, 2, 3, 4), b = seg(10, 20, 30, 40);
+    sumSegments(a, b);
+    assert.deepStrictEqual(a, seg(1, 2, 3, 4));
+    assert.deepStrictEqual(b, seg(10, 20, 30, 40));
+  });
+
+  check('renderBlock emits a title plus three rows', () => {
+    const lines = renderBlock('Total listings (For Sale + Pre-market)', seg(1, 2, 3, 4));
+    assert.strictEqual(lines.length, 4);
+    assert.strictEqual(lines[0], 'Total listings (For Sale + Pre-market)');
+    assert.match(lines[3], /Booli − Hemnet/);
+  });
+
+  check('a null cell renders as ? rather than NaN or blank', () => {
+    const lines = renderBlock('T', seg(100, null, 200, null));
+    assert.ok(lines.some(l => l.includes('?')), 'expected a ? cell');
+    assert.ok(!lines.some(l => /NaN|undefined|null/.test(l)), 'no NaN/undefined/null leaked into output');
+  });
+
+  console.log(`smoke: ${pass} pass, ${fail} fail`);
+  process.exit(fail === 0 ? 0 : 1);
+}
 
 if (require.main === module) {
   const argv = process.argv.slice(2);
@@ -166,6 +254,11 @@ if (require.main === module) {
     console.error(`Unrecognised argument(s): ${bad.join(' ')}\n${USAGE}`);
     process.exit(1);
   }
-  if (argv.includes('--dry-run')) process.env.SLACK_DRY_RUN = '1';
-  runReporter({ scriptName: 'market-totals-weekly-report', run });
+  if (argv.includes('--smoke')) { smoke(); }
+  else {
+    if (argv.includes('--dry-run')) process.env.SLACK_DRY_RUN = '1';
+    runReporter({ scriptName: 'market-totals-weekly-report', run });
+  }
 }
+
+module.exports = { sumSegments, renderBlock };
