@@ -134,7 +134,13 @@ The GraphQL contract, unchanged (validated live 2026-07-01, `27-GRAPHQL-CONTRACT
 
 - autocomplete op `webAutocompleteLocations` → `locationId`
 - price op `webPricingCalculator` → `pricingCalculator[]`
-- `ad_price = prices.PAY_NOW.total.amountInCents / 100` (SEK, **net of moms**)
+- `ad_price = prices.PAY_WHEN_LISTING_IS_REMOVED.total.amountInCents / 100` (SEK, **net of moms**)
+  — ⚠ **not `PAY_NOW`**. An earlier revision of this spec said `PAY_NOW`, inherited from the
+  Django module docstring; the code it documented never did that. The historical AdCostV2
+  series is denominated in `PAY_WHEN_LISTING_IS_REMOVED` and matches it to the krona
+  (Stockholm @5M → BASIC 7297 / PLUS 11662 / PREMIUM 16370 / MAX 22683), which is what makes
+  the series continuous across the scrape gap. Treat any future `PAY_NOW` sighting in prose
+  as a documentation bug, never as a spec for the code.
 - `composeUpgradesWithBasic: true` → PLUS/PREMIUM/MAX already composed, no BASIC-sum
 - `offerSlug` → historical `ad_type` via `SLUG_TO_AD_TYPE`
 

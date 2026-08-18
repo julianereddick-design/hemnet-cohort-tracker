@@ -1,0 +1,8 @@
+# Pinned to the versions the ad-cost crawl is known to work on. requests/urllib3
+# matter more than they look: the unlocker path is an HTTPS POST through an HTTP
+# proxy with verify=False, which is precisely the corner urllib3 has churned on.
+# Bump only after a dry run passes on the new pins.
+requests==2.32.3
+urllib3==2.4.0
+psycopg[binary]==3.2.*
+openpyxl==3.1.*

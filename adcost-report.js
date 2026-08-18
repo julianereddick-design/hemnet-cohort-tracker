@@ -319,6 +319,10 @@ function smoke() {
     try { fn(); pass++; } catch (e) { console.error(`SMOKE FAIL [${name}]: ${e.message}`); fail++; }
   };
 
+  // The runPython check below clears PYTHON_BIN to exercise the interpreter
+  // fall-through; put the operator's value back when the suite ends.
+  const savedPythonBin = process.env.PYTHON_BIN;
+
   // Fixture builder mirroring the real --json shape.
   const cell = (municipality, product, price, from, to) => ({
     municipality, county: 'Stockholms', municipality_id: 193, product,
@@ -592,6 +596,11 @@ function smoke() {
   });
 
   check('runPython falls through ENOENT to the next interpreter, but never retries a real failure', () => {
+    // PYTHON_BIN collapses the candidate list to one entry, so an operator who
+    // runs this smoke during a deploy — where lib/job-registry.js EXPORTS
+    // PYTHON_BIN for this very job — would otherwise read a spurious failure.
+    // Same guard adcost-crawl.js's smoke uses; restored below.
+    delete process.env.PYTHON_BIN;
     const tried = [];
     const ok = runPython('/out', '2026-09-01', {
       spawn: (bin) => {
@@ -625,6 +634,9 @@ function smoke() {
     assert.strictEqual(validateArgv(['--dry-run=1']), false);
     assert.strictEqual(validateArgv(['--smoke', '--foo']), false);
   });
+
+  if (savedPythonBin === undefined) delete process.env.PYTHON_BIN;
+  else process.env.PYTHON_BIN = savedPythonBin;
 
   console.log(`smoke: ${pass} pass, ${fail} fail`);
   process.exit(fail === 0 ? 0 : 1);

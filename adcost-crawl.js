@@ -48,7 +48,19 @@ function runPython(extraArgs, deps = {}) {
     // ALWAYS surface stderr, not only on non-zero exit: every degraded run so far
     // exited 0, and its "price fetch failed" lines were captured and thrown away.
     if (res.stderr) log.info(`adcost-crawl stderr: ${res.stderr.slice(-8000)}`);
-    if (res.status !== 0) throw new Error(`${bin} ${PY_SCRIPT} exited ${res.status}`);
+    if (res.status !== 0) {
+      // The thrown message is what reaches SLACK; the log line above only reaches
+      // the droplet. "exited 1" on its own forces an ssh to answer the one
+      // question that decides what to do next: a WARMUP_FAILED run wrote nothing
+      // and is cheap to re-run now, while a short grid ALREADY WROTE its rows and
+      // must NOT be re-crawled. The crawler's last stderr lines carry exactly
+      // that — rows=n/420, VERDICT:, the budget warning — so carry them over.
+      // (The Python scrubs the proxy credential out of its own exception text
+      // before printing, so this tail cannot leak it.)
+      const tail = String(res.stderr || '').trim().slice(-300);
+      throw new Error(`${bin} ${PY_SCRIPT} exited ${res.status}`
+        + (tail ? ` — stderr tail: ${tail}` : ''));
+    }
     return res.stdout;
   }
   throw new Error(`no usable python interpreter (tried ${bins.join(', ')})`);
@@ -81,6 +93,12 @@ function smoke() {
     try { fn(); pass++; }
     catch (e) { fail++; console.log(`SMOKE FAIL [${name}]: ${e.message}`); }
   };
+
+  // The checks below set and clear PYTHON_BIN to drive the interpreter
+  // fall-through. The registry EXPORTS PYTHON_BIN for this job, so an operator
+  // running the smoke during a deploy arrives with it already set — capture it
+  // and put it back, rather than leaking this suite's value into the process.
+  const savedPythonBin = process.env.PYTHON_BIN;
 
   check('a missing interpreter falls through, a failing one does NOT', () => {
     const calls = [];
@@ -129,6 +147,42 @@ function smoke() {
       log.info = originalInfo;
     }
   });
+
+  // The alert an operator actually reads is the THROWN message, not the droplet
+  // log. "exited 1" alone cannot distinguish a warm-up failure (nothing written,
+  // re-run now) from a short grid (rows already written, do NOT re-crawl), so
+  // the tail of stderr must ride along with it.
+  check('CRITICAL: the thrown message carries the stderr tail, not just the exit code', () => {
+    const stderr = [
+      'transport=unlocker',
+      'warm-up HTTP 403 in 4s len=812 challenged=True cleared=False',
+      'VERDICT: WARMUP_FAILED',
+    ].join('\n');
+    process.env.PYTHON_BIN = 'python';
+    let thrown = null;
+    const originalInfo = log.info;
+    log.info = () => {};          // the stderr echo is the previous check's subject
+    try { runPython([], { spawnSync: () => ({ status: 4, stdout: '', stderr }) }); }
+    catch (e) { thrown = e; }
+    finally { log.info = originalInfo; }
+    assert.ok(thrown, 'a non-zero exit must throw');
+    assert.match(thrown.message, /exited 4/);
+    assert.match(thrown.message, /VERDICT: WARMUP_FAILED/,
+      `the diagnosis must reach Slack, not only the droplet log: ${thrown.message}`);
+    assert.ok(thrown.message.length < 500, 'the tail is bounded, not the whole stderr');
+  });
+
+  check('a non-zero exit with empty stderr still throws a clean message', () => {
+    process.env.PYTHON_BIN = 'python';
+    assert.throws(
+      () => runPython([], { spawnSync: () => ({ status: 1, stdout: '', stderr: '' }) }),
+      /exited 1$/);
+  });
+
+  // FIX 7: leave the environment as we found it. adcost-report.js --smoke has
+  // the same requirement and now guards it the same way.
+  if (savedPythonBin === undefined) delete process.env.PYTHON_BIN;
+  else process.env.PYTHON_BIN = savedPythonBin;
 
   console.log(`smoke: ${pass} pass, ${fail} fail`);
   return fail === 0 ? 0 : 1;

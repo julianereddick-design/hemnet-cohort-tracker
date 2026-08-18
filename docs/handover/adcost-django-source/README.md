@@ -19,4 +19,19 @@ The remote is a third party's repository, so the branch could not be pushed upst
 
 Reference only. Nothing in this repo imports or executes these files.
 
-DO snapshot of the droplet: `PENDING — see report` — hold to ~2026-11-18 (spec decision D7).
+## 🔴 DO snapshot: NOT TAKEN
+
+**No snapshot of the price-scraper droplet exists.** It was attempted on 2026-08-18 and the
+DigitalOcean API refused it — `403 not authorized` — because the available API token is
+**read-only**. Nothing was retried and no snapshot id was ever issued, so there is no
+`PENDING` id to look up later.
+
+- Droplet id: **`357087018`** (`170.64.181.89`, the price-scraper / Django box).
+- Required before that droplet is destroyed: take the snapshot with a **write-scoped**
+  DigitalOcean token, then record the id here in place of this section.
+- Hold the snapshot to ~2026-11-18 (spec decision D7), then delete it.
+
+Until that happens, the two files in this directory are the **only** copy of the crawler
+source that ever existed outside that host — they were uncommitted, on a branch with no
+remote. Destroying the droplet without the snapshot is irreversible for everything else on
+it (the venv, the crontab, the Celery config, `.env`).

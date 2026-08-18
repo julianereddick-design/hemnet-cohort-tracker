@@ -22,3 +22,7 @@ verf-soldspike*/**/photos/
 # Phase 28: large source workbook (Julian ARPL model) — do not commit
 data/*.xlsx
 .superpowers/
+
+# The ad-cost crawler's Python venv on the droplet. Its CONTENTS are ignored;
+# the pins that rebuild it are tracked, at scripts/requirements-adcost.txt.
+.venv-adcost/

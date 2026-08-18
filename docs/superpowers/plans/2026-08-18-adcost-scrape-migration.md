@@ -13,11 +13,23 @@
 ## Global Constraints
 
 - `ADCOST_OFFERS_PER_CELL = 7`; `EXPECTED_CELLS = 10 munis × 6 price points × 7 products = 420`.
-- `ADCOST_MIN_COMPLETENESS = 0.95` — the job must exit non-zero below this, **after** writing rows.
+- `ADCOST_MIN_COMPLETENESS = 0.95` — retained, but **as a severity label, not the pass/fail line**.
+  Ruling R12 (final review) made the gate stricter than this plan originally specified: the job
+  exits non-zero on **any** month short of all 420 cells, **after** writing rows. Reason: both
+  downstream consumers already require exactly 420 (`adCostMonth`'s `cells === 420`,
+  `adcost-report.py`'s `cells == EXPECTED_CELLS`), so a 413-row month that passed a 0.95 gate
+  exited 0 with a green Slack post while the monitor went red and the report called it PARTIAL.
+  Below 0.95 the error says `incomplete`; at/above 0.95 but short it says `short grid` and names
+  the missing cell count. See `completeness_failure()` in `scripts/adcost-crawl.py`.
 - Subprocess timeout `2700` seconds, passed to the child as `ADCOST_SUBPROCESS_TIMEOUT` from a **single constant**, because the crawler derives its own `TIME_BUDGET` from it and the two must never drift.
 - Transport is `unlocker` only. Proxy `brd.superproxy.io:44445`, `verify=False` (Bright Data terminates TLS).
 - Credential `BRIGHTDATA_UNLOCKER_PROXY` — read from env, else repo-root `.env`. **Never logged, never echoed into a transcript or commit.**
-- `ad_price = prices.PAY_NOW.total.amountInCents / 100` — SEK, **net of 25% moms**.
+- `ad_price = prices.PAY_WHEN_LISTING_IS_REMOVED.total.amountInCents / 100` — SEK, **net of 25% moms**.
+  ⚠ **Not `PAY_NOW`.** Earlier revisions of this plan (and the Django docstring it was copied from)
+  said `PAY_NOW`; that was a stale-docstring error — the working code never read `PAY_NOW`.
+  The payment method is load-bearing for continuity across the scrape gap: the historical
+  AdCostV2 series matches `PAY_WHEN_LISTING_IS_REMOVED` exactly (Stockholm @5M → BASIC 7297 /
+  PLUS 11662 / PREMIUM 16370 / MAX 22683). **Do not "fix" the code toward `PAY_NOW`.**
 - `composeUpgradesWithBasic: true` — PLUS/PREMIUM/MAX arrive already composed; never sum BASIC into them.
 - Writes are idempotent on `(property_municipality_id, property_price, ad_type)` **scoped to the crawl day**. `hemnet_adcostv2` has **no uniqueness constraint** — idempotency exists only in code.
 - `valid_until` is always `NULL`. `crawled` is set to `now()`.
@@ -885,7 +897,8 @@ function smoke() {
 - [ ] **Step 3: Run the smoke suite**
 
 Run: `node adcost-crawl.js --smoke`
-Expected: `smoke: 3 pass, 0 fail`
+Expected: `smoke: 6 pass, 0 fail` (3 as first drafted, + the exit-0 stderr-logging check,
++ the two stderr-tail-in-the-thrown-message checks added by the final review)
 
 - [ ] **Step 4: Update the registry entry**
 
@@ -1010,7 +1023,9 @@ git push origin master
 ssh cohort-droplet "cd /opt/hemnet-cohort-tracker && git pull --ff-only && node adcost-crawl.js --smoke | tail -1"
 ```
 
-Expected: `smoke: 3 pass, 0 fail`
+Expected: `smoke: 6 pass, 0 fail` — a pass, not a failure. (It was 3 when this plan was
+first written; the suite grew to 6 during implementation and final review. Read the
+`0 fail`, not the total.)
 
 - [ ] **Step 2: Pin the Python dependencies BEFORE installing them**
 

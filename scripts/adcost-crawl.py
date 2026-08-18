@@ -51,9 +51,10 @@ ground through every remaining cell collecting nothing and exited 0 — Aug 2 wr
     lost. An honest comment beats an untested tightening.
   - closes the exit-0 hole downstream of the warm-up instead, which is what
     actually holds: a run that collects zero cells exits 4 (NO_CELLS_COLLECTED)
-    rather than 0, and main()'s gate fails the job below
-    ADCOST_MIN_COMPLETENESS. The browser path's autocomplete probe (probe_usable)
-    was never on this path and went out with Playwright.
+    rather than 0, and main()'s gate fails the job on ANY month that did not
+    land all 420 cells (see completeness_failure — ruling R12). The browser
+    path's autocomplete probe (probe_usable) was never on this path and went out
+    with Playwright.
   - reports completeness on stderr, so nobody has to tell 35 rows from 420 by eye.
 
 Usage:
@@ -78,7 +79,11 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Below this share of the expected rows the month is degraded, not merely short.
 # Lifted verbatim from tasks.py::ADCOST_MIN_COMPLETENESS (the Django caller that
-# used to own the gate); the gate itself is at the bottom of main().
+# used to own the gate).
+#
+# ⚠ This is a SEVERITY threshold, NOT the pass/fail line. Since ruling R12 the
+# gate fails ANY month short of `expected` — see completeness_failure(), which
+# is where the gate now lives; main() only calls it.
 ADCOST_MIN_COMPLETENESS = 0.95
 
 OFFER_SLUGS = ["BAS", "PLUS", "PREMIUM", "MAX",
@@ -283,6 +288,61 @@ def read_credential():
     return read_env_value(UNLOCKER_PROXY_VAR)
 
 
+# Any "scheme://userinfo@" — the shape requests' ProxyError stringifies the proxy
+# URL in. Deliberately generic: it catches a credential-bearing URL for a host we
+# have never heard of, which is the case the exact-substring pass cannot cover.
+_USERINFO_RE = re.compile(r"(?i)\b([a-z][a-z0-9+.\-]*://)[^\s/@]*@")
+
+# read_credential() touches the filesystem; the scrubber runs on every printed
+# exception, including inside the per-cell retry loop. Resolve once.
+_CRED_CACHE = {}
+
+
+def _credential_secrets():
+    """Literal strings that must never reach a log line. Longest first."""
+    if "parts" not in _CRED_CACHE:
+        parts = set()
+        proxy = read_credential()
+        if proxy:
+            parts.add(proxy)
+            m = re.match(r"^[a-zA-Z][\w+.\-]*://([^@/]+)@", proxy)
+            if m:
+                userinfo = m.group(1)
+                parts.add(userinfo)
+                # The password half on its own: a wrapper that quotes or splits
+                # the URL can emit it without the surrounding userinfo. Short
+                # fragments are skipped — redacting "hl" out of every log line
+                # would destroy more than it protects.
+                parts.update(p for p in userinfo.split(":") if len(p) >= 6)
+        _CRED_CACHE["parts"] = sorted(parts, key=len, reverse=True)
+    return _CRED_CACHE["parts"]
+
+
+def scrub_credential(text):
+    """Redact the proxy credential out of anything about to be printed.
+
+    A requests ProxyError stringifies the FULL proxy URL — user:pass@host — so
+    `print(str(e))` is a live path from the gitignored .env, into cron_job_log,
+    and from there into Slack. The spec's "never logged" invariant was convention
+    until this function existed; this makes it enforcement.
+
+    Two passes, in this order:
+      1. exact substrings of the configured credential (whole URL first, so a
+         leak of the complete proxy URL — host included — vanishes entirely),
+      2. a regex backstop over any remaining `scheme://userinfo@`, which covers
+         a credential this process was never configured with.
+
+    The bare host is deliberately LEFT VISIBLE when it appears without a
+    credential: brd.superproxy.io:44445 is already documented in this repo and
+    in the plan, and "cannot connect to ***" is an unusable diagnostic.
+    """
+    s = str(text)
+    for secret in _credential_secrets():
+        if secret:
+            s = s.replace(secret, "***")
+    return _USERINFO_RE.sub(r"\1***@", s)
+
+
 def load_env():
     """DB_* settings, the same reader scripts/adcost-report.py::load_env uses.
 
@@ -417,8 +477,10 @@ async def run_grid(grid, fetch, reclear, sleep=None, clock=None):
             await sleep(random.uniform(*JITTER))
             continue
 
+        # scrub_credential, NOT {err}: the same ProxyError-stringifies-the-proxy-URL
+        # leak as the warm-up, and this one fires once per failed cell.
         print(f"cell {i} failed {cell['full_name']}@{cell['price']} "
-              f"after {CELL_ATTEMPTS} attempts: {err}", file=sys.stderr)
+              f"after {CELL_ATTEMPTS} attempts: {scrub_credential(err)}", file=sys.stderr)
         consecutive += 1
         if streak_start is None:
             streak_start = i
@@ -485,8 +547,10 @@ def warmup_unlocker(session):
         r = session.get(UNLOCKER_WARMUP_URL, headers={"accept": "text/html"},
                         timeout=UNLOCKER_WARMUP_TIMEOUT, verify=UNLOCKER_VERIFY)
     except Exception as e:
-        print(f"warm-up {type(e).__name__} after {time.time()-t0:.0f}s: {str(e)[:150]}",
-              file=sys.stderr)
+        # scrub_credential, NOT str(e): a proxy failure stringifies the whole
+        # proxy URL, credential included, and this line is logged.
+        print(f"warm-up {type(e).__name__} after {time.time()-t0:.0f}s: "
+              f"{scrub_credential(e)[:150]}", file=sys.stderr)
         return False
     challenged = bool(BLOCK_RE.search(r.text[:2000]))
     # Requiring CLEAR_RE, not merely "a 200 that isn't a challenge": a Bright
@@ -730,6 +794,49 @@ def dry_run_diff(cur, rows, expected):
     }
 
 
+def completeness_failure(written, expected, stats=None):
+    """The completeness gate as a PURE function. None when the month is complete.
+
+    RULING R12 (2026-08-18 whole-branch review). The pass/fail line is
+    `written < expected` — NOT `expected * ADCOST_MIN_COMPLETENESS`.
+
+    Why stricter than the spec's stated 0.95: every downstream consumer already
+    demands all 420 cells. lib/job-assertions.js::adCostMonth requires
+    `cells === 420`; scripts/adcost-report.py requires `cells == EXPECTED_CELLS`.
+    So a 413-row month is unusable for reporting no matter what the crawler
+    thought of it — and under the old 0.95 gate it exited 0 with a green Slack
+    post while adCostMonth went red for 40 days and the report classified the
+    month PARTIAL and anchored on the previous one. Three thresholds, one series;
+    resolved upward. A month that is not complete must not exit 0.
+
+    ADCOST_MIN_COMPLETENESS is RETAINED, but it now distinguishes SEVERITY rather
+    than pass/fail:
+      - below it            -> "incomplete" (the 6/420 and 35/420 shape; the
+                               catastrophic wording is unchanged),
+      - at/above it, short  -> "short grid", naming exactly how many cells are
+                               missing so an operator can tell a dead transport
+                               from a single exhausted cell WITHOUT sshing in.
+
+    `written` is what LANDED in hemnet_adcostv2, not what the crawl collected.
+    The old gate counted crawled rows, so 420 rows whose full_name is
+    unrecognised — every one of them dropped by plan_writes — committed nothing
+    and still reported a complete month.
+    """
+    if written >= expected:
+        return None
+    stats = stats or {}
+    pct = (100.0 * written / expected) if expected else 0.0
+    tail = ("%s/%s cells, %s rebuild(s), aborted=%s — rows written, "
+            "month is degraded"
+            % (stats.get("cells_ok"), stats.get("cells_total"),
+               stats.get("reclears"), stats.get("aborted")))
+    if written < expected * ADCOST_MIN_COMPLETENESS:
+        return ("adcost crawl incomplete: %s/%s rows (%.1f%%) from %s"
+                % (written, expected, pct, tail))
+    return ("adcost crawl short grid: %s/%s rows (%.1f%%), %s cell(s) missing, "
+            "from %s" % (written, expected, pct, expected - written, tail))
+
+
 def main():
     import argparse
     ap = argparse.ArgumentParser()
@@ -781,18 +888,26 @@ def main():
     conn.commit()
     print(f"adcost-crawl wrote [created={created} updated={updated}]", file=sys.stderr)
 
-    # Completeness gate LAST. Rows are written first so a degraded month keeps its
-    # partial data, but the job must still fail: downstream reporting cannot
-    # otherwise tell a 35-row month from a 420-row month.
+    # What actually LANDED, re-read from the table after the commit. created +
+    # updated is NOT this number: a re-run of a good month writes neither (every
+    # cell is already there at the same price) and would read as 0/420. Counting
+    # the day's distinct cells is the only measure that is true for a first run,
+    # a repair run and a re-run alike — and it is the measure adCostMonth and
+    # adcost-report.py apply the next morning, so the gate now agrees with them.
+    written = len(writer.load_existing(cur, day))
+    conn.rollback()      # that count is a read; do not leave a txn open
+    print(f"adcost-crawl persisted {written}/{expected} cells for {day}",
+          file=sys.stderr)
+
+    # Completeness gate LAST. Rows are written and COMMITTED above so a degraded
+    # month keeps its partial data, but the job must still fail: downstream
+    # reporting cannot otherwise tell a 35-row month from a 420-row month.
+    # ⚠ Do not move the write below this raise.
     if not rows:
         raise RuntimeError("adcost crawl returned no rows (expected %s)" % expected)
-    if len(rows) < expected * ADCOST_MIN_COMPLETENESS:
-        raise RuntimeError(
-            "adcost crawl incomplete: %s/%s rows (%.1f%%) from %s/%s cells, "
-            "%s rebuild(s), aborted=%s — rows written, month is degraded"
-            % (len(rows), expected, 100.0 * len(rows) / expected,
-               stats.get("cells_ok"), stats.get("cells_total"),
-               stats.get("reclears"), stats.get("aborted")))
+    problem = completeness_failure(written, expected, stats)
+    if problem:
+        raise RuntimeError(problem)
     return 0
 
 
@@ -1263,12 +1378,77 @@ def selftest():
           and _writer.plan_writes({}, _stray) == ([], []))
 
     # 14. The completeness gate. Rows are written BEFORE it raises, so the only
-    #     thing under test is the threshold — but getting it wrong either passes a
+    #     thing under test is the verdict — but getting it wrong either passes a
     #     35-row month or fails a whole one.
-    check("the completeness threshold is the Django one", ADCOST_MIN_COMPLETENESS == 0.95)
-    check("a full month passes the gate", 420 >= 420 * ADCOST_MIN_COMPLETENESS)
-    check("the 6/420 Aug-2 month fails the gate", 6 < 420 * ADCOST_MIN_COMPLETENESS)
-    check("a 5%-short month fails the gate", 398 < 420 * ADCOST_MIN_COMPLETENESS)
+    check("ADCOST_MIN_COMPLETENESS is still the Django constant",
+          ADCOST_MIN_COMPLETENESS == 0.95)
+    check("a full month passes the gate", completeness_failure(420, 420, {}) is None)
+    check("the 6/420 Aug-2 month fails the gate as 'incomplete'",
+          "adcost crawl incomplete" in (completeness_failure(6, 420, {}) or ""),
+          repr(completeness_failure(6, 420, {})))
+    check("a 5%-short month fails the gate",
+          completeness_failure(398, 420, {}) is not None)
+
+    # R12 DISCRIMINATOR — the check that separates the old rule from the new.
+    # 413/420 is ABOVE ADCOST_MIN_COMPLETENESS, so `len(rows) < expected * 0.95`
+    # PASSED it: exit 0, green Slack post. Meanwhile adCostMonth (cells === 420)
+    # went red for 40 days and adcost-report.py called the month PARTIAL. The two
+    # checks below are a matched pair: the first asserts the old rule would have
+    # passed, the second that the new gate fails it anyway.
+    _short = completeness_failure(413, 420, {"cells_ok": 59, "cells_total": 60,
+                                             "reclears": 0, "aborted": False})
+    check("OLD RULE PASSED THIS: 413/420 is above the 0.95 line",
+          413 >= 420 * ADCOST_MIN_COMPLETENESS)
+    check("NEW RULE FAILS IT: a 413/420 month does not exit 0",
+          _short is not None, repr(_short))
+    check("a short grid is worded distinctly and names the missing cells",
+          "short grid" in (_short or "") and "7 cell(s) missing" in (_short or ""),
+          repr(_short))
+    check("a short grid still carries the crawl stats an operator needs",
+          "59/60 cells" in (_short or "") and "aborted=False" in (_short or ""),
+          repr(_short))
+    check("one missing cell is enough to fail the month",
+          completeness_failure(419, 420, {}) is not None)
+
+    # The gate asserts on rows that LANDED, not rows crawled. 420 crawled rows
+    # whose full_name is unrecognised are all dropped by plan_writes, so nothing
+    # is committed — which the old row-count gate scored as a complete month.
+    check("420 crawled rows that wrote NOTHING fail the gate",
+          completeness_failure(0, 420, {}) is not None)
+    check("more rows than expected is not a failure",
+          completeness_failure(421, 420, {}) is None)
+
+    # 14b. Credential redaction. The spec's "never logged" invariant, enforced.
+    _leak = RuntimeError(
+        "HTTPSConnectionPool(host='www.hemnet.se', port=443): Max retries exceeded "
+        "(Caused by ProxyError('Cannot connect to proxy.', NewConnectionError("
+        "'http://brd-customer-hl_abc123-zone-unlocker:s3cr3tpw@brd.superproxy.io:44445'"
+        ")))")
+    _scrubbed = scrub_credential(_leak)
+    check("a credential-bearing proxy URL is redacted before printing",
+          "s3cr3tpw" not in _scrubbed and "brd-customer-hl_abc123" not in _scrubbed,
+          _scrubbed)
+    check("redaction leaves the exception diagnosable",
+          "Cannot connect to proxy" in _scrubbed and "***" in _scrubbed, _scrubbed)
+    _saved_parts = _CRED_CACHE.get("parts")
+    try:
+        _CRED_CACHE["parts"] = sorted(
+            {"http://u:p3ssw0rdvalue@h:1", "u:p3ssw0rdvalue", "p3ssw0rdvalue"},
+            key=len, reverse=True)
+        check("the configured credential is redacted even when not URL-shaped",
+              "p3ssw0rdvalue" not in scrub_credential(
+                  "proxy rejected token p3ssw0rdvalue"))
+        check("a whole configured proxy URL is redacted, host included",
+              scrub_credential("via http://u:p3ssw0rdvalue@h:1 failed")
+              == "via *** failed",
+              scrub_credential("via http://u:p3ssw0rdvalue@h:1 failed"))
+    finally:
+        if _saved_parts is None:
+            _CRED_CACHE.pop("parts", None)
+        else:
+            _CRED_CACHE["parts"] = _saved_parts
+    check("scrubbing an exception with no credential changes nothing",
+          scrub_credential(RuntimeError("read timed out")) == "read timed out")
 
     # 15. read_env_value's repo-root fallback. The Django copy looked two levels
     #     up, which from scripts/ lands OUTSIDE the repo — masked whenever the env
