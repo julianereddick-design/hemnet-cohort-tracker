@@ -281,7 +281,7 @@ assertion. Backups live at `/root/crontab-backup-*.txt`.
 
 ---
 
-## 7. The four incidents this design is built from
+## 7. The five incidents this design is built from
 
 Each of these is a real, paid-for lesson. They explain why the checks are shaped the way they
 are, and they are the best argument against simplifying any of them away.
