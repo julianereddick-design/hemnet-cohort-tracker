@@ -187,7 +187,7 @@ the series silently, and the reporting side only tolerates it because it dedupes
 - pass `ADCOST_SUBPROCESS_TIMEOUT` and the subprocess timeout from one constant so they
   cannot drift
 
-Registry entry: `tier: 1`, `frequency: 'monthly'`, `cron: '0 2 1 * *'`,
+Registry entry: `tier: 1`, `frequency: 'monthly'`, `cron: '30 0 1 * *'` (see the schedule note below),
 `env: { PYTHON_BIN: ... }`, `log: /var/log/hemnet/adcost-crawl.log`,
 `expectedDurationMin: 45` — matching the 2700s subprocess ceiling, not the ~21 min expected
 runtime, so a slow-but-succeeding month is not alerted as an overrun. The existing
