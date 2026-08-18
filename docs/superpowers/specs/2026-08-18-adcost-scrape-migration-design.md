@@ -1,0 +1,284 @@
+# Ad-cost scrape migration: 170.64.181.89 → cohort-tracker
+
+**Date:** 2026-08-18
+**Status:** design approved, spec under review
+**Goal:** move the Hemnet ad-cost scrape onto the cohort-tracker droplet so the
+standalone price-scraper droplet can be destroyed, saving ~$12/month (~$144/year).
+
+---
+
+## 1. Why this is worth doing
+
+`170.64.181.89` is a 1 vCPU / 2GB / 50GB droplet (`s-1vcpu-2gb`, ~$12/mo) running a
+five-container Django + Celery + Redis stack. Exactly **one** scheduled task on it is
+enabled:
+
+```
+Scrape hemnet.se ad cost   True    0 2 1 * *   apps.hemnet.tasks.search_ad_cost_2
+celery.backend_cleanup     True    0 4 * * *   (housekeeping, not a scrape)
+```
+
+Every other beat task — `Scrape hemnet.se` (listings), `Scrape booli`, `Scrape block inc`,
+`Scrape procore`, `Scrape spotify` — is `enabled=False` and has been since the Phase 22
+audit. The box has no crontab entries. It exists to run one HTTP POST loop, once a month,
+for about 21 minutes.
+
+The cohort-tracker droplet (`170.64.197.241`) already runs the *reporting* half of this
+exact pipeline (`adcost-report.js` + `scripts/adcost-report.py`), already has a Python venv
+with `psycopg`, and was resized on 2026-08-18 to the same 1 vCPU / 2GB / 50GB spec. Both
+halves on one box means one box instead of two.
+
+---
+
+## 2. The decisive finding: the working transport is not a browser
+
+`ADCOST_TRANSPORT` defaults to `unlocker`, which is a plain `POST` to
+`https://www.hemnet.se/graphql` through Bright Data's Web Unlocker proxy (port 44445,
+`verify=False` because the unlocker terminates TLS), issued with Python `requests`.
+
+**No Playwright. No CDP. No browser session. No Cloudflare-clearing.**
+
+The other two transports in the file are dead:
+
+| transport | status |
+|---|---|
+| `unlocker` | **DEFAULT, working.** Validated live 2026-08-17, 420/420 cells. Billed per *successful* request, so failed retries are free (~$0.10/run). |
+| `brightdata` | Falsified 2026-08-17 — Browser API returns `resolve_fail_cf_max_tries` on both US and SE; the page never clears. |
+| `steel` | Last resort. Clear rate decayed to ~12% by 2026-08-14, and Cloudflare refused `POST /graphql` even on pages it did clear. |
+
+This is what makes the migration small. The portable part is a `requests` loop; the ~1,000
+lines of browser machinery around it are dead weight for the path we actually run.
+
+## 3. The destination can already reach everything it needs
+
+Verified 2026-08-18 by querying from the cohort-tracker DB user:
+
+| table | rows | readable from cohort-tracker |
+|---|---|---|
+| `hemnet_adcostpricepointv2` | 60 (10 munis × 6 bands) | yes |
+| `hemnet_municipalityv2` | 362 | yes |
+| `hemnet_adcostv2` | the write target | yes (already read by the report) |
+
+All three live in the **shared managed Postgres `defaultdb`**, not on the droplet. Django is
+needed only for the code that orchestrates the crawl, never for data access. Destroying the
+droplet does not touch any of this data.
+
+---
+
+## 4. Decisions locked
+
+| # | decision | rationale |
+|---|---|---|
+| D1 | **Lift-and-shift the Python crawler**, don't rewrite in Node | The retry / latch-detection logic is hard-won. On 2026-08-02 the pre-fix crawler wrote 6 of 420 rows and exited 0 — a silent failure that cost five weeks of data and was diagnosable only from timing. Re-deriving that logic in a second language is where a month of data goes missing. Keep the risky part byte-identical; rewrite only the boring parts. |
+| D2 | **Port only the `unlocker` transport**; delete `steel` and `brightdata` | Both falsified. Keeping them means carrying Playwright onto a box that has neither the dependency nor a use for it. ⚠ This retires the documented "rollback = `ADCOST_TRANSPORT=steel`" — see D3. |
+| D3 | **Snapshot `.181.89` before destroying it** | With the Steel transport gone, the snapshot *is* the rollback. Also preserves the Django admin, the beat rows, and the disabled listing scrapers on paper. ~$1–2/mo for 50GB; delete when confident. |
+| D4 | **Grid lives in repo constants**, asserted against `hemnet_adcostpricepointv2` | Once Django is gone, editing that table means hand-written SQL against production: no review, no history. Code is reviewed and versioned. The assertion catches drift in either direction. Also collapses today's *two* silently-forkable definitions (the DB table, and `MUNI`/`PRICE_POINTS` hardcoded in `adcost-report.py`) into one. |
+| D5 | **Validate with a `--dry-run` crawl**, not a live one | A validating write would create a real 2026-08-18 snapshot, which becomes "latest" and shifts the report's period-on-period column. Dry-run crawls fully, skips the write, diffs in memory. |
+| D6 | **Cut over before 1 Sept; destroy after it succeeds** | The series is monthly and unbackfillable. Keeping the old box through one real unattended run costs ~$6 and buys a working fallback. |
+
+---
+
+## 5. Architecture
+
+### As-is
+
+```
+celery beat row "Scrape hemnet.se ad cost"  (0 2 1 * * UTC, django_celery_beat)
+  └─> search_ad_cost_2                      (apps/hemnet/tasks.py:1746, eventlet worker)
+        ├─ grid    <- AdCostPricePointV2 via Django ORM  (60 rows)
+        ├─ crawl   -> subprocess: python adcost_steel.py (1,315 lines, plain interpreter)
+        │             stdin  = grid JSON
+        │             stdout = {"rows": [...], "stats": {...}}
+        │             timeout=2700, env ADCOST_SUBPROCESS_TIMEOUT=2700
+        └─ write   -> AdCostV2.objects.create/save  (Django ORM, idempotent by day)
+              └─ completeness gate: raise if rows < expected * 0.95
+```
+
+The subprocess exists because Playwright is incompatible with the celery worker's eventlet
+monkey-patching. **Under the `unlocker` transport that reason no longer applies** — there is
+no Playwright in the path — but the subprocess boundary is still a good seam and the port
+keeps it.
+
+### To-be
+
+```
+lib/job-registry.js  'ad-cost-crawler'  (0 2 1 * * UTC)  -> generated crontab
+  └─> adcost-crawl.js                   (Node, cron-wrapper.runJob, tier 1)
+        └─ subprocess: .venv-adcost/bin/python scripts/adcost-crawl.py
+              ├─ grid    <- repo constants (asserted against hemnet_adcostpricepointv2)
+              ├─ crawl   -> requests POST via Bright Data unlocker proxy
+              ├─ write   -> psycopg, raw SQL, idempotent by day
+              └─ completeness gate: exit non-zero if rows < expected * 0.95
+```
+
+Mirrors `adcost-report.js` exactly: a thin Node job registered in the registry, shelling out
+to Python under `PYTHON_BIN`. Same idiom, same alerting, same liveness, same log conventions.
+
+---
+
+## 6. Port plan, component by component
+
+### 6.1 Copy essentially unchanged
+
+From `apps/hemnet/adcost_steel.py`, keeping behaviour identical:
+
+- `parse_pricing` — the GraphQL response shape
+- `make_unlocker_gql`, `warmup_unlocker`, `warmup_unlocker_retrying`
+- `default_session_factory`, the rebuild/resume loop, `derive_time_budget`,
+  `grid_seconds_needed`
+- `read_env_value` / `read_credential` (env, else repo-root `.env`; never logged)
+- the whole `selftest()` suite — becomes the job's offline smoke check
+
+The GraphQL contract, unchanged (validated live 2026-07-01, `27-GRAPHQL-CONTRACT.md`):
+
+- autocomplete op `webAutocompleteLocations` → `locationId`
+- price op `webPricingCalculator` → `pricingCalculator[]`
+- `ad_price = prices.PAY_NOW.total.amountInCents / 100` (SEK, **net of moms**)
+- `composeUpgradesWithBasic: true` → PLUS/PREMIUM/MAX already composed, no BASIC-sum
+- `offerSlug` → historical `ad_type` via `SLUG_TO_AD_TYPE`
+
+### 6.2 Delete
+
+`create_session`, `cdp_endpoint`, `release_session`, `read_steel_key`,
+`brightdata_cdp_url`, every `playwright.async_api` import and code path, and the
+`TRANSPORTS` selector itself. Roughly 1,000 of 1,315 lines.
+
+### 6.3 Rewrite — the grid
+
+Replaces the Django ORM query over `AdCostPricePointV2`.
+
+The crawler reads municipalities and price bands from repo constants shared with
+`scripts/adcost-report.py` (today `MUNI` = 10 entries, `PRICE_POINTS` = 6 bands). A check
+asserts the constants still match `hemnet_adcostpricepointv2` (60 rows) and fails loudly on
+any mismatch, in either direction.
+
+The crawler needs `full_name` (e.g. `"Stockholms kommun"`) for the autocomplete call and
+`property_municipality_id` for the write, so the shared constant carries id, name, full_name
+and county.
+
+### 6.4 Rewrite — the write
+
+Replaces `AdCostV2.objects.create` / `obj.save(update_fields=["ad_price"])`.
+
+Semantics that must be reproduced exactly:
+
+- key = `(property_municipality_id, property_price, ad_type)`, **scoped to the crawl day**
+  (`crawled::date = today`)
+- existing row with a different `ad_price` → UPDATE that row
+- existing row with the same price → no write
+- no existing row → INSERT with `valid_until = NULL` and `crawled = now()`
+  (Django's `auto_now_add`)
+
+⚠ `hemnet_adcostv2` has **no uniqueness constraint**. Idempotency is entirely in the code.
+This is exactly why 2025-10-19 holds 742 rows — a double-run. Getting this wrong corrupts
+the series silently, and the reporting side only tolerates it because it dedupes with
+`max(ad_price)` in SQL.
+
+### 6.5 Orchestration
+
+`adcost-crawl.js`, modelled on `adcost-report.js`:
+
+- `cron-wrapper.runJob` → `cron_job_log` row
+- spawn `PYTHON_BIN` (registry supplies `/opt/hemnet-cohort-tracker/.venv-adcost/bin/python`)
+- **fall through interpreters only on `ENOENT`** — a python that exists but fails must fail
+  loudly, never be retried under a different interpreter
+- `--smoke` runs the ported `selftest()`: offline, zero network, zero spend
+- pass `ADCOST_SUBPROCESS_TIMEOUT` and the subprocess timeout from one constant so they
+  cannot drift
+
+Registry entry: `tier: 1`, `frequency: 'monthly'`, `cron: '0 2 1 * *'`,
+`env: { PYTHON_BIN: ... }`, `log: /var/log/hemnet/adcost-crawl.log`,
+`expectedDurationMin: 45` — matching the 2700s subprocess ceiling, not the ~21 min expected
+runtime, so a slow-but-succeeding month is not alerted as an overrun. The existing
+`assert: 'adCostMonth'` (40-day window, demands a
+complete 420-cell grid) already covers freshness and needs no change — but the entry stops
+being `external: true`.
+
+**Report timing is unchanged:** scrape 02:00 UTC, report 07:10 UTC, five hours apart.
+
+---
+
+## 7. Invariants that must survive the port
+
+These are load-bearing. Each exists because it failed once.
+
+1. **Rows are written BEFORE the completeness gate raises.** A degraded month keeps its
+   partial data *and* reports failure. Reversing this either discards good rows or reports
+   a 35-row month as success.
+2. **`ADCOST_MIN_COMPLETENESS = 0.95`, `ADCOST_OFFERS_PER_CELL = 7`**, expected =
+   `len(grid) × 7` = 420.
+3. **The subprocess timeout discards stdout on overrun.** `subprocess.run` kills the child
+   and throws its stdout away, so an overrun loses the *entire* harvest, not the tail — a
+   permanent hole on an unbackfillable monthly series. Sized 2700s from a measured
+   ~21s/cell × 60 cells ≈ 1,300s plus headroom. The crawler derives its own `TIME_BUDGET`
+   from the same value so the two cannot drift.
+4. **Crawler stderr is always logged, not only on non-zero exit.** Every degraded run so far
+   exited 0; its `price fetch failed` lines were captured and thrown away unread, which is
+   the only reason the August failures had to be diagnosed from timing rather than a stack.
+5. **The credential is read from env or repo-root `.env`, never logged.**
+6. **Retry, latched-refusal detection, and resume-from-failed-cell** — the crawler proves a
+   session with a real autocomplete call before trusting it. A text-match on "Priser" hits
+   Hemnet's global nav on every page, which is how 5 and 26 July "cleared" and then
+   collected nothing.
+
+---
+
+## 8. Validation
+
+**Offline first:** `--smoke` (ported `selftest()`) must pass. Zero network, zero spend.
+
+**Then one ad-hoc `--dry-run` crawl** on cohort-tracker: full crawl, no write, diff in memory
+against the 2026-08-17 grid.
+
+- **Pass** = 420/420 cells returned, and prices either identical or differing for a visible
+  reason.
+- **Not** exact equality: if Hemnet repriced this week that is a real observation, not a port
+  bug. The 2026-08-17 grid is the reference because it is the most recent complete run.
+
+Cost ~$0.10 of Bright Data, ~21 minutes. **Paid — requires explicit go-ahead on the day.**
+
+---
+
+## 9. Cutover
+
+1. Land the port; `--smoke` green on the workstation and on the droplet.
+2. Copy `BRIGHTDATA_UNLOCKER_PROXY` into cohort-tracker's `.env` (confirmed absent today).
+3. Ad-hoc `--dry-run`; diff against 2026-08-17. **Gate: stop here if it fails.**
+4. Register the job; `render-crontab.js --check` clean. **Disable the Celery beat row
+   "Scrape hemnet.se ad cost"** so two writers can never target the same crawl day.
+5. 1 Sept: confirm 420/420 written by cohort-tracker and that the 07:10 report reads it.
+6. Snapshot `.181.89`, verify the snapshot, then destroy the droplet.
+
+Steps 5–6 deliberately follow the first real unattended run, so the old box remains a live
+fallback through September.
+
+---
+
+## 10. Risks
+
+| risk | mitigation |
+|---|---|
+| Egress from cohort-tracker is slower than the old box, eroding the 2700s margin | The dry-run measures it. If sec/cell rises materially, raise the timeout *and* `TIME_BUDGET` together before cutover. |
+| Idempotent-write bug duplicates rows (no DB constraint to catch it) | Reproduce the day-scoped key exactly; assert row counts after the first real run. Consider a unique index as follow-up work — out of scope here. |
+| Both writers fire on 1 Sept | Beat row disabled at step 4, before the first cohort-tracker fire. |
+| Losing the Steel rollback | Accepted (D2/D3). Steel was ~12% effective; the snapshot is the real fallback. |
+| Bright Data credential mishandled in transit | Copy directly host-to-host; never echo it into a transcript or a commit. |
+
+---
+
+## 11. Out of scope
+
+- Migrating the disabled listing scrapers (Booli / Hemnet / block inc / procore / spotify).
+  They use Playwright and a Redis queue; a much larger job, and they are off by choice.
+- The county-vs-rate-card reporting grain question
+  (see the `project_hemnet_adcost_rate_cards` memory).
+- A uniqueness constraint on `hemnet_adcostv2`.
+- Rebuilding the Django admin UI anywhere else.
+
+---
+
+## 12. Open items
+
+- Snapshot retention: delete once September is proven, or keep for a quarter? (~$1–2/mo)
+- `.181.89` also holds `OXYLABS_*` and `STEEL_API_KEY` credentials. Confirm nothing else
+  depends on that box's IP being whitelisted before destroying it.
