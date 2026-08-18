@@ -38,9 +38,130 @@
 - `scripts/adcost-report.py` — import the grid from `adcost_grid.py` instead of defining `MUNI`/`PRICE_POINTS` locally.
 - `lib/job-registry.js` — `ad-cost-crawler` stops being `external: true` and gains a cron, command, env and log.
 
-**Source of the port (read-only, on the old droplet):**
-- `apps/hemnet/adcost_steel.py` (1,315 lines) — copy the unlocker path, delete the rest.
-- `apps/hemnet/tasks.py:1746-1868` (`search_ad_cost_2`) — the orchestration and write semantics being replaced.
+**Source of the port — ⚠ UNCOMMITTED, on the droplet being destroyed:**
+- `/var/www/apps/hemnet/apps/hemnet/adcost_steel.py` — the crawler. Copy the unlocker path, delete the rest.
+- `/var/www/apps/hemnet/apps/hemnet/tasks.py` — `search_ad_cost_2`, the orchestration and write semantics being replaced.
+
+Also created by Task 0, and the port should read from these rather than from the live box:
+- `docs/handover/adcost-django-source/adcost_steel.py` — preserved verbatim copy.
+- `docs/handover/adcost-django-source/tasks.py` — preserved verbatim copy.
+- `docs/handover/adcost-django-source/README.md` — provenance.
+
+---
+
+## Task 0: Rescue the source — DO THIS FIRST
+
+**Why this task exists.** Verified 2026-08-18 on `170.64.181.89`:
+
+```
+repo:      /var/www/apps/hemnet   (bind-mounted to /app in the container)
+branch:    feat/adcost-steel-resume @ 328dc3d
+remote:    github.com/tt7676/hem-bol-scrapers.git
+upstream:  none — the branch has never been pushed
+status:    M apps/hemnet/adcost_steel.py   (+1,226 lines)
+           M apps/hemnet/tasks.py          (+115 lines)
+```
+
+`git branch -r --contains 328dc3d` returns nothing, so the commit is on no remote either.
+**The entire working Bright Data fix — 1,238 uncommitted insertions, 56 of them referencing
+`unlocker`/`44445`/`BRIGHTDATA` — exists in exactly one place: a working tree on the droplet
+this plan destroys.** It is also the only thing currently producing the dataset. Until Task 0
+completes, every later task depends on a single unbacked-up host, and Task 4's "copy the file
+down" has nothing to fall back on.
+
+The remote belongs to a third party (`tt7676`), so pushing the branch upstream is not an
+option available to us. Preserving it here is.
+
+**Files:**
+- Create: `docs/handover/adcost-django-source/adcost_steel.py`
+- Create: `docs/handover/adcost-django-source/tasks.py`
+- Create: `docs/handover/adcost-django-source/README.md`
+
+**Interfaces:**
+- Consumes: nothing.
+- Produces: a committed, verbatim copy of the two source files that Tasks 3 and 4 port from.
+
+- [ ] **Step 1: Take the DigitalOcean snapshot NOW**
+
+Snapshot `170.64.181.89` before touching anything. This was originally Task 7 Step 4; it moved
+here because it is the only backup of the running configuration, the beat rows, and the `.env`.
+
+Record the snapshot id in `docs/handover/adcost-django-source/README.md` at Step 4.
+Retention: hold to ~2026-11-18 per decision D7.
+
+- [ ] **Step 2: Copy both files down verbatim**
+
+```bash
+mkdir -p docs/handover/adcost-django-source
+for f in adcost_steel.py tasks.py; do
+  ssh -i ~/.ssh/droplet_ed25519 root@170.64.181.89 \
+    "cat /var/www/apps/hemnet/apps/hemnet/$f" > "docs/handover/adcost-django-source/$f"
+done
+wc -l docs/handover/adcost-django-source/*.py
+```
+
+Expected: `adcost_steel.py` ≈ 1315 lines, `tasks.py` ≈ 1900+ lines.
+
+- [ ] **Step 3: Verify the copies are byte-identical to the source**
+
+A truncated copy would be worse than no copy, because it looks like a backup.
+
+```bash
+ssh -i ~/.ssh/droplet_ed25519 root@170.64.181.89 \
+  "md5sum /var/www/apps/hemnet/apps/hemnet/adcost_steel.py /var/www/apps/hemnet/apps/hemnet/tasks.py"
+md5sum docs/handover/adcost-django-source/adcost_steel.py docs/handover/adcost-django-source/tasks.py
+```
+
+Expected: the two hashes match pairwise. If they differ, check for CRLF translation and re-copy
+with `scp` rather than a redirected `cat`.
+
+- [ ] **Step 4: Write the provenance README**
+
+```markdown
+# Ad-cost Django source — preserved 2026-08-18
+
+Verbatim copies of the two files the ad-cost scrape actually ran from on the
+price-scraper droplet `170.64.181.89`, taken before that droplet was destroyed.
+
+**These were UNCOMMITTED when copied.** The droplet's checkout of
+`github.com/tt7676/hem-bol-scrapers.git` sat on branch `feat/adcost-steel-resume`
+@ `328dc3d` with no upstream, carrying +1,226 uncommitted lines in
+`adcost_steel.py` and +115 in `tasks.py` — the whole Bright Data Web Unlocker fix.
+That commit was on no remote branch. This directory was the first time any of it
+existed anywhere but that one host.
+
+The remote is a third party's repository, so the branch could not be pushed upstream.
+
+- `adcost_steel.py` — the crawler. Its `unlocker` transport is what
+  `scripts/adcost-crawl.py` is ported from.
+- `tasks.py` — contains `search_ad_cost_2`, whose grid read and idempotent write
+  became `scripts/lib/adcost_grid.py` and `scripts/lib/adcost_write.py`.
+
+Reference only. Nothing in this repo imports or executes these files.
+
+DO snapshot of the droplet: `<id>` — hold to ~2026-11-18 (spec decision D7).
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add docs/handover/adcost-django-source/
+git commit -m "chore(adcost): preserve the Django crawler source before decommission
+
+The working Bright Data fix was 1,238 uncommitted lines in a working tree on
+170.64.181.89, on a never-pushed branch of a third party's repo. This is the
+first time it has existed anywhere else."
+git push origin master
+```
+
+- [ ] **Step 6: Confirm it is off the doomed host**
+
+```bash
+git log --oneline -1 origin/master
+ssh cohort-droplet "cd /opt/hemnet-cohort-tracker && git pull --ff-only -q && ls docs/handover/adcost-django-source/"
+```
+
+Expected: both files listed on a machine that is not `170.64.181.89`.
 
 ---
 
@@ -483,13 +604,20 @@ git commit -m "feat(adcost): idempotent day-scoped write, pure planner + executo
 - Consumes: `adcost_grid.grid_rows()`, `adcost_grid.EXPECTED_CELLS`, `adcost_write.load_existing/plan_writes/apply_writes`.
 - Produces: CLI `python scripts/adcost-crawl.py [--selftest] [--dry-run]`. Exit codes `0` ok, `1` error, `2` misconfig, `4` transport blocked. On `--dry-run`, prints a JSON diff summary and writes nothing.
 
-- [ ] **Step 1: Copy the source file down**
+- [ ] **Step 1: Start from the PRESERVED copy, not the live box**
+
+Task 0 must be complete. Copying from the committed reference rather than re-reading the
+droplet means the port has a fixed, reviewable starting point, and it still works if the
+old box has already gone away.
 
 ```bash
-ssh -i ~/.ssh/droplet_ed25519 root@170.64.181.89 \
-  "docker exec hemnet-django cat apps/hemnet/adcost_steel.py" > scripts/adcost-crawl.py
-wc -l scripts/adcost-crawl.py   # expect 1315
+cp docs/handover/adcost-django-source/adcost_steel.py scripts/adcost-crawl.py
+wc -l scripts/adcost-crawl.py   # expect ~1315
 ```
+
+If `docs/handover/adcost-django-source/adcost_steel.py` does not exist, **stop and do Task 0**
+— do not fall back to reading the droplet, because that silently re-creates the
+single-copy-on-a-doomed-host problem Task 0 exists to remove.
 
 - [ ] **Step 2: Run its self-test unchanged, to establish the baseline**
 
@@ -856,13 +984,28 @@ PYTHON_BIN=python python scripts/adcost-report.py --json | head -5
 
 Expected: 420 rows written for 2026-09-01, and the 07:10 report reading them as the latest complete snapshot.
 
-- [ ] **Step 4: Snapshot the old droplet**
+- [ ] **Step 4: Verify the snapshot from Task 0 is complete and readable**
 
-Snapshot `170.64.181.89`, verify it completes, and record the snapshot id. **Hold until ~2026-11-18** (decision D7), then delete.
+The snapshot was taken in Task 0 Step 1, not here — it is the only backup of the running
+configuration, the beat rows and the `.env`, so it could not wait until decommission time.
+Confirm it finished successfully and that its id is recorded in
+`docs/handover/adcost-django-source/README.md`. **Hold until ~2026-11-18** (decision D7),
+then delete.
 
 - [ ] **Step 5: Destroy the droplet**
 
-Only after Steps 3 and 4 both pass. Then remove its stale trusted-source entry from the managed database's firewall.
+Only after **all** of these hold:
+- Step 3 passed — 1 September wrote 420 rows from cohort-tracker and the report read them.
+- Step 4 passed — the snapshot exists and its id is recorded.
+- `docs/handover/adcost-django-source/` is committed and **pushed to origin** (Task 0 Step 6).
+  This is the only copy of the crawler that ever existed off that host.
+
+Then remove its stale trusted-source entry from the managed database's firewall.
+
+Note what is deliberately being given up: the Django admin UI, the disabled listing scrapers,
+and the Metabase *server*. Metabase's dashboards and saved questions survive — they live in the
+managed Postgres (`MB_DB_TYPE=postgres`, database `metabase`) with no local volume — so only the
+container is lost, restorable with one `docker run` on any host.
 
 - [ ] **Step 6: Delete the now-dead `notBefore` key**
 
@@ -877,6 +1020,10 @@ git commit -m "chore(adcost): drop notBefore, both jobs have now fired"
 
 ## Notes for the executor
 
+- **Task 0 is not optional and not reorderable.** Until it completes, the only copy of the
+  working crawler is 1,238 uncommitted lines on the host this plan destroys, on a branch of a
+  third party's repo that has never been pushed. Everything else here assumes that source
+  still exists.
 - **The riskiest thing in this plan is Task 3.** `hemnet_adcostv2` has no uniqueness constraint, so a wrong key or a wrong day boundary silently duplicates rows and corrupts the series. The reporting side only survives 2025-10-19's double-run because it dedupes with `max(ad_price)` in SQL.
 - **Do not "improve" the completeness gate's ordering.** Rows are written *before* it raises, deliberately.
 - **Do not add a `python3 → python` fallback that swallows failures.** ENOENT only.

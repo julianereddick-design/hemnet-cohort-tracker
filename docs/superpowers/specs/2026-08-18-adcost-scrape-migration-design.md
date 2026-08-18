@@ -264,6 +264,7 @@ fallback through September.
 | Both writers fire on 1 Sept | Beat row disabled at step 4, before the first cohort-tracker fire. |
 | Losing the Steel rollback | Accepted (D2/D3). Steel was ~12% effective; the snapshot is the real fallback. |
 | Bright Data credential mishandled in transit | Copy directly host-to-host; never echo it into a transcript or a commit. |
+| 🔴 **The source code exists in only one place, and it is the box being destroyed** | See §12.1. Rescued by Task 0 of the implementation plan, which runs **before** any other work: snapshot the droplet, copy both files into `docs/handover/adcost-django-source/`, verify by md5, commit and push. |
 
 ---
 
@@ -278,9 +279,38 @@ fallback through September.
 
 ---
 
-## 12. What else is on the box — checked 2026-08-18, nothing blocks the destroy
+## 12. What else is on the box — checked 2026-08-18
 
-Both original open items are now closed.
+### 12.1 🔴 One thing DOES block the destroy: the source is unversioned
+
+Found 2026-08-18 while checking whether the repos were up to date:
+
+```
+repo:      /var/www/apps/hemnet   (bind-mounted to /app in the container)
+branch:    feat/adcost-steel-resume @ 328dc3d
+remote:    github.com/tt7676/hem-bol-scrapers.git
+upstream:  none — never pushed
+status:    M apps/hemnet/adcost_steel.py   (+1,226 lines)
+           M apps/hemnet/tasks.py          (+115 lines)
+```
+
+`git branch -r --contains 328dc3d` returns nothing: the commit is on no remote branch either.
+
+**The entire working Bright Data fix — 1,238 uncommitted insertions, 56 of them referencing
+`unlocker`/`44445`/`BRIGHTDATA` — exists only as a working tree on the droplet this design
+destroys.** It is simultaneously the only thing producing the dataset. This is a live risk
+independent of the migration: if that host failed tonight, weeks of hard-won debugging would
+be gone, and §6's "copy the unlocker path" would have nothing to copy from.
+
+The remote belongs to a third party, so pushing the branch upstream is not available to us.
+
+**Mitigation — plan Task 0, before any other work:** snapshot the droplet, copy both files into
+`docs/handover/adcost-django-source/`, verify byte-identical by md5, commit and push. The
+snapshot moved from the end of the sequence to the very beginning for the same reason.
+
+### 12.2 Nothing else depends on the box
+
+The remaining original open items are closed.
 
 **Snapshot retention:** hold a quarter — see D7.
 
