@@ -37,13 +37,24 @@ ground through every remaining cell collecting nothing and exited 0 — Aug 2 wr
   - retries each cell (transient refusals recover — proven by the Jul 1 run),
   - detects the latched state and rebuilds the transport session, resuming from
     the failed cell instead of burning the rest of the grid,
-  - refuses to trust a bare text match. A hit on "Priser" alone proves nothing:
-    it is in Hemnet's global nav on every page, which is how Jul 5 and Jul 26
-    both "cleared" and then collected nothing. The warm-up therefore demands a
-    200 that is not a challenge AND carries real pricing-page copy, and a run
-    that collects zero cells exits 4 rather than 0.
-  - reports completeness on stderr and fails the job below
-    ADCOST_MIN_COMPLETENESS, so nobody has to tell 35 rows from 420 by eye.
+  - does NOT rely on the warm-up to prove a session is usable. Read CLEAR_RE
+    before trusting it: it is a permissive alternation that includes a bare
+    "Priser", which sits in Hemnet's global nav on every page — so a page whose
+    only clear-evidence is `<nav>Priser</nav>`, or even the string
+    "error: proxy Priser", satisfies warmup_unlocker. That weakness is exactly
+    how Jul 5 and Jul 26 both "cleared" and then collected nothing. The warm-up
+    is a cheap cold-start unlock and a coarse challenge screen, nothing more.
+    TODO: tighten CLEAR_RE to drop the bare "Priser" alternative. NOT done in the
+    2026-08-18 port because CLEAR_RE governs live crawl behaviour and cannot be
+    validated without an authorised paid run, and a regex that is too strict
+    fails the other way — a genuinely clear page read as blocked, exit 4, month
+    lost. An honest comment beats an untested tightening.
+  - closes the exit-0 hole downstream of the warm-up instead, which is what
+    actually holds: a run that collects zero cells exits 4 (NO_CELLS_COLLECTED)
+    rather than 0, and main()'s gate fails the job below
+    ADCOST_MIN_COMPLETENESS. The browser path's autocomplete probe (probe_usable)
+    was never on this path and went out with Playwright.
+  - reports completeness on stderr, so nobody has to tell 35 rows from 420 by eye.
 
 Usage:
   python scripts/adcost-crawl.py             # crawl, then write
@@ -480,8 +491,14 @@ def warmup_unlocker(session):
     challenged = bool(BLOCK_RE.search(r.text[:2000]))
     # Requiring CLEAR_RE, not merely "a 200 that isn't a challenge": a Bright
     # Data soft-error page or a 200 interstitial would otherwise count as warm
-    # and we would enter the grid believing the domain was unlocked. This is the
-    # same positive check the browser path uses in wait_for_usable.
+    # and we would enter the grid believing the domain was unlocked.
+    #
+    # ⚠ It is a WEAK filter, not proof of a usable session. CLEAR_RE accepts a
+    # bare "Priser" — Hemnet's global nav — so `<nav>Priser</nav>` and even
+    # "error: proxy Priser" pass here. See the TODO in the module docstring; the
+    # guarantee lives in NO_CELLS_COLLECTED and the completeness gate, not here.
+    # (This used to say it was "the same positive check the browser path uses in
+    # wait_for_usable" — that function was browser-only and no longer exists.)
     cleared = bool(CLEAR_RE.search(r.text))
     print(f"warm-up HTTP {r.status_code} in {time.time()-t0:.0f}s "
           f"len={len(r.text)} challenged={challenged} cleared={cleared}",
@@ -887,12 +904,29 @@ def selftest():
                    "prices": {PAYMENT_METHOD: {"total": {"amountInCents": 729700}}}}]}})) == 1)
 
     # 7. parse_pricing still honours the historical payment method.
+    #
+    # ⚠ BOTH KEYS BELOW ARE LITERALS, DELIBERATELY. Writing the fixture as
+    # `PAYMENT_METHOD: 729700` makes the payload self-referential: flip the
+    # constant to "PAY_NOW" and the two keys collapse into one, the parse still
+    # returns 7297.0, and this check passes under the exact mutation it exists to
+    # catch. (Inherited from adcost_steel.py:~997; confirmed 2026-08-18 by setting
+    # PAYMENT_METHOD = "PAY_NOW" and watching the suite report 68 ok / 0 FAIL.)
+    #
+    # This is the ONLY guard on that constant, and it has to hold against a reader
+    # who "fixes" it: the migration spec and plan both still say the field is
+    # PAY_NOW — a documentation error inherited from the source's own stale
+    # docstring, adjudicated as RULING R9. The code is right, the doc is wrong.
+    # Switching PAYMENT_METHOD to PAY_NOW would silently rebase every future
+    # ad_price onto a different price basis and break continuity with the whole
+    # pre-2026-03-16 AdCostV2 series (Stockholm @5M BASIC: 7297, not 6820).
     parsed = parse_pricing({"data": {"pricingCalculator": [
         {"offerSlug": "BAS", "prices": {
             "PAY_NOW": {"total": {"amountInCents": 682000}},
-            PAYMENT_METHOD: {"total": {"amountInCents": 729700}}}}]}})
+            "PAY_WHEN_LISTING_IS_REMOVED": {"total": {"amountInCents": 729700}}}}]}})
     check("parse_pricing uses PAY_WHEN_LISTING_IS_REMOVED",
           parsed == [{"code": "BASIC", "amount": 7297.0}], f"got {parsed}")
+    check("PAYMENT_METHOD is the historical basis, not PAY_NOW",
+          PAYMENT_METHOD == "PAY_WHEN_LISTING_IS_REMOVED", PAYMENT_METHOD)
 
     # 8. (was the Steel / Browser-API transport seam — deleted 2026-08-18 with the
     #    transports themselves.)
