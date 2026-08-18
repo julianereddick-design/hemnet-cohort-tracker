@@ -40,8 +40,11 @@ OUT_DIR = os.path.join(REPO, "exports")
 BASELINE = os.path.join(REPO, "data", "arpl-baseline.json")
 
 CORE_TIERS = ["BASIC", "PLUS", "PREMIUM", "MAX"]
-ALL_TIERS = ["BASIC", "PLUS", "PREMIUM", "MAX",
-             "PAID_REPUBLISH", "TOPLISTING", "TOPLISTING_5_DAYS"]
+# The upsells. NOT packages: they are bought ON TOP of a BASIC..MAX listing, so
+# they never belong in the same table as the core fees - summing the two would
+# double-count a seller who buys both. Split onto their own sheets 2026-08-18.
+ADDON_TIERS = ["PAID_REPUBLISH", "TOPLISTING", "TOPLISTING_5_DAYS"]
+ALL_TIERS = CORE_TIERS + ADDON_TIERS
 PRICE_POINTS = [2000000, 5000000, 7500000, 10000000, 15000000, 20000000]
 
 # The ONE anchor every published comparison is made against (decision locked
@@ -50,6 +53,13 @@ PRICE_POINTS = [2000000, 5000000, 7500000, 10000000, 15000000, 20000000]
 # so a future backfill cannot silently move the baseline under a published
 # number. 2025-12-21 is verified complete: 420/420 cells, 10 munis.
 ANCHOR_DATE = datetime.date(2025, 12, 21)
+
+# Workbook comparison columns start here (Julian, 2026-08-18). The 2025 weekly
+# run is still ON the Prices sheet as raw history - what is dropped is the
+# per-column CHANGE series, which for 2025 is 30-odd near-identical columns that
+# bury the two periods anyone reads. The ANCHOR is deliberately NOT filtered:
+# it is the baseline the 'vs Anchor' sheet is defined against, not a column.
+WORKBOOK_FROM = datetime.date(2026, 1, 1)
 MOMS = 1.25  # Swedish VAT. webPricingCalculator amounts are NET (ex-VAT); the v6
              # Output reports GROSS (inc-moms). net × MOMS ≈ v6 reported figures.
 
@@ -439,10 +449,14 @@ PCT_SCALE = ColorScaleRule(
     end_type="num", end_value=0.10, end_color="F8696B")          # red
 
 
-def _cell_rows():
-    """The 420 (muni, product, price) rows, grouped by county then municipality."""
+def _cell_rows(tiers=None):
+    """The (muni, product, price) rows, grouped by county then municipality.
+
+    `tiers` selects the product subset: CORE_TIERS for the listing packages,
+    ADDON_TIERS for the upsells. Default is the full 420-cell grid.
+    """
     for mid, (name, county) in sorted(MUNI.items(), key=lambda kv: (kv[1][1], kv[1][0])):
-        for tier in ALL_TIERS:
+        for tier in (tiers or ALL_TIERS):
             for price in PRICE_POINTS:
                 yield mid, name, county, tier, price
 
@@ -487,7 +501,7 @@ def _pop_header(d, ref):
     return f"{d.isoformat()}\nvs {ref.isoformat()} ({(d - ref).days}d)"
 
 
-def _pct_cell_sheet(wb, title, subtitle, data, cols, show_ref=True):
+def _pct_cell_sheet(wb, title, subtitle, data, cols, show_ref=True, tiers=None):
     """One row per grid cell, one column per (date, reference) pair, % change.
 
     `cols` is a list of (column_date, reference_date). A cell is left EMPTY when it
@@ -500,7 +514,7 @@ def _pct_cell_sheet(wb, title, subtitle, data, cols, show_ref=True):
     ws.append([])
     ws.append(CELL_HEADERS + [(_pop_header(d, ref) if show_ref else d.isoformat())
                               for d, ref in cols])
-    for mid, name, county, tier, price in _cell_rows():
+    for mid, name, county, tier, price in _cell_rows(tiers):
         row = [county, name, tier, price]
         for d, ref in cols:
             cur = _get(data, d, mid, tier, price)
@@ -578,7 +592,7 @@ def _snapshots_sheet(wb, data, dates, complete_set):
 
 
 def write_excel(data, dates, path, anchor):
-    """Five sheets, built for spotting CHANGE rather than reading levels.
+    """Seven sheets, built for spotting CHANGE rather than reading levels.
 
     The previous single sheet colour-scaled RAW PRICES from min to max, which made a
     20,000 kr MAX cell permanently red and a 900 kr TOPLISTING permanently green — it
@@ -594,19 +608,44 @@ def write_excel(data, dates, path, anchor):
     # Partial runs are excluded as baselines for the same reason they are everywhere
     # else here — comparing against 2026-08-09 (35 of 420 cells) would paint ~385
     # never-scraped cells as changes.
-    pop_cols = list(zip(complete[1:], complete[:-1]))
+    #
+    # Only the COLUMN is required to be 2026+; its baseline is still the previous
+    # complete snapshot whatever its date, so the first 2026 column keeps a real
+    # comparison instead of rendering blank. Every header names its own baseline.
+    pop_cols = [(d, ref) for d, ref in zip(complete[1:], complete[:-1])
+                if d >= WORKBOOK_FROM]
+    anchor_cols = [(d, anchor) for d in complete if d >= WORKBOOK_FROM]
+
+    scale_note = ("White = unchanged, red = dearer, blue = cheaper (scale fixed at "
+                  "+/-10% so colour means the same thing in every column and every "
+                  "month). Blank = not scraped on one side. Columns start "
+                  f"{WORKBOOK_FROM.isoformat()}; 2025 is on the Prices sheet.")
+
     _pct_cell_sheet(
         wb, "PoP change",
-        "% change vs the PREVIOUS COMPLETE snapshot, per cell. White = unchanged, "
-        "red = dearer, blue = cheaper (scale fixed at +/-10% so colour means the same "
-        "thing in every column and every month). Blank = not scraped on one side.",
-        data, pop_cols)
+        "CORE LISTING FEES (Basic/Plus/Premium/Max) — % change vs the PREVIOUS "
+        f"COMPLETE snapshot, per cell. {scale_note}",
+        data, pop_cols, tiers=CORE_TIERS)
 
     _pct_cell_sheet(
         wb, "vs Anchor",
-        f"% change vs the fixed {anchor} baseline, per cell — the cumulative index. "
-        f"Same colour scale as the PoP sheet.",
-        data, [(d, anchor) for d in complete], show_ref=False)
+        f"CORE LISTING FEES — % change vs the fixed {anchor} baseline, per cell: the "
+        f"cumulative index. Same colour scale as the PoP sheet. Columns start "
+        f"{WORKBOOK_FROM.isoformat()}; the {anchor} baseline itself is NOT filtered.",
+        data, anchor_cols, show_ref=False, tiers=CORE_TIERS)
+
+    _pct_cell_sheet(
+        wb, "Add-ons PoP",
+        "UPSELLS (Paid republish / Toplisting / Toplisting 5 days) — bought ON TOP of "
+        f"a listing package, never instead of one. {scale_note}",
+        data, pop_cols, tiers=ADDON_TIERS)
+
+    _pct_cell_sheet(
+        wb, "Add-ons vs Anchor",
+        f"UPSELLS — % change vs the fixed {anchor} baseline, per cell. Kept apart from "
+        f"the core fees because the two moved in OPPOSITE directions: Max was cut ~21% "
+        f"while the toplisting upsells rose ~20%.",
+        data, anchor_cols, show_ref=False, tiers=ADDON_TIERS)
 
     _county_pop_sheet(wb, data, complete)
     _prices_sheet(wb, data, dates, complete_set)
