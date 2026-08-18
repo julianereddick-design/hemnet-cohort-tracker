@@ -149,16 +149,25 @@ UNLOCKER_WARMUP_TIMEOUT = (15, 240)
 # cell 41/60 — 41 of 41 attempted cells had succeeded, so the only thing that
 # failed was the clock.
 #
-# ⚠ THIS IS DERIVED, NOT CHOSEN. tasks.py runs this file under
-# subprocess.run(timeout=...), and on TimeoutExpired subprocess.run KILLS the
-# child and DISCARDS ITS STDOUT — so overrunning that timeout loses the entire
-# harvest, not the tail of it. On a monthly job with no backfill that is a
-# permanent hole. The budget is therefore derived from the caller's timeout and
-# DEFAULTS TO 1800s, the value that was deployed when the derivation was written.
-# The scheduled caller MUST export ADCOST_SUBPROCESS_TIMEOUT=2700 to match its own
-# timeout; if it does not, main() prints the WILL-TRUNCATE warning below rather
-# than silently harvesting two thirds of a month.
-SUBPROCESS_TIMEOUT = float(os.environ.get("ADCOST_SUBPROCESS_TIMEOUT") or 1800)
+# ⚠ THIS IS DERIVED, NOT CHOSEN. The scheduled caller runs this file under a kill
+# timer, and a killed child's stdout is DISCARDED — so overrunning that timer
+# loses the entire harvest, not the tail of it. On a monthly job with no backfill
+# that is a permanent hole. The budget is therefore derived from the caller's
+# timeout, which it passes in as ADCOST_SUBPROCESS_TIMEOUT.
+#
+# The fallback below is the SAME 2700s the caller uses — deliberately, not as a
+# historical leftover. There is exactly one caller that does not export the
+# variable: a human running `python scripts/adcost-crawl.py` by hand to repair a
+# failed month, and that caller imposes no external kill timer, so a full-grid
+# budget is both safe and what they want. The old 1800s fallback truncated such a
+# run at ~cell 41 of 60 for no reason at all. Anyone exporting a SMALLER value
+# still gets the WILL-TRUNCATE warning from crawl().
+#
+# Keep this equal to the caller's timeout. Two numbers here is the drift this
+# constant exists to prevent; the self-test pins it to REQUIRED_SUBPROCESS_TIMEOUT.
+DEFAULT_SUBPROCESS_TIMEOUT = 2700
+SUBPROCESS_TIMEOUT = float(
+    os.environ.get("ADCOST_SUBPROCESS_TIMEOUT") or DEFAULT_SUBPROCESS_TIMEOUT)
 # Worst case for ONE cell: CELL_ATTEMPTS × 2 requests × (connect + read) + backoff.
 # The budget is only checked between cells, so a cell that starts just under the
 # line can still overrun by this much. Subtract it rather than hope.
@@ -181,7 +190,8 @@ def grid_seconds_needed(cells, sec_per_cell=MEASURED_SEC_PER_CELL):
 
 # To finish a full grid the CALLER's timeout must cover the grid AND the
 # worst-case overrun of the last cell. 1800s does NOT: it yields a 984s budget
-# against a ~1,299s grid, which truncates. The caller must use 2700s.
+# against a ~1,299s grid, which truncates. Hence DEFAULT_SUBPROCESS_TIMEOUT=2700,
+# which the caller must match.
 REQUIRED_SUBPROCESS_TIMEOUT = grid_seconds_needed(
     FULL_GRID_CELLS, 30.0) + WORST_CELL_SEC          # slower-month sizing
 TIME_BUDGET = derive_time_budget(SUBPROCESS_TIMEOUT)
@@ -1041,13 +1051,25 @@ def selftest():
           derive_time_budget(REQUIRED_SUBPROCESS_TIMEOUT)
           >= grid_seconds_needed(FULL_GRID_CELLS, 30.0),
           f"budget={derive_time_budget(REQUIRED_SUBPROCESS_TIMEOUT)}")
-    # Documents WHY tasks.py must change: the old 1800s cannot fit the grid.
-    check("the pre-change 1800s timeout is provably too small",
+    # Documents WHY the fallback was raised: 1800s cannot fit the grid. This
+    # tests the DERIVATION at 1800, not the default — the default is pinned below.
+    check("an 1800s timeout is provably too small",
           derive_time_budget(1800) < need,
           "1800s would now be sufficient — re-derive REQUIRED_SUBPROCESS_TIMEOUT")
-    check("tasks.py's 2700s satisfies the requirement",
-          2700 >= REQUIRED_SUBPROCESS_TIMEOUT,
-          f"need >= {REQUIRED_SUBPROCESS_TIMEOUT}")
+    # The fallback default and the caller's timeout are ONE number (2700). If
+    # someone lowers DEFAULT_SUBPROCESS_TIMEOUT, or the grid grows enough to push
+    # REQUIRED_SUBPROCESS_TIMEOUT past it, this fails instead of silently
+    # truncating a month for whoever runs a manual repair crawl.
+    check("the fallback default satisfies the requirement",
+          DEFAULT_SUBPROCESS_TIMEOUT >= REQUIRED_SUBPROCESS_TIMEOUT,
+          f"{DEFAULT_SUBPROCESS_TIMEOUT} vs need >= {REQUIRED_SUBPROCESS_TIMEOUT}")
+    check("the fallback default covers a full measured grid",
+          derive_time_budget(DEFAULT_SUBPROCESS_TIMEOUT) >= need,
+          f"budget={derive_time_budget(DEFAULT_SUBPROCESS_TIMEOUT)} need={need}")
+    check("the fallback default carries a slower month too",
+          derive_time_budget(DEFAULT_SUBPROCESS_TIMEOUT)
+          >= grid_seconds_needed(FULL_GRID_CELLS, 30.0),
+          f"budget={derive_time_budget(DEFAULT_SUBPROCESS_TIMEOUT)}")
     # Safety invariant, whatever the timeout: never overrun the caller, because
     # subprocess.run DISCARDS stdout on TimeoutExpired — total loss, not partial.
     for t in (1800, 2700, 3600):
