@@ -159,15 +159,6 @@ function renderAddons(m) {
   return L;
 }
 
-// The biggest single move, named. With a roll-up the reader loses every individual
-// cell, and the largest mover is the one cell always worth naming explicitly.
-function renderLargestMover(moved) {
-  if (!moved.length) return null;
-  const top = moved.reduce((a, b) => (Math.abs(b.pct) > Math.abs(a.pct) ? b : a));
-  return `Largest single move: ${top.municipality} ${top.product} @${fmtPricePoint(top.price_point)}   `
-    + `${fmtN(top.from)} → ${fmtN(top.to)}  ${pctSigned(top.pct)}`;
-}
-
 // renderReport(report, links) -> the exact Slack message body.
 // `report` is scripts/adcost-report.py --json verbatim. Pure and total: every branch
 // below is reachable from a real month (first month, nothing moved, a handful moved,
@@ -216,9 +207,6 @@ function renderReport(report, links = {}) {
     // what tells the reader exactly which cells moved.
     if (detail.length) detail.push('');
     for (const c of moved) detail.push(renderMovedCell(c));
-  } else {
-    const top = renderLargestMover(moved);
-    if (top) { if (detail.length) detail.push(''); detail.push(top); }
   }
 
   if (detail.length) { L.push('```'); for (const d of detail) L.push(d); L.push('```'); }
@@ -496,11 +484,11 @@ function smoke() {
     // add-on block and footers. The guard exists to catch the 420-line explosion,
     // not to police layout.
     assert.ok(out.split('\n').length < 50, `the post must stay readable: got ${out.split('\n').length} lines`);
-    // No per-cell rows (renderMovedCell indents by two spaces). The "Largest single
-    // move" line does quote one cell, by design, and is not indented.
+    // No individual cells at all when hundreds moved: the per-cell rows are
+    // suppressed, and the "Largest single move" line was REMOVED 2026-08-18.
     assert.ok(!out.split('\n').some(l => /^ {2}\S+\s+(BASIC|PLUS|PREMIUM|MAX)\s+@/.test(l)),
       'no per-cell rows may leak in when hundreds moved');
-    assert.ok(/Largest single move/.test(out), 'the single biggest mover must still be named');
+    assert.ok(!/Largest single move/.test(out), 'the largest-mover line must not come back');
     assert.ok(/420 of 420 observations moved/.test(out));
   });
 
