@@ -4,5 +4,15 @@
 # Bump only after a dry run passes on the new pins.
 requests==2.32.3
 urllib3==2.4.0
-psycopg[binary]==3.2.*
-openpyxl==3.1.*
+
+# ⚠ psycopg/openpyxl are pinned to what is ACTUALLY INSTALLED on cohort-tracker,
+# not to the old Django box's Pipfile.lock. This venv is SHARED with the live
+# scripts/adcost-report.py, which has been running on psycopg 3.3.4 and posting
+# successfully. The original pin here read `psycopg[binary]==3.2.*`, which would
+# have DOWNGRADED a working dependency under a deployed reporting job to satisfy a
+# lockfile from a Python 3.11 host we are decommissioning — a regression risk for
+# no benefit. The version-sensitive pins are requests/urllib3 above; these two are
+# recorded for reproducibility only.
+# Verified installed 2026-08-18 on 170.64.197.241 (.venv-adcost, Python 3.12).
+psycopg[binary]==3.3.4
+openpyxl==3.1.5
