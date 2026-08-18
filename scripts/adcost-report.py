@@ -664,8 +664,8 @@ def arpl_block(latest_date, data_latest, end2025_date, data_end, baseline):
             f"<td>{('%.0f'%eg) if eg else 'n/a'}</td>"
             f"<td>{ctxt}</td></tr>")
     return (f"<h2>Weighted ARPL (SEK / listing, inc. 25% moms)</h2>"
-            f"<p class='sub'>Gross (VAT-inclusive), matching the v6 model. Weighted by the "
-            f"v6 listing mix (county × tier × price-band, "
+            f"<p class='sub'>Gross (VAT-inclusive), based on the last available listing "
+            f"depth calculations in Feb-26. Weighted by this listing data (county × tier × price-band, "
             f"n={sum(sum(b.values()) for c in baseline.values() for b in c.values()):,} listings). "
             f"Blended = across Bas/Plus/Premium/Max.</p>"
             f"<table class='arpl'><tr><th>Tier</th><th>Latest ({latest_date})</th>"
