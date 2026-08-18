@@ -100,11 +100,39 @@ async function run() {
   // =====================
   // BUILD WORKBOOK
   // =====================
-  const wb = new ExcelJS.Workbook();
-  wb.creator = 'hemnet-cohort-tracker';
-  const ws = wb.addWorksheet('Workings');
+  // Streaming writer, not `new Workbook()`. The in-memory workbook held every cell
+  // until writeFile(), which for this sheet is ~1,600 rows x 249 cols ~= 395,000
+  // cells and peaked around 550MB — and it CLIMBED with cohort size, so it outgrew
+  // any ceiling rather than sitting under one. WorkbookWriter flushes each row to
+  // disk on commit() and holds roughly constant memory instead.
+  //
+  // Three consequences, all load-bearing:
+  //   * the output path must exist NOW, not at write time, so the outDir block moved up;
+  //   * `views` (frozen panes) must be declared on addWorksheet, because by the time
+  //     the old code set ws.views the header rows would already be on disk;
+  //   * every row must be commit()ed, in increasing row order.
+  // useStyles/useSharedStrings are required: without them the writer silently drops
+  // all fills, fonts and numFmt, which is a change no reader would notice.
+  const runDate = new Date().toISOString().slice(0, 10);
+  const outDir = path.join(__dirname, 'view-data', runDate, cohortId);
+  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+  const outFile = path.join(outDir, `hb-ratio-${cohortId}.xlsx`);
 
   const lastDataRow = pairs.length + 2; // row 1=section headers, row 2=col headers, data starts row 3
+
+  const wb = new ExcelJS.stream.xlsx.WorkbookWriter({
+    filename: outFile,
+    useStyles: true,
+    useSharedStrings: true,
+  });
+  wb.creator = 'hemnet-cohort-tracker';
+  const ws = wb.addWorksheet('Workings', {
+    views: [{ state: 'frozen', xSplit: META_COLS, ySplit: 2 }],
+  });
+  ws.autoFilter = {
+    from: { row: 2, column: 1 },
+    to: { row: lastDataRow, column: SEC4_START + dateColCount - 1 },
+  };
   const HEADER_FILL_BLUE = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
   const HEADER_FILL_ORANGE = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE4D6' } };
   const HEADER_FILL_GREEN = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2EFDA' } };
@@ -129,6 +157,11 @@ async function run() {
   ws.mergeCells(1, SEC4_START, 1, SEC4_START + dateColCount - 1);
   row1.getCell(SEC4_START).value = 'Daily Incrementals (2-day avg)';
   row1.getCell(SEC4_START).fill = HEADER_FILL_GREEN;
+
+  // NB: row1 is NOT committed here. Column widths are set below, interleaved with
+  // the row-2 header loop, and committing a row flushes the sheet's column
+  // definitions — so an early commit here silently drops every width. Rows must be
+  // committed in increasing ORDER, but nothing stops us building both first.
 
   // =====================
   // ROW 2: Column headers
@@ -195,6 +228,10 @@ async function run() {
     ws.getColumn(hColSec4).width = 10;
     ws.getColumn(bColSec4).width = 10;
   }
+
+  // Both header rows are complete and all column widths are set: flush them in order.
+  row1.commit();
+  row2.commit();
 
   // =====================
   // DATA ROWS (row 3 onward)
@@ -272,15 +309,6 @@ async function run() {
   }
 
   // =====================
-  // FREEZE & FILTER
-  // =====================
-  ws.views = [{ state: 'frozen', xSplit: META_COLS, ySplit: 2 }];
-  ws.autoFilter = {
-    from: { row: 2, column: 1 },
-    to: { row: lastDataRow, column: SEC4_START + dateColCount - 1 },
-  };
-
-  // =====================
   // AGGREGATION (summary rows below data)
   // =====================
   const REGIONS = ['Stockholm', 'Gotenberg', 'Skane', 'Olland', 'Total'];
@@ -294,6 +322,8 @@ async function run() {
   const aggHeader = ws.getRow(aggHeaderRow);
   aggHeader.getCell(1).value = 'AGGREGATION';
   aggHeader.getCell(1).font = { bold: true, size: 12 };
+
+  aggHeader.commit();
 
   // Column sub-headers for the aggregation area (echo incremental date headers)
   const aggSubHeaderRow = aggHeaderRow + 1;
@@ -309,6 +339,8 @@ async function run() {
     aggSubHeader.getCell(hCol).fill = HEADER_FILL_PURPLE;
     aggSubHeader.getCell(bCol).fill = HEADER_FILL_PURPLE;
   }
+
+  aggSubHeader.commit();
 
   let curRow = aggSubHeaderRow + 1;
 
@@ -344,6 +376,7 @@ async function run() {
         countRow.getCell(bCol).value = { formula: `COUNTIFS(${bFlagRange},1,${regionRange},"${region}")` };
       }
     }
+    countRow.commit();
     curRow++;
 
     // --- Row 2: Mean ---
@@ -375,6 +408,7 @@ async function run() {
       meanRow.getCell(hCol).numFmt = '0.0';
       meanRow.getCell(bCol).numFmt = '0.0';
     }
+    meanRow.commit();
     curRow++;
 
     // --- Row 3: Median ---
@@ -406,6 +440,7 @@ async function run() {
       medianRow.getCell(hCol).numFmt = '0.0';
       medianRow.getCell(bCol).numFmt = '0.0';
     }
+    medianRow.commit();
     curRow++;
 
     // --- Row 4: H/B Ratio (Mean) ---
@@ -424,6 +459,7 @@ async function run() {
       hbMeanRow.getCell(hCol).value = { formula: `IFERROR(${hMeanRef}/${bMeanRef},"")` };
       hbMeanRow.getCell(hCol).numFmt = '0.00';
     }
+    hbMeanRow.commit();
     curRow++;
 
     // --- Row 5: H/B Ratio (Median) ---
@@ -440,6 +476,7 @@ async function run() {
       hbMedianRow.getCell(hCol).value = { formula: `IFERROR(${hMedRef}/${bMedRef},"")` };
       hbMedianRow.getCell(hCol).numFmt = '0.00';
     }
+    hbMedianRow.commit();
     curRow++;
 
     // --- Row 6: H % of Total (Mean) ---
@@ -457,6 +494,7 @@ async function run() {
       hPctMeanRow.getCell(hCol).value = { formula: `IF(OR(N(${hRef})=0,N(${bRef})=0),"",IFERROR(${hRef}/(${hRef}+${bRef}),""))` };
       hPctMeanRow.getCell(hCol).numFmt = '0.0%';
     }
+    hPctMeanRow.commit();
     curRow++;
 
     // --- Row 7: H % of Total (Median) ---
@@ -473,6 +511,7 @@ async function run() {
       hPctMedianRow.getCell(hCol).value = { formula: `IF(OR(N(${hRef})=0,N(${bRef})=0),"",IFERROR(${hRef}/(${hRef}+${bRef}),""))` };
       hPctMedianRow.getCell(hCol).numFmt = '0.0%';
     }
+    hPctMedianRow.commit();
     curRow++;
 
     // Blank spacer row
@@ -568,14 +607,11 @@ async function run() {
   // =====================
   // WRITE FILES
   // =====================
-  const runDate = new Date().toISOString().slice(0, 10);
-  const outDir = path.join(__dirname, 'view-data', runDate, cohortId);
-  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-
-  // Excel
-  const outFile = path.join(outDir, `hb-ratio-${cohortId}.xlsx`);
+  // Excel. outDir/outFile were resolved before the workbook was opened (the
+  // streaming writer needs its destination up front).
   console.log('Writing xlsx...');
-  await wb.xlsx.writeFile(outFile);
+  await ws.commit();
+  await wb.commit();
   console.log(`Wrote: ${outFile}`);
 
   // Build chart data
