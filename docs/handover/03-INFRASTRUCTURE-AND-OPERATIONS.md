@@ -26,6 +26,17 @@ jobs. Do not confuse them.
 
 ### The cohort-tracker box (this repo)
 
+- **Machine:** DigitalOcean droplet **556306295**, region `syd1`, Ubuntu 24.04 LTS.
+  **`s-1vcpu-2gb`** — 1 vCPU, **2 GB RAM, 50 GB disk**, $12/mo. **No swap.**
+  > **Resized 2026-08-18** from `s-1vcpu-512mb-10gb`. The old 512 MB (458 MiB visible, ~248 MB
+  > actually available) was the single root cause of three separate production failures — see
+  > §8 and [`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md) §7. The resize was done
+  > **with `--resize-disk`, which is permanent**: DigitalOcean cannot shrink a disk, so this
+  > droplet can never be downsized below 2 GB again.
+  >
+  > **Sizing rule of thumb:** the heaviest single job (`export-hb-ratio-xlsx.js`) peaks around
+  > **550 MB** and its memory *grows with cohort size*. Measure before assuming headroom:
+  > `node scripts/mem-profile.js -- node <job>.js`.
 - **Code location:** `/opt/hemnet-cohort-tracker/` (git clone; `cd … && git pull` to deploy).
 - **Job execution:** Linux **cron** (per-user crontab, `root`). Every scheduled script is
   wrapped by `cron-wrapper.js` → `runJob` (invoked at module load — see §5/§6). No process
@@ -258,24 +269,52 @@ it now only runs on the every-2-days cycle. The retired pre-v2.0 Pool & Flow Mon
 
 ## 7. Monitoring & Alerting
 
-Three layers, in order of usefulness:
+> 🔁 **Rewritten 2026-08-18.** Alerting was rebuilt over six phases and shipped 2026-08-17.
+> Everything this section previously said — that any `warning`/`failure` posts within seconds,
+> that the digest reads a fixed 8-day window over three named scripts, that it posts to
+> `SLACK_WEBHOOK_URL` — is **no longer true**. The authority is
+> **[`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md)**; what follows is the
+> infrastructure-level summary.
 
-1. **Slack `Hemnet Status` channel (`SLACK_WEBHOOK_URL`)** — `cron-wrapper.js` posts
-   `[WARNING|FAILURE] <script>: <error>` within seconds of any run whose status is `warning`
-   or `failure`. **The operator MUST actively watch this channel** — a past deploy found it had
-   been firing unread warnings since 2026-05-17. Silent on success by design.
-2. **`cron-health-slack.js` (daily 03:00 UTC)** — reads the last **8 days** of `cron_job_log` and
-   judges each script against its own frequency window (daily 25 h, weekly 8 d — before
-   2026-08-13 a flat 25 h window false-alarmed on weekly `cohort-create` six days out of seven).
-   Builds a *Daily Health Report* posted to `SLACK_WEBHOOK_URL`. It checks: each expected
-   script ran, success/fail counts,
-   cohort-track "0 pairs tracked", a **view-growth check** (≥80% zero-growth pairs → "scrapers
-   may be down"), and **per-cohort null-view rates** (newest cohort >30% null Booli/Hemnet →
-   "scraper may be down" canary). Exits non-zero if `SLACK_WEBHOOK_URL` is unset.
-3. **`cron_job_log` table + `/var/log/hemnet/<job>.log`** — `node scripts/verify-cron-job-log.js`
-   prints the last 5 rows per script. A "NO ROWS in 14 days" line means a job stopped running.
-   The per-job log file holds full stdout/stderr for deep triage (and catches signal-kill cases
-   where `cron_job_log` only has a stuck `running` row).
+Four layers, in order of usefulness:
+
+1. **Tier-gated alerts → `#hemnet-ops`.** `cron-wrapper.js` decides on *every* outcome whether
+   to alert, based on the job's `tier` in `lib/job-registry.js`. **Tier 1** (perishable — a
+   missed run destroys an observation that can never be recovered) posts
+   `🚨 TIER1 <!channel> [FAILURE|WARNING|KILLED] …`. **Tier 2** (recoverable — reports, exports,
+   retention) posts **nothing** and surfaces only in the daily digest. A repeating tier-1
+   condition alerts on a **0h / +24h / +72h / then daily** ladder, not on every run, and clears
+   after two consecutive clean runs.
+   > **This is why the channel is quiet, and quiet is not proof of health.** 56 of the 59 alerts
+   > in the 60 days to 2026-08-17 came from one recurring tier-2 warning, and the 3 that mattered
+   > were missed in the noise. Read `05` §5 before concluding that silence means healthy.
+2. **`cron-health-slack.js` (daily 03:00 UTC → `#hemnet-ops`)** — the digest, in six sections:
+   Liveness, Assertions, Open conditions, Tier-1 backstop, Disk headroom, and the two
+   cross-cutting product checks (view-growth; per-cohort null-view rates with a canary on the
+   newest cohort). Coverage is **derived from `lib/job-registry.js`** — every scheduled job, not
+   a hardcoded list — and both liveness and assertions anchor on each job's
+   `last_expected_fire + grace` rather than a fixed window, because the digest runs at 03:00 and
+   any "a row for today" test would fail every day.
+   **Assertions test each tier-1 job's own output table, not its exit code** — exit 0 is not
+   evidence, and a job that exited clean having written nothing broke the spot-check gate for
+   three consecutive weeks (`05` §7, incident 3).
+3. **Two sibling modes of the same script.** `--sweep` (`cron-health-sweep`, 01/11/17/23) checks
+   for missing / orphaned / failing **tier-1** jobs between digests and posts **one** rolled-up
+   message however many are broken. `--heartbeat` (`alerting-heartbeat`, Thu 12:00) posts an
+   unconditional proof-of-life over the raw webhook — **its absence is the alert**, since every
+   other message is conditional and a dead transport otherwise looks exactly like a healthy week.
+4. **`cron_job_log` + `alert_state` + `/var/log/hemnet/<job>.log`.** `node
+   scripts/verify-cron-job-log.js` prints the last 5 rows per script. The per-job log holds full
+   stdout/stderr for deep triage — **including child-process output**, which is how signal kills
+   are diagnosed: a child killed by the kernel prints no stack, so an error line with *nothing
+   before it* is itself the evidence (see §8). `alert_state` holds live suppression state.
+
+**Two tables back this**, created by `node migrate-alert-state.js` (idempotent, `--check`):
+`alert_state` (suppression) and `disk_sample` (one row/day, feeding `days_to_full`).
+
+🚨 **The crontab is GENERATED from `lib/job-registry.js` — never hand-edit it.**
+`node scripts/render-crontab.js | crontab -`; `--check` detects drift and runs as a digest
+assertion.
 
 Per-job failure-mode triage (Oxylabs creds, low-match warnings, budget-exceeded, expected Booli
 100%-fallback noise, etc.) is documented job-by-job in `deploy-instructions.md` §Runbook — the
@@ -286,11 +325,41 @@ first place to look when an alert fires.
 ## 8. Disk / Capacity & Retention
 
 **This (cohort-tracker) box:**
+
+> ✅ **RESOLVED 2026-08-18 by the resize (§1).** Disk went **8.7 G (78% used) → 48 G (~14% used at the time of the resize)**
+> and RAM 512 MB → 2 GB. The capacity items below are history; keep them for the reasoning, not
+> as open work. Snapshot `cohort-tracker-pre-2gb-resize` (id `241617718`, 7.10 GiB, ~$0.40/mo)
+> was taken immediately before — **delete it once you are confident**.
+
+- **2026-08-18 — one undersized box, three "unrelated" failures.** The 512 MB droplet
+  (458 MiB visible, **~248 MB actually available** after OS daemons) was OOM-killing jobs
+  **every Monday** since at least 26 July, the earliest the journal reaches. Measured with
+  `scripts/mem-profile.js`:
+  - `export-hb-ratio-xlsx.js` builds a whole workbook in memory (1,586 pairs × 249 columns ≈
+    **395,000 cells** via exceljs `new Workbook()` + `writeFile()`). It needs **~550 MB** —
+    *2.2× everything the old box had*. It was SIGKILLed at 248 MB in 6 seconds.
+    `weekly-view-report.js` loops cohorts with `execSync` inside a `try/catch` that logs and
+    continues, so **the parent reported `success` while individual cohorts silently vanished**
+    from the weekly report for weeks.
+  - `cohort-spotcheck-gate`'s photo child (172 MB) was killed when the 5-hour
+    `sold-match-batch` (63 MB) started at 07:30 and overlapped it.
+  - ~58 MB was being burned by daemons with no function on a headless VM (`multipathd` 26 MB on
+    a single-disk box, `fwupd`, `ModemManager`, `udisks2`, `polkit`). No longer worth removing
+    at 2 GB, but worth knowing if this box is ever rebuilt small.
+
+  **Diagnostic lesson worth keeping:** a kernel OOM kill produces **no stack trace**, so the job
+  log shows an error line with nothing before it. That absence *is* the signature — check
+  `journalctl | grep "Killed process"` before assuming a code bug. And a peak measured under an
+  OOM ceiling is the *ceiling*, not the requirement: the export looked like a 248 MB job until
+  it had room to show it wanted 550 MB.
 - **2026-07-27 incident:** the droplet hit **100% disk** — the W30 `spotcheck-photos` run
   crashed with `ENOSPC` (clean fail). Freed back to **68%** by pruning old spot-check dirs and
   trimming ~1.1 GB of June sold-cache (ledger preserved). A **retention cron was installed**.
-  W30 was recovered read-only (0 mismatch). **Still deferred:** journal/log reclaim (~900 MB),
-  a durable 30-day cache cap, and the disk-resize question.
+  W30 was recovered read-only (0 mismatch).
+- **Retention ordering (cosmetic since the resize).** `spotcheck-artifact-retention` keeps the 3
+  newest cohorts but prunes at **06:20**, ten minutes *before* the gate writes the new one at
+  ~06:38 — so 4 cohorts sit on disk six days out of seven. Irrelevant at 50 GB; note it only so
+  nobody re-diagnoses it as "the prune is not running", which is what it looks like and is not.
 - **Spot-check write-back incident (2026-W27):** `spotcheck-photos.js` died before its JSON
   write-back and flooded 86 false "no-photos" UNCERTAIN reviews; a guard (abort if 0 galleries)
   + on-disk recovery tool shipped (commit `496537b`). 86 stale rows + optional re-run remained

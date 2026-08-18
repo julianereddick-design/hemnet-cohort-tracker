@@ -190,10 +190,14 @@ run out of inodes with gigabytes free). `days_to_full` is extrapolated from the 
 table, one row per day.
 
 > ⚠️ **Read `days to full` with care.** This droplet's disk load is *bursty*, not linear:
-> Monday alone adds ~1G of spot-check JPEGs plus ~1.9G of sold-match cache, then the cache
-> ages out. On 2026-08-18 the check correctly reported `1.2G free (14%)` — genuinely below the
-> floor — but its `days to full: <1` extrapolated one Monday burst as a steady rate. Trust the
-> **free-space** number; treat `days_to_full` as a nudge, not a countdown.
+> Monday alone adds ~1G of spot-check JPEGs plus ~1.9G of sold-match cache, then the cache ages
+> out. On 2026-08-18, on the old 8.7G volume, the check correctly reported `1.2G free (14%)` —
+> genuinely below the floor — but its `days to full: <1` extrapolated one Monday burst as a
+> steady rate. Trust the **free-space** number; treat `days_to_full` as a nudge, not a countdown.
+>
+> The box was resized to a **50 GB** disk later that day (`03` §1), so this check now has a lot
+> of slack and should be quiet. **If it fires again, something has genuinely changed** — do not
+> assume it is the usual Monday artifacts.
 
 **`📊 View Growth Check` and `🔍 View Data Quality`** — the two cross-cutting product checks
 that predate the rebuild: pairs with zero incremental views, and per-cohort null-view rates
@@ -299,6 +303,30 @@ There was no crash, no stack, no non-zero exit — **nothing a status check coul
 for today" fails every day when the digest runs at 03:00 and the job runs at 08:30. → everything
 anchors on `last_expected_fire + grace`.
 
+**5. One undersized box wearing three disguises (2026-08-18).** A `[SWEEP]` alert about the
+spot-check gate turned out not to be a gate bug at all. The droplet had **512 MB and no swap**
+(~248 MB actually available) and had been OOM-killing jobs **every Monday** since at least the
+start of the journal. It presented as three unrelated defects: the gate failing weekly, the
+weekly xlsx export "silently losing the three biggest cohorts", and a chronic disk squeeze.
+Resolved by resizing to 2 GB / 50 GB (`03` §1 and §8).
+
+Three things from it are worth carrying into any future investigation:
+
+- **A kernel OOM kill leaves no stack.** The job log showed `Command failed:` with *nothing
+  before it*. That absence is the signature, not missing plumbing — I initially misread it as
+  the gate failing to capture its child's stderr, when it captures stderr fine and the child
+  simply never got to write any. **`journalctl | grep "Killed process"` before assuming a code
+  bug.**
+- **A peak measured under a ceiling is the ceiling, not the requirement.** The export looked
+  like a 248 MB job because 248 MB was where it died. Given room, it wanted **550 MB**. Any
+  "it just needs a bit more headroom" conclusion drawn from an OOM-truncated measurement is
+  unreliable by construction.
+- **Catch-and-continue turns a hard failure into a silent one.** `weekly-view-report.js` loops
+  cohorts inside a `try/catch` that logs and continues, so the parent exited `success` while
+  individual cohorts vanished from the report for weeks. Nothing in the alerting layer can see
+  a failure a job has already swallowed — which is exactly why tier-1 **assertions test output
+  tables rather than exit status**.
+
 ---
 
 ## 8. Runbook — what to do with each alert
@@ -352,7 +380,22 @@ node cron-health-slack.js --sweep --dry-run     # renders the sweep decision
 node cron-health-slack.js --heartbeat --dry-run # renders the heartbeat
 node scripts/render-crontab.js --check          # crontab drift (droplet only)
 node migrate-alert-state.js --check             # alert_state + disk_sample present?
+node scripts/verify-cron-job-log.js             # last 5 runs per job, straight from the DB
 ```
+
+**When a job dies without explaining itself**, measure it rather than guessing:
+
+```bash
+node scripts/mem-profile.js -- node export-hb-ratio-xlsx.js --cohort 2026-W14
+node scripts/mem-profile.js --watch             # sample the whole box during a live run
+```
+
+It samples the child's **whole process tree** (a job that shells out hides its real peak
+otherwise) plus `MemAvailable`, which is what the OOM killer actually acts on, and reports a
+peak, a sparkline and a **plateau-vs-climbing verdict**. That verdict is the point: a job that
+plateaus needs more RAM, a job still climbing in its final third retains per-item state and will
+outgrow whatever ceiling you buy it. The exit code is the child's, so it is safe to wrap around
+anything.
 
 > ⚠️ **The dotenv dry-run gotcha (doc `04` §1).** `dotenv` re-injects `SLACK_BOT_TOKEN`, so
 > `env -u SLACK_BOT_TOKEN node <report>.js` does **not** dry-run — it posts. Use each script's

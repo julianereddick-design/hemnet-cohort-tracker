@@ -158,7 +158,10 @@ quiet.
   loudly rather than posting nowhere.
 - **Cadence / channel / trigger:** daily **03:00 UTC**, `#hemnet-ops`, cron
   (`0 3 * * * node cron-health-slack.js`).
-- **Sample shape** (real output, `--dry-run`, 2026-08-18 — abbreviated):
+- **Sample shape** (real output, `--dry-run`, 2026-08-18 — abbreviated). Note this capture is
+  from a *bad* morning, chosen because it exercises every section: a failing tier-1 job and a
+  disk breach. A healthy digest reads `:white_check_mark: All healthy` with no `*Issues:*` block.
+  The disk line here is historical — the box was resized to a 50 GB volume later that day:
   ```
   *Hemnet Monitor — Daily Health Report*
   2026-08-18  |  :warning: 4 issue(s)
