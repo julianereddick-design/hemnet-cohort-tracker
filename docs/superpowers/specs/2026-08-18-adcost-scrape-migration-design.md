@@ -75,6 +75,7 @@ droplet does not touch any of this data.
 | D4 | **Grid lives in repo constants**, asserted against `hemnet_adcostpricepointv2` | Once Django is gone, editing that table means hand-written SQL against production: no review, no history. Code is reviewed and versioned. The assertion catches drift in either direction. Also collapses today's *two* silently-forkable definitions (the DB table, and `MUNI`/`PRICE_POINTS` hardcoded in `adcost-report.py`) into one. |
 | D5 | **Validate with a `--dry-run` crawl**, not a live one | A validating write would create a real 2026-08-18 snapshot, which becomes "latest" and shifts the report's period-on-period column. Dry-run crawls fully, skips the write, diffs in memory. |
 | D6 | **Cut over before 1 Sept; destroy after it succeeds** | The series is monthly and unbackfillable. Keeping the old box through one real unattended run costs ~$6 and buys a working fallback. |
+| D7 | **Hold the snapshot for a quarter** (to ~2026-11-18), then delete | Julian's call, 2026-08-18. ~$1–2/mo for 50GB. Covers three monthly cycles, so any seasonal or cadence-related failure surfaces while the fallback still exists. |
 
 ---
 
@@ -277,8 +278,31 @@ fallback through September.
 
 ---
 
-## 12. Open items
+## 12. What else is on the box — checked 2026-08-18, nothing blocks the destroy
 
-- Snapshot retention: delete once September is proven, or keep for a quarter? (~$1–2/mo)
-- `.181.89` also holds `OXYLABS_*` and `STEEL_API_KEY` credentials. Confirm nothing else
-  depends on that box's IP being whitelisted before destroying it.
+Both original open items are now closed.
+
+**Snapshot retention:** hold a quarter — see D7.
+
+**Nothing else depends on `.181.89`.** Verified:
+
+- **nginx listens publicly on :80 but serves nothing.** No config in `sites-enabled`, and the
+  access log holds **zero** requests from zero distinct client IPs. It is a running default
+  install, not a service anyone uses.
+- **There is a `hemnet-metabase` container** — `metabase/metabase:v0.47.1`, **Exited (137)**
+  (OOM-killed) **six weeks ago**. This was the one genuine surprise, and it is the only thing
+  on the box besides the scrape with any claim to being valuable.
+- **Metabase's content survives the droplet.** It is configured with
+  `MB_DB_TYPE=postgres` against the **managed** Postgres
+  (`private-db-postgresql-syd1-79303…`, database `metabase`) and has **no local volume
+  mounts** at all. Every dashboard, saved question and user lives in the managed database,
+  not on this disk. Destroying the droplet destroys the *server process*, not the work.
+  Restoring it later is one `docker run` of the same image against the same `MB_DB_*` config,
+  on any host — it does not have to be this one.
+- The box also holds `OXYLABS_*` and `STEEL_API_KEY` in its `.env`. These are credentials,
+  not dependencies: nothing routes *through* this droplet. Its DB trusted-source entry
+  becomes stale on destroy and should be removed for hygiene.
+
+**Residual caveat:** if anyone is accustomed to reaching Metabase or the Django admin at
+`http://170.64.181.89/`, those URLs stop working. The access log says nobody has, and
+Metabase has been dead six weeks without complaint, but the URL disappearing is real.
