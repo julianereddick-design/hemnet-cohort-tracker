@@ -19,19 +19,33 @@ The remote is a third party's repository, so the branch could not be pushed upst
 
 Reference only. Nothing in this repo imports or executes these files.
 
-## 🔴 DO snapshot: NOT TAKEN
+## ✅ DO snapshot: TAKEN 2026-08-18
 
-**No snapshot of the price-scraper droplet exists.** It was attempted on 2026-08-18 and the
-DigitalOcean API refused it — `403 not authorized` — because the available API token is
-**read-only**. Nothing was retried and no snapshot id was ever issued, so there is no
-`PENDING` id to look up later.
+| | |
+|---|---|
+| Snapshot id | **`241648610`** |
+| Name | `hemnet-price-scraper-predecommission-20260818` |
+| Droplet | `357087018` (`170.64.181.89`, the price-scraper / Django box) |
+| Size / region | 22.73 GiB · `syd1` · min disk 50 GB |
+| Taken | 2026-08-18 06:58:46 → 07:02:01 UTC (action `3353705284`) |
+| Cost | ~$1.36/month at $0.06/GiB |
 
-- Droplet id: **`357087018`** (`170.64.181.89`, the price-scraper / Django box).
-- Required before that droplet is destroyed: take the snapshot with a **write-scoped**
-  DigitalOcean token, then record the id here in place of this section.
-- Hold the snapshot to ~2026-11-18 (spec decision D7), then delete it.
+**Retention: hold to ~2026-11-18 (spec decision D7), then delete.** That covers three monthly
+crawl cycles, so a seasonal or cadence-related failure surfaces while the fallback still exists.
 
-Until that happens, the two files in this directory are the **only** copy of the crawler
-source that ever existed outside that host — they were uncommitted, on a branch with no
-remote. Destroying the droplet without the snapshot is irreversible for everything else on
-it (the venv, the crontab, the Celery config, `.env`).
+This snapshot **is** the rollback. Decision D2 deleted the Steel and Browser-API transports from
+the port, which retired the documented `ADCOST_TRANSPORT=steel` fallback — so restoring this image
+is the only way back to the pre-migration system.
+
+It was taken live (the droplet was running), which is supported; its one enabled scrape beat row
+had already been disabled at cutover, so nothing was mid-write.
+
+⚠ First attempt returned `403 not authorized` — the default DigitalOcean token is **read-only**.
+A write-scoped token (`droplet: update`, or Full Access) is required for droplet actions, and will
+be needed again to destroy the droplet. Note `doctl auth init` silently re-validates an existing
+token instead of prompting; forcing a new named context (`doctl auth init --context <name>`) is
+what makes it ask.
+
+The two files in this directory remain the only copy of the crawler *source* that ever existed
+outside that host — they were uncommitted, on a branch with no remote. The snapshot now covers
+everything else on the box (the venv, the crontab, the Celery config, `.env`).
