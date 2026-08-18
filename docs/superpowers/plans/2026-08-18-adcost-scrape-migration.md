@@ -745,7 +745,43 @@ def dry_run_diff(cur, rows, expected):
     }
 ```
 
-- [ ] **Step 7: Run the self-test once more**
+- [ ] **Step 7: Fix `read_env_value`'s path depth — it is one directory too high here**
+
+Copied unchanged, `read_env_value` resolves the fallback `.env` as
+`os.path.join(os.path.dirname(__file__), "..", "..", ".env")`. In Django the file sat at
+`apps/hemnet/adcost_steel.py` — two levels down, so `../..` was the repo root. Here it sits at
+`scripts/adcost-crawl.py` — **one** level down, so `../..` resolves to `/opt/.env`, which does
+not exist.
+
+It is masked in normal operation, because the crontab `cd`s to the repo root and `dotenv`
+supplies the credential through `process.env`. It bites the moment anyone runs
+`python scripts/adcost-crawl.py` directly — which is exactly what a manual repair run after a
+failed month looks like — giving a misleading `exit 2, "not set (env or repo-root .env)"`.
+
+```python
+# Repo root is ONE level up from scripts/, not two. (In the Django tree this file
+# lived at apps/hemnet/, hence the original "../..".)
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+```
+
+and use `os.path.join(REPO_ROOT, ".env")` in `read_env_value`.
+
+- [ ] **Step 8: Prove the fallback resolves to the real repo root**
+
+```bash
+PYTHON_BIN=python python -c "
+import os, sys; sys.path.insert(0, 'scripts')
+import importlib.util
+spec = importlib.util.spec_from_file_location('c', 'scripts/adcost-crawl.py')
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+print('repo root ->', m.REPO_ROOT)
+print('.env exists ->', os.path.exists(os.path.join(m.REPO_ROOT, '.env')))"
+```
+
+Expected: the path ends in `hemnet-cohort-tracker` and `.env exists -> True`. If it ends in
+`/opt` or the parent directory, the fix did not take.
+
+- [ ] **Step 9: Run the self-test once more**
 
 Run: `PYTHON_BIN=python python scripts/adcost-crawl.py --selftest`
 Expected: passes. Still no network.
@@ -857,8 +893,16 @@ In `lib/job-registry.js`, replace the `ad-cost-crawler` entry:
 
 ```js
   'ad-cost-crawler': {
-    tier: 1, frequency: 'monthly', label: 'Monthly (1st 02:00)',
-    cron: '0 2 1 * *', command: 'node adcost-crawl.js',
+    // 00:30, NOT 02:00. 'age-census-monthly' already owns `0 2 1 * *` and runs
+    // ~3h (expectedDurationMin: 240), so 02:00 would start two never-before-run
+    // tier-1 monthly jobs on the same minute, on one vCPU / 2GB with no swap.
+    // The crawler's TIME_BUDGET leaves only ~31% headroom at its own measured
+    // rate, and subprocess.run DISCARDS stdout on timeout — contention costs the
+    // whole month, not the tail. 00:30 + the 45-min ceiling ends by 01:15, which
+    // is 45 min clear of the census and 6h40m ahead of the 07:10 report, and it
+    // stays inside one UTC date so the day-scoped write cannot straddle midnight.
+    tier: 1, frequency: 'monthly', label: 'Monthly (1st 00:30)',
+    cron: '30 0 1 * *', command: 'node adcost-crawl.js',
     env: { PYTHON_BIN: '/opt/hemnet-cohort-tracker/.venv-adcost/bin/python' },
     log: '/var/log/hemnet/adcost-crawl.log',
     // 45 min = the 2700s subprocess ceiling, NOT the ~21 min expected runtime, so a
@@ -869,24 +913,88 @@ In `lib/job-registry.js`, replace the `ad-cost-crawler` entry:
   },
 ```
 
-`external: true` is removed — the job now runs here. `assert: 'adCostMonth'` is unchanged.
+`external: true` is removed — the job now runs here.
 
-- [ ] **Step 5: Verify the registry renders and nothing else moved**
+- [ ] **Step 5: Verify NO OTHER JOB shares the slot**
 
-Run:
+⚠ Do **not** verify with `render-crontab.js | grep adcost`. That was the original check and it
+is structurally blind: filtering to `adcost` hides every job you could be colliding with. That
+is exactly how the `0 2 1 * *` collision with the ~3h `age-census-monthly` survived review.
+
+Check the slot, not the job:
 
 ```bash
-node scripts/render-crontab.js | grep adcost
+node scripts/render-crontab.js | grep '^30 0 1'      # expect EXACTLY ONE line: adcost-crawl
+node scripts/render-crontab.js | grep -E '^[0-9,*]+ [0-9,*]+ 1 ' | sort -k2 -n
 node adcost-report.js --smoke | tail -1
 ```
 
-Expected: two adcost lines (`0 2 1 * *` crawl, `10 7 1 * *` report, five hours apart), and `smoke: 20 pass, 0 fail`.
+Expected: one line at `30 0 1 * *`; the monthly picture reading 00:30 crawl → 02:00 census
+(~3h) → 07:00 census report → 07:10 ad-cost report, with no overlap; and `smoke: 20 pass, 0 fail`.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Fix the freshness assertion so a failed month cannot read green**
+
+`lib/job-assertions.js:208` `adCostMonth` accepts **any** complete grid within
+`NOW() - INTERVAL '40 days'`. That was right for the old weekly cadence. Under monthly it is
+wrong: on 2026-09-01 the **2026-08-17** grid satisfies it, and keeps satisfying it until
+2026-09-26. A September crawl that writes 42 rows and dies — the exact shape of 2026-08-02
+(42 cells) and 2026-08-09 (35 cells), both still in the table — reads healthy for 25 days.
+
+Replace the body with: *if anything has been crawled since the last expected fire, the newest
+crawl day must be complete.* That catches a degraded month the morning it happens, and falls
+back to the age check when no run is due yet.
+
+```js
+  async adCostMonth(client) {
+    const r = await client.query(
+      `SELECT (crawled AT TIME ZONE 'UTC')::date AS d,
+              count(DISTINCT property_municipality_id)::int AS munis,
+              count(DISTINCT (property_municipality_id, property_price, ad_type))::int AS cells
+         FROM hemnet_adcostv2
+        WHERE crawled >= NOW() - INTERVAL '40 days'
+        GROUP BY 1 ORDER BY 1 DESC`);
+    if (!r.rows.length) {
+      return bad('no hemnet_adcostv2 rows in 40 days — the monthly crawl has not run');
+    }
+    const iso = (x) => (x.toISOString ? x.toISOString().slice(0, 10) : String(x));
+    // The newest crawl day is the one that matters. If the crawler ran and produced a
+    // partial grid, an older COMPLETE grid must not be allowed to vouch for it.
+    const newest = r.rows[0];
+    if (newest.munis !== 10 || newest.cells !== 420) {
+      return bad(`newest run ${iso(newest.d)} is INCOMPLETE — ${newest.munis}/10 municipalities, `
+        + `${newest.cells}/420 cells. An older complete grid does not make this month good.`);
+    }
+    return ok(`complete grid ${iso(newest.d)} (420/420 cells, 10 munis)`);
+  },
+```
+
+- [ ] **Step 7: Prove the new assertion rejects the old failure shape**
 
 ```bash
-git add adcost-crawl.js lib/job-registry.js
-git commit -m "feat(adcost): node wrapper + registry entry for the crawl"
+node -e "
+const {ASSERTIONS} = require('./lib/job-assertions');
+// 2026-08-09 wrote 35 cells / 1 muni and 2026-08-17 wrote 420/10. Under the OLD rule a
+// partial newest run passed because an older complete grid existed; under the new rule it
+// must fail. Simulate both orderings against a stub client.
+const stub = (rows) => ({ query: async () => ({ rows }) });
+(async () => {
+  const good = await ASSERTIONS.adCostMonth(stub([{d:'2026-09-01',munis:10,cells:420}]));
+  const bad_ = await ASSERTIONS.adCostMonth(stub([
+    {d:'2026-09-01',munis:1,cells:42}, {d:'2026-08-17',munis:10,cells:420}]));
+  console.log('complete newest ->', good.ok, good.detail);
+  console.log('partial newest  ->', bad_.ok, bad_.detail);
+  if (good.ok !== true || bad_.ok !== false) { console.log('ASSERTION FIX FAILED'); process.exit(1); }
+  console.log('OK: a partial newest run can no longer be vouched for by an older grid');
+})();"
+```
+
+Expected: `complete newest -> true`, `partial newest -> false`, then the OK line.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add adcost-crawl.js lib/job-registry.js lib/job-assertions.js
+git commit -m "feat(adcost): node wrapper, registry entry at 00:30, and a monthly-correct assertion"
 ```
 
 ---
@@ -904,11 +1012,43 @@ ssh cohort-droplet "cd /opt/hemnet-cohort-tracker && git pull --ff-only && node 
 
 Expected: `smoke: 3 pass, 0 fail`
 
-- [ ] **Step 2: Install `requests` into the venv**
+- [ ] **Step 2: Pin the Python dependencies BEFORE installing them**
+
+The venv at `/opt/hemnet-cohort-tracker/.venv-adcost` is **untracked, un-gitignored, and has no
+lockfile** — there is no `requirements.txt`, `Pipfile` or provisioning script anywhere in the
+repo. The box being destroyed has a `Dockerfile` and a `Pipfile.lock` (Python 3.11,
+`requests 2.32.3`). The new box is Python 3.12 and a bare `pip install requests` currently
+resolves to 2.34.2. Migrating as-is would trade a reproducible runtime for an unreproducible
+one at the same moment it destroys the reproducible one — and a `git clean -fdx` or a droplet
+rebuild would silently remove the entire ad-cost capability.
+
+Create `scripts/requirements-adcost.txt`, pinning what the old box actually ran:
+
+```
+# Pinned to the versions the ad-cost crawl is known to work on. requests/urllib3
+# matter more than they look: the unlocker path is an HTTPS POST through an HTTP
+# proxy with verify=False, which is precisely the corner urllib3 has churned on.
+# Bump only after a dry run passes on the new pins.
+requests==2.32.3
+urllib3==2.4.0
+psycopg[binary]==3.2.*
+openpyxl==3.1.*
+```
+
+Add `.venv-adcost/` to `.gitignore`, then install from the pins:
 
 ```bash
-ssh cohort-droplet "/opt/hemnet-cohort-tracker/.venv-adcost/bin/pip install requests"
-ssh cohort-droplet "/opt/hemnet-cohort-tracker/.venv-adcost/bin/python -c 'import requests, psycopg; print(requests.__version__)'"
+ssh cohort-droplet "cd /opt/hemnet-cohort-tracker && \
+  .venv-adcost/bin/pip install -r scripts/requirements-adcost.txt"
+ssh cohort-droplet "/opt/hemnet-cohort-tracker/.venv-adcost/bin/python -c \
+  'import requests, urllib3, psycopg; print(requests.__version__, urllib3.__version__)'"
+```
+
+Expected: `2.32.3 2.4.0` — matching the old box, not whatever PyPI ships today.
+
+```bash
+git add scripts/requirements-adcost.txt .gitignore
+git commit -m "chore(adcost): pin the crawler's python deps to the versions it ran on"
 ```
 
 - [ ] **Step 3: Copy the credential host-to-host**
@@ -929,24 +1069,50 @@ ssh cohort-droplet "cd /opt/hemnet-cohort-tracker && .venv-adcost/bin/python scr
 
 Expected: passes, exit 0, zero spend.
 
-- [ ] **Step 5: GATE — get Julian's go-ahead for the paid dry run**
+- [ ] **Step 5: GATE — get Julian's go-ahead for the paid dry runs**
 
-~$0.10 of Bright Data, ~21 minutes. Do not proceed without an explicit yes for this specific run.
+~$0.10 each, ~21 minutes each, and Step 6 asks for **three**. Do not proceed without an
+explicit yes for these specific runs.
 
-- [ ] **Step 6: Run the dry run**
+*Already settled, do not re-test:* the Bright Data zone `hemnet_pricing_unlocker` authenticates
+by username/password with **no source-IP allowlist**. Verified 2026-08-18 — cohort-tracker
+(`170.64.197.241`) got HTTP 200 and 165KB of genuine Hemnet HTML through the proxy, three
+samples, alongside a control from the old box.
+
+- [ ] **Step 6: Run THREE dry runs at different times of day**
+
+One run is not enough, and the plan originally asked for one. The unlocker transport has
+succeeded exactly **once ever** — attended, two minutes after a hand-started container, on
+freshly written code. It has never run unattended and never twice. Worse, the two recorded
+timings for that same day disagree by ~7× (226.77s total for 60 cells ≈ 3.8s/cell, versus the
+source file's own `MEASURED_SEC_PER_CELL = 21.0`), and the `TIME_BUDGET` cliff at ~30.6s/cell
+sits between them. A single run that draws the fast case manufactures false confidence.
+
+Spread them across the day — challenge difficulty varies (a homepage probe on 2026-08-18 ranged
+**5.9s to 45s** on both hosts alike):
 
 ```bash
 ssh cohort-droplet "cd /opt/hemnet-cohort-tracker && \
   PYTHON_BIN=.venv-adcost/bin/python node adcost-crawl.js --dry-run"
 ```
 
-Expected: `"complete": true`, `"rows": 420`, `"expected": 420`, empty `missing_vs_reference` and `new_vs_reference`. `changed_count` may be non-zero — if Hemnet repriced this week that is a real observation, not a port bug. Investigate any changed cell before accepting.
+Expected each time: `"complete": true`, `"rows": 420`, `"expected": 420`, empty
+`missing_vs_reference` and `new_vs_reference`. `changed_count` may be non-zero — if Hemnet
+repriced this week that is a real observation, not a port bug. Investigate any changed cell
+before accepting.
 
-**Stop and fix if:** rows < 420, or any cell is missing versus the reference.
+**Stop and fix if:** rows < 420 on any run, or any cell is missing versus the reference.
 
-- [ ] **Step 7: Record the measured runtime**
+- [ ] **Step 7: Size the timeout from the SLOWEST run, not the average**
 
-If seconds-per-cell has risen materially versus the old box's ~21s, raise `SUBPROCESS_TIMEOUT_SEC` **and** confirm the crawler's derived `TIME_BUDGET` moves with it, then re-run Step 6.
+Record wall-clock and seconds-per-cell for all three. Then:
+
+- If the **slowest** run exceeds ~50% of `TIME_BUDGET` (≈940s of the ≈1875s budget), raise
+  `SUBPROCESS_TIMEOUT_SEC` **and** confirm the crawler's derived `TIME_BUDGET` moves with it —
+  they come from one constant precisely so they cannot drift — then re-run Step 6.
+- If the three runs disagree by more than ~2×, say so explicitly in the handover rather than
+  quoting a mean. The failure mode here is a slow month meeting a budget sized on a fast one,
+  and `subprocess.run` discards stdout on timeout, so the cost is the entire month.
 
 ---
 

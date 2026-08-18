@@ -195,7 +195,13 @@ runtime, so a slow-but-succeeding month is not alerted as an overrun. The existi
 complete 420-cell grid) already covers freshness and needs no change — but the entry stops
 being `external: true`.
 
-**Report timing is unchanged:** scrape 02:00 UTC, report 07:10 UTC, five hours apart.
+**Schedule (corrected 2026-08-18 after an adversarial pre-mortem):** the crawl runs
+`30 0 1 * *` UTC, **not** `0 2 1 * *`. That slot is already held by `age-census-monthly`,
+a tier-1 job with `expectedDurationMin: 240` — scheduling there would have started two
+never-before-run monthly jobs on the same minute, on one vCPU / 2GB with no swap, and the
+crawler's TIME_BUDGET leaves only ~31% headroom at its own measured rate. The month on the
+1st now reads: 00:30 crawl (≤45 min) → 02:00 census (~3h) → 07:00 census report →
+07:10 ad-cost report.
 
 ---
 
@@ -264,6 +270,7 @@ fallback through September.
 | Both writers fire on 1 Sept | Beat row disabled at step 4, before the first cohort-tracker fire. |
 | Losing the Steel rollback | Accepted (D2/D3). Steel was ~12% effective; the snapshot is the real fallback. |
 | Bright Data credential mishandled in transit | Copy directly host-to-host; never echo it into a transcript or a commit. |
+| ✅ **Bright Data rejects the new egress IP** — RESOLVED 2026-08-18 | Verified fine. Zone `hemnet_pricing_unlocker` authenticates by username/password with **no source-IP allowlist**: cohort-tracker got HTTP 200 and 165KB of real Hemnet HTML through the proxy, three samples, against a control from the old box. Latency varies 5.9–45s on **both** hosts — variance, not a slower destination. ⚠ This probe hit the homepage, not `/graphql`; it does **not** settle the crawl's timing. |
 | 🔴 **The source code exists in only one place, and it is the box being destroyed** | See §12.1. Rescued by Task 0 of the implementation plan, which runs **before** any other work: snapshot the droplet, copy both files into `docs/handover/adcost-django-source/`, verify by md5, commit and push. |
 
 ---
