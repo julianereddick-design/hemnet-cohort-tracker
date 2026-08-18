@@ -45,7 +45,6 @@ CORE_TIERS = ["BASIC", "PLUS", "PREMIUM", "MAX"]
 # double-count a seller who buys both. Split onto their own sheets 2026-08-18.
 ADDON_TIERS = ["PAID_REPUBLISH", "TOPLISTING", "TOPLISTING_5_DAYS"]
 ALL_TIERS = CORE_TIERS + ADDON_TIERS
-PRICE_POINTS = [2000000, 5000000, 7500000, 10000000, 15000000, 20000000]
 
 # The ONE anchor every published comparison is made against (decision locked
 # 2026-08-17). It is pinned rather than derived as "the last snapshot of 2025"
@@ -63,24 +62,18 @@ WORKBOOK_FROM = datetime.date(2026, 1, 1)
 MOMS = 1.25  # Swedish VAT. webPricingCalculator amounts are NET (ex-VAT); the v6
              # Output reports GROSS (inc-moms). net × MOMS ≈ v6 reported figures.
 
-# 10 scraped munis (id -> (name, county)); county strings match arpl-baseline.json.
-MUNI = {
-    164: ("Göteborgs", "Västra Götalands"),
-    117: ("Krokoms", "Jämtlands"),
-    217: ("Lunds", "Skåne"),
-    88:  ("Malmö", "Skåne"),
-    68:  ("Sandvikens", "Gävleborgs"),
-    193: ("Stockholms", "Stockholms"),
-    104: ("Uppsala", "Uppsala"),
-    266: ("Vadstena", "Östergötlands"),
-    282: ("Varbergs", "Hallands"),
-    222: ("Ydre", "Östergötlands"),
-}
-COUNTIES = ["Gävleborgs", "Hallands", "Jämtlands", "Skåne",
-            "Stockholms", "Uppsala", "Västra Götalands", "Östergötlands"]
+# The grid is defined once, in scripts/lib/adcost_grid.py, and shared with the
+# crawler. MUNI is re-shaped to (name, county) here because every existing use
+# in this file unpacks a 2-tuple.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+import adcost_grid as _grid
+
+MUNI = {mid: (name, county) for mid, (name, _full, county) in _grid.MUNI.items()}
+PRICE_POINTS = list(_grid.PRICE_POINTS)
+COUNTIES = list(_grid.COUNTIES)
 
 # A complete run is every muni x every price point x every product.
-EXPECTED_CELLS = len(MUNI) * len(PRICE_POINTS) * len(ALL_TIERS)   # 10 * 6 * 7 = 420
+EXPECTED_CELLS = _grid.EXPECTED_CELLS   # 10 * 6 * 7 = 420
 
 # If the previous complete snapshot is older than this, the period-on-period panel
 # renders "n/a (gap)" instead of a number. Sized for the MONTHLY cadence the scrape
