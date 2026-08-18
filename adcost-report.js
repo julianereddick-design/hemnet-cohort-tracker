@@ -111,18 +111,22 @@ const MCOL_W = 9;
 
 function mcell(p) { return lpad(p == null ? '—' : pctSigned(p), MCOL_W); }
 
-// One matrix: a row per county, a column per package, a Total column, a TOTAL row.
+// One matrix: a row per county, a column per package, and a TOTAL row.
+// There is deliberately NO Total column. Averaging BASIC..MAX across a county
+// would imply a package mix we do not observe: we scrape the RATE CARD, not what
+// sellers actually buy, so an equal-weighted cross-package total is a number with
+// no referent. The TOTAL row stays — it averages ONE package across municipalities,
+// which is a like-for-like basket. (Removed 2026-08-18 at Julian's request.)
 // Every cell is the % change in an equal-weighted basket of that county's
 // municipalities × all six price points — deliberately unweighted, because the v6
 // listing-mix weights were dropped as a frozen one-off.
 function renderMatrix(matrix, heading) {
   const L = [heading];
-  L.push(rpad('', COUNTY_W) + CORE.map(t => lpad(t, MCOL_W)).join('') + lpad('Total', MCOL_W));
+  L.push(rpad('', COUNTY_W) + CORE.map(t => lpad(t, MCOL_W)).join(''));
   for (const r of matrix.rows) {
-    L.push(rpad(r.county, COUNTY_W) + CORE.map(t => mcell(r.tiers[t])).join('') + mcell(r.total));
+    L.push(rpad(r.county, COUNTY_W) + CORE.map(t => mcell(r.tiers[t])).join(''));
   }
-  L.push(rpad('TOTAL', COUNTY_W) + CORE.map(t => mcell(matrix.total_row[t])).join('')
-    + mcell(matrix.grand_total));
+  L.push(rpad('TOTAL', COUNTY_W) + CORE.map(t => mcell(matrix.total_row[t])).join(''));
   return L;
 }
 
@@ -532,20 +536,22 @@ function smoke() {
     assert.ok(/VAT-agnostic/.test(out));
   });
 
-  check('both tables render as county rows × package columns, with a Total column and TOTAL row', () => {
+  check('both tables render as county rows × package columns, with a TOTAL row and NO Total column', () => {
     const out = renderReport(base(), LINKS);
     assert.ok(/vs December 2025 baseline — 2025-12-21 \(239 days\)/.test(out), out);
-    // header row carries all four packages plus Total, in workbook order
-    const hdr = out.split('\n').find(l => /BASIC/.test(l) && /Total/.test(l));
+    // header row carries the four packages in workbook order, and nothing after MAX
+    const hdr = out.split('\n').find(l => /BASIC/.test(l) && /MAX/.test(l));
     assert.ok(hdr, 'a matrix header row must render');
     assert.ok(hdr.indexOf('BASIC') < hdr.indexOf('PLUS')
       && hdr.indexOf('PLUS') < hdr.indexOf('PREMIUM')
-      && hdr.indexOf('PREMIUM') < hdr.indexOf('MAX')
-      && hdr.indexOf('MAX') < hdr.indexOf('Total'), `column order must match the workbook: ${hdr}`);
-    // a county row, and the TOTAL row
-    assert.ok(/^Stockholms\s+\+3\.5%\s+\+5\.3%\s+\+6\.2%\s+−21\.6%\s+−1\.7%$/m.test(out),
+      && hdr.indexOf('PREMIUM') < hdr.indexOf('MAX'), `column order must match the workbook: ${hdr}`);
+    // The cross-package Total column was REMOVED 2026-08-18: we scrape the rate card,
+    // not the package mix, so averaging BASIC..MAX implies a mix we never observe.
+    assert.ok(!/Total/.test(hdr), `no cross-package Total column may return: ${hdr}`);
+    // a county row, and the TOTAL row — both now end at MAX
+    assert.ok(/^Stockholms\s+\+3\.5%\s+\+5\.3%\s+\+6\.2%\s+−21\.6%$/m.test(out),
       `county row shape: ${out}`);
-    assert.ok(/^TOTAL\s+\+3\.4%\s+\+5\.2%\s+\+6\.1%\s+−21\.6%\s+−1\.7%$/m.test(out),
+    assert.ok(/^TOTAL\s+\+3\.4%\s+\+5\.2%\s+\+6\.1%\s+−21\.6%$/m.test(out),
       `TOTAL row must render: ${out}`);
     // TWO tables, not one — this is what the single-anchor lock used to forbid
     assert.strictEqual((out.match(/^TOTAL\s/gm) || []).length, 2, 'both matrices must render');
@@ -581,7 +587,7 @@ function smoke() {
         quarter: MATRICES.quarter,
       },
     }), LINKS);
-    assert.ok(/^Jämtlands\s+—\s+—\s+—\s+—\s+—$/m.test(out), `missing county data must degrade visibly: ${out}`);
+    assert.ok(/^Jämtlands\s+—\s+—\s+—\s+—$/m.test(out), `missing county data must degrade visibly: ${out}`);
     assert.ok(!/NaN|undefined/.test(out));
   });
 
