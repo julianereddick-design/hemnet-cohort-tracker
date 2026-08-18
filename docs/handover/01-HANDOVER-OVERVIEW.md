@@ -299,17 +299,34 @@ Ordering dependencies that matter: **C → B → cohort-create**, and **A+D → 
 
 Ordered by likelihood; full analysis in [`.planning/codebase/CONCERNS.md`](../../.planning/codebase/CONCERNS.md).
 
-1. **Oxylabs monthly cap breach** — ~86% of ~262k used; any county/municipality expansion multiplies
-   calls. *Always model the delta and check `data.oxylabs.io/v1/stats` first.* Levers: `MAX_OXY_CALLS`,
-   `RECHECK_BRIDGE_FINAL_ONLY=1`.
-2. **Droplet disk exhaustion** — hit 100% on 2026-07-27 (a job crashed with ENOSPC). Freed to ~68%, a
-   retention cron installed, but a durable cache cap is still deferred. *Check `df -h` before big runs.*
+1. **Oxylabs monthly cap breach** — cap is **262k non-JS results/month** on a flat $249/mo plan.
+   Measured 2026-08-18: **Jun 85.9%, Jul 60.1%, Aug 40.0%** (18 days in, ~69% projected).
+   > ⚠ Earlier revisions of this document quoted "~86% used" as the steady state. That was
+   > **June's peak**, captured in a doc written on 2026-07-28 — it is not typical. The risk is
+   > real but the headroom is larger than that number implied. **Measure, don't quote:**
+   > `curl -u "$OXYLABS_USERNAME:$OXYLABS_PASSWORD" https://data.oxylabs.io/v1/stats?group_by=month`
+
+   Any county/municipality expansion multiplies calls, so *always model the delta first*.
+   Levers: `MAX_OXY_CALLS`, `RECHECK_BRIDGE_FINAL_ONLY=1`.
+2. **~~Droplet disk exhaustion~~ — RESOLVED 2026-08-18.** The box was resized to `s-1vcpu-2gb`
+   (2 GB RAM, **50 GB disk**, $12/mo); the volume sits around 15% used with ~41 G free, and the
+   memory exhaustion that was silently killing three separate jobs every Monday is gone with it
+   (`03` §1 and §8). *Kept in this list only so the history is not re-discovered from scratch —
+   it is no longer a live risk.* The one thing that would bring it back: the weekly xlsx export's
+   memory **grows with cohort size** (~550 MB at 1,586 pairs), so a much larger cohort is the
+   thing to watch. Measure with `node scripts/mem-profile.js -- node <job>.js`.
 3. **Dead credentials / dead endpoints** — this system has a recurring pattern of external paths dying
    silently (Hemnet direct-curl died → all-Oxylabs; the price-scraper box's *own* Oxylabs creds went
    401; the ad-cost GraphQL op died and was re-ported to Steel). *Assume any external path can die;
    run a `probe-oxylabs-*.js` canary before big runs.*
-4. **Silent cron failures** — alerts depend on `SLACK_WEBHOOK_URL` being set, and successful re-checks
-   are silent. *Use `cron_job_log` + the daily health report, not Slack silence, as truth.*
+4. **Misreading silence as health** — this is the subtle one, and it got *more* subtle after the
+   2026-08-17 alerting rebuild. Silence now has **four legitimate causes** (tier-2 gating, the
+   re-notify ladder, the flap debounce, the storm cap) on top of the illegitimate ones (dead
+   webhook, dead watchdog, a job that swallowed its own error). A quiet channel is therefore
+   *expected*, and cannot be distinguished from a broken one by looking at it.
+   *Use the 03:00 digest and the Thursday `💚 [HEARTBEAT]` as the liveness proof, and
+   `cron_job_log` as ground truth — never Slack silence.* Three-step test:
+   [`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md) §5.
 5. **Local ≠ origin ≠ droplet deploy drift** — deploy is "git pull on the droplet", and history has
    diverged before (once 42 commits behind; a fortnight-interlock fix is committed-but-not-deployed).
    *Establish git ground truth before every deploy; reconcile the age-census branches by rebase.*
