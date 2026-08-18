@@ -103,7 +103,7 @@ keeps it.
 ### To-be
 
 ```
-lib/job-registry.js  'ad-cost-crawler'  (0 2 1 * * UTC)  -> generated crontab
+lib/job-registry.js  'ad-cost-crawler'  (30 0 1 * * UTC)  -> generated crontab
   └─> adcost-crawl.js                   (Node, cron-wrapper.runJob, tier 1)
         └─ subprocess: .venv-adcost/bin/python scripts/adcost-crawl.py
               ├─ grid    <- repo constants (asserted against hemnet_adcostpricepointv2)
