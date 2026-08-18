@@ -93,10 +93,9 @@ quiet.
 
 ### 2.1 Cron job failure/warning alerts — `cron-wrapper.js`
 
-> **Rewritten 2026-08-17.** This alert is now **tier-gated and suppressed**. Prior revisions of
-> this document described an untiered "fires on any warning or failure" behaviour that no
-> longer exists. Full treatment — tiers, ladder, debounce, what silence means — is in
-> **[`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md)**; this entry is the summary.
+This alert is **tier-gated and suppressed**. Full treatment — tiers, ladder, debounce, what
+silence means — is in **[`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md)**; this
+entry is the summary.
 
 - **What:** Not a report per se. `cron-wrapper.runJob()` wraps every scheduled job and decides,
   on every outcome including success, whether to alert. What it sends depends on the job's
@@ -125,10 +124,9 @@ quiet.
 
 ### 2.2 Daily health report — `cron-health-slack.js`
 
-> **Rewritten 2026-08-17.** The digest is no longer a two-job summary. It covers **every**
-> scheduled job in `lib/job-registry.js` (24 currently) across **six** sections, and it is the
-> backstop that makes tier-2 silence safe. Section-by-section reading guide:
-> **[`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md) §4**.
+Covers **every** scheduled job in `lib/job-registry.js` (24 currently) across **six** sections,
+and is the backstop that makes tier-2 silence safe. Section-by-section reading guide:
+**[`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md) §4**.
 
 - **What:** Six sections, posted daily whether or not anything is wrong:
   1. `📡 Liveness` — did each scheduled job fire? **Registry-derived**, so it covers every job

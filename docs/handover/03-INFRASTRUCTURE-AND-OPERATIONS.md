@@ -28,15 +28,12 @@ jobs. Do not confuse them.
 
 - **Machine:** DigitalOcean droplet **556306295**, region `syd1`, Ubuntu 24.04 LTS.
   **`s-1vcpu-2gb`** — 1 vCPU, **2 GB RAM, 50 GB disk**, $12/mo. **No swap.**
-  > **Resized 2026-08-18** from `s-1vcpu-512mb-10gb`. The old 512 MB (458 MiB visible, ~248 MB
-  > actually available) was the single root cause of three separate production failures — see
-  > §8 and [`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md) §7. The resize was done
-  > **with `--resize-disk`, which is permanent**: DigitalOcean cannot shrink a disk, so this
-  > droplet can never be downsized below 2 GB again.
+  > **Sizing:** the heaviest single job (`export-hb-ratio-xlsx.js`) peaks around **550 MB** and
+  > its memory *grows with cohort size*, so headroom shrinks as cohorts grow. Measure rather
+  > than assume: `node scripts/mem-profile.js -- node <job>.js` (§8).
   >
-  > **Sizing rule of thumb:** the heaviest single job (`export-hb-ratio-xlsx.js`) peaks around
-  > **550 MB** and its memory *grows with cohort size*. Measure before assuming headroom:
-  > `node scripts/mem-profile.js -- node <job>.js`.
+  > The disk was expanded with `--resize-disk`, which DigitalOcean cannot undo — **this droplet
+  > can never be downsized below 2 GB.**
 - **Code location:** `/opt/hemnet-cohort-tracker/` (git clone; `cd … && git pull` to deploy).
 - **Job execution:** Linux **cron** (per-user crontab, `root`). Every scheduled script is
   wrapped by `cron-wrapper.js` → `runJob` (invoked at module load — see §5/§6). No process
@@ -175,10 +172,17 @@ off-box that the code works on Decade's creds). This is on the *other* droplet's
 
 - **Account-wide usage API:** read via `https://data.oxylabs.io/v1/stats` (HTTP-basic with the
   Oxylabs account creds). Use it to check month-to-date consumption.
-- **Monthly cap:** **262k non-JS requests/mo** (199.2k JS). Utilization was **~86%** (June
-  ~225k). **County expansion is the main breach risk** — budget any new geographies against
-  this cap before enabling. Do **not** launch paid Oxylabs runs without explicit per-run
-  go-ahead (offline smokes + existing CSVs are free).
+- **Monthly cap:** **262k non-JS requests/mo** (199.2k JS) on a flat $249/mo plan. Usage runs
+  roughly **40–60% in a normal month** and has touched **86% in a heavy one** — headroom for
+  about one more region. **This figure moves, so measure it rather than quoting this line:**
+  ```
+  curl -s -u "$OXYLABS_USERNAME:$OXYLABS_PASSWORD" https://data.oxylabs.io/v1/stats?group_by=month
+  ```
+  The response splits by source — add `google_search` (the sold-match SERP bridge) to
+  `universal` for the true total.
+- **County expansion is the main breach risk** — budget any new geographies against the cap
+  before enabling. Do **not** launch paid Oxylabs runs without explicit per-run go-ahead
+  (offline smokes + existing CSVs are free).
 
 ---
 
@@ -269,14 +273,9 @@ it now only runs on the every-2-days cycle. The retired pre-v2.0 Pool & Flow Mon
 
 ## 7. Monitoring & Alerting
 
-> 🔁 **Rewritten 2026-08-18.** Alerting was rebuilt over six phases and shipped 2026-08-17.
-> Everything this section previously said — that any `warning`/`failure` posts within seconds,
-> that the digest reads a fixed 8-day window over three named scripts, that it posts to
-> `SLACK_WEBHOOK_URL` — is **no longer true**. The authority is
-> **[`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md)**; what follows is the
-> infrastructure-level summary.
-
-Four layers, in order of usefulness:
+Full treatment — every message shape, the tier rationale, what silence proves — is in
+**[`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md)**. What follows is the
+infrastructure-level summary, in four layers, most useful first:
 
 1. **Tier-gated alerts → `#hemnet-ops`.** `cron-wrapper.js` decides on *every* outcome whether
    to alert, based on the job's `tier` in `lib/job-registry.js`. **Tier 1** (perishable — a
@@ -324,49 +323,46 @@ first place to look when an alert fires.
 
 ## 8. Disk / Capacity & Retention
 
-**This (cohort-tracker) box:**
+**This (cohort-tracker) box** — 2 GB RAM, 50 GB disk, **no swap** (§1). Both are comfortable
+today: the volume runs around 15% used, and the heaviest job peaks at ~550 MB against 2 GB.
 
-> ✅ **RESOLVED 2026-08-18 by the resize (§1).** Disk went **8.7 G (78% used) → 48 G (~14% used at the time of the resize)**
-> and RAM 512 MB → 2 GB. The capacity items below are history; keep them for the reasoning, not
-> as open work. Snapshot `cohort-tracker-pre-2gb-resize` (id `241617718`, 7.10 GiB, ~$0.40/mo)
-> was taken immediately before — **delete it once you are confident**.
+**Memory is the tighter of the two, and it is the one that fails silently.**
 
-- **2026-08-18 — one undersized box, three "unrelated" failures.** The 512 MB droplet
-  (458 MiB visible, **~248 MB actually available** after OS daemons) was OOM-killing jobs
-  **every Monday** since at least 26 July, the earliest the journal reaches. Measured with
-  `scripts/mem-profile.js`:
-  - `export-hb-ratio-xlsx.js` builds a whole workbook in memory (1,586 pairs × 249 columns ≈
-    **395,000 cells** via exceljs `new Workbook()` + `writeFile()`). It needs **~550 MB** —
-    *2.2× everything the old box had*. It was SIGKILLed at 248 MB in 6 seconds.
-    `weekly-view-report.js` loops cohorts with `execSync` inside a `try/catch` that logs and
-    continues, so **the parent reported `success` while individual cohorts silently vanished**
-    from the weekly report for weeks.
-  - `cohort-spotcheck-gate`'s photo child (172 MB) was killed when the 5-hour
-    `sold-match-batch` (63 MB) started at 07:30 and overlapped it.
-  - ~58 MB was being burned by daemons with no function on a headless VM (`multipathd` 26 MB on
-    a single-disk box, `fwupd`, `ModemManager`, `udisks2`, `polkit`). No longer worth removing
-    at 2 GB, but worth knowing if this box is ever rebuilt small.
+- **What consumes it.** `export-hb-ratio-xlsx.js` builds an entire workbook in memory —
+  ~1,586 pairs × 249 columns ≈ **395,000 cells** via exceljs `new Workbook()` +
+  `wb.xlsx.writeFile()` — peaking at **~550 MB**, and **its memory grows with cohort size**.
+  `cohort-spotcheck-gate`'s photo child holds ~170 MB, and it overlaps the 5-hour
+  `sold-match-batch` (~65 MB) from 07:30 on a Monday.
+- **How it fails.** With no swap, a process that exceeds available memory is **SIGKILLed
+  outright** — no stack trace, no degraded performance. `weekly-view-report.js` loops cohorts
+  with `execSync` inside a `try/catch` that logs and continues, so the parent still exits
+  `success` and **the symptom is cohorts quietly missing from the weekly report**, not an error.
+  Check the report names the cohorts you expect.
+- **How to diagnose it.** A kernel OOM leaves the job log showing an error line with *nothing
+  before it* — that absence is the signature, not missing plumbing. Confirm with
+  `journalctl | grep "Killed process"` before assuming a code bug. And note that a peak measured
+  while a job is being killed is the **ceiling, not the requirement**: measure again with
+  headroom before concluding how much it needs.
+- **How to measure it.** `node scripts/mem-profile.js -- node <job>.js` reports peak RSS across
+  the whole process tree, minimum `MemAvailable`, and a plateau-vs-climbing verdict. A job still
+  climbing in its final third retains per-item state and will outgrow any ceiling you buy it.
 
-  **Diagnostic lesson worth keeping:** a kernel OOM kill produces **no stack trace**, so the job
-  log shows an error line with nothing before it. That absence *is* the signature — check
-  `journalctl | grep "Killed process"` before assuming a code bug. And a peak measured under an
-  OOM ceiling is the *ceiling*, not the requirement: the export looked like a 248 MB job until
-  it had room to show it wanted 550 MB.
-- **2026-07-27 incident:** the droplet hit **100% disk** — the W30 `spotcheck-photos` run
-  crashed with `ENOSPC` (clean fail). Freed back to **68%** by pruning old spot-check dirs and
-  trimming ~1.1 GB of June sold-cache (ledger preserved). A **retention cron was installed**.
-  W30 was recovered read-only (0 mismatch).
-- **Retention ordering (cosmetic since the resize).** `spotcheck-artifact-retention` keeps the 3
-  newest cohorts but prunes at **06:20**, ten minutes *before* the gate writes the new one at
-  ~06:38 — so 4 cohorts sit on disk six days out of seven. Irrelevant at 50 GB; note it only so
-  nobody re-diagnoses it as "the prune is not running", which is what it looks like and is not.
-- **Spot-check write-back incident (2026-W27):** `spotcheck-photos.js` died before its JSON
-  write-back and flooded 86 false "no-photos" UNCERTAIN reviews; a guard (abort if 0 galleries)
-  + on-disk recovery tool shipped (commit `496537b`). 86 stale rows + optional re-run remained
-  outstanding.
-- **Cache/artifact hygiene:** large scrape artifacts are git-ignored (`.gitignore`:
-  `view-data/`, `cohort-*-views.csv`, `verf-soldspike*/cache/`, `data/*.xlsx`, etc.). Keep
-  `/var/log/hemnet/*.log` under logrotate.
+**Retention:**
+
+- `spotcheck-artifact-retention` (daily 06:20) keeps the 3 newest `verf-spotcheck-*` cohorts at
+  roughly 1 GB each. It prunes *before* the gate writes the new cohort at ~06:38, so **4 cohorts
+  sit on disk six days out of seven**. Harmless at 50 GB — noted only so it is not
+  re-diagnosed as "the prune is not running", which is exactly what it looks like and is not.
+- `soldmatch-cache-retention` (daily 06:30) trims `verf-soldspike/cache` at `-mtime +3`,
+  **preserving the `_*` ledger files** — `_spend.json` is the Oxylabs spend ledger and must
+  survive. A fortnightly `sold-match-batch` writes ~1.9 GB here in one run.
+- `premarket-quality-retention` (daily 06:35) drops `quality-*.json` older than 70 days.
+- Large scrape artifacts are git-ignored (`view-data/`, `cohort-*-views.csv`,
+  `verf-soldspike*/cache/`, `data/*.xlsx`). `/var/log/hemnet/*.log` is under logrotate.
+
+**Known open data cleanup:** 86 stale "no-photos" UNCERTAIN spot-check rows from the 2026-W27
+write-back incident; the guard (abort if 0 galleries) and the on-disk recovery tool shipped in
+`496537b`.
 
 **Price-scraper box (`170.64.181.89`, reference):** hit 100% disk history too; v4.0 Phase 24
 reclaimed ~17 GB (deleted a 4.4 GB `kill.log` from the malware suppressor, 6.6 GB

@@ -175,12 +175,8 @@ cron is production). If a pull introduces a `migrate-*.js`, run it by hand.
 Full detail in [`04-REPORTING-AND-SLACK.md`](04-REPORTING-AND-SLACK.md) (reports) and
 [`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md) (alerts).
 
-> **Corrected 2026-08-18.** Routing used to be split by which *credential* a script happened to
-> use. Since the 2026-08-14 audience split it is split by **audience**, resolved for every job in
-> one module (`lib/slack-post.js`). Ignore any older description of a "webhook stream" vs a "bot
-> token stream".
-
-Two channels, split by who reads them and why:
+Routing is split by **audience**, not by which credential a script happens to use, and is
+resolved for every job in one module (`lib/slack-post.js`). Two channels:
 
 - **`#hemnet-status`** (`SLACK_STATUS_CHANNEL`) — **business**: what you read for *insight*. The
   weekly cohort-view, market-supply and pre-market-flow pulses, the sold-match match-rate
@@ -299,22 +295,22 @@ Ordering dependencies that matter: **C → B → cohort-create**, and **A+D → 
 
 Ordered by likelihood; full analysis in [`.planning/codebase/CONCERNS.md`](../../.planning/codebase/CONCERNS.md).
 
-1. **Oxylabs monthly cap breach** — cap is **262k non-JS results/month** on a flat $249/mo plan.
-   Measured 2026-08-18: **Jun 85.9%, Jul 60.1%, Aug 40.0%** (18 days in, ~69% projected).
-   > ⚠ Earlier revisions of this document quoted "~86% used" as the steady state. That was
-   > **June's peak**, captured in a doc written on 2026-07-28 — it is not typical. The risk is
-   > real but the headroom is larger than that number implied. **Measure, don't quote:**
-   > `curl -u "$OXYLABS_USERNAME:$OXYLABS_PASSWORD" https://data.oxylabs.io/v1/stats?group_by=month`
-
-   Any county/municipality expansion multiplies calls, so *always model the delta first*.
-   Levers: `MAX_OXY_CALLS`, `RECHECK_BRIDGE_FINAL_ONLY=1`.
-2. **~~Droplet disk exhaustion~~ — RESOLVED 2026-08-18.** The box was resized to `s-1vcpu-2gb`
-   (2 GB RAM, **50 GB disk**, $12/mo); the volume sits around 15% used with ~41 G free, and the
-   memory exhaustion that was silently killing three separate jobs every Monday is gone with it
-   (`03` §1 and §8). *Kept in this list only so the history is not re-discovered from scratch —
-   it is no longer a live risk.* The one thing that would bring it back: the weekly xlsx export's
-   memory **grows with cohort size** (~550 MB at 1,586 pairs), so a much larger cohort is the
-   thing to watch. Measure with `node scripts/mem-profile.js -- node <job>.js`.
+1. **Oxylabs monthly cap breach** — the cap is **262k non-JS results/month** on a flat $249/mo
+   plan. Usage runs roughly 40–60% in a normal month and has touched 86% in a heavy one, so the
+   headroom is real but not generous — about one more region.
+   Any county/municipality expansion multiplies calls, so **always model the delta first and
+   measure current usage rather than quoting a figure from a document** (this number moves):
+   ```
+   curl -s -u "$OXYLABS_USERNAME:$OXYLABS_PASSWORD" https://data.oxylabs.io/v1/stats?group_by=month
+   ```
+   Remember to add the `google_search` source (the sold-match SERP bridge) to `universal` for the
+   true total. Levers: `MAX_OXY_CALLS`, `RECHECK_BRIDGE_FINAL_ONLY=1`.
+2. **Jobs outgrowing the box** — the weekly xlsx export is the heaviest thing that runs
+   (~550 MB peak) and its memory **grows with cohort size**, so a materially larger cohort is
+   what would push it past the 2 GB the droplet has. It fails by being OOM-killed, and
+   `weekly-view-report.js` catches that and continues, so the symptom is **cohorts silently
+   missing from the weekly report** rather than an error. *Measure before assuming headroom:*
+   `node scripts/mem-profile.js -- node export-hb-ratio-xlsx.js --cohort <id>`.
 3. **Dead credentials / dead endpoints** — this system has a recurring pattern of external paths dying
    silently (Hemnet direct-curl died → all-Oxylabs; the price-scraper box's *own* Oxylabs creds went
    401; the ad-cost GraphQL op died and was re-ported to Steel). *Assume any external path can die;

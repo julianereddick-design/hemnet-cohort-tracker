@@ -596,10 +596,7 @@ crontab. Output rows are shaped for the historical AdCostV2 table but DB load is
 
 ### Cron health / observability
 
-> **Corrected 2026-08-17.** The three claims previously made here — a 25h window, coverage of
-> only `cohort-track`/`cohort-create`/`sfpl-region-snapshot`, and "uses its own https sender,
-> not `runJob`" — are all now false. Full treatment:
-> **[`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md)**.
+Full treatment: **[`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md)**.
 
 - **`cron-health-slack.js`** (SCHEDULED `0 3 * * *` daily 03:00) — the daily health digest, in six
   sections (Liveness, Assertions, Open conditions, Tier-1 backstop, Disk headroom, and the
