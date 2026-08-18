@@ -172,15 +172,35 @@ cron is production). If a pull introduces a `migrate-*.js`, run it by hand.
 
 ## 5. How results reach humans (Slack)
 
-Full detail in [`04-REPORTING-AND-SLACK.md`](04-REPORTING-AND-SLACK.md). There are **two Slack
-transports and they are not interchangeable:**
+Full detail in [`04-REPORTING-AND-SLACK.md`](04-REPORTING-AND-SLACK.md) (reports) and
+[`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md) (alerts).
 
-- **Incoming webhook** (`SLACK_WEBHOOK_URL`, text-only) → the **"Hemnet Status"** channel. Carries all
-  the automated pulses and alerts: cron failure/warning alerts, the daily health report, the weekly
-  cohort-view / market-supply / pre-market-flow posts.
-- **Bot token** (`SLACK_BOT_TOKEN`, `chat:write` + `reactions:read`) → the **review channel**
-  (`SLACK_REVIEW_CHANNEL` / `SOLD_MATCH_SLACK_CHANNEL`). Carries the interactive spot-check review queue
-  (you react ✅/❌/❓ and a poller applies your verdict) and the sold-match match-rate summary.
+> **Corrected 2026-08-18.** Routing used to be split by which *credential* a script happened to
+> use. Since the 2026-08-14 audience split it is split by **audience**, resolved for every job in
+> one module (`lib/slack-post.js`). Ignore any older description of a "webhook stream" vs a "bot
+> token stream".
+
+Two channels, split by who reads them and why:
+
+- **`#hemnet-status`** (`SLACK_STATUS_CHANNEL`) — **business**: what you read for *insight*. The
+  weekly cohort-view, market-supply and pre-market-flow pulses, the sold-match match-rate
+  summary, the monthly censuses.
+- **`#hemnet-ops`** (`SLACK_OPS_CHANNEL`) — **operations**: what you read to *run the system*.
+  The daily 03:00 health digest, tier-1 job alerts, the between-digest sweep, the weekly
+  heartbeat, and the interactive spot-check review queue (you react ✅/❌/❓ and a poller applies
+  your verdict).
+
+**Alerts are tier-gated.** Only **tier-1** jobs — those whose missed run destroys an observation
+that can never be recovered — interrupt you, and then on a 0h/+24h/+72h/daily ladder rather than
+on every run. Tier-2 jobs post nothing and surface only in the daily digest. This is deliberate:
+in the 60 days before the rebuild, 56 of 59 alerts came from a single recurring tier-2 warning
+and the 3 that mattered were missed. **Read `05` before you are on call** — especially §5, on
+what a quiet channel does and does not prove.
+
+Transport note: `chat.postMessage` (bot token) carries every report, falling back to the webhook
+and marking the result `degraded` if it fails. `cron-wrapper`'s own alert uses the raw webhook
+only, by design, so the path that reports failures shares no failure mode with the token it
+reports on.
 
 Charts and workbooks (`.html`/`.xlsx`) are written to `view-data/<date>/…` and served by
 `view-data-server.js` on **port 3800**; the Slack posts link to them as clickable full URLs.
@@ -235,9 +255,14 @@ Ordering dependencies that matter: **C → B → cohort-create**, and **A+D → 
    `git log origin/master`. (Deploy drift is a known recurring problem — see §8.)
 4. **Check recent job health:** `node scripts/verify-cron-job-log.js` — every job should have recent
    rows, none `failure` or "NO ROWS in 14 days".
-5. **Join and watch the "Hemnet Status" Slack channel.** Confirm the daily 03:00 health report arrives.
-6. **Check the Oxylabs budget:** month-to-date via `data.oxylabs.io/v1/stats` against the 262k cap.
-7. **Read [`deploy-instructions.md`](../../deploy-instructions.md) end-to-end.**
+5. **Join both Slack channels** — `#hemnet-status` (insight) and `#hemnet-ops` (operations).
+   Confirm the daily 03:00 digest arrives in `#hemnet-ops`, and that a
+   `💚 [HEARTBEAT]` arrived on the most recent Thursday. **If either is missing, do not trust a
+   quiet channel** — check the transport before assuming health.
+6. **Read [`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md)** — the six message shapes
+   you can receive, what each means, and which jobs are perishable. This is the on-call briefing.
+7. **Check the Oxylabs budget:** month-to-date via `data.oxylabs.io/v1/stats` against the 262k cap.
+8. **Read [`deploy-instructions.md`](../../deploy-instructions.md) end-to-end.**
 
 ### Every week
 - Skim the Monday Slack posts (view report, supply pulse, flow pulse, sold-match).
@@ -246,10 +271,15 @@ Ordering dependencies that matter: **C → B → cohort-create**, and **A+D → 
 - Glance at Oxylabs usage trending toward the cap.
 
 ### When something breaks
-- A **Slack alert** fires → open `deploy-instructions.md` §Runbook (per-job failure modes) and check
-  `/var/log/hemnet/<job>.log` + `node scripts/verify-cron-job-log.js`.
-- **No news is not proof of health** — a missing `SLACK_WEBHOOK_URL` or a silently-dead job produces
-  silence. The daily health report and `cron_job_log` are the real source of truth.
+- A **`🚨 TIER1` alert** fires → something perishable may already be lost. Open
+  [`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md) §8 for the per-alert runbook, then
+  `deploy-instructions.md` §Runbook for per-job failure modes, and check
+  `/var/log/hemnet/<job>.log` + `node scripts/verify-cron-job-log.js`. **First decide whether the
+  observation window is still open** — re-running a scrape into a different window is not a fix.
+- **No news is not proof of health.** Silence now has *four* legitimate causes (tier gating, the
+  re-notify ladder, the flap debounce, the storm cap) as well as the illegitimate ones (dead
+  webhook, dead watchdog). The 03:00 digest and the Thursday heartbeat are what distinguish
+  them — `05` §5 has the three-step test. `cron_job_log` remains the ground truth.
 - **Re-running a long job:** always use `tmux` or `nohup … & disown`. A bare console disconnect can
   orphan a `running` row in `cron_job_log`.
 - **Never launch a paid Oxylabs run without explicit approval** for that specific run — offline

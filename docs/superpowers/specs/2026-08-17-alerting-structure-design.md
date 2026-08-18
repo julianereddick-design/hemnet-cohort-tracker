@@ -474,3 +474,59 @@ reason. `days_to_full` reads "not enough history" until `disk_sample` accumulate
 The channel is trustworthy when **the count of tier-1 alerts over 60 days is small enough to read
 every one**, and every one of them was worth reading. Baseline to beat: 59 alerts in 60 days, of
 which 3 mattered and were missed.
+
+---
+
+## 9. First unattended day — live verification record (Monday 2026-08-17)
+
+Everything shipped 05:45–07:00 UTC on Monday, i.e. **before most of that day's jobs ran**, so
+Monday was the first unattended exercise of the whole design. Verified retrospectively from
+`cron_job_log`, `alert_state` and `#hemnet-ops` scrollback on 2026-08-18.
+
+**What actually posted to `#hemnet-ops` on Monday (UTC):**
+
+| Time | Message | Verdict |
+|---|---|---|
+| 04:39 | `[WARNING] hemnet-targeted-match: postcode-mismatch 379/3718` | pre-deploy code (job started 03:00, finished 04:39) — no tier prefix, as expected |
+| 07:43 | `🚨 TIER1 <!channel> [FAILURE] cohort-spotcheck-gate` | ✅ new format |
+| 09:14 | `🚨 TIER1 <!channel> [WARNING] premarket-quality-measure` | ✅ new format |
+| 11:00 | `🚨 TIER1 <!channel> [SWEEP] 1 tier-1 job unhealthy` | ✅ rolled up |
+| 17:00, 23:00 | *nothing* | ✅ **the ladder suppressing correctly** |
+
+**Three real alerts for the day, all actionable.** Against a baseline that averaged ~1/day from
+`spotcheck-reaction-poller` alone.
+
+- **§4.3 ladder + §4.4 storm cap — PROVEN LIVE.** `alert_state` holds exactly one row:
+  `sweep / cohort-spotcheck-gate / sweep:failed`, `alert_count=1, seen_count=3`. Three sweeps saw
+  the same failing job; one alerted. The 17:00 and 23:00 sweeps logged
+  `sweep: 1 unhealthy, 0 due to alert`.
+- **Phase 1 coverage.** 22 distinct jobs wrote `cron_job_log` rows in 8 days (was 14 pre-Phase 1);
+  27 have logged at least once. All six weekly reporters logged and dropped off the silent list.
+- **§4.2 tier gate — STILL UNPROVEN, and the reason matters.** The decisive test was
+  `spotcheck-reaction-poller` (56 of the 59 baseline alerts). It posted nothing on Monday — but it
+  logged `success`, not `warning`: its 51-row review queue had been cleared as `CLEARED_STALE` at
+  02:25 that morning, so the *condition was removed*, not suppressed. **No tier-2 job has produced
+  a warning since the deploy.** The gate is therefore still untested in production. Leaving
+  `TIER2_ALERTS_ENABLED = false` and reading `🔁 Open conditions` for a week is the agreed
+  posture (operator decision, 2026-08-18).
+- **Phase 0 gate threading — STILL UNVERIFIED.** The only `spotcheck_review` rows sharing a
+  `(channel, ts)` are from **2026-06-11**, pre-Phase-0. The gate has not posted a review since
+  2026-07-20, so there is nothing new to test. This remains the last open Phase 0 item.
+
+### §5's disk prediction — it materialised, one day late
+
+§7 recorded the disk check shipping quiet at 3.8G free (44%). **By 2026-08-18 00:00 it was
+1.2G free (14%) — below the 15% floor — and the digest flagged it.** Cause was Monday's burst,
+not a leak: ~1G of spot-check JPEGs plus ~1.9G of `sold-match-batch` cache (the cache ages out at
+`-mtime +3`). Cleared to 2.0G (22%) by deleting the W30 and W31 artifacts, whose gates had failed
+producing 0 galleries.
+
+Two lessons worth keeping:
+
+1. **`days_to_full` extrapolates a bursty load as linear.** It read `<1` from two samples spanning
+   one Monday spike. The free-space number was right; the runway number was alarmist. §7 was
+   correct not to make `days_to_full` itself a breach condition.
+2. **The retention job is not broken the way we recorded it.** `spotcheck-artifact-retention`
+   *does* `cd` correctly and *does* keep the 3 newest. The real defect is **ordering**: it prunes
+   at 06:20 and the gate writes the new cohort at ~06:38, so 4 cohorts sit on disk six days out of
+   seven, at ~1G each on an 8.7G disk. Left as-is by operator decision 2026-08-18.

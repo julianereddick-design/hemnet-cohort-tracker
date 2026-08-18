@@ -93,47 +93,106 @@ quiet.
 
 ### 2.1 Cron job failure/warning alerts — `cron-wrapper.js`
 
-- **What:** Not a report per se. `cron-wrapper.runJob()` wraps every scheduled job; on a run
-  whose `status` is `failure` or `warning` it fires ONE webhook line:
-  `[FAILURE|WARNING] <script_name>: <error_message>` (`cron-wrapper.js:156-161`). Silent on
-  success.
+> **Rewritten 2026-08-17.** This alert is now **tier-gated and suppressed**. Prior revisions of
+> this document described an untiered "fires on any warning or failure" behaviour that no
+> longer exists. Full treatment — tiers, ladder, debounce, what silence means — is in
+> **[`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md)**; this entry is the summary.
+
+- **What:** Not a report per se. `cron-wrapper.runJob()` wraps every scheduled job and decides,
+  on every outcome including success, whether to alert. What it sends depends on the job's
+  `tier` in `lib/job-registry.js`:
+  - **tier 1** (perishable — a missed run destroys an observation that can never be recovered):
+    `🚨 TIER1 <!channel> [FAILURE|WARNING|KILLED] <script_name>: <error_message>`
+  - **tier 2** (recoverable — reports, exports, retention): **posts nothing.** It writes its
+    `cron_job_log` row and surfaces in the daily digest's `🔁 Open conditions` section.
+
+  Tier 2 silence is the point: 56 of the 59 alerts in the 60 days to 2026-08-17 came from one
+  recurring tier-2 warning. (`TIER2_ALERTS_ENABLED` in `lib/alert-policy.js` — currently
+  `false`; flip to `true` for first-occurrence-only.)
+- **Suppression:** a tier-1 condition alerts at **0h, +24h, +72h, then daily** while it
+  persists — not on every run. It clears after **two** consecutive clean runs (flap debounce).
+  Suppression keys on a `conditionKey` the job declares, **never** on message text. A validator
+  with no key alerts every time, so nothing regresses into silence by omission.
 - **Transport / channel:** `lib/slack-post.js` `postAlert` — webhook only, by design (§1) →
   `#hemnet-ops` (`C0BQ66YQX8S`).
-- **Cadence / trigger:** whenever any wrapped job (cohort-track, cohort-create, the Job A/B/C/D
-  scrapers, market-totals-daily, sold-match-batch, cohort-spotcheck-gate, …) ends non-green.
+- **Cadence / trigger:** whenever any wrapped tier-1 job (Hemnet view data, Booli view data,
+  Hemnet match cohort, Booli fetch cohort, cohort-create, cohort-track, market-totals-daily,
+  sold-match-batch, cohort-spotcheck-gate, the pre-market measures, the censuses) ends
+  non-green — subject to the ladder above.
 - **Dry-run:** it only sends on failure/warning; run the wrapped job normally and it stays
-  silent when healthy. No `--smoke`.
+  silent when healthy. `node cron-wrapper.js --smoke` (27 offline checks) covers the alert
+  decision itself.
 
 ### 2.2 Daily health report — `cron-health-slack.js`
 
-- **What:** Aggregates `cron_job_log` for `cohort-track` (25h window) and `cohort-create`
-  (8-day window — weekly jobs get a weekly window as of 2026-08-13); adds a view-growth check (flags if ≥80% of pairs had zero incremental
-  views) and per-cohort null-view-rate quality lines with a "canary" on the newest cohort.
-  Overall header is `:white_check_mark: All healthy` or `:warning: N issue(s)`.
+> **Rewritten 2026-08-17.** The digest is no longer a two-job summary. It covers **every**
+> scheduled job in `lib/job-registry.js` (24 currently) across **six** sections, and it is the
+> backstop that makes tier-2 silence safe. Section-by-section reading guide:
+> **[`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md) §4**.
+
+- **What:** Six sections, posted daily whether or not anything is wrong:
+  1. `📡 Liveness` — did each scheduled job fire? **Registry-derived**, so it covers every job
+     rather than a hardcoded list. Healthy jobs roll into one line that still names them all.
+  2. `🎯 Assertions` — did the data actually *arrive*? Each tier-1 job asserts against its own
+     output table, because **exit code 0 is not evidence** (see `05` §7, incident 3). Anchored
+     on `last_expected_fire + grace`, never a calendar period.
+  3. `🔁 Open conditions` — what is currently suppressed, and for how long. This is where
+     tier-2 problems surface. Absent when nothing is open.
+  4. `🛡️ Tier-1 backstop (last 24h)` — every tier-1 event, re-stated *whether or not an alert
+     was delivered*.
+  5. `💾 Disk headroom` — free bytes, free inodes, `days_to_full` (floors: 15% or 1GiB).
+  6. `📊 View Growth Check` + `🔍 View Data Quality` — the two cross-cutting product checks
+     (zero-incremental-view pairs; per-cohort null-view rates with a canary on the newest
+     cohort). These predate the rebuild and were deliberately kept.
+
+  Overall header is `:white_check_mark: All healthy` or `:warning: N issue(s)`, followed by an
+  `*Issues:*` list.
+- **Two sibling modes, same script** (`file:` in the registry records the sharing):
+  `--sweep` (`cron-health-sweep`, 01/11/17/23) posts **one** rolled-up
+  `🚨 TIER1 <!channel> [SWEEP] N tier-1 jobs unhealthy` between digests, never one per job;
+  `--heartbeat` (`alerting-heartbeat`, Thu 12:00) posts an unconditional
+  `💚 [HEARTBEAT]` whose **absence is the alert**.
 - **Script / transport:** `cron-health-slack.js` → `lib/slack-post.js` `postMessage('cron-health-slack', …)`
   (ops audience). Exits 1 if `SLACK_OPS_CHANNEL` (and its fallback `SLACK_REVIEW_CHANNEL`) are
   both unset — routing is resolved before any transport is touched, so a misconfigured box fails
   loudly rather than posting nowhere.
 - **Cadence / channel / trigger:** daily **03:00 UTC**, `#hemnet-ops`, cron
   (`0 3 * * * node cron-health-slack.js`).
-- **Sample shape:**
+- **Sample shape** (real output, `--dry-run`, 2026-08-18 — abbreviated):
   ```
   *Hemnet Monitor — Daily Health Report*
-  2026-07-28  |  :warning: 1 issue(s)
+  2026-08-18  |  :warning: 4 issue(s)
 
-  :white_check_mark:  *cohort-track* (Daily)  —  1/1 succeeded
-        Last: 2026-07-28 22:00 UTC  4.2s  tracked=812 cohorts=8
-  ...
-  :bar_chart:  *View Growth Check*  —  12/430 pairs (3%) had zero growth
+  :satellite_antenna:  *Liveness* (did each scheduled job fire?)
+        :hourglass_flowing_sand: *age-census-monthly* (Monthly (1st 02:00))  —  deployed, first run due 2026-09-02
+        :x: *cohort-spotcheck-gate* (Weekly (Mon 06:30))  —  failure: Command failed: ...
+        :white_check_mark: 20 ran on schedule: alerting-heartbeat, booli-targeted-discovery, ...
+
+  :dart:  *Assertions* (tier 1 — did the data actually arrive?)
+        :white_check_mark: cohort-create — 2026-W33 with 1604 pairs
+        :white_check_mark: market-totals-daily — 4/4 rows, 4 changed vs prior day
+        :heavy_minus_sign: age-census-monthly — skipped: deployed, not yet due (2026-09-02)
+        :x: cohort-spotcheck-gate — no spotcheck_review rows and no explicit zero-suspects result
+
+  :shield:  *Tier-1 backstop* (last 24h)  —  3 event(s), re-stated whether or not an alert was delivered
+        :x: cohort-spotcheck-gate failure — Command failed: ...
+
+  :floppy_disk:  *Disk headroom*  —  1.2G free (14%), inodes 84% free — days to full: <1
+
+  :bar_chart:  *View Growth Check*  —  0/101 pairs (0%) had zero growth
   :mag:  *View Data Quality* (latest data)
-        2026-W26: 4/120 null Booli (3%), 2/120 null Hemnet (2%)  ← canary
+        2026-W33: 0/1604 null Booli (0%), 0/1604 null Hemnet (0%)  ← canary
 
   *Issues:*
-  • Cohort 2026-W25: 55% null Booli views
+  • cohort-spotcheck-gate (tier 1) last run failure: Command failed: ...
+  • Disk: free bytes 14% below the 15% floor (1.2G left)
   ```
+  (`🔁 Open conditions` appears between Assertions and the backstop when anything is suppressed.)
 - **Manual trigger / dry-run:** `node cron-health-slack.js --dry-run` → renders
-  `--- DRY RUN: cron-health-slack -> C0BQ66YQX8S ---` and posts nothing. `node cron-health-slack.js`
-  (no flag) posts for real. No `--smoke`.
+  `--- DRY RUN: cron-health-slack -> C0BQ66YQX8S ---` and posts nothing. `--sweep --dry-run` and
+  `--heartbeat --dry-run` do the same for the two sibling modes. `node cron-health-slack.js`
+  (no flag) posts for real. No `--smoke` on this script, but the modules it composes carry 125
+  offline checks between them (see `05` §9).
 
 ### 2.3 Weekly cohort view report — `weekly-view-report.js`
 
@@ -302,8 +361,10 @@ quiet.
 
 | Report | Script | Cadence (UTC) | Audience → Channel | Trigger |
 |---|---|---|---|---|
-| Job failure/warning alert | `cron-wrapper.js` (`postAlert`) | event-driven (any non-green wrapped run) | ops → `#hemnet-ops` (webhook only) | inside each cron job |
+| Job failure/warning alert | `cron-wrapper.js` (`postAlert`) | event-driven (**tier-1** non-green runs only, on a 0h/+24h/+72h/daily ladder) | ops → `#hemnet-ops` (webhook only) | inside each cron job |
 | Daily health report | `cron-health-slack.js` | daily 03:00 | ops → `#hemnet-ops` | `0 3 * * *` |
+| Tier-1 sweep (rolled up) | `cron-health-slack.js --sweep` | 01:00 / 11:00 / 17:00 / 23:00 | ops → `#hemnet-ops` (webhook only) | `0 1,11,17,23 * * *` |
+| Alerting heartbeat | `cron-health-slack.js --heartbeat` | Thu 12:00 — **absence is the alert** | ops → `#hemnet-ops` (webhook only) | `0 12 * * 4` |
 | Spot-check review queue | `cohort-spotcheck-gate.js` | Mon 06:30 | ops → `#hemnet-ops` | `30 6 * * 1` |
 | Sold-match batch escalation | `sold-match-batch.js` (via cron-wrapper `postAlert`) | Mon 07:30 (fortnightly effect) | ops → `#hemnet-ops` | `30 7 * * 1` |
 | Weekly cohort view report | `weekly-view-report.js` | Mon 09:30 | business → `#hemnet-status` | `30 9 * * 1` |

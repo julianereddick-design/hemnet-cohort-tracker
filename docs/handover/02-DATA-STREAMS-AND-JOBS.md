@@ -30,8 +30,14 @@ skips direct curl and routes every call through Oxylabs.
 ### Cron wrapper — `cron-wrapper.js`
 Exports `runJob({ scriptName, main, validate })`. Every scheduled job that uses it: connects to
 Postgres, inserts a `cron_job_log` row (`status='running'`), runs `main`, runs `validate` (which
-returns a warning string or null), updates the log row, and **posts to `SLACK_WEBHOOK_URL` on any
-`warning`/`failure`**. Silent on success. `cron-setup.js` creates the `cron_job_log` table.
+returns a warning string or null), updates the log row, and then decides whether to alert.
+
+**Alerting is tier-gated** (rebuilt 2026-08-17 — earlier revisions of this file said it posts on
+any `warning`/`failure`, which is no longer true). Only **tier-1** jobs post, and only on a
+0h/+24h/+72h/daily re-notify ladder; tier-2 jobs post nothing and surface in the 03:00 digest.
+Tiers are declared in `lib/job-registry.js`; the reasoning is in
+**[`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md)**. `cron-setup.js` creates the
+`cron_job_log` table; `migrate-alert-state.js` creates `alert_state` and `disk_sample`.
 
 - **Cron invocation contract:** cron lines call the script **directly** (`node cohort-track.js`) —
   each script calls `runJob` at module load. `cron-wrapper.js` has no CLI entry.
@@ -45,6 +51,18 @@ returns a warning string or null), updates the log row, and **posts to `SLACK_WE
   `deploy-instructions.md`.
 
 ### The live crontab (all times UTC)
+
+> 🚨 **The crontab is GENERATED from `lib/job-registry.js` — never hand-edit it.** Change the
+> registry, then `node scripts/render-crontab.js | crontab -`. `node scripts/render-crontab.js
+> --check` (on the droplet) detects drift and also runs as a daily digest assertion. Backups:
+> `/root/crontab-backup-*.txt`.
+>
+> The table below is a **reading aid for the core scrapers only and is not exhaustive** — it
+> predates the registry and omits the retention jobs, `premarket-quality-measure`, the censuses,
+> `adcost-report`, `cron-health-sweep` and `alerting-heartbeat` (27 job lines live). For the
+> authoritative list run `crontab -l` on the droplet, or
+> `node -e "console.log(Object.keys(require('./lib/job-registry').JOBS).length)"`.
+
 | Time (UTC) | Job | Cadence |
 |---|---|---|
 | `0 22 * * 0` (Sun) | `booli-targeted-discovery.js` | weekly |
@@ -66,6 +84,14 @@ returns a warning string or null), updates the log row, and **posts to `SLACK_WE
 ---
 
 ## Summary table — all jobs
+
+> **Which of these matter most?** Each job carries an explicit **tier** in
+> `lib/job-registry.js`. Tier 1 means *perishable* — a missed run destroys an observation that
+> can never be recovered — and those are the only jobs that interrupt you. Tier 2 means
+> *recoverable*: re-run it and the numbers are the same. The per-job breakdown of exactly what
+> is lost when each tier-1 job misses is in
+> **[`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md) §3** — deliberately kept in one
+> place rather than duplicated into this table, so the two cannot drift apart.
 
 | Job (file) | Purpose | Source (site · method) | Schedule (UTC) | Output tables / artifacts |
 |---|---|---|---|---|
@@ -569,10 +595,30 @@ crontab. Output rows are shaped for the historical AdCostV2 table but DB load is
   Run: `node scripts/spotcheck-readjudicate-from-disk.js <artifact-dir>` (`--json`)
 
 ### Cron health / observability
-- **`cron-health-slack.js`** (SCHEDULED `0 3 * * 1` daily 03:00) — daily Slack health report over a 25h
-  window for `cohort-track` / `cohort-create` / `sfpl-region-snapshot`, plus view-growth and per-cohort
-  null-view "canary" checks. Reads `cron_job_log`, `cohort_daily_views`, `cohort_pairs`, `cohorts`; posts
-  to `SLACK_WEBHOOK_URL`. (Uses its own https sender, not `runJob`.) Run: `node cron-health-slack.js`
+
+> **Corrected 2026-08-17.** The three claims previously made here — a 25h window, coverage of
+> only `cohort-track`/`cohort-create`/`sfpl-region-snapshot`, and "uses its own https sender,
+> not `runJob`" — are all now false. Full treatment:
+> **[`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md)**.
+
+- **`cron-health-slack.js`** (SCHEDULED `0 3 * * *` daily 03:00) — the daily health digest, in six
+  sections (Liveness, Assertions, Open conditions, Tier-1 backstop, Disk headroom, and the
+  view-growth / null-view "canary" product checks). Coverage is **derived from
+  `lib/job-registry.js`**, so it spans every scheduled job (24 currently), and liveness and
+  assertions anchor on each job's `last_expected_fire + grace` rather than a fixed window.
+  Wrapped in `runJob` like every other job since Phase 1 (2026-08-17), and posts through
+  `lib/slack-post.js` (ops audience), not its own sender. Reads `cron_job_log`, `alert_state`,
+  `disk_sample`, `cohort_daily_views`, `cohort_pairs`, `cohorts` and each tier-1 job's output
+  table. Run: `node cron-health-slack.js` (add `--dry-run` to render without posting).
+- **`cron-health-slack.js --sweep`** (SCHEDULED `0 1,11,17,23 * * *`, registry name
+  `cron-health-sweep`) — between-digest check for missing / orphaned / failing **tier-1** jobs.
+  Posts **one** rolled-up message however many are broken, subject to the same re-notify ladder.
+- **`cron-health-slack.js --heartbeat`** (SCHEDULED `0 12 * * 4`, registry name
+  `alerting-heartbeat`) — weekly unconditional proof-of-life on the alert webhook. **Its absence
+  is the alert**: every other message is conditional, so without it a dead transport is
+  indistinguishable from a healthy week.
+- **`migrate-alert-state.js`** — idempotent creator of the two alerting tables (`alert_state`,
+  `disk_sample`). Run: `node migrate-alert-state.js` (`--check` reports without writing).
 - **`cron-health.js`** (manual) — console version of the same cron-log aggregation (`--days`, default 7).
   Run: `node cron-health.js --days 7`
 - **`check-data-freshness.js`** (manual) — compares today vs yesterday `cohort_daily_views` per source,
@@ -589,8 +635,15 @@ crontab. Output rows are shaped for the historical AdCostV2 table but DB load is
 1. **cron_job_log (DB)** — every `runJob`-wrapped run writes a row. Inspect:
    `node scripts/verify-cron-job-log.js` (last 5 rows per script_name).
 2. **Logs** — `/var/log/hemnet/<job>.log` (one per job) on the droplet.
-3. **Slack** — `SLACK_WEBHOOK_URL` fires on any `warning`/`failure`. A **separate** `SLACK_BOT_TOKEN` +
-   `SLACK_REVIEW_CHANNEL` + `SLACK_ALLOWED_REACTORS` drive the spot-check review queue/poller.
+3. **Slack** — alerts are **tier-gated**, not "any warning/failure". Only **tier-1** jobs
+   (perishable: a missed run destroys an observation that can never be recovered) post, as
+   `🚨 TIER1 <!channel> [FAILURE|WARNING|KILLED] …` on a 0h/+24h/+72h/daily ladder. **Tier-2
+   jobs post nothing** — they write a `cron_job_log` row and appear in the 03:00 digest. Each
+   job's tier is declared in `lib/job-registry.js`. **Do not read a quiet channel as a healthy
+   system without checking the digest and the Thursday heartbeat first** —
+   see [`05-MONITORING-AND-ALERTS.md`](05-MONITORING-AND-ALERTS.md) §5.
+   `SLACK_BOT_TOKEN` + `SLACK_ALLOWED_REACTORS` drive the spot-check review queue/poller;
+   channel routing for every job is resolved in `lib/slack-post.js` (see `04` §1).
 4. **Manual re-runs** — never launch a long cron in a naked console (SIGHUP orphans a `running` row); use
    `tmux` or `nohup … & disown`. Full per-job failure-mode runbook is in `deploy-instructions.md`.
 
