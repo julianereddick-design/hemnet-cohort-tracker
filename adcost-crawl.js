@@ -109,6 +109,27 @@ function smoke() {
     assert.strictEqual(seenEnv.ADCOST_SUBPROCESS_TIMEOUT, String(SUBPROCESS_TIMEOUT_SEC));
   });
 
+  // CRITICAL: every degraded run so far exited 0 with its diagnostic lines on
+  // stderr, and those lines were captured and thrown away unread — that is
+  // WHY the August failures had to be diagnosed from timing instead of a
+  // stack. This check pins stderr reaching the log on an exit-0 run so a
+  // refactor that moves the log call inside `if (res.status !== 0)` fails
+  // --smoke instead of silently reintroducing that hole.
+  check('CRITICAL: stderr is logged on an exit-0 run, not only on failure', () => {
+    const seen = [];
+    const originalInfo = log.info;
+    log.info = (msg) => seen.push(msg);
+    try {
+      const fakeSpawn = () => ({ status: 0, stdout: 'ok', stderr: 'price fetch failed for cell 12' });
+      process.env.PYTHON_BIN = 'python';
+      runPython([], { spawnSync: fakeSpawn });
+      assert.ok(seen.some(m => m.includes('price fetch failed for cell 12')),
+        `stderr on an exit-0 run must reach the log, not be silently discarded: ${JSON.stringify(seen)}`);
+    } finally {
+      log.info = originalInfo;
+    }
+  });
+
   console.log(`smoke: ${pass} pass, ${fail} fail`);
   return fail === 0 ? 0 : 1;
 }
