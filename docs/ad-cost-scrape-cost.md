@@ -1,5 +1,13 @@
 # Hemnet ad-cost scrape — recurring-cost evidence (FEAS-03)
 
+> 📜 **HISTORICAL (Phase 26, 2026-06-30).** This is the feasibility-era cost analysis, written
+> when the candidate transports were Oxylabs-render and Steel. **It no longer describes the live
+> system.** Since 2026-08-18 the crawl runs on the cohort-tracker droplet through **Bright Data Web
+> Unlocker**, **monthly**, at **~$0.45/month** (billed per successful request at $1.50/CPM, so
+> failed retries are free). For the current job see
+> [`handover/02-DATA-STREAMS-AND-JOBS.md`](handover/02-DATA-STREAMS-AND-JOBS.md) §f. Kept for the
+> reasoning that ruled the other transports out.
+
 **Date:** 2026-06-30 · **Phase:** 26 (ad-cost-scrape-feasibility) · **Requirement:** FEAS-03
 **Source docs:** `26-DIRECT-TEST-RESULT.md` (direct path), `26-OXYLABS-PROBE-RESULT.md` (Oxylabs POST probe), `26-GET-FEASIBILITY-PROBE.md` (GET reuse), `26-RENDER-FEASIBILITY-PROBE.md` (headless render), `23-VERIFICATION-CRAWL.md` (flat-plan marginal-cost framing).
 

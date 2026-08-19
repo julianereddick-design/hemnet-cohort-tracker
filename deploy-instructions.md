@@ -42,6 +42,18 @@ Phase 19 (v3.1) — Sold match batch vars (for `sold-match-batch.js`):
 - `SOLD_BATCH_CONC` — (default: 6) optional. Concurrency of the batch match-loop worker pool. The match work is I/O-bound on Oxylabs latency; a sequential loop made the ~1000-record national run take ~4h, so the loop is now a bounded pool (workers share the one pg client + the DB-atomic ceiling — only the Oxylabs fetching runs concurrently → ~40-60 min). Lower it if Oxylabs rate-limits; raising past ~8 yields little (DB queries serialise on the single client).
 - `SLACK_WEBHOOK_URL` — already documented (above); the batch's `validate()` escalations post here via cron-wrapper (the **same webhook** as Phase 12 — NOT the `SLACK_BOT_TOKEN`).
 
+Ad-cost vars (2026-08-18 — required by `adcost-crawl.js` and `adcost-report.js`, which moved onto
+this droplet when the price-scraper box was retired from the crawl):
+- `BRIGHTDATA_UNLOCKER_PROXY=http://brd-customer-…:…@brd.superproxy.io:44445` — the **only** transport
+  for the ad-cost crawl (Bright Data Web Unlocker; no browser). Read from env, else the repo-root
+  `.env`. **Never printed** — the Python scrubs it out of its own exception text. Missing → exit 2.
+- `PYTHON_BIN=/opt/hemnet-cohort-tracker/.venv-adcost/bin/python` — **exported by the two ad-cost
+  crontab lines**, not optional. The droplet's system `python3` is PEP-668 externally-managed and has
+  neither `psycopg` nor `openpyxl`, so without this both jobs die on `ModuleNotFoundError` on their
+  first fire. Deps are pinned in `scripts/requirements-adcost.txt`.
+- `STEEL_API_KEY` — **no longer used by anything scheduled.** It belongs to the superseded
+  `scripts/crawl-adcost.js` Steel path, kept for reference only.
+
 To set the Slack webhook:
 ```bash
 ssh root@<droplet>
@@ -119,6 +131,12 @@ job of the separate health-monitoring workstream (spec §5, Class 1: widening `c
 registry to the reporters that don't yet log to `cron_job_log`), not this change.
 
 ## Crontab
+
+> 🚨 **The crontab is GENERATED from `lib/job-registry.js` — never hand-edit it on the droplet.**
+> Change the registry, then `node scripts/render-crontab.js | crontab -`, and verify with
+> `node scripts/render-crontab.js --check` (which also runs as a daily digest assertion). Backups
+> live at `/root/crontab-backup-*.txt`. **28 job lines are live**; the annotated block below is the
+> historical, phase-by-phase record and is *not* the complete list — `crontab -l` and the registry are.
 
 All times are UTC. Schedule respects:
 - Every-2-days view-refresh cycle (D-06 + D-17): odd days at 14:00 UTC (Job D and Job A in PARALLEL per 09-02 D-17) → 22:00 UTC cohort-track. Combined Oxylabs load at parallel start is ~4% of the 50/sec cap (09-02 analysis); each job opens its own pg.Client so no DB pool contention. Eight-hour gap to cohort-track covers worst-case runtimes (Job D ~30-60 min, Job A ~33-51 min with Oxylabs fallback headroom).
@@ -274,6 +292,15 @@ All times are UTC. Schedule respects:
 # ADD the daily reaction poller (D-10). Reads ✅/❌/❓ reactions on open review messages,
 # applies verdicts, audits confirmed mismatches, and hard-removes them from cohort_pairs.
 0 12 * * *  cd /opt/hemnet-cohort-tracker && node spotcheck-reaction-poller.js     >> /var/log/hemnet/spotcheck-poller.log 2>&1
+
+# === Ad-cost (migrated onto this droplet 2026-08-18 from the price-scraper box's Celery beat) ===
+# MONTHLY, not weekly (cadence changed 2026-08-17). 00:30 and NOT 02:00: age-census-monthly owns
+# 02:00 and runs ~3h, and two never-before-run monthly tier-1 jobs on one vCPU / 2GB with no swap is
+# a contention risk with no upside. 00:30 + the 45-min ceiling ends by 01:15 — 45 min clear of the
+# census and 6h40m ahead of the 07:10 report, and inside one UTC date so the day-scoped write cannot
+# straddle midnight. PYTHON_BIN is mandatory: the system python3 has neither psycopg nor openpyxl.
+30 0 1 * *  cd /opt/hemnet-cohort-tracker && PYTHON_BIN=/opt/hemnet-cohort-tracker/.venv-adcost/bin/python node adcost-crawl.js  >> /var/log/hemnet/adcost-crawl.log 2>&1
+10 7 1 * *  cd /opt/hemnet-cohort-tracker && PYTHON_BIN=/opt/hemnet-cohort-tracker/.venv-adcost/bin/python node adcost-report.js >> /var/log/hemnet/adcost-report.log 2>&1
 ```
 
 ### Phase 13 go-live — step-by-step (operator checklist)
@@ -715,3 +742,40 @@ The measure job is now `cron-wrapper`-wrapped, so it lands in `cron_job_log` (`n
 ```bash
 cd /opt/hemnet-cohort-tracker && SCRAPE_FORCE_OXYLABS=1 node scripts/premarket-flow-measure.js
 ```
+
+### Diagnosing `ad-cost-crawler` Slack alerts (2026-08-18, post-migration)
+
+The monthly Hemnet ad-cost crawl (`adcost-crawl.js` → `scripts/adcost-crawl.py`) moved onto this
+droplet on **2026-08-18**, off the price-scraper droplet's Django/Celery + Steel stack. It is
+**tier 1** — the grid is unbackfillable, because Hemnet publishes only *current* prices. It is
+silent on a clean run (420/420 rows).
+
+**Read the stderr tail in the alert before doing anything.** It is carried into the Slack message
+deliberately, and it answers the one question that decides what to do next:
+
+| Alert tail | What happened | What to do |
+|---|---|---|
+| `VERDICT: WARMUP_FAILED` (exit 4) | The warm-up GET never cleared. **Nothing was written.** | Safe and cheap to re-run now: `node adcost-crawl.js` (~$0.45, needs Julian's go-ahead). |
+| `NO_CELLS_COLLECTED` (exit 4) | Session latched; zero cells collected. Nothing written. | Same as above. If it repeats, the transport is blocked — do **not** burn repeated paid runs. |
+| `rows=<n>/420` with n < 420 (exit 1) | The completeness gate fired. **Rows were already written** for that crawl day. | ⚠ Do **NOT** re-crawl — `hemnet_adcostv2` has no uniqueness constraint and the write is day-scoped, so a second run risks duplicating the day. Investigate first; the report dedupes with `max(ad_price)` but the series should not be relied on to. |
+| `exited 2` | Misconfig — almost always `BRIGHTDATA_UNLOCKER_PROXY` missing from `.env`, or `PYTHON_BIN` not pointing at `.venv-adcost`. | Fix `.env` / the crontab env, then re-run. |
+| `ModuleNotFoundError` | `PYTHON_BIN` fell back to the system `python3`, which is PEP-668 externally-managed and has neither `psycopg` nor `openpyxl`. | Point `PYTHON_BIN` at `/opt/hemnet-cohort-tracker/.venv-adcost/bin/python`; deps pinned in `scripts/requirements-adcost.txt`. |
+| `time budget …s exhausted at cell <i>` | The run hit `TIME_BUDGET` mid-grid. | Rows for the completed cells were written. Check completeness before any re-run. `subprocess.run` **discards stdout on timeout**, so an overrun past the 2700s kill timer loses the whole month — never lower `SUBPROCESS_TIMEOUT_SEC` (JS) or `DEFAULT_SUBPROCESS_TIMEOUT` (Python) independently of each other. |
+
+**Offline checks (no spend, no DB, no network):**
+```bash
+node adcost-crawl.js --smoke
+node adcost-report.js --smoke
+python scripts/adcost-crawl.py --selftest
+```
+
+⚠ `node adcost-crawl.js --dry-run` is **not** an offline check — it crawls the full grid and spends
+provider money; it only skips the DB write.
+
+**Why this alert is loud at all:** on 2026-08-02 the pre-fix crawler wrote **6 of 420 rows and
+exited 0**, reporting success. Five weeks of data were lost and the failure was diagnosable only
+from timing. The completeness gate now fails the job on *any* short month, and stderr is logged
+even on an exit-0 run. See `docs/handover/adcost-crawler-silent-failure.md`.
+
+**Rollback** is the DigitalOcean snapshot `241648610` of the old price-scraper droplet (hold to
+~2026-11-18), **not** a transport flag — `ADCOST_TRANSPORT=steel` was deleted in the port.

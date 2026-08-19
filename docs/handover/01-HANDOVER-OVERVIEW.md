@@ -36,8 +36,9 @@ cross-platform comparison is the differentiator. A separate strand tracks what H
 sellers to advertise** (ad-cost), as a direct read on Hemnet's pricing power.
 
 The project has shipped through v1.0 → v5.0 (cohort MVP → self-hosted scrapers → market-supply pulse →
-spot-check QA → sold-match pipeline → price-scraper infra → ad-pricing). The current milestone (v5.0)
-is resuming the Hemnet ad-cost scrape and building its weekly reporting.
+spot-check QA → sold-match pipeline → price-scraper infra → ad-pricing). **v5.0 is complete:** the
+Hemnet ad-cost scrape was resumed, then migrated off the standalone price-scraper droplet onto this
+box (2026-08-18), and its **monthly** reporting is live.
 
 ---
 
@@ -55,8 +56,8 @@ flowchart TD
         JOBS["Job scripts wrapped by<br/>cron-wrapper.runJob()"]
     end
 
-    subgraph OTHER["price-scraper droplet 170.64.181.89 (separate, team-owned)"]
-        DJ["Django scrapers → source listing tables<br/>+ weekly ad-cost crawl (Steel)"]
+    subgraph OTHER["price-scraper droplet 170.64.181.89 (separate — PENDING DECOMMISSION)"]
+        DJ["Django scrapers → source listing tables<br/>(ad-cost crawl MOVED to cohort-tracker 2026-08-18)"]
     end
 
     DB[("DigitalOcean managed Postgres<br/>defaultdb — SHARED")]
@@ -122,12 +123,14 @@ are fresh vs zombie). **These are manual research scripts** — not in cron, no 
 JSON/Markdown to `verf-flow-probe/`. Run them only when you want a fresh age census. Scripts:
 `scripts/*-age-census.js`, `scripts/forsale-age-penetration.js`.
 
-### (f) Ad-cost — *Hemnet's seller pricing power (lives on the OTHER droplet)*
+### (f) Ad-cost — *Hemnet's seller pricing power*
 Scrapes Hemnet's seller price calculator (`/priser`) — what Hemnet charges to list a property, by
-municipality and price band. This runs on the **separate price-scraper droplet** using a **Steel.dev**
-headless browser (not Oxylabs), because the calculator is behind Cloudflare Turnstile. The *reporting*
-half is meant to live in this repo (Phase 28) but is **built-but-not-yet-wired-to-Slack**. Scripts:
-`scripts/crawl-adcost.js`, `scripts/adcost-report.py`.
+municipality and price band. **Monthly**, 420 rows (10 munis × 6 price points × 7 offers) into
+`hemnet_adcostv2`. Not Oxylabs: it POSTs to Hemnet's `/graphql` through a **Bright Data Web Unlocker**
+proxy — no browser at all. **Both halves now run on this droplet** (crawl 1st 00:30 UTC, Slack report
+1st 07:10 UTC); the crawl was ported off the price-scraper droplet's Django/Celery + Steel stack on
+**2026-08-18**. Scripts: `adcost-crawl.js` → `scripts/adcost-crawl.py`, `adcost-report.js` →
+`scripts/adcost-report.py`.
 
 > Plus a cross-cutting **(g) QA / health** layer: the weekly spot-check gate that visually confirms
 > Booli↔Hemnet pairs are the same property (dHash + optional Claude vision + a human Slack review
@@ -144,7 +147,7 @@ Full detail in [`03-INFRASTRUCTURE-AND-OPERATIONS.md`](03-INFRASTRUCTURE-AND-OPE
 | Droplet | IP | Role |
 |---|---|---|
 | **cohort-tracker** ("the Hemnet box") | `170.64.197.241` | **Runs this repo.** All cron jobs in this handover fire here from `/opt/hemnet-cohort-tracker`. |
-| **price-scraper** | `170.64.181.89` | Separate team-owned Django box. **Produces the source listing tables** this repo reads, and runs the **ad-cost** crawl. |
+| **price-scraper** | `170.64.181.89` | Separate team-owned Django box. **Produces the source listing tables** this repo reads. **No longer runs the ad-cost crawl** (moved here 2026-08-18) and is **pending decommission** — destroy after the 1 Sept 2026 run verifies. |
 | **monitor-prod-syd1** | `209.38.93.133` | Unrelated fintech monitor. **No Hemnet work.** Listed only so you don't chase it. |
 
 **Database:** DigitalOcean **managed Postgres**, database `defaultdb`, port `25060`, user `doadmin`,
@@ -223,7 +226,8 @@ the droplet) before trusting exact minutes — the docs have drifted before.
 - `06:30` — **Spot-check gate**: QA the new cohort, post the review queue.
 - `07:30` — **Sold-match batch** *(even ISO weeks only)*: the fortnightly national sold run.
 - `08:50` — **Pre-market flow measure**.
-- `09:30 / 09:35 / 09:40` — weekly **view report / market-supply pulse / pre-market flow pulse** → Slack.
+- `09:00` — **Pre-market quality measure** (samples live pre-market listings; ~22–27 min).
+- `09:30 / 09:35 / 10:30` — weekly **view report / market-supply pulse / pre-market flow pulse** → Slack.
 - `11:00 / 11:05 / 11:10` — **sold-match report / trend chart / audit xlsx**.
 
 **Every 2 days (odd days of month)**
@@ -231,12 +235,25 @@ the droplet) before trusting exact minutes — the docs have drifted before.
 - `22:00` — **Cohort track**: append the day's view time-series. *(must run after A+D)*
 
 **Daily**
+- `01:00 / 11:00 / 17:00 / 23:00` — **cron-health sweep** (the latency gap the daily digest can't close).
 - `03:00` — **cron-health-slack**: daily health report → Slack.
-- `08:00` — **SFPL region snapshot** (inventory stock counts).
+- `06:20 / 06:30 / 06:35` — the three shell **retention** lines.
 - `08:30` — **Market-totals daily** (the 4-number supply pulse).
 - `12:00` — **Spot-check reaction poller**: apply human ✅/❌ verdicts.
 
-Ordering dependencies that matter: **C → B → cohort-create**, and **A+D → cohort-track**.
+**Monthly (1st of the month)**
+- `00:30` — **Ad-cost crawl** (`adcost-crawl.js`): the 420-row Hemnet ad-price grid. **On this box
+  since 2026-08-18** — it used to run weekly on the price-scraper droplet.
+- `02:00` — **Age census** (~3h).
+- `07:00 / 07:10` — **age-census report / ad-cost report** → Slack.
+
+*(Also weekly: `alerting-heartbeat`, Thu 12:00 — proof of life over the webhook path.)*
+
+Ordering dependencies that matter: **C → B → cohort-create**, **A+D → cohort-track**, and on the 1st
+**ad-cost crawl (00:30) → ad-cost report (07:10)**.
+
+⚠ The `08:00` **SFPL region snapshot** that used to sit in the daily block was **retired 2026-08-13**
+(no consumer) and is no longer scheduled.
 
 ---
 
@@ -313,7 +330,8 @@ Ordered by likelihood; full analysis in [`.planning/codebase/CONCERNS.md`](../..
    `node scripts/mem-profile.js -- node export-hb-ratio-xlsx.js --cohort <id>`.
 3. **Dead credentials / dead endpoints** — this system has a recurring pattern of external paths dying
    silently (Hemnet direct-curl died → all-Oxylabs; the price-scraper box's *own* Oxylabs creds went
-   401; the ad-cost GraphQL op died and was re-ported to Steel). *Assume any external path can die;
+   401; the ad-cost GraphQL op died and was re-ported to Steel, whose clear rate then decayed to ~12%
+   and forced a second move to Bright Data Web Unlocker). *Assume any external path can die;
    run a `probe-oxylabs-*.js` canary before big runs.*
 4. **Misreading silence as health** — this is the subtle one, and it got *more* subtle after the
    2026-08-17 alerting rebuild. Silence now has **four legitimate causes** (tier-2 gating, the
@@ -350,7 +368,7 @@ incident; ~49 GB of dead `simple_history` bloat on the shared DB.
 | `config/` | `sold-panel.json` (national sampler + coverage-expansion lever) and `sold-segments.json`. |
 | `migrate-*.js`, `*-setup.js` | **Hand-run, idempotent** schema migrations (no framework — run manually after a pull that adds one). |
 | `deploy-instructions.md` | **The authoritative ops runbook.** |
-| `docs/` | Price-scraper droplet audit/runbook/remediation, ad-cost cost notes, and this `handover/` set. |
+| `docs/` | Price-scraper droplet audit/runbook/remediation, ad-cost cost/gap notes, the preserved Django ad-cost source (`handover/adcost-django-source/`), and this `handover/` set. |
 | `.planning/` | GSD planning artifacts + the refreshed `codebase/` technical map. |
 | `view-data/` (gitignored, on droplet) | Generated charts/xlsx served on port 3800. |
 
@@ -362,7 +380,9 @@ incident; ~49 GB of dead `simple_history` bloat on the shared DB.
 - **DB:** DO managed Postgres, `defaultdb:25060`, user `doadmin`, SSL required, **shared** with the
   price-scraper box. Connect via `db.js` (discrete `DB_*` vars). No `psql` on the box.
 - **Scraping:** Oxylabs `realtime.oxylabs.io/v1/queries`; `SCRAPE_FORCE_OXYLABS=1` on the droplet;
-  **262k/mo cap, ~86% used**. Ad-cost uses **Steel.dev** on the other box.
+  **262k/mo cap** (⚠ the ~86% utilisation figure in this doc set is stale — re-check at
+  `data.oxylabs.io/v1/stats` before quoting it). **Ad-cost does not use Oxylabs**: it goes through
+  **Bright Data Web Unlocker** (`BRIGHTDATA_UNLOCKER_PROXY`, port 44445), on this box since 2026-08-18.
 - **Slack:** webhook (`SLACK_WEBHOOK_URL`, "Hemnet Status") for pulses/alerts; bot token
   (`SLACK_BOT_TOKEN`, review channel) for the spot-check queue + sold-match. `dotenv` defeats
   `env -u` dry-runs — use `--smoke`.

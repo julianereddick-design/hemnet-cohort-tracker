@@ -125,7 +125,7 @@ inconvenience; a missed scrape is a hole in a time series that no amount of late
 | `cohort-spotcheck-gate` | Mon 06:30 | Re-fetches both listing pages **live**. Delisted pairs are diverted as unreviewable, so that cohort's false-match rate is **never measurable again**. |
 | `sold-match-batch` | Mon 07:30 (even ISO weeks) | The sampler uses a sliding 14-day lookback, so a later re-run samples a **different fortnight** — not the missed one. |
 | `age-census-monthly` | 1st 02:00 | Monthly census of live pools. A missed month is blank forever. |
-| `ad-cost-crawler` | 1st 02:00 (price droplet) | Monthly price grid. Hemnet publishes only current prices; last month's are gone. |
+| `ad-cost-crawler` | 1st 00:30 (**this droplet** since 2026-08-18) | Monthly price grid. Hemnet publishes only current prices; last month's are gone. The completeness gate fails the job on **any** month short of all 420 rows, and the alert carries the crawler's stderr tail — read it: `WARMUP_FAILED` wrote nothing and is cheap to re-run, a **short grid already wrote rows and must NOT be re-crawled**. |
 
 ### Tier 2 — everything else
 

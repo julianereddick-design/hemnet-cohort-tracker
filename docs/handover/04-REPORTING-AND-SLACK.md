@@ -401,7 +401,7 @@ weekly Slack reports as clickable full URLs). xlsx/csv are written to disk (`vie
 | `sold-match-trend-chart.js` | `view-data/<date>/sold-match/trend.html` (stacked bar: matched first-pull + found-later) | linked in `sold-match-report.js` Slack post |
 | `sold-match-xlsx.js` | `view-data/<date>/sold-match/sold-audit-<cohort>.xlsx` (per-cohort audit, clickable links) | on-disk audit artifact |
 | `scripts/export-sold-match.js` | `view-data/<label>/sold-match/sold-match-national-<label>.xlsx` + `.csv` (Records / Uncertain / Summary sheets) | read-only export by created_at date |
-| `scripts/adcost-report.py` | `exports/adcost-all-data.xlsx` + `exports/adcost-heatmap.html` (8-county × tier heat map + weighted ARPL, inc-25%-moms) | **local only — not on Slack** (see §5) |
+| `adcost-report.js` → `scripts/adcost-report.py` | `view-data/<date>/adcost/adcost-all-data.xlsx` + `adcost-heatmap.html` (county × tier heat map) | **linked** in the monthly `adcost-report` Slack post (business channel); served on port 3800 |
 | `scripts/build-supply-universes-xlsx.js` | `exports/hemnet-booli-supply-universes.xlsx` (7 tabs) | ad-hoc |
 
 ### Rule: export links must be clickable full URLs
@@ -424,19 +424,44 @@ uses Python **openpyxl** (color-scale conditional formatting).
 
 ---
 
-## 5. Reports built but NOT yet wired to Slack
+## 5. Ad-cost reporting — monthly, LIVE on Slack
 
-One report produces files with **no Slack delivery**, because the Slack app lacks the
-`files:write` scope (the bot token has only `chat:write` + `reactions:read` — the audience-routing
-split in §1 did not add it, as that work only needed `chat:write`). Adding file delivery requires
-Julian to grant `files:write` and reinstall the app; Claude cannot touch Slack admin. Design
-spec §4 (`uploadFiles`) is not built.
+*(This section used to read "reports built but NOT yet wired to Slack". Ad-cost was the only entry
+and it went live in Phase 28; nothing is unwired now.)*
 
-1. **Ad-cost (Phase 28)** — `scripts/adcost-report.py` produces `exports/adcost-all-data.xlsx`
-   and `exports/adcost-heatmap.html` from the `hemnet_adcostv2` table (shared `defaultdb`).
-   Weighted ARPL uses `data/arpl-baseline.json`. Rerunnable, **local/manual only** — run
-   `python scripts/adcost-report.py` (needs `psycopg` + `openpyxl` + DB whitelist). Note the
-   2026-03-16→06-30 no-backfill gap that blanks WoW until two adjacent post-resume weeks exist.
+**`adcost-report.js`** → `scripts/adcost-report.py`, `10 7 1 * *` (**1st 07:10 UTC**), tier 2,
+posted to the **business** channel. It reads `hemnet_adcostv2` in the shared `defaultdb` — written
+6h40m earlier by the `ad-cost-crawler` job on this same box (see
+[`02-DATA-STREAMS-AND-JOBS.md`](02-DATA-STREAMS-AND-JOBS.md) §f).
+
+Reporting rules, **locked with the client 2026-08-17 — do not re-litigate**:
+
+- **NO ARPL in the post.** The revenue-per-listing weights in `data/arpl-baseline.json` are a frozen
+  one-off hand-extracted from a gitignored 16 MB workbook and never refreshed (the local and droplet
+  copies had already drifted). The post reports **scraped prices only**; the linked heat map still
+  carries its ARPL block.
+- **Two tables**, counties down × BASIC/PLUS/PREMIUM/MAX across, with a Total column and TOTAL row:
+  (1) vs the fixed **2025-12-21** baseline, (2) vs **roughly a quarter back**. A fixed baseline is a
+  cumulative index and can never answer "what changed lately" — all 420 cells already differ from the
+  anchor — hence the second table.
+- The quarter table **never implies its own length**: the 2026-03-16 → 2026-06-30 outage means the
+  90-day mark can land in a hole, so the heading prints the actual reference date and elapsed days.
+- Every cell is an **equal-weighted basket** (that county's munis × all six price points). It is a
+  price index, not a revenue estimate — counties are not scaled by market size.
+- **One basis only.** An earlier draft printed a per-product roll-up beside the matrices that
+  disagreed with them (BASIC +3.4% under a table saying +1.8%). Both were right; two numbers under
+  one label is a defect.
+- Artifacts are **linked, never uploaded** — that would need `files:write`, which the bot token still
+  lacks (it has `chat:write` + `reactions:read` only). They are written to `view-data/<date>/adcost/`
+  and served by `view-data-server.js` on :3800.
+
+**Run it by hand:** `node adcost-report.js --smoke` (offline: no DB, no Python, no Slack) or
+`node adcost-report.js --dry-run`. ⚠ `dotenv` re-injects `SLACK_BOT_TOKEN`, so `env -u` does **not**
+give you a dry run — it posts. Needs `PYTHON_BIN` pointed at `.venv-adcost` on the droplet.
+
+⚠ **Two cells of the report's "regional divergence" are artefacts**, not real regional pricing: Hemnet
+prices off ~4–5 municipal **rate cards**, not counties. See the rate-card analysis before drawing
+conclusions from county-level spreads.
 
 ---
 

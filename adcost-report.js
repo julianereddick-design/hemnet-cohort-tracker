@@ -1,10 +1,11 @@
 'use strict';
 // adcost-report.js — monthly Slack post for Hemnet's ad pricing (Phase 28).
 //
-// The scrape runs on the OTHER droplet (price droplet, 02:00 UTC on the 1st, via
-// celery-beat) and writes hemnet_adcostv2 in the shared defaultdb. This script does
-// the reporting half: it shells out to scripts/adcost-report.py for the numbers and
-// the artifacts, renders the post, and publishes it to #hemnet-status.
+// The scrape runs on THIS droplet (adcost-crawl.js, 00:30 UTC on the 1st) and writes
+// hemnet_adcostv2 in the shared defaultdb. It used to run on the price droplet via
+// celery-beat at 02:00; that box was retired from the crawl on 2026-08-18. This script
+// does the reporting half: it shells out to scripts/adcost-report.py for the numbers
+// and the artifacts, renders the post, and publishes it to the business channel.
 //
 // Reporting rules (locked with the client 2026-08-17 — do not re-litigate):
 //  - NO ARPL. The revenue-per-listing weights in data/arpl-baseline.json are a frozen
@@ -42,7 +43,7 @@
 // otherwise just the single largest mover. "Nothing moved" stays a real result: prices
 // are sticky, and between 2026-07-12 and 2026-08-17 only MAX moved at all.
 //
-// Cron: 07:10 UTC on the 1st, five hours after the 02:00 UTC scrape on the price droplet.
+// Cron: 07:10 UTC on the 1st, 6h40m after the 00:30 UTC scrape on this droplet.
 // Self-test: node adcost-report.js --smoke   (offline: no DB, no Python, no Slack)
 require('dotenv').config();
 const fs = require('fs');

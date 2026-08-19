@@ -1,5 +1,12 @@
 # Ad-Cost Scrape Gap — 2026-03-16 → 2026-06-30 (no backfill)
 
+> 📜 **HISTORICAL (Phase 27, 2026-07).** Accurate about the **2026-03-16 → 2026-06-30 data gap**,
+> which is permanent and still matters when reading the monthly report's period-on-period columns.
+> **Its description of the running system is out of date:** the scrape is no longer weekly, no longer
+> on the price-scraper droplet, and no longer uses a Steel browser — since 2026-08-18 it is a
+> **monthly** crawl on the cohort-tracker droplet over **Bright Data Web Unlocker**. See
+> [`handover/02-DATA-STREAMS-AND-JOBS.md`](handover/02-DATA-STREAMS-AND-JOBS.md) §f.
+
 **Status:** Weekly Hemnet ad-cost scrape (`AdCostV2`) **resumed 2026-06-30** (first resumed
 crawl; ~2026-07-01 local). Dormant since **2026-03-16**.
 

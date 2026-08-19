@@ -17,3 +17,9 @@ Then go deeper as needed:
 *Generated 2026-07-28 from a full codebase examination. Doc `05` added and the monitoring
 sections of `02` and `04` corrected on 2026-08-18, after the alerting rebuild shipped — treat
 any monitoring claim in a pre-2026-08-17 revision as describing the previous system.*
+
+*Updated 2026-08-20 for the **ad-cost scrape migration**: the Hemnet ad-price crawl moved off the
+price-scraper droplet (Django/Celery + Steel browser, weekly) onto this droplet (`adcost-crawl.js`
++ Bright Data Web Unlocker, monthly, 1st 00:30 UTC), and its monthly Slack report went live at
+1st 07:10 UTC. Docs `01`–`05` and `../../deploy-instructions.md` all changed; any pre-2026-08-18
+revision describes the old arrangement.*

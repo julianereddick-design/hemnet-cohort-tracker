@@ -21,7 +21,7 @@ jobs. Do not confuse them.
 | Droplet | IP | Role for this project | Notes |
 |---|---|---|---|
 | **cohort-tracker** (the "Hemnet box") | `170.64.197.241` | **Runs this repo.** All cron jobs in this document fire here from `/opt/hemnet-cohort-tracker`. | Ubuntu, login `root`. Git clone deployed at `/opt/hemnet-cohort-tracker`. SSH config alias `cohort-droplet` (Claude may SSH as of 2026-06-11). |
-| **price-scraper droplet** | `170.64.181.89` (region `syd1`, DO id `357087018`) | **Separate, team-owned box.** Does the actual Hemnet + Booli *listing* scraping into the shared DB. This repo *consumes* its output tables (`hemnet_listingv2`, `booli_listing`), it does not run here. | Repo `github.com/tt7676/hem-bol-scrapers`, app at `/var/www/apps/hemnet` (Django + Celery + Docker). Was `s-8vcpu-16gb` (~$100/mo), **right-sized to `s-1vcpu-2gb` (~$12/mo)** in v4.0 Phase 25. See `docs/price-scraper-droplet-audit.md`, `-runbook.md`, `-remediation.md`. |
+| **price-scraper droplet** | `170.64.181.89` (region `syd1`, DO id `357087018`) | **Separate, team-owned box — 🚧 PENDING DECOMMISSION.** Does the Hemnet + Booli *listing* scraping into the shared DB; this repo *consumes* its output tables (`hemnet_listingv2`, `booli_listing`). It used to run the **ad-cost crawl**, which moved to the cohort-tracker box on **2026-08-18** — its beat row is disabled and it is destroyed once the 1 Sept 2026 run verifies. Snapshot **`241648610`** is the rollback (hold to ~2026-11-18). | Repo `github.com/tt7676/hem-bol-scrapers`, app at `/var/www/apps/hemnet` (Django + Celery + Docker). Was `s-8vcpu-16gb` (~$100/mo), **right-sized to `s-1vcpu-2gb` (~$12/mo)** in v4.0 Phase 25. See `docs/price-scraper-droplet-audit.md`, `-runbook.md`, `-remediation.md`. |
 | **monitor-prod-syd1** | `209.38.93.133` | **NONE.** Separate fintech watchlist monitor. **Does NOT do any Hemnet scraping** (verified 2026-06-29). | Listed only to prevent mis-identification. |
 
 ### The cohort-tracker box (this repo)
@@ -131,7 +131,9 @@ committed template (variable names only).
 | Variable | Purpose | Notes |
 |---|---|---|
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Managed Postgres connection (`db.js`). | `DB_SSL=require` also present in the example. Port 25060, user `doadmin`, db `defaultdb`. |
-| `OXYLABS_USERNAME`, `OXYLABS_PASSWORD` | Oxylabs Web Scraper API auth (`lib/scrape-http.js`). | Required for all scrape jobs. |
+| `OXYLABS_USERNAME`, `OXYLABS_PASSWORD` | Oxylabs Web Scraper API auth (`lib/scrape-http.js`). | Required for all scrape jobs **except ad-cost**. |
+| `BRIGHTDATA_UNLOCKER_PROXY` | Bright Data Web Unlocker proxy URL (`brd-customer-…:…@brd.superproxy.io:44445`) — the **only** transport for the ad-cost crawl. | Added 2026-08-18. Read from env, else the repo-root `.env`. **Never logged** — `scripts/adcost-crawl.py` scrubs it out of its own exception text. Without it the crawl exits 2 (misconfig). |
+| `PYTHON_BIN` | Interpreter for the two ad-cost jobs, exported by their crontab lines. | Must be `/opt/hemnet-cohort-tracker/.venv-adcost/bin/python`. The droplet's system `python3` is PEP-668 externally-managed and has **neither `psycopg` nor `openpyxl`** — without this both jobs fail on `ModuleNotFoundError`. Deps pinned in `scripts/requirements-adcost.txt`. |
 | `SLACK_WEBHOOK_URL` | cron-wrapper warning/failure alerts + weekly report posts. | Without it, runs are **silent** on failure. Phase 9+ requires it. |
 | `SLACK_BOT_TOKEN` (`xoxb-…`) | Spot-check review-queue posting + reading reactions (`chat:write`, `reactions:read`). | **Separate** from the webhook. Used only by `cohort-spotcheck-gate.js` + `spotcheck-reaction-poller.js`. Setup: `SLACK-REVIEW-SETUP.md`. |
 | `SLACK_REVIEW_CHANNEL` (`C0…`) | Channel id (not name) for the review queue; bot must be invited. | |
@@ -257,12 +259,24 @@ Full annotated crontab is in `deploy-instructions.md`. Enumerated:
 | 14:00 (odd days) | Hemnet view data (Job A) — parallel | `hemnet-targeted-refresh.js` |
 | 22:00 (odd days) | Cohort track | `cohort-track.js` |
 
+**Monthly (1st of month):**
+| Time | Job | Script |
+|---|---|---|
+| 1st 00:30 | **Ad-cost crawl** (Bright Data Unlocker, 420 rows) — on this box since 2026-08-18 | `adcost-crawl.js` |
+| 1st 02:00 | Age census (~3h) | `scripts/age-census-monthly.js` |
+| 1st 07:00 | Age-census report | `age-census-report.js` |
+| 1st 07:10 | **Ad-cost report** (→ Slack business channel) | `adcost-report.js` |
+
 **Daily:**
 | Time | Job | Script |
 |---|---|---|
 | 03:00 daily | Cron health monitor (→ Slack) | `cron-health-slack.js` |
 | 08:30 daily | Market-totals capture (3 Oxylabs reqs, 4 rows/day) | `market-totals-daily.js` |
 | 12:00 daily | Spot-check reaction poller | `spotcheck-reaction-poller.js` |
+
+⚠ **This enumeration is not exhaustive and the crontab is GENERATED** from `lib/job-registry.js`
+(28 job lines). Never hand-edit the crontab: change the registry, then
+`node scripts/render-crontab.js | crontab -`, and verify with `node scripts/render-crontab.js --check`.
 
 Notes: Job C must finish before Job B (B reads C's rows). Combined Job A+D parallel load is
 ~4% of the Oxylabs 50/sec cap. `cohort-track` daily 23:30/02:00 lines were **removed** (D-07) —
