@@ -109,6 +109,67 @@ function bucket(summary, key) {
 }
 
 // ---------------------------------------------------------------
+// Write statements
+//
+// Named constants so the --smoke self-test can assert the contract every write
+// path here owes the health report: each one must stamp `crawled`, because
+// hemnetRefreshRecent (lib/job-assertions.js) counts
+// `hemnet_listingv2 WHERE crawled >= lastFire` to decide this job ran. Leave it
+// unstamped and a perfectly healthy run reports as a tier-1 failure — which is
+// exactly what happened from the assertion's first fire until 2026-08-19.
+//
+// Plan 10-02 (g) 2026-05-26: COALESCE-preserve the 5 discovery-metadata fields
+// (street_address / postcode / municipality / county / listed), mirroring Plan
+// 09-2.5 D-24 on Booli view data (booli-targeted-refresh.js:150-157, which has
+// always stamped crawled). Defense in depth: in practice the parser
+// short-circuits (errors++) when fetch fails, so this is rarely hit — but a
+// transient partial-parse glitch returning null on a metadata field would
+// otherwise blank out validated address data.
+// times_viewed + is_pre_market unchanged — those are meaningful state updates,
+// not parse-derived fields.
+// ---------------------------------------------------------------
+
+const SQL_REFRESH_ACTIVE = `UPDATE hemnet_listingv2
+    SET times_viewed   = $1,
+        crawled        = NOW(),
+        is_active      = true,
+        is_pre_market  = $2,
+        street_address = COALESCE($3, street_address),
+        postcode       = COALESCE($4, postcode),
+        municipality   = COALESCE($5, municipality),
+        county         = COALESCE($6, county),
+        listed         = COALESCE(to_timestamp($7)::date, listed)
+  WHERE hemnet_id = $8
+ RETURNING hemnet_id`;
+
+// ⚠ THIS BRANCH IS DEAD CODE — it cannot succeed, and adding `crawled` below
+// does NOT repair it. hemnet_listingv2 has 23 NOT NULL columns without
+// defaults; this statement supplies 10 and omits 14 (id, url, type, status,
+// title, district, city, price, currency, housing_form, tenure, amenities,
+// construction_year, images). Verified 2026-08-19 by executing it inside a
+// rolled-back transaction against prod: it throws on `url` before `crawled` is
+// ever reached. `crawled` is added here only so the statement is correct on the
+// one axis this change is about; making the branch actually work means sourcing
+// 14 more fields the refresh payload does not carry, which is a separate job.
+// It has never fired in production (rowsInserted has always been 0 — every
+// cohort_pairs.hemnet_id has had a listing row), and if it did, the worker-level
+// try/catch would count it as workerErrors and skip that listing rather than
+// crash the run. That is why the break went unnoticed.
+const SQL_REFRESH_INSERT = `INSERT INTO hemnet_listingv2
+     (hemnet_id, times_viewed, is_active, is_pre_market, street_address,
+      postcode, municipality, county, listed, crawled)
+   VALUES ($1, $2, true, $3, $4, $5, $6, $7, to_timestamp($8)::date, NOW())`;
+
+// Preserve times_viewed; only flip is_active. Update ALL matching rows.
+// If 0 rows match, do NOTHING — there's no existing row to mark inactive
+// and we have no full payload to insert.
+const SQL_MARK_INACTIVE = `UPDATE hemnet_listingv2
+    SET is_active = false,
+        crawled   = NOW()
+  WHERE hemnet_id = $1
+ RETURNING hemnet_id`;
+
+// ---------------------------------------------------------------
 // Per-id worker
 // ---------------------------------------------------------------
 
@@ -137,26 +198,7 @@ async function processOne(id, client, log, dryRun, summary) {
       const shaped = shapeListingForDb(listing);
       // UPDATE every row that matches this hemnet_id — duplicate-row fix.
       const upd = await client.query(
-        // Plan 10-02 (g) 2026-05-26: COALESCE-preserve the 5 discovery-metadata
-        // fields (street_address / postcode / municipality / county / listed),
-        // mirroring Plan 09-2.5 D-24 on Booli view data (booli-targeted-refresh.js:150-154).
-        // Defense in depth: in practice the parser short-circuits at line 121
-        // (errors++) when fetch fails, so this is rarely hit — but a transient
-        // partial-parse glitch returning null on a metadata field would otherwise
-        // blank out validated address data.
-        // times_viewed + is_pre_market unchanged — those are meaningful state
-        // updates, not parse-derived fields.
-        `UPDATE hemnet_listingv2
-            SET times_viewed   = $1,
-                is_active      = true,
-                is_pre_market  = $2,
-                street_address = COALESCE($3, street_address),
-                postcode       = COALESCE($4, postcode),
-                municipality   = COALESCE($5, municipality),
-                county         = COALESCE($6, county),
-                listed         = COALESCE(to_timestamp($7)::date, listed)
-          WHERE hemnet_id = $8
-         RETURNING hemnet_id`,
+        SQL_REFRESH_ACTIVE,
         [
           shaped.times_viewed,
           shaped.is_pre_market,
@@ -173,10 +215,7 @@ async function processOne(id, client, log, dryRun, summary) {
       } else {
         // No existing row — INSERT defensively so cohort-create.js can match Mon.
         await client.query(
-          `INSERT INTO hemnet_listingv2
-             (hemnet_id, times_viewed, is_active, is_pre_market, street_address,
-              postcode, municipality, county, listed)
-           VALUES ($1, $2, true, $3, $4, $5, $6, $7, to_timestamp($8)::date)`,
+          SQL_REFRESH_INSERT,
           [
             id,
             shaped.times_viewed,
@@ -207,10 +246,7 @@ async function processOne(id, client, log, dryRun, summary) {
     // If 0 rows match, do NOTHING — there's no existing row to mark inactive
     // and we have no full payload to insert.
     const upd = await client.query(
-      `UPDATE hemnet_listingv2
-          SET is_active = false
-        WHERE hemnet_id = $1
-       RETURNING hemnet_id`,
+      SQL_MARK_INACTIVE,
       [id],
     );
     if (upd.rowCount > 0) summary.rowsUpdated += upd.rowCount;
@@ -456,6 +492,28 @@ if (process.argv.includes('--smoke')) {
       fail++;
     }
   }
+  // Contract with hemnetRefreshRecent (lib/job-assertions.js): that assertion
+  // counts `hemnet_listingv2 WHERE crawled >= lastFire` to decide whether this
+  // job ran. Every write path must therefore stamp `crawled` — otherwise a run
+  // that fetches 5,167 listings and updates 5,203 rows still reports as a
+  // tier-1 failure, because nothing it wrote is visible to the check.
+  for (const [name, sql] of [
+    ['SQL_REFRESH_ACTIVE', SQL_REFRESH_ACTIVE],
+    ['SQL_REFRESH_INSERT', SQL_REFRESH_INSERT],
+    ['SQL_MARK_INACTIVE', SQL_MARK_INACTIVE],
+  ]) {
+    try {
+      assert.ok(
+        /\bcrawled\b/.test(sql),
+        `${name} does not write \`crawled\` — hemnetRefreshRecent cannot see this write`,
+      );
+      pass++;
+    } catch (e) {
+      console.error(`SMOKE FAIL: ${e.message}`);
+      fail++;
+    }
+  }
+
   console.log(`smoke: ${pass} pass, ${fail} fail`);
   process.exit(fail === 0 ? 0 : 1);
 }
