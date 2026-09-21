@@ -16,7 +16,7 @@ require('dotenv').config();
 
 const fs = require('fs');
 const path = require('path');
-const { getWithRetry, extractNextData, getOxylabsStats, resetOxylabsStats } = require('../lib/scrape-http');
+const { getWithRetry, extractApolloState, getOxylabsStats, resetOxylabsStats } = require('../lib/scrape-http');
 const { parseListingCards } = require('../lib/hemnet-fetch');
 const { parseBooliSearchCards } = require('../lib/booli-fetch');
 const { walkFlow, sampleDepth, computeMetrics, retryFetch, validatePremarketRun } = require('../lib/premarket-flow');
@@ -69,10 +69,7 @@ function pickByPrefix(root, prefix, field) {
   return undefined;
 }
 function apolloRoot(html, label) {
-  const data = extractNextData(html);
-  const apollo = data && data.props && data.props.pageProps && data.props.pageProps.__APOLLO_STATE__;
-  if (!apollo) throw new Error(`${label}: __APOLLO_STATE__ missing`);
-  return apollo;
+  return extractApolloState(html, label);
 }
 
 // Platform configs: url(page) → fetch; normalize cards to { published, isNewBuild };

@@ -5,7 +5,7 @@
 // silent on success by design (D-07).
 
 const { runJob } = require('./cron-wrapper');
-const { getWithRetry, extractNextData, getOxylabsStats, resetOxylabsStats } = require('./lib/scrape-http');
+const { getWithRetry, extractApolloState, getOxylabsStats, resetOxylabsStats } = require('./lib/scrape-http');
 
 const HEMNET_URL              = 'https://www.hemnet.se/bostader';
 const BOOLI_TILL_SALU_URL     = 'https://www.booli.se/sok/till-salu?upcomingSale=0';
@@ -55,10 +55,10 @@ function pickByPrefix(rootQuery, prefix, fieldName) {
 }
 
 function extractApolloRoot(html, siteLabel) {
-  const data = extractNextData(html);
-  const apollo = data && data.props && data.props.pageProps && data.props.pageProps.__APOLLO_STATE__;
+  // Router-agnostic: Booli is App Router since 2026-09-21, Hemnet is still Pages.
+  const apollo = extractApolloState(html, siteLabel);
   if (!apollo || typeof apollo !== 'object') {
-    throw new Error(`${siteLabel}: __APOLLO_STATE__ missing from __NEXT_DATA__`);
+    throw new Error(`${siteLabel}: apollo state missing`);
   }
   const root = apollo.ROOT_QUERY;
   if (!root || typeof root !== 'object') {

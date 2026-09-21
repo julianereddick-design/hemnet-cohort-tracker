@@ -21,7 +21,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { walkFlow } = require('../lib/premarket-flow');
-const { getWithRetry, extractNextData, getOxylabsStats } = require('../lib/scrape-http');
+const { getWithRetry, extractApolloState, getOxylabsStats } = require('../lib/scrape-http');
 const { interiorVerdict, INTERIOR } = require('../lib/booli-image-labels');
 const { bucketOf, NEEDS_PAGE, tally, WINDOW_DAYS } = require('../lib/premarket-quality');
 const { parsePublishedToUnix, parseDisplayDateToAgeDays } = require('../lib/booli-fetch');
@@ -34,9 +34,7 @@ const OUT_DIR = path.join(__dirname, '..', 'verf-premarket-quality');
 const searchUrl = p => `https://www.booli.se/sok/till-salu?upcomingSale=1&page=${p}`;
 
 function apolloFrom(html) {
-  const d = extractNextData(html);
-  const a = d && d.props && d.props.pageProps && d.props.pageProps.__APOLLO_STATE__;
-  if (!a) throw new Error('__APOLLO_STATE__ missing');
+  const a = extractApolloState(html, 'premarket-quality');
   return a;
 }
 

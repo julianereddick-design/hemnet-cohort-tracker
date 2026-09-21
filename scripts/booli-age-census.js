@@ -12,7 +12,7 @@ require('dotenv').config();
 
 const fs = require('fs');
 const path = require('path');
-const { getWithRetry, extractNextData, getOxylabsStats, resetOxylabsStats } = require('../lib/scrape-http');
+const { getWithRetry, extractApolloState, getOxylabsStats, resetOxylabsStats } = require('../lib/scrape-http');
 const { parseBooliSearchCards } = require('../lib/booli-fetch');
 const { bandIndex, cardAgeDays, pageMedianAge, findCrossoverPage, DAY } = require('../lib/premarket-flow');
 
@@ -41,9 +41,7 @@ let filteredTotal = null;         // headline total of the isNewConstruction=0 s
 let errorPages = 0;               // real page-fetch failures (null-cards, persistent non-200s); reset per run()
 
 function apolloFrom(html) {
-  const data = extractNextData(html);
-  const apollo = data && data.props && data.props.pageProps && data.props.pageProps.__APOLLO_STATE__;
-  if (!apollo) throw new Error('__APOLLO_STATE__ missing');
+  const apollo = extractApolloState(html, 'booli-age-census');
   return apollo;
 }
 
