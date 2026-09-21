@@ -46,7 +46,7 @@ function renderLine(name, rec, root) {
 // diffs are readable. Trailing newline is required: cron silently ignores a
 // final line with no newline after it.
 function renderCrontab(jobs, root) {
-  const names = Object.keys(jobs).filter(n => jobs[n].cron).sort();
+  const names = Object.keys(jobs).filter(n => jobs[n].cron && !jobs[n].paused).sort();
   const lines = names.map(n => renderLine(n, jobs[n], root));
   return [...HEADER, '', ...lines, ''].join('\n');
 }
@@ -145,11 +145,35 @@ if (require.main === module && process.argv.includes('--smoke')) {
       'a registry entry with no cron must not reach the crontab');
   });
 
+  check('a paused job keeps its cron but is not emitted', () => {
+    const jobs = {
+      live:   { cron: '0 1 * * *', command: 'node live.js' },
+      halted: { cron: '0 14 */2 * *', command: 'node halted.js', paused: 'Booli App Router outage' },
+    };
+    const out = renderCrontab(jobs, ROOT);
+    assert.ok(out.includes('node live.js'), 'an unpaused job must still render');
+    assert.ok(!out.includes('node halted.js'),
+      'a paused job must not reach the crontab, or it keeps burning Oxylabs calls');
+    assert.strictEqual(jobs.halted.cron, '0 14 */2 * *',
+      'pausing must PRESERVE the schedule so the job can be restored verbatim');
+  });
+
   check('every scheduled job appears exactly once', () => {
     const out = renderCrontab(JOBS, ROOT);
     const body = out.split('\n').filter(l => l.trim() && !l.startsWith('#'));
-    const scheduled = Object.values(JOBS).filter(r => r.cron).length;
+    // "Scheduled" means has a cron AND is not paused — a paused job keeps its
+    // cron for restore but must not be emitted.
+    const scheduled = Object.values(JOBS).filter(r => r.cron && !r.paused).length;
     assert.strictEqual(body.length, scheduled, `expected ${scheduled} lines, got ${body.length}`);
+  });
+
+  check('every paused job in the real registry is absent from the crontab', () => {
+    const out = renderCrontab(JOBS, ROOT);
+    for (const [name, rec] of Object.entries(JOBS).filter(([, r]) => r.paused)) {
+      assert.ok(rec.cron, `${name} is paused but has no cron to restore — pause must preserve it`);
+      assert.ok(!out.includes(rec.command),
+        `${name} is paused but its command still reaches the crontab`);
+    }
   });
 
   check('the proven live drift is present in the output', () => {
