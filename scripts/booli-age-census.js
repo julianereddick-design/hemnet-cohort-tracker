@@ -154,7 +154,7 @@ async function binarySearch(memo, pageSize, lastPage, { filtered = false, poolTo
   return { buckets, cumulative, undatedEst, undatedRate };
 }
 
-const { BAND_KEYS, bucketsToObject, filterApplied, secondhandBandTolerance, reconcileSecondhandBands,
+const { BAND_KEYS, bucketsToObject, BOOLI_BAND_MERGE, filterApplied, secondhandBandTolerance, reconcileSecondhandBands,
   gateTotalDrift, gateErrorPages, evaluateGates } = require('../lib/age-census');
 
 // Estimate-only path used by the monthly job: preflight + binary-search, NO full census —
@@ -219,7 +219,7 @@ async function run({ logger = log, priorTotal = null } = {}) {
       if (rec.withhold) {
         withhold(rec.withhold);
       } else {
-        bucketsSecondhand = bucketsToObject(rec.bands, bsf.undatedEst);
+        bucketsSecondhand = bucketsToObject(rec.bands, bsf.undatedEst, { mergeBands: BOOLI_BAND_MERGE });
         nNewbuild = stockTotal - filteredTotal;      // EXACT: two headline totals, not a sample
         if (rec.clamped.length) {
           const note = `2nd-hand bands clamped to the all-listings bands in ${rec.clamped.join(', ')} — within the ${secondhandBandTolerance(pf.pageSize, stockTotal)}-listing bisection tolerance`;
@@ -250,7 +250,7 @@ async function run({ logger = log, priorTotal = null } = {}) {
     nTotal: stockTotal, nUndated: bs.undatedEst,
     nNewbuild,
     newbuildSampled: false, newbuildSampleN: null,
-    buckets: bucketsToObject(bands, bs.undatedEst),
+    buckets: bucketsToObject(bands, bs.undatedEst, { mergeBands: BOOLI_BAND_MERGE }),
     bucketsSecondhand,
     muni: [],
     oxCalls, errorPages, runtimeS: Math.floor(Date.now() / 1000) - t0,

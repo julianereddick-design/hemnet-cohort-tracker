@@ -926,7 +926,7 @@ async function runSortProbe(only) {
   console.log(`Oxylabs calls this probe: ${JSON.stringify(getOxylabsStats())}`);
 }
 
-const { BAND_KEYS, bucketsToObject, filterApplied, secondhandBandTolerance, reconcileSecondhandBands,
+const { BAND_KEYS, bucketsToObject, BOOLI_BAND_MERGE, filterApplied, secondhandBandTolerance, reconcileSecondhandBands,
   gateCrosscheck, gateTotalDrift, gateErrorPages, evaluateGates } = require('../lib/age-census');
 
 // One full two-pass estimate (newest-first + oldest-first) over ONE stream. Everything that
@@ -1003,7 +1003,7 @@ async function run({ platform = booli, nowSec = NOW_SEC, logger = log, priorTota
       if (rec.withhold) {
         withhold(rec.withhold);
       } else {
-        bucketsSecondhand = bucketsToObject(rec.bands, sh.undatedEst);
+        bucketsSecondhand = bucketsToObject(rec.bands, sh.undatedEst, { mergeBands: BOOLI_BAND_MERGE });
         nNewbuild = all.headlineTotal - sh.headlineTotal;   // EXACT: two headline totals
         if (rec.clamped.length) {
           const note = `2nd-hand bands clamped to the all-listings bands in ${rec.clamped.join(', ')} — within the ${secondhandBandTolerance(all.newest.pageSize, all.headlineTotal)}-listing bisection tolerance`;
@@ -1049,7 +1049,7 @@ async function run({ platform = booli, nowSec = NOW_SEC, logger = log, priorTota
     nTotal: all.headlineTotal, nUndated: all.undatedEst,
     nNewbuild,
     newbuildSampled: false, newbuildSampleN: null,
-    buckets: bucketsToObject(all.bands, all.undatedEst),
+    buckets: bucketsToObject(all.bands, all.undatedEst, { mergeBands: BOOLI_BAND_MERGE }),
     bucketsSecondhand,
     muni: [],
     oxCalls, errorPages, runtimeS: Math.floor(Date.now() / 1000) - t0,
