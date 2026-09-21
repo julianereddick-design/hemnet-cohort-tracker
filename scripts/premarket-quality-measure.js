@@ -24,7 +24,7 @@ const { walkFlow } = require('../lib/premarket-flow');
 const { getWithRetry, extractNextData, getOxylabsStats } = require('../lib/scrape-http');
 const { interiorVerdict, INTERIOR } = require('../lib/booli-image-labels');
 const { bucketOf, NEEDS_PAGE, tally, WINDOW_DAYS } = require('../lib/premarket-quality');
-const { parsePublishedToUnix } = require('../lib/booli-fetch');
+const { parsePublishedToUnix, parseDisplayDateToAgeDays } = require('../lib/booli-fetch');
 
 const MAX_PAGES = 120;          // flow job uses 80; ~71 expected, so 80 could truncate
 const WALK_CALL_CEILING = 130;
@@ -41,8 +41,10 @@ function apolloFrom(html) {
 }
 
 function dataPoints(L) {
-  const k = Object.keys(L).find(x => x.startsWith('displayAttributes('));
-  const d = L[k];
+  // V1 keyed this with serialized args (`displayAttributes(...)`); V2 uses a
+  // bare `displayAttributes`. Accept both.
+  const k = Object.keys(L).find(x => x === 'displayAttributes' || x.startsWith('displayAttributes('));
+  const d = k ? L[k] : null;
   return (d && Array.isArray(d.dataPoints) ? d.dataPoints : [])
     .map(p => p && p.value && p.value.plainText).filter(Boolean);
 }
@@ -103,16 +105,132 @@ function richCard(L, S) {
   };
 }
 
-function parsePage(S) {
+// "2 950 000 kr" -> 2950000. "Pris ej angivet" ("price not stated") -> null.
+// V2 replaced the numeric listPrice.raw with this single formatted string, and
+// the sentinel is the ONLY way a card now says "no asking price".
+function parseDisplayPrice(s) {
+  if (typeof s !== 'string') return null;
+  if (/pris\s+ej\s+angivet/i.test(s)) return null;
+  const digits = s.replace(/[^\d]/g, '');
+  return digits ? Number(digits) : null;
+}
+
+// richCard for Booli's searchForSaleV2 shape (2026-09-13/14 migration).
+//
+// The six-rung ladder reads exactly three predicates — interiorVerdict === 'yes',
+// price != null, nextShowing != null — and all three survive V2, so the ladder,
+// the "genuinely coming to market" share and the flow-ratio correction are
+// reconstructed unchanged.
+//
+// What does NOT survive is Booli's AVM. V1 cards carried listPrice.raw AND
+// estimate.price.raw, so the job could say "no asking price BUT a valuation is
+// shown" (pct_avm_shown). V2 publishes no valuation on the search card at all —
+// a card either states a price or says "Pris ej angivet". That was a PRODUCT
+// change, not a rename: a full walk of the pre-market payload on 2026-09-21
+// found no estimate/värdering field anywhere.
+//
+// pct_avm_shown was only ever a descriptive stat — it never entered LADDER — so
+// nothing downstream is misclassified. But it must not silently report 0.0%,
+// which would read as "Booli showed no valuations" rather than "we can no longer
+// see them". avmObservable:false makes tally() emit null instead.
+function richCardV2(L, S, nowSec) {
+  const imgKey = Object.keys(L).find(k => k.startsWith('images('));
+  const imgRefs = (imgKey && Array.isArray(L[imgKey])) ? L[imgKey] : [];
+  const imgs = imgRefs.map(r => (r && r.__ref ? S[r.__ref] : r)).filter(Boolean);
+  const labels = imgs.map(i => (i.primaryLabel === undefined ? null : i.primaryLabel));
+  const verdict = interiorVerdict(labels);
+
+  const labelCounts = {};
+  for (const l of labels) { const k = l == null ? 'NULL' : l; labelCounts[k] = (labelCounts[k] || 0) + 1; }
+
+  const tp = (L.tracking && L.tracking.properties) || {};
+  const ageDays = parseDisplayDateToAgeDays(L.displayDate);
+  const price = parseDisplayPrice(L.displayPrice);
+
+  // V2 moved the viewing out of nextShowing and into secondaryStatus, tagged
+  // key:'showing' with the human label ("Sön 4 okt kl 12:15").
+  const ss = L.secondaryStatus;
+  const nextShowing = (ss && ss.key === 'showing' && ss.label) ? ss.label : null;
+
+  const dp = dataPoints(L);
+  const originId = typeof L.originId === 'string' ? L.originId : '';
+
+  return {
+    booli_id: L.listingId != null ? String(L.listingId)
+      : (tp.booli_id != null ? String(tp.booli_id) : null),
+    url: (typeof tp.url === 'string' ? tp.url : L.url) || null,
+    published: ageDays == null ? null : nowSec - (ageDays * 86400),
+    publishedRaw: L.displayDate || null,
+    // walkFlow reads exactly these two keys — everything else rides along free.
+    isNewBuild: originId.startsWith('project:'),
+    // Pre-market cards carry primaryStatus {key:'upcomingSale'}; the tracking
+    // block repeats it as a boolean. Accept either.
+    upcomingSale: (L.primaryStatus && L.primaryStatus.key === 'upcomingSale') || tp.upcoming_sale === true,
+    price,
+    estimate: null,
+    priceMissingAvmShown: false,
+    avmObservable: false,        // see the note above — tally() emits null, not 0.0%
+    cardPhotos: imgs.length,
+    blockedImages: L.blockedImages === true,
+    cardLabels: labelCounts,
+    interiorVerdict: verdict,
+    bucket: bucketOf(verdict, imgs.length),
+    resolved: false,
+    nextShowing,
+    objectType: L.objectType || null,
+    municipality: tp.municipality || null,
+    agency: (L.presenter && L.presenter.name) || null,
+    sizeM2: dp.find(x => /m²/.test(x) && !/tomt/.test(x)) || null,
+  };
+}
+
+// Reads V1 (`searchForSale(...).result` of `Listing`) and V2
+// (`searchForSaleV2(...).items({"queryContext":"SERP"})` of `ListableProperty`).
+// Mirrors lib/booli-fetch.js#parseBooliSearchCards: prefer the node WITHOUT
+// forceNewConstruction, because the strip beside it holds months-old new-build
+// tiles that would otherwise be counted as this week's pre-market flow.
+function parsePage(S, nowSec) {
   const root = S.ROOT_QUERY || {};
-  const key = Object.keys(root).find(k => k.startsWith('searchForSale') && Array.isArray(root[k].result));
-  if (!key) throw new Error('no searchForSale result node');
-  const cards = [];
-  for (const ref of root[key].result) {
-    const L = ref && ref.__ref ? S[ref.__ref] : null;
-    if (L && L.__typename === 'Listing') cards.push(richCard(L, S));
+  const now = nowSec != null ? nowSec : Math.floor(Date.now() / 1000);
+
+  const candidates = [];
+  for (const k of Object.keys(root)) {
+    if (!k.startsWith('searchForSale')) continue;
+    const v = root[k];
+    if (!v || typeof v !== 'object') continue;
+    if (Array.isArray(v.result)) { candidates.push({ k, v, refs: v.result, shape: 'v1' }); continue; }
+    const itemsField = Object.keys(v).find(f => f === 'items' || f.startsWith('items('));
+    if (itemsField && Array.isArray(v[itemsField])) {
+      candidates.push({ k, v, refs: v[itemsField], shape: 'v2' });
+    }
   }
-  return { cards, totalCount: root[key].totalCount };
+  if (!candidates.length) throw new Error('no searchForSale result node');
+
+  const chosen = candidates.find(c => c.k.indexOf('forceNewConstruction') === -1) || candidates[0];
+  const cards = [];
+  for (const ref of chosen.refs) {
+    const L = ref && ref.__ref ? S[ref.__ref] : null;
+    if (!L) continue;
+    if (chosen.shape === 'v1') {
+      if (L.__typename === 'Listing') cards.push(richCard(L, S));
+    } else if (L.__typename === 'ListableProperty') {
+      // 'project:' tiles are new-build projects, not listings — no listingId,
+      // nothing to open, and excluded from the cohort by collectWeek anyway.
+      if (typeof L.originId === 'string' && L.originId.startsWith('listing:')) {
+        cards.push(richCardV2(L, S, now));
+      }
+    }
+  }
+
+  // Same guard as parseBooliSearchCards: refs present but nothing mapped means
+  // the shape moved again. Silence here is what cost a week of this series.
+  if (chosen.refs.length > 0 && cards.length === 0) {
+    throw new Error(
+      `premarket-quality: search node '${chosen.k.slice(0, 60)}' held ${chosen.refs.length} refs ` +
+      'but mapped 0 cards — Booli shape drift',
+    );
+  }
+  return { cards, totalCount: chosen.v.totalCount };
 }
 
 // Walk the week newest-first. Reuses walkFlow so the window boundary logic is
@@ -308,7 +426,7 @@ async function main(client, log) {
   let walkCalls = 0;
   const fetchPage = async (p) => {
     if (++walkCalls > WALK_CALL_CEILING) throw new Error(`walk ceiling ${WALK_CALL_CEILING} exceeded`);
-    return parsePage(apolloFrom((await getWithRetry(searchUrl(p), { logger: () => {} })).html)).cards;
+    return parsePage(apolloFrom((await getWithRetry(searchUrl(p), { logger: () => {} })).html), nowSec).cards;
   };
   const fetchDetail = async (url) => apolloFrom((await getWithRetry(url, { logger: () => {} })).html);
 
@@ -375,6 +493,10 @@ const USAGE = 'Usage: node scripts/premarket-quality-measure.js [--smoke]';
 function validateArgv(argv) {
   return argv.every(a => ACCEPTED_ARGV.has(a));
 }
+
+// Exported for tests/verification. The entry dispatcher below is guarded by
+// require.main, so requiring this module never starts the job.
+module.exports = { parsePage, richCardV2, parseDisplayPrice, apolloFrom, dataPoints };
 
 if (require.main === module) {
   const argv = process.argv.slice(2);
@@ -703,6 +825,111 @@ async function smoke() {
     assert(validateArgv(['--smoke=true']) === false, '--smoke=true must be rejected');
     assert(validateArgv(['--smok']) === false, '--smok must be rejected');
     assert(validateArgv(['--smoke', '--foo']) === false, 'an extra unrecognised flag must be rejected');
+  });
+
+
+  // --- searchForSaleV2 (Booli's 2026-09-13/14 migration) ---------------------
+  // Fixture mirrors the live pre-market payload captured 2026-09-21.
+  const V2_NOW = 1758438000;
+  const V2_ITEMS = 'items({"queryContext":"SERP"})';
+  const v2Card = (id, displayPrice, extra) => Object.assign({
+    __typename: 'ListableProperty',
+    originId: `listing:${id}`,
+    listingId: String(id),
+    title: `Gatan ${id}`,
+    url: `/annons/${id}`,
+    objectType: 'Lagenhet',
+    displayDate: 'Inkommet idag',
+    displayPrice,
+    primaryStatus: { __typename: 'TagWithIcon', key: 'upcomingSale', label: 'Snart till salu' },
+    secondaryStatus: null,
+    displayAttributes: { dataPoints: [{ value: { plainText: '66 m²' } }] },
+    presenter: { name: 'Erik Olsson' },
+    tracking: { properties: { booli_id: id, url: `https://www.booli.se/annons/${id}`, municipality: 'Stockholm', upcoming_sale: true } },
+    'images({"limit":5})': [{ __ref: 'Image:1' }],
+  }, extra || {});
+  const v2State = (nodeKey, refs, entities) => Object.assign({
+    ROOT_QUERY: { [nodeKey]: { totalCount: 29275, [V2_ITEMS]: refs } },
+    'Image:1': { __typename: 'Image', primaryLabel: 'interior' },
+  }, entities);
+
+  check('V2: items(...) node is parsed and the card maps', () => {
+    const S = v2State('searchForSaleV2({"input":{"page":1}})', [{ __ref: 'LP:a' }], { 'LP:a': v2Card(6275879, '2 145 000 kr') });
+    const { cards, totalCount } = parsePage(S, V2_NOW);
+    assert(cards.length === 1, `expected 1 card, got ${cards.length}`);
+    assert(totalCount === 29275, 'totalCount must survive');
+    const c = cards[0];
+    assert(c.booli_id === '6275879', `booli_id ${c.booli_id}`);
+    assert(c.price === 2145000, `price ${c.price}`);
+    assert(c.upcomingSale === true, 'primaryStatus upcomingSale must set the flag');
+    assert(c.municipality === 'Stockholm', 'municipality from tracking');
+    assert(c.agency === 'Erik Olsson', 'agency from presenter');
+    assert(c.sizeM2 === '66 m²', `sizeM2 ${c.sizeM2}`);
+    assert(c.interiorVerdict === 'yes', 'image primaryLabel must still drive interiorVerdict');
+    assert(c.published === V2_NOW, '"Inkommet idag" is age 0');
+  });
+
+  // The whole point of the rubric: no asking price must read as no asking price.
+  check('V2: "Pris ej angivet" is price=null, so the ladder still partitions', () => {
+    const S = v2State('searchForSaleV2({"input":{"page":1}})',
+      [{ __ref: 'LP:a' }, { __ref: 'LP:b' }],
+      { 'LP:a': v2Card(1, 'Pris ej angivet'), 'LP:b': v2Card(2, '695 000 kr') });
+    const { cards } = parsePage(S, V2_NOW);
+    assert(cards[0].price === null, 'sentinel must map to null, not 0 and not NaN');
+    assert(cards[1].price === 695000, `spaced price parse: ${cards[1].price}`);
+  });
+
+  check('V2: the AVM is recorded as unmeasurable, never as 0%', () => {
+    const S = v2State('searchForSaleV2({"input":{"page":1}})', [{ __ref: 'LP:a' }], { 'LP:a': v2Card(1, 'Pris ej angivet') });
+    const { cards } = parsePage(S, V2_NOW);
+    assert(cards[0].avmObservable === false, 'V2 cards cannot show an AVM');
+    assert(cards[0].priceMissingAvmShown === false, 'and must not claim one was shown');
+    const t = tally(cards);
+    assert(t.pct_avm_shown === null, `pct_avm_shown must be null, got ${t.pct_avm_shown}`);
+  });
+
+  check('V2: the forceNewConstruction strip is not the node we read', () => {
+    const S = {
+      ROOT_QUERY: {
+        'searchForSaleV2({"forceNewConstruction":true,"input":{"page":1}})': { totalCount: 1, [V2_ITEMS]: [{ __ref: 'LP:old' }] },
+        'searchForSaleV2({"input":{"page":1}})': { totalCount: 29275, [V2_ITEMS]: [{ __ref: 'LP:new' }] },
+      },
+      'Image:1': { __typename: 'Image', primaryLabel: 'interior' },
+      'LP:old': v2Card(999, '9 000 000 kr'),
+      'LP:new': v2Card(111, '1 000 000 kr'),
+    };
+    const { cards } = parsePage(S, V2_NOW);
+    assert(cards.length === 1 && cards[0].booli_id === '111', 'the real node must win');
+  });
+
+  check('V2: project: tiles are dropped', () => {
+    const proj = Object.assign(v2Card(5, '1 kr'), { originId: 'project:17280', listingId: null });
+    const S = v2State('searchForSaleV2({"input":{"page":1}})',
+      [{ __ref: 'LP:p' }, { __ref: 'LP:l' }], { 'LP:p': proj, 'LP:l': v2Card(7, '2 000 000 kr') });
+    const { cards } = parsePage(S, V2_NOW);
+    assert(cards.length === 1 && cards[0].booli_id === '7', 'only listing: tiles are trackable');
+  });
+
+  // The failure that cost this series a week: an unreadable shape must shout.
+  check('V2: refs present but nothing mappable throws, never returns empty', () => {
+    const S = { ROOT_QUERY: { 'searchForSaleV9({"page":1})': { [V2_ITEMS]: [{ __ref: 'X:1' }] } }, 'X:1': { __typename: 'Nope' } };
+    let threw = false;
+    try { parsePage(S, V2_NOW); } catch (e) { threw = /shape drift/.test(e.message); }
+    assert(threw, 'a shape change must be loud');
+  });
+
+  check('V1 payloads still parse unchanged (rollback safety)', () => {
+    const S = {
+      ROOT_QUERY: { 'searchForSale({"input":{"page":1}})': { totalCount: 5, result: [{ __ref: 'Listing:1' }] } },
+      'Listing:1': {
+        __typename: 'Listing', id: 1, url: '/annons/1', published: '2026-09-20 10:00:00',
+        upcomingSale: true, listPrice: { raw: 2000000 }, estimate: { price: { raw: 1900000 } },
+      },
+    };
+    const { cards } = parsePage(S, V2_NOW);
+    assert(cards.length === 1 && cards[0].price === 2000000, 'V1 listPrice must still be read');
+    assert(cards[0].estimate === 1900000, 'V1 AVM must still be read');
+    assert(tally(cards).pct_avm_shown !== null, 'V1 rows remain measurable');
   });
 
   await Promise.all(results);
