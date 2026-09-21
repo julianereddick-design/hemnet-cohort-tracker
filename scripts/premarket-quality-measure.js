@@ -21,7 +21,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { walkFlow } = require('../lib/premarket-flow');
-const { getWithRetry, extractApolloState, getOxylabsStats } = require('../lib/scrape-http');
+const { getWithRetry, extractApolloState, extractFlightEntities, getOxylabsStats } = require('../lib/scrape-http');
 const { interiorVerdict, INTERIOR } = require('../lib/booli-image-labels');
 const { bucketOf, NEEDS_PAGE, tally, WINDOW_DAYS } = require('../lib/premarket-quality');
 const { parsePublishedToUnix, parseDisplayDateToAgeDays } = require('../lib/booli-fetch');
@@ -263,6 +263,18 @@ const RESOLVE_CONCURRENCY = 4;
 // The detail gallery is NOT limit-capped. Take the longest images array on the
 // canonical Listing node. (Lifted from scripts/premarket-quality-resolve.js:41-60.)
 //
+// detailStateFrom(html) — the resolve step opens DETAIL pages, which migrated
+// differently from search pages on 2026-09-21: App Router detail pages carry no
+// Apollo cache at all, so the search extractor throws on them and every
+// ambiguous listing would be recorded unresolved. Rebuild the entity map so
+// galleryOf still finds its `Listing:<booliId>` key. Pages Router detail pages
+// (and any Booli rollback) keep the original path.
+function detailStateFrom(html) {
+  if (typeof html === 'string' && html.includes('self.__next_f')) {
+    return extractFlightEntities(html);
+  }
+  return apolloFrom(html);
+}
 // Prefer the EXACT `Listing:<booliId>` node — if Booli ever adds a "similar
 // homes" module to /annons/ pages, the Apollo state would carry more than one
 // Listing node and blind first-match would confidently score a neighbour's
@@ -426,7 +438,7 @@ async function main(client, log) {
     if (++walkCalls > WALK_CALL_CEILING) throw new Error(`walk ceiling ${WALK_CALL_CEILING} exceeded`);
     return parsePage(apolloFrom((await getWithRetry(searchUrl(p), { logger: () => {} })).html), nowSec).cards;
   };
-  const fetchDetail = async (url) => apolloFrom((await getWithRetry(url, { logger: () => {} })).html);
+  const fetchDetail = async (url) => detailStateFrom((await getWithRetry(url, { logger: () => {} })).html);
 
   const { listings, pagesWalked, duplicates } = await collectWeek({ fetchPage, nowSec, logger: log });
   log('INFO', `walked ${pagesWalked} pages -> ${listings.length} in-window 2nd-hand listings` +
@@ -930,6 +942,28 @@ async function smoke() {
     assert(tally(cards).pct_avm_shown !== null, 'V1 rows remain measurable');
   });
 
+  check('resolve step reads App Router DETAIL pages (no Apollo cache)', () => {
+    // Booli's App Router detail pages carry NO initialApolloState, so routing
+    // them through the SEARCH extractor throws and every ambiguous listing goes
+    // unresolved. galleryOf needs a `Listing:<booliId>` key, which only the
+    // entity rebuild provides.
+    const listing = {
+      __typename: 'Listing', id: '6193653',
+      images: [
+        { __typename: 'Image', primaryLabel: 'livingroom' },
+        { __typename: 'Image', primaryLabel: 'kitchen' },
+        { __typename: 'Image', primaryLabel: 'floorplan' },
+      ],
+    };
+    const inner = '1:' + JSON.stringify([listing]);
+    const html = `<script>self.__next_f.push([1,${JSON.stringify(inner)}])</script>`;
+    const S = detailStateFrom(html);
+    assert(S['Listing:6193653'], 'the exact Listing key must exist or galleryOf picks a neighbour');
+    const g = galleryOf(S, '6193653', null);
+    assert(g, 'galleryOf must resolve from a rebuilt detail state');
+    assert(g.photos === 3, 'inline images must be counted without __ref');
+    assert(g.interiorN === 2, 'both interior labels must survive the rebuild, floorplan excluded');
+  });
   await Promise.all(results);
   console.log(failed === 0 ? '\nALL PASS' : `\n${failed} FAILED`);
   process.exit(failed === 0 ? 0 : 1);
