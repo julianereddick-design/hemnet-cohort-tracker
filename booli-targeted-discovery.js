@@ -486,7 +486,9 @@ async function walkCountySearch(countyDef, nowSec, limit, log, summary) {
   while (page <= MAX_PAGES_BOOLI) {
     let searchResult;
     try {
-      searchResult = await fetchBooliSearch(countyDef.areaId, { page, logger: log });
+      // nowSec is threaded in so the card ages the parser derives from Booli's
+      // relative displayDate share the clock this walk's `cutoff` was built from.
+      searchResult = await fetchBooliSearch(countyDef.areaId, { page, logger: log, nowSec });
     } catch (err) {
       summary.fetchErrors++;
       bucket(summary, countyDef.name).errors++;
