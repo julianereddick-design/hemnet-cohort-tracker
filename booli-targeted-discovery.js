@@ -475,7 +475,13 @@ async function processDetailFetch(card, countyName, client, log, dryRun, summary
 // card on a page has `published < cutoff`, then stop.
 // ---------------------------------------------------------------
 
-async function walkCountySearch(countyDef, nowSec, limit, log, summary) {
+// deps.fetchSearch: injection seam for the smoke tests. Until 2026-09 this walk
+// had NO test coverage at all — the suite exercised arg parsing, week maths and
+// validate(), never the pagination terminator, which is the logic that decides
+// how much of Booli we pull. That gap mattered the moment Booli's card dates
+// changed from absolute timestamps to relative day ages.
+async function walkCountySearch(countyDef, nowSec, limit, log, summary, deps = {}) {
+  const fetchSearch = deps.fetchSearch || fetchBooliSearch;
   const cutoff = nowSec - SEVEN_DAYS_SEC;
   const inWindowCards = [];
   let page = 1;
@@ -488,7 +494,7 @@ async function walkCountySearch(countyDef, nowSec, limit, log, summary) {
     try {
       // nowSec is threaded in so the card ages the parser derives from Booli's
       // relative displayDate share the clock this walk's `cutoff` was built from.
-      searchResult = await fetchBooliSearch(countyDef.areaId, { page, logger: log, nowSec });
+      searchResult = await fetchSearch(countyDef.areaId, { page, logger: log, nowSec });
     } catch (err) {
       summary.fetchErrors++;
       bucket(summary, countyDef.name).errors++;
@@ -880,8 +886,140 @@ if (process.argv.includes('--smoke')) {
     assert.ok(MAX_PAGES_BOOLI > 0);
   });
 
+  // ---------------------------------------------------------------
+  //   walkCountySearch — the pagination terminator.
+  //   Previously untested. These drive the walk with a stub search that
+  //   mimics Booli's real V2 behaviour: newest-first, ~35 cards per page,
+  //   and a day age QUANTISED to whole days (V2 states a relative age, so
+  //   every card on a given day shares one published value).
+  // ---------------------------------------------------------------
+  // walkCountySearch is async, and the existing harness is sync-only.
+  async function checkA(name, fn) {
+    try { await fn(); pass++; }
+    catch (e) { console.error(`SMOKE FAIL [${name}]: ${e.message}`); fail++; }
+  }
+
+  const W_NOW = 1758400000;
+  const W_DAY = 86400;
+  const COUNTY = { areaId: 118, name: 'Uppsala län' };
+
+  function newSummary() {
+    return {
+      cardsSeen: 0, fsCandidates: 0, pmFiltered: 0, searchPagesFetched: 0,
+      fetchErrors: 0, perCounty: {},
+    };
+  }
+  // pageAges[i] = the day-age every card on page i+1 carries. Mirrors what we
+  // measured live on 2026-09-21: pages 1-2 were age 0, page 3 age 1, page 6 age 2.
+  function stubSearch(pageAges, opts = {}) {
+    return async (areaId, { page }) => {
+      const age = pageAges[page - 1];
+      if (age === undefined) return { cards: [] };
+      const cards = [];
+      for (let i = 0; i < (opts.perPage || 35); i++) {
+        cards.push({
+          booli_id: `p${page}c${i}`,
+          url: `/annons/p${page}c${i}`,
+          streetAddress: `Gatan ${page}-${i}`,
+          published: W_NOW - age * W_DAY,
+          upcomingSale: opts.pmEvery ? (i % opts.pmEvery === 0) : false,
+          objectType: 'Lägenhet',
+          isNewConstruction: false,
+        });
+      }
+      return { cards, totalCount: 25024 };
+    };
+  }
+  const noLog = () => {};
+
+  (async () => {
+
+  await checkA('walk: pages until the first card passes the 7-day cutoff', async () => {
+    // ages 0,1,2,...,9 — the walk must stop once a page's FIRST card is older
+    // than the cutoff, not grind on to MAX_PAGES_BOOLI.
+    const s = newSummary();
+    const out = await walkCountySearch(COUNTY, W_NOW, null, noLog, s,
+      { fetchSearch: stubSearch([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) });
+    assert.ok(s.perCounty['Uppsala län'].pagesWalked > 1, 'it must actually paginate');
+    assert.strictEqual(s.perCounty['Uppsala län'].paginationExhausted, false,
+      'the cutoff, not the MAX_PAGES ceiling, must end the walk');
+    assert.ok(out.length > 0);
+    // Nothing older than the cutoff may survive.
+    const cutoff = W_NOW - SEVEN_DAYS_SEC;
+    assert.ok(out.every(c => c.published >= cutoff), 'no card older than cutoff may be kept');
+  });
+
+  // Pins a REAL behaviour change from the V2 migration. V1 carried exact
+  // timestamps; V2 quantises to whole days, so a card of age exactly 7 lands
+  // ON the cutoff and `published < cutoff` is false — it is KEPT, and the walk
+  // continues into day 8 before stopping. The effective window is therefore
+  // 0..7 days inclusive (8 calendar days), slightly wider than V1's rolling
+  // 7*86400 seconds. Harmless for cohort membership (cohort-create scopes to
+  // the week) but it costs extra detail fetches, so it is pinned deliberately
+  // rather than left to be rediscovered as a surprise.
+  await checkA('walk: age-7 sits ON the cutoff and is INCLUDED; age-8 terminates', async () => {
+    const s = newSummary();
+    const out = await walkCountySearch(COUNTY, W_NOW, null, noLog, s,
+      { fetchSearch: stubSearch([7, 8], { perPage: 2 }) });
+    assert.strictEqual(s.perCounty['Uppsala län'].pagesWalked, 2, 'page 1 (age 7) must not stop it');
+    assert.strictEqual(out.length, 2, 'both age-7 cards are kept');
+    assert.ok(out.every(c => c.published === W_NOW - 7 * W_DAY));
+  });
+
+  await checkA('walk: a first page already past the cutoff stops immediately', async () => {
+    const s = newSummary();
+    const out = await walkCountySearch(COUNTY, W_NOW, null, noLog, s,
+      { fetchSearch: stubSearch([30], { perPage: 3 }) });
+    assert.strictEqual(out.length, 0, 'a stale first page yields nothing');
+    assert.strictEqual(s.perCounty['Uppsala län'].pagesWalked, 1);
+  });
+
+  await checkA('walk: --limit returns early without walking further pages', async () => {
+    const s = newSummary();
+    const out = await walkCountySearch(COUNTY, W_NOW, 5, noLog, s,
+      { fetchSearch: stubSearch([0, 0, 0, 0]) });
+    assert.strictEqual(out.length, 5);
+    assert.strictEqual(s.perCounty['Uppsala län'].pagesWalked, 1, 'limit hit on page 1');
+  });
+
+  await checkA('walk: pre-market cards are filtered and counted, never returned', async () => {
+    const s = newSummary();
+    const out = await walkCountySearch(COUNTY, W_NOW, null, noLog, s,
+      { fetchSearch: stubSearch([0, 30], { perPage: 10, pmEvery: 2 }) });
+    assert.strictEqual(s.pmFiltered, 5, 'every 2nd card of 10 is pre-market');
+    assert.strictEqual(out.length, 5);
+    assert.ok(out.every(c => c.upcomingSale === false));
+  });
+
+  await checkA('walk: an empty page ends the walk cleanly', async () => {
+    const s = newSummary();
+    const out = await walkCountySearch(COUNTY, W_NOW, null, noLog, s,
+      { fetchSearch: stubSearch([0]) });   // page 2 returns no cards
+    assert.strictEqual(out.length, 35);
+    assert.strictEqual(s.perCounty['Uppsala län'].paginationExhausted, false);
+  });
+
+  // If ages stop parsing (the next Booli drift), published is null for every
+  // card, the cutoff can never fire, and the walk runs to the ceiling. That is
+  // exactly what paginationExhausted exists to surface — assert it does.
+  await checkA('walk: all-null publishes hit the ceiling and raise paginationExhausted', async () => {
+    const s = newSummary();
+    const nullSearch = async () => ({
+      cards: Array.from({ length: 3 }, (_, i) => ({
+        booli_id: `n${i}`, url: `/annons/n${i}`, streetAddress: 'X',
+        published: null, upcomingSale: false,
+      })),
+    });
+    const out = await walkCountySearch(COUNTY, W_NOW, null, noLog, s, { fetchSearch: nullSearch });
+    assert.strictEqual(out.length, 0, 'null-dated cards are never in-window');
+    assert.strictEqual(s.perCounty['Uppsala län'].paginationExhausted, true);
+    assert.strictEqual(s.perCounty['Uppsala län'].pagesWalked, MAX_PAGES_BOOLI);
+  });
+
   console.log(`smoke: ${pass} pass, ${fail} fail`);
   process.exit(fail === 0 ? 0 : 1);
+
+  })();
 }
 
 runJob({ scriptName: 'booli-targeted-discovery', main, validate });
