@@ -27,11 +27,11 @@
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
-const { getWithRetry, extractNextData } = require('./lib/scrape-http');
+const { getWithRetry } = require('./lib/scrape-http');
 const {
   hemnetHeroUrl, booliHeroUrl, hemnetGalleryUrls, booliGalleryUrls, downloadImage,
   hemnetUnitFields, hemnetGalleryFromApollo, booliUnitFields,
-  classifyHemnetPage, classifyBooliPage,
+  classifyHemnetPage, classifyBooliPage, detailState,
 } = require('./lib/spotcheck-photos');
 
 function log(level, msg) {
@@ -65,12 +65,9 @@ function latestArtifactDir() {
 async function fetchPage(url) {
   const res = await getWithRetry(url, { logger: () => {} });
   if (res.status === 404) return { status: 'inactive', reason: '404' };
-  let apollo = null;
-  try {
-    const data = extractNextData(res.html);
-    apollo = data && data.props && data.props.pageProps && data.props.pageProps.__APOLLO_STATE__;
-  } catch (_) { /* og:image may still be present even if Apollo parse fails */ }
-  return { status: 'active', html: res.html, apollo };
+  // detailState reads both routers — Booli detail pages have been App Router (no
+  // __NEXT_DATA__) since 2026-09-21. null on an unparseable page: og:image may still work.
+  return { status: 'active', html: res.html, apollo: detailState(res.html) };
 }
 
 // Download a list of {url,label} into <sub>/<side>_NN[.label].jpg. Returns
