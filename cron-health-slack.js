@@ -272,7 +272,7 @@ async function run() {
 
   if (nullViewRes.rows.length > 0) {
     lines.push('');
-    lines.push(`:mag:  *View Data Quality* (latest data)`);
+    lines.push(`:mag:  *View Data Quality* (pairs whose ads are still live at the latest check; the rest have mostly sold or been withdrawn)`);
     const lastIdx = nullViewRes.rows.length - 1;
     for (let i = 0; i < nullViewRes.rows.length; i++) {
       const r = nullViewRes.rows[i];
@@ -299,7 +299,13 @@ async function run() {
       // The rows stay — they are useful context, and the canary check below is the live
       // detector: the NEWEST cohort's listings are still on the market, so a high null rate
       // there is a genuine scraper signal rather than market decay.
-      lines.push(`      ${r.cohort_id}: ${r.null_booli}/${r.total_pairs} null Booli (${bPct}%), ${r.null_hemnet}/${r.total_pairs} null Hemnet (${hPct}%)${canary}`);
+      //
+      // Shown as "still live" (the complement of null) rather than as nulls: a null count
+      // read at a glance as "only caught 10%" when it means the opposite. The canary
+      // threshold below is unchanged and still evaluated on the null share.
+      const liveB = r.total_pairs - r.null_booli;
+      const liveH = r.total_pairs - r.null_hemnet;
+      lines.push(`      ${r.cohort_id}: ${liveB}/${r.total_pairs} still live on Booli (${100 - bPct}%), ${liveH}/${r.total_pairs} on Hemnet (${100 - hPct}%)${canary}`);
     }
 
     // Canary check: newest cohort should have low null rates
