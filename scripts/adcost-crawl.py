@@ -447,6 +447,7 @@ async def run_grid(grid, fetch, reclear, sleep=None, clock=None):
     cache = {}
     consecutive = 0
     streak_start = None  # first cell of the current failure run; rewind target on rebuild
+    failed_idx = set()   # cells that ended the main pass with no rows (see retry pass)
     i = 0
 
     while i < len(grid):
@@ -471,6 +472,7 @@ async def run_grid(grid, fetch, reclear, sleep=None, clock=None):
                 out_rows.append({"full_name": cell["full_name"], "price": cell["price"],
                                  "ad_type": row["code"], "ad_price": row["amount"]})
             stats["cells_ok"] += 1
+            failed_idx.discard(i)
             consecutive = 0
             streak_start = None
             i += 1
@@ -481,6 +483,7 @@ async def run_grid(grid, fetch, reclear, sleep=None, clock=None):
         # leak as the warm-up, and this one fires once per failed cell.
         print(f"cell {i} failed {cell['full_name']}@{cell['price']} "
               f"after {CELL_ATTEMPTS} attempts: {scrub_credential(err)}", file=sys.stderr)
+        failed_idx.add(i)
         consecutive += 1
         if streak_start is None:
             streak_start = i
@@ -515,6 +518,45 @@ async def run_grid(grid, fetch, reclear, sleep=None, clock=None):
 
         i += 1
         await sleep(random.uniform(*JITTER))
+
+    # Retry pass (2026-10-28). Scattered failures — a transient 502 from Hemnet's pricing
+    # API, one read timeout — never reach LATCH_AFTER, so nothing ever retried them: on
+    # 2026-10-01 cells 5, 6, 23 and 24 failed that way, the later latch rewound only to
+    # cell 35, and the month missed the 420-row gate at 392. Once the grid is walked, each
+    # still-failed cell gets one more round on a freshly rebuilt session, budget permitting.
+    # Skipped after an abort: a dead session or an exhausted clock won't do better.
+    stats["retried"] = 0
+    stats["recovered"] = 0
+    if failed_idx and not stats["aborted"]:
+        print(f"retry pass: {len(failed_idx)} failed cell(s) {sorted(failed_idx)} — "
+              f"rebuilding session first", file=sys.stderr)
+        if await reclear():
+            cache.clear()
+            for j in sorted(failed_idx):
+                if clock() - started > TIME_BUDGET:
+                    print(f"time budget {TIME_BUDGET}s exhausted during the retry pass", file=sys.stderr)
+                    break
+                cell = grid[j]
+                stats["retried"] += 1
+                for attempt in range(1, CELL_ATTEMPTS + 1):
+                    try:
+                        rows = await fetch(cell, cache)
+                    except Exception as e:  # noqa: BLE001
+                        print(f"retry cell {j} {cell['full_name']}@{cell['price']} attempt "
+                              f"{attempt}: {scrub_credential(e)}", file=sys.stderr)
+                        if attempt < CELL_ATTEMPTS:
+                            await sleep(attempt * CELL_BACKOFF)
+                        continue
+                    for row in rows:
+                        out_rows.append({"full_name": cell["full_name"], "price": cell["price"],
+                                         "ad_type": row["code"], "ad_price": row["amount"]})
+                    stats["cells_ok"] += 1
+                    stats["recovered"] += 1
+                    failed_idx.discard(j)
+                    break
+                await sleep(random.uniform(*JITTER))
+        else:
+            print("retry pass: could not rebuild the session — skipping", file=sys.stderr)
 
     stats["cells_failed"] = stats["cells_total"] - stats["cells_ok"]
     return out_rows, stats
@@ -1009,6 +1051,31 @@ def selftest():
     check("rebuilds are capped at MAX_RECLEARS", stats["reclears"] == MAX_RECLEARS,
           f"reclears={stats['reclears']}")
     check("run terminates after the cap", stats["aborted"] is True)
+
+    # 5b. Oct-1 pattern: scattered cells fail all three attempts (Hemnet 502s, a read
+    #     timeout) without ever reaching the latch. Before the retry pass they were
+    #     simply lost: 392/420 rows, gate failed.
+    oct_bad = (5, 6, 23, 24)
+    rows, stats = asyncio.run(_run_case(
+        grid, lambda i, c, g: not (i in oct_bad and g == 0), [True]))
+    check("retry pass recovers scattered failed cells on a rebuilt session",
+          len(rows) == expected_rows and stats["cells_failed"] == 0,
+          f"rows={len(rows)} failed={stats['cells_failed']}")
+    check("retry pass reports what it did",
+          stats["retried"] == 4 and stats["recovered"] == 4,
+          f"retried={stats['retried']} recovered={stats['recovered']}")
+    rows, stats = asyncio.run(_run_case(
+        grid, lambda i, c, g: i not in oct_bad, [True]))
+    check("a cell that fails the retry too stays failed and counted",
+          stats["cells_failed"] == 4 and stats["recovered"] == 0 and stats["retried"] == 4,
+          f"failed={stats['cells_failed']} recovered={stats['recovered']}")
+    rows, stats = asyncio.run(_run_case(
+        grid, lambda i, c, g: not (i in oct_bad and g == 0), [False]))
+    check("no rebuild available -> retry pass skipped, shortfall reported",
+          stats["cells_failed"] == 4 and stats["retried"] == 0,
+          f"failed={stats['cells_failed']} retried={stats['retried']}")
+    rows, stats = asyncio.run(_run_case(grid, lambda i, c, g: True, []))
+    check("a clean grid never rebuilds for a retry pass", stats["reclears"] == 0 and stats["retried"] == 0)
 
     # 6. A 200 carrying no pricingCalculator is a failure, not an empty success.
     check("empty pricing payload parses to nothing", parse_pricing({"data": {}}) == [])
