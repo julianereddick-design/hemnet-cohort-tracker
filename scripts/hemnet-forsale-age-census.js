@@ -24,15 +24,29 @@
 //   SCRAPE_FORCE_OXYLABS=1 node scripts/hemnet-forsale-age-census.js --sizes          # page-1 totals for the biggest munis
 //   SCRAPE_FORCE_OXYLABS=1 node scripts/hemnet-forsale-age-census.js --probe [Muni]   # 1 muni live (default Stockholm)
 //   SCRAPE_FORCE_OXYLABS=1 node scripts/hemnet-forsale-age-census.js                  # full national run (~1,208 calls)
+//
+// 2026-10-28: this engine now serves BOTH Hemnet pools — run({ pool: 'premarket' }) is what
+// scripts/hemnet-age-census.js calls. Hemnet's 2026-10-06 redesign moved both pools onto
+// /till-salu (upcoming=EXCLUDE / ONLY), ignores sort= (always NEWEST_DAY_AND_PACKAGE — fine,
+// every scope is walked to the end), and pads short result pages with recommendations, so
+// cards are read from the page's own result list only (parseSearchPage). Every page's applied
+// filters are checked; a filter Hemnet ignored is a failed page, not a silently wrong count.
+// Since ~2026-10-27 Hemnet also shows AGGREGATED listings (and MINIMAL free ones since
+// 2026-10-20); pre-market went from ~7.6k to ~27k overnight and Stockholm alone exceeds the
+// 2,500 clamp, which is why the pre-market census needs this engine's sub-partitioning too.
+// The stored histogram excludes those new types (lib/age-census.js NEW_LISTING_TYPES) so
+// months stay comparable; the full per-type picture is returned as `allTypes`.
+// See docs/handover/CHANGELOG.md, 2026-10-28.
 require('dotenv').config();
 
 const fs = require('fs');
 const path = require('path');
 const { getWithRetry, extractNextData, getOxylabsStats, resetOxylabsStats } = require('../lib/scrape-http');
-const { parseListingCards } = require('../lib/hemnet-fetch');
+const { parseSearchPage } = require('../lib/hemnet-fetch');
 const { DAY } = require('../lib/premarket-flow');
 const {
   EDGES, BAND_KEYS, newAccumulator, addCardTo, mergeAccumulators, bucketsToObject, secondhandToObject,
+  allTypesSummary, NEW_LISTING_TYPES,
   gateReconciliation, gateTotalDrift, gateErrorPages, gateCoverage, evaluateGates,
 } = require('../lib/age-census');
 
@@ -46,7 +60,22 @@ const PAGE_SIZE = 50;
 const MAX_PAGES = 50;                 // Hemnet clamp: pages past ~50 repeat the tail
 const CLAMP_LISTINGS = MAX_PAGES * PAGE_SIZE;   // 2,500
 const THRESHOLD = 2400;               // sub-partition any scope whose headline exceeds this (margin under clamp)
-const ITEM_TYPES = ['bostadsratt', 'villa', 'radhus', 'fritidshus', 'gard', 'tomt'];  // verified tokens
+// URL token -> the housingFormGroups value Hemnet applies for it (verified live 2026-10-27).
+// 'other' (OTHERS) is new: without it Övrig listings were an uncovered residual of big munis.
+// radhus covers Parhus and Kedjehus too; parhus/kedjehus are not tokens (silently ignored).
+const ITEM_TYPE_GROUP = {
+  bostadsratt: 'APARTMENTS', villa: 'HOUSES', radhus: 'ROW_HOUSES', fritidshus: 'VACATION_HOMES',
+  gard: 'HOMESTEADS', tomt: 'PLOTS', other: 'OTHERS',
+};
+const ITEM_TYPES = Object.keys(ITEM_TYPE_GROUP);
+// The two populations. `inPool` is defensive: with the page's own result list and a checked
+// upcoming= filter, off-pool cards should never appear, but if they do they are counted and
+// warned about, never folded in.
+const POOLS = {
+  forsale:   { upcoming: 'EXCLUDE', inPool: (c) => !c.upcoming },
+  premarket: { upcoming: 'ONLY',    inPool: (c) => c.upcoming },
+};
+const poolOf = (scope) => POOLS[scope.pool || 'forsale'];
 const PRICE_BANDS = [                  // MECE-ish kr bands; dedupe by id absorbs 1-kr boundary overlap
   { max: 1000000 }, { min: 1000000, max: 2000000 }, { min: 2000000, max: 3000000 },
   { min: 3000000, max: 4000000 }, { min: 4000000, max: 5500000 }, { min: 5500000, max: 8000000 },
@@ -55,13 +84,30 @@ const PRICE_BANDS = [                  // MECE-ish kr bands; dedupe by id absorb
 
 function fsUrl(scope, page) {
   const p = new URLSearchParams();
+  p.append('upcoming', poolOf(scope).upcoming);
   p.append('location_ids[]', String(scope.locationId));
   if (scope.itemType) p.append('item_types[]', scope.itemType);
   if (scope.priceMin != null) p.append('price_min', String(scope.priceMin));
   if (scope.priceMax != null) p.append('price_max', String(scope.priceMax));
-  p.append('sort', 'NEWEST');
   p.append('page', String(page));
-  return `https://www.hemnet.se/bostader?${p.toString()}`;
+  return `https://www.hemnet.se/till-salu?${p.toString()}`;
+}
+
+// Did Hemnet apply exactly the filters this scope asked for? Checked on every page, against
+// the search args Hemnet itself reports. Returns null when it did, else the reason.
+function scopeMismatch(search, scope) {
+  const want = {
+    upcoming: poolOf(scope).upcoming,
+    locationIds: [String(scope.locationId)],
+    housingFormGroups: scope.itemType ? [ITEM_TYPE_GROUP[scope.itemType]] : null,
+    priceMin: scope.priceMin != null ? scope.priceMin : null,
+    priceMax: scope.priceMax != null ? scope.priceMax : null,
+  };
+  for (const [k, v] of Object.entries(want)) {
+    const got = search && search[k] != null ? search[k] : null;
+    if (JSON.stringify(got) !== JSON.stringify(v)) return `${k} applied as ${JSON.stringify(got)}, wanted ${JSON.stringify(v)}`;
+  }
+  return null;
 }
 function scopeLabel(scope) {
   return [scope.name || scope.locationId, scope.itemType, scope.priceMin != null || scope.priceMax != null ? `${(scope.priceMin || 0) / 1e6}-${scope.priceMax ? scope.priceMax / 1e6 : '∞'}M` : null]
@@ -74,20 +120,18 @@ function apolloFrom(html) {
   if (!a) throw new Error('__APOLLO_STATE__ missing');
   return a;
 }
-function forSaleTotal(apollo) {
-  const r = apollo.ROOT_QUERY || {};
-  for (const k of Object.keys(r)) {
-    if (k.startsWith('searchForSaleListings')) { const n = r[k]; if (n && typeof n === 'object' && typeof n.total === 'number') return n.total; }
-  }
-  return undefined;
-}
-// Returns { status, cards, total } — cards null on persistent non-200 (error != end).
+// Returns { status, cards, total } — cards null on persistent non-200 (error != end), and
+// also when the page carries no result list or Hemnet did not apply the scope's filters
+// (status names why). Either way it is booked as a failed page, never as an empty one.
 async function realFetch(scope, p) {
   const res = await getWithRetry(fsUrl(scope, p), { logger: () => {} });
   if (res.status !== 200) return { status: res.status, cards: null, total: undefined };
-  const apollo = apolloFrom(res.html);
-  const cards = parseListingCards(apollo).map(c => ({ id: c.id, published: c.publishedAt, isNewBuild: c.newConstruction, upcoming: c.upcoming }));
-  return { status: 200, cards, total: p === 1 ? forSaleTotal(apollo) : undefined };
+  const pg = parseSearchPage(apolloFrom(res.html));
+  if (!pg) return { status: 'no-result-list', cards: null, total: undefined };
+  const bad = scopeMismatch(pg.search, scope);
+  if (bad) { log('WARN', `${scopeLabel(scope)} p${p}: filter not applied (${bad})`); return { status: 'filter-not-applied', cards: null, total: undefined }; }
+  const cards = pg.cards.map(c => ({ id: c.id, published: c.publishedAt, isNewBuild: c.newConstruction, upcoming: c.upcoming, pkg: c.activePackage }));
+  return { status: 200, cards, total: p === 1 ? pg.total : undefined };
 }
 let fetchScope = realFetch;                 // swappable for --selftest
 
@@ -111,11 +155,11 @@ async function walkScope(scope, acc, nowSec, ctx) {
     pages = p;
     if (r.cards == null) { ctx.errorPages++; log('WARN', `${scopeLabel(scope)} p${p} status ${r.status} — gap, continuing`); continue; }
     if (r.cards.length === 0) break;
-    const up = r.cards.filter(c => c.upcoming).length;
-    if (up) { ctx.nonUpcoming += up; log('WARN', `${scopeLabel(scope)} p${p}: ${up} upcoming card(s) filtered`); }
-    const forSale = r.cards.filter(c => !c.upcoming);
+    const inPool = poolOf(scope).inPool;
+    const off = r.cards.filter(c => !inPool(c)).length;
+    if (off) { ctx.nonUpcoming += off; log('WARN', `${scopeLabel(scope)} p${p}: ${off} off-pool card(s) filtered`); }
     let fresh = 0;
-    for (const c of forSale) if (addCardTo(acc, c, nowSec)) fresh++;
+    for (const c of r.cards.filter(inPool)) if (addCardTo(acc, c, nowSec)) fresh++;
     lastFresh = fresh;
     if (fresh === 0) break;                    // clamp/end: no new IDs → stop
   }
@@ -158,9 +202,11 @@ async function censusScope(scope, level, acc, nowSec, ctx) {
   }
   if (total != null && total <= THRESHOLD) {
     // Reuse the page-1 cards we already have, then continue walking.
-    const forSale = first.cards.filter(c => !c.upcoming);
-    for (const c of forSale) addCardTo(acc, c, nowSec);
-    if (total > forSale.length) { for (let p = 2; p <= MAX_PAGES; p++) { const r = await safeFetch(scope, p); if (r.cards == null) { ctx.errorPages++; continue; } if (r.cards.length === 0) break; const fs2 = r.cards.filter(c => !c.upcoming); let fresh = 0; for (const c of fs2) if (addCardTo(acc, c, nowSec)) fresh++; if (fresh === 0) break; } }
+    const inPool = poolOf(scope).inPool;
+    const p1 = first.cards.filter(inPool);
+    if (p1.length < first.cards.length) ctx.nonUpcoming += first.cards.length - p1.length;
+    for (const c of p1) addCardTo(acc, c, nowSec);
+    if (total > p1.length) { for (let p = 2; p <= MAX_PAGES; p++) { const r = await safeFetch(scope, p); if (r.cards == null) { ctx.errorPages++; continue; } if (r.cards.length === 0) break; const inP = r.cards.filter(inPool); if (inP.length < r.cards.length) ctx.nonUpcoming += r.cards.length - inP.length; let fresh = 0; for (const c of inP) if (addCardTo(acc, c, nowSec)) fresh++; if (fresh === 0) break; } }
     return { headline: total, sub: [] };
   }
   // Over threshold → sub-partition.
@@ -169,7 +215,7 @@ async function censusScope(scope, level, acc, nowSec, ctx) {
     let sumTypes = 0;
     for (const t of ITEM_TYPES) { const r = await censusScope({ ...scope, itemType: t }, 1, acc, nowSec, ctx); sumTypes += r.headline; }
     const residual = total - sumTypes;
-    if (residual > 0.02 * total) log('WARN', `${scopeLabel(scope)}: item_types cover ${sumTypes}/${total}; ~${residual} listings not in the 6 types (uncovered residual)`);
+    if (residual > 0.02 * total) log('WARN', `${scopeLabel(scope)}: item_types cover ${sumTypes}/${total}; ~${residual} listings not in the ${ITEM_TYPES.length} types (uncovered residual)`);
     return { headline: total, sub: ITEM_TYPES };
   }
   if (level === 1) {
@@ -193,21 +239,22 @@ async function censusScope(scope, level, acc, nowSec, ctx) {
 
 async function censusMuni(name, id, acc, nowSec, ctx) {
   const before = acc.distinct;
-  const r = await censusScope({ locationId: id, name }, 0, acc, nowSec, ctx);
+  const r = await censusScope({ locationId: id, name, pool: ctx.pool || 'forsale' }, 0, acc, nowSec, ctx);
   return { name, id, headline: r.headline, counted: acc.distinct - before, p1Error: !!r.p1Error };
 }
 
-async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, priorTotal = null, priorMuniSizes = null } = {}) {
+async function run({ pool = 'forsale', locations = LOCATIONS, nowSec = NOW_SEC, logger = log, priorTotal = null, priorMuniSizes = null } = {}) {
+  if (!POOLS[pool]) throw new Error(`unknown pool "${pool}"`);
   const t0 = Math.floor(Date.now() / 1000);
   resetOxylabsStats();
   const seen = new Set();
-  const ctx = { errorPages: 0, nonUpcoming: 0, failedScopes: 0, failedMunis: [], failedSubScopes: [] };
+  const ctx = { pool, errorPages: 0, nonUpcoming: 0, failedScopes: 0, failedMunis: [], failedSubScopes: [] };
   const names = Object.keys(locations);
   const accs = [], stats = [];
   let headlineSum = 0, i = 0;
 
   for (const name of names) {
-    const acc = newAccumulator({ seen });
+    const acc = newAccumulator({ seen, splitTypes: true });
     const st = await censusMuni(name, locations[name], acc, nowSec, ctx);
     headlineSum += st.headline || 0;
     accs.push(acc); stats.push(st);
@@ -288,6 +335,10 @@ async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, prio
   // pre-measured instead, so a 3-listing price band publishes with a note rather than voiding
   // a ~43,000-listing pool.
   const coverageFailures = [...ctx.failedMunis, ...unmeasurableSubs];
+  // Reconciliation, coverage and error pages measure the WALK, so they run on every listing
+  // type — that is what Hemnet's own totals count. The stored histogram (and so the drift
+  // gate against last month) is the comparable one, without NEW_LISTING_TYPES.
+  const cmp = nat.cmp;
   const gates = [
     gateReconciliation({ headlineSum, distinct: nat.distinct, maxPct: 2 }),
     // A skipped municipality subtracts itself from BOTH sides of gateReconciliation, so that
@@ -298,10 +349,17 @@ async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, prio
     // total, which excludes the gap and so is a slightly conservative denominator.
     gateCoverage({ failedMunis: coverageFailures, priorMuniSizes, measuredMissing, nationalTotal: nat.distinct, maxPct: 0.5 }),
     gateErrorPages({ errorPages: ctx.errorPages, oxCalls, maxPct: 2 }),
-    gateTotalDrift({ nTotal: nat.distinct, priorTotal, maxPct: 25 }),
+    gateTotalDrift({ nTotal: cmp.distinct, priorTotal, maxPct: 25 }),
   ];
   const ev = evaluateGates(gates);
+  const allTypes = allTypesSummary(nat);
+  const excludedNote = allTypes.nExcluded
+    ? `excludes ${allTypes.nExcluded} listings of types new in Oct 2026 (` +
+      [...NEW_LISTING_TYPES].map(t => `${t} ${allTypes.byType[t] ? allTypes.byType[t].n : 0}`).join(', ') +
+      `); Hemnet's own count incl. them: ${allTypes.nAll}`
+    : null;
   const notes = [
+    excludedNote,
     ctx.failedMunis.length ? `munis skipped entirely (p1 never fetched): ${ctx.failedMunis.join(', ')}` : null,
     // A sub-scope gap that PASSES the sized threshold must still be visible on the published
     // row, with its measured volume, so a reader knows exactly what the number is missing.
@@ -309,28 +367,30 @@ async function run({ locations = LOCATIONS, nowSec = NOW_SEC, logger = log, prio
       ? `${ctx.failedSubScopes.length} sub-scopes skipped: ${ctx.failedSubScopes.slice(0, 8).map(r => r.label).join(', ')}${ctx.failedSubScopes.length > 8 ? ', …' : ''}`
         + ` (measured shortfall ${measuredMissing.reduce((a, m) => a + m.missing, 0)} listings)`
       : null,
-    ctx.nonUpcoming ? `${ctx.nonUpcoming} upcoming cards filtered` : null,
+    ctx.nonUpcoming ? `${ctx.nonUpcoming} off-pool cards filtered` : null,
     nat.anomalies ? `${nat.anomalies} publishedAt anomalies` : null,
     ev.passed ? null : `gates failed: ${ev.failures.join(', ')}`,
   ].filter(Boolean).join('; ') || null;
 
   return {
-    platform: 'hemnet', pool: 'forsale', method: 'muni-partition',
-    nTotal: nat.distinct, nUndated: nat.undated,
-    nNewbuild: nat.newbuild.reduce((a, b) => a + b, 0),
+    platform: 'hemnet', pool, method: 'muni-partition',
+    nTotal: cmp.distinct, nUndated: cmp.undated,
+    nNewbuild: cmp.newbuild.reduce((a, b) => a + b, 0),
     newbuildSampled: false, newbuildSampleN: null,
-    buckets: bucketsToObject(nat.buckets, nat.undated),
-    bucketsSecondhand: secondhandToObject(nat.buckets, nat.newbuild, nat.undated),
+    buckets: bucketsToObject(cmp.buckets, cmp.undated),
+    bucketsSecondhand: secondhandToObject(cmp.buckets, cmp.newbuild, cmp.undated),
     // countedN reads the accumulator's own `distinct`, not the last censusMuni call's returned
     // `counted` — a muni retried after a p1 error accumulates across TWO censusMuni calls, and
     // `counted` is a delta measured from the accumulator's state at the START of that call, so
     // the retry's value alone would under-report the muni's true listing count.
+    // headlineN is Hemnet's own count (every type); countedN and the bands are comparable-only.
     muni: stats.map((s, k) => ({
       name: s.name, id: Number(s.id) || 0,
-      headlineN: s.headline || 0, countedN: accs[k].distinct,
-      buckets: bucketsToObject(accs[k].buckets, accs[k].undated),
-      bucketsSecondhand: secondhandToObject(accs[k].buckets, accs[k].newbuild, accs[k].undated),
+      headlineN: s.headline || 0, countedN: accs[k].cmp.distinct,
+      buckets: bucketsToObject(accs[k].cmp.buckets, accs[k].cmp.undated),
+      bucketsSecondhand: secondhandToObject(accs[k].cmp.buckets, accs[k].cmp.newbuild, accs[k].cmp.undated),
     })),
+    allTypes,
     oxCalls, errorPages: ctx.errorPages, runtimeS: Math.floor(Date.now() / 1000) - t0,
     gates, status: ev.passed ? 'ok' : 'gate_failed', notes,
   };
@@ -651,6 +711,94 @@ async function selftest() {
     } finally {
       fetchScope = clean;
     }
+  });
+
+  // --- 2026-10-28: both pools, new listing types, filter checks ---------------------------
+  await check('URL: /till-salu with the pool, filters and page; no sort (Hemnet ignores it)', async () => {
+    assert.strictEqual(fsUrl({ locationId: 18031, itemType: 'bostadsratt', priceMin: 3000000, priceMax: 4000000 }, 2),
+      'https://www.hemnet.se/till-salu?upcoming=EXCLUDE&location_ids%5B%5D=18031&item_types%5B%5D=bostadsratt&price_min=3000000&price_max=4000000&page=2');
+    assert.strictEqual(fsUrl({ locationId: 17866, pool: 'premarket' }, 1),
+      'https://www.hemnet.se/till-salu?upcoming=ONLY&location_ids%5B%5D=17866&page=1');
+  });
+
+  await check('scopeMismatch: real applied args pass; an ignored filter is caught', async () => {
+    // args as Hemnet reported them live on 2026-10-27
+    const applied = { aggregated: 'INCLUDE', housingFormGroups: ['APARTMENTS'], locationIds: ['18031'], locationSlugs: null,
+      minimal: 'INCLUDE', priceMax: 4000000, priceMin: 3000000, teaser: 'INCLUDE', upcoming: 'EXCLUDE' };
+    const scope = { locationId: 18031, itemType: 'bostadsratt', priceMin: 3000000, priceMax: 4000000 };
+    assert.strictEqual(scopeMismatch(applied, scope), null);
+    assert.ok(/housingFormGroups/.test(scopeMismatch({ ...applied, housingFormGroups: undefined }, scope)), 'item type ignored');
+    assert.ok(/upcoming/.test(scopeMismatch(applied, { ...scope, pool: 'premarket' })), 'wrong pool');
+    assert.ok(/locationIds/.test(scopeMismatch({ ...applied, locationIds: null }, scope)), 'location ignored');
+    assert.ok(/priceMin/.test(scopeMismatch(applied, { locationId: 18031, itemType: 'bostadsratt' })), 'an extra filter is a mismatch too');
+  });
+
+  await check('premarket pool: big muni is sub-partitioned, off-pool cards never counted', async () => {
+    const clean = fetchScope;
+    const pm = [];
+    let n = 0;
+    const add = (itemType, price, k, upcoming) => { for (let i = 0; i < k; i++) pm.push({ id: 'P' + (n++), itemType, price, ageDays: 1 + i * 0.3, upcoming }); };
+    add('bostadsratt', 2000000, 1800, true);
+    add('villa', 5000000, 1500, true);                       // 3,300 pre-market: over the clamp
+    add('bostadsratt', 2000000, 400, false);                 // for-sale: must never be counted
+    let sawPool = new Set();
+    fetchScope = async (scope, p) => {
+      sawPool.add(scope.pool);
+      let rows = pm.filter(r => r.upcoming === (scope.pool === 'premarket'));
+      if (scope.itemType) rows = rows.filter(r => r.itemType === scope.itemType);
+      if (scope.priceMin != null) rows = rows.filter(r => r.price >= scope.priceMin);
+      if (scope.priceMax != null) rows = rows.filter(r => r.price < scope.priceMax);
+      const total = rows.length;
+      const start = (p - 1) * PAGE_SIZE;
+      const slice = start >= Math.min(total, CLAMP_LISTINGS) ? [] : rows.slice(start, start + PAGE_SIZE);
+      return { status: 200, total: p === 1 ? total : undefined,
+        cards: slice.map(r => ({ id: r.id, published: NOW_SEC - Math.round(r.ageDays * DAY), isNewBuild: false, upcoming: r.upcoming })) };
+    };
+    try {
+      const res = await run({ pool: 'premarket', locations: { PM: 9100 }, nowSec: NOW_SEC, logger: () => {} });
+      assert.deepStrictEqual([...sawPool], ['premarket'], 'every scope, sub-scopes included, must carry the pool');
+      assert.strictEqual(res.pool, 'premarket');
+      assert.strictEqual(res.nTotal, 3300, `all 3,300 pre-market recovered past the clamp, none of the 400 for-sale (got ${res.nTotal})`);
+      assert.strictEqual(res.status, 'ok', res.notes);
+    } finally { fetchScope = clean; }
+  });
+
+  await check('new listing types: walked and reconciled, but kept out of the stored histogram', async () => {
+    const clean = fetchScope;
+    const rows = [];
+    for (let i = 0; i < 120; i++) rows.push({ id: 'T' + i, pkg: i < 70 ? 'PREMIUM' : i < 100 ? 'AGGREGATED' : 'MINIMAL', ageDays: i < 70 ? 10 : 400 });
+    fetchScope = async (scope, p) => {
+      const start = (p - 1) * PAGE_SIZE;
+      const slice = rows.slice(start, start + PAGE_SIZE);
+      return { status: 200, total: p === 1 ? rows.length : undefined,
+        cards: slice.map(r => ({ id: r.id, published: NOW_SEC - r.ageDays * DAY, isNewBuild: false, upcoming: false, pkg: r.pkg })) };
+    };
+    try {
+      const res = await run({ locations: { Mix: 9200 }, nowSec: NOW_SEC, logger: () => {}, priorTotal: 70 });
+      assert.strictEqual(res.nTotal, 70, 'only the comparable types are stored');
+      assert.strictEqual(res.buckets.le1m, 70);
+      assert.strictEqual(res.buckets.m12_18, 0, 'the 400-day aggregated listings must not leak into the bands');
+      assert.strictEqual(res.muni[0].headlineN, 120, 'headline stays Hemnet\'s own count');
+      assert.strictEqual(res.muni[0].countedN, 70);
+      assert.strictEqual(res.gates.find(g => g.name === 'reconciliation').passed, true, 'the walk reconciles on all 120');
+      assert.strictEqual(res.gates.find(g => g.name === 'total_drift').passed, true, 'drift is judged on the comparable 70');
+      assert.strictEqual(res.allTypes.nAll, 120);
+      assert.strictEqual(res.allTypes.byType.AGGREGATED.n, 30);
+      assert.strictEqual(res.allTypes.byType.MINIMAL.n, 20);
+      assert.ok(/excludes 50 listings/.test(res.notes) && /MINIMAL 20, AGGREGATED 30/.test(res.notes), res.notes);
+      assert.strictEqual(res.status, 'ok');
+    } finally { fetchScope = clean; }
+  });
+
+  await check('a page whose filter Hemnet ignored is a failed page, not a wrong count', async () => {
+    // realFetch turns a scope mismatch into cards:null; the walk must book it as a coverage gap.
+    const clean = fetchScope;
+    fetchScope = async () => ({ status: 'filter-not-applied', cards: null, total: undefined });
+    try {
+      const res = await run({ locations: { Ignored: 9300 }, nowSec: NOW_SEC, logger: () => {} });
+      assert.strictEqual(res.status, 'gate_failed');
+      assert.ok(/Ignored/.test(res.notes || ''), res.notes);
+    } finally { fetchScope = clean; }
   });
 
   console.log(`\nselftest: ${pass} pass, ${fail} fail`);

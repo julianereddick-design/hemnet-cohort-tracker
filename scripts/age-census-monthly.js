@@ -79,12 +79,27 @@ async function orchestrate({ pools, runDate, persist, priorTotal, priorMuniSizes
   return summary;
 }
 
+function saveResultJson(result, runDate) {
+  const fs = require('fs');
+  const path = require('path');
+  const dir = path.join(__dirname, '..', 'verf-flow-probe');
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, `age-census-${result.platform}-${result.pool}-${runDate}.json`), JSON.stringify(result, null, 2));
+  } catch (e) {
+    log('WARN', `could not save ${result.platform}:${result.pool} JSON (${e.message}) — DB row still written`);
+  }
+}
+
 async function main() {
   const runDate = process.env.RUN_DATE || new Date().toISOString().slice(0, 10);
   const summary = await orchestrate({
     pools: POOLS,
     runDate,
-    persist: (result) => persistPool(result, { runDate }),
+    // The full result goes to disk first: the DB row keeps only the comparable histogram, while
+    // the Hemnet pools' `allTypes` (every listing type, incl. the free and aggregated ones Hemnet
+    // added in Oct 2026) exists only here. Writing first also means a DB failure loses nothing.
+    persist: (result) => { saveResultJson(result, runDate); return persistPool(result, { runDate }); },
     // Deliberate: one short-lived connection per pool (not one shared client for all four),
     // so an earlier pool's already-banked row can never be rolled back or blocked by a
     // later pool's connection trouble — same isolation rationale as persistPool() below.

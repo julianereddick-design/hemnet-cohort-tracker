@@ -160,11 +160,25 @@ function pageReachability(res, ids1) {
 }
 
 // Bisect [lo, hi] for the DEEPEST reachable page (largest p that returns real deeper content).
+//
+// A page that cannot be fetched at all counts as unreachable. Since ~2026-10 Booli answers a
+// page past its pagination limit with an error (Oxylabs 613) instead of a repeat of page 1,
+// and this search deliberately probes past the limit: on 2026-10-01 its first probe, page 1259
+// of ~1,630, failed every attempt and safeFetch's rethrow killed the whole pool. Two attempts,
+// not four, because the expected case is a page that will never load. The cost of a transient
+// failure on a genuinely reachable page is a slightly shallower limit, which the two-pass
+// overlap check in estimateBasis still guards.
 async function findLastReachablePage(plat, lo, hi, ids1, asc = false) {
   let a = lo, b = hi, best = lo;
   while (a <= b) {
     const mid = a + Math.floor((b - a) / 2);
-    const r = pageReachability(await safeFetch(plat, mid, asc), ids1);
+    let res;
+    try { res = await safeFetch(plat, mid, asc, 2); }
+    catch (e) {
+      log('INFO', `${plat.name} page ${mid} (${asc ? 'oldest' : 'newest'}-first) would not load — treated as past the end`);
+      res = { status: 'unfetchable', cards: null };
+    }
+    const r = pageReachability(res, ids1);
     if (r.reachable) { best = mid; a = mid + 1; } else { b = mid - 1; }
   }
   return best;
@@ -564,6 +578,29 @@ async function selftest() {
     assert.strictEqual(res.errorPages, 0, 'clean synthetic pool must report zero error pages');
     assert.ok(res.gates.some(g => g.name === 'error_pages'), 'gate list must include an error_pages gate');
     assert.strictEqual(res.status, 'ok', `clean pool must pass every gate: ${JSON.stringify(res.gates)}`);
+  });
+
+  // 2026-10-01 regression: Booli answered a page past its limit with an error (Oxylabs 613)
+  // on every attempt, the depth bisection's first probe hit it, and the rethrow killed the pool.
+  await check('run(): pages past the limit that THROW are treated as past the end, not fatal', async () => {
+    // Of 100 pages. Like real Booli, each end must still see past the 90d crosscheck cut
+    // (oldest-first reaches ages >= 80d here); the bisection still probes pages 97+ and throws.
+    const LIMIT = 96;
+    const throwing = (base) => ({
+      name: base.name + '-throws', retrySleepMs: 0, calls: 0,
+      async fetch(p, asc) {
+        this.calls++;
+        if (p > LIMIT) throw new Error('scrape-http: oxylabs forced-mode failed after 2 attempts: oxylabs: target-non-200 status=613');
+        return base.fetch(p, asc);
+      },
+    });
+    const plat = throwing(cleanPlat);
+    plat.secondhand = throwing(cleanPlat.secondhand);
+    const res = await run({ platform: plat, nowSec: CLOCK, logger: () => {} });
+    assert.strictEqual(res.nTotal, TOTAL, 'the pool must still be measured');
+    assert.strictEqual(res.status, 'ok', `a limit that errors is still just a limit: ${JSON.stringify(res.gates)}`);
+    assert.ok(res.bucketsSecondhand != null, 'the second basis must survive it too');
+    assert.strictEqual(res.errorPages, 0, 'a past-the-end page is not an error page');
   });
 
   await check('run(): the isNewConstruction=0 basis yields EXACT second-hand bands', async () => {
