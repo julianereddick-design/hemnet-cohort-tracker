@@ -1,35 +1,17 @@
 // scripts/test-market-totals-probe.js
 // Offline regression test for the JSON-path smoke probe in market-totals-daily.js.
 // Catches future refactors that accidentally weaken the probe.
+// Hemnet totals parsing: see scripts/test-market-totals-daily.js.
 //
 // Run: node scripts/test-market-totals-probe.js
 // Exit 0 on pass, 1 on any failure. Output: "PASS: N/M" or "FAIL: ...".
 
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
 
-// Helpers — keep VERBATIM in sync with market-totals-daily.js.
-// (Source-equivalence check in Test 16 below catches drift.)
-function assertNumericTotal(label, n) {
-  if (typeof n !== 'number' || !Number.isFinite(n) || Number.isNaN(n) || n <= 0) {
-    throw new Error(
-      `JSON path missing for ${label}: expected positive number, got ${n === undefined ? 'undefined' : JSON.stringify(n)}`
-    );
-  }
-}
-
-function pickByPrefix(rootQuery, prefix, fieldName) {
-  if (!rootQuery || typeof rootQuery !== 'object') return undefined;
-  for (const k of Object.keys(rootQuery)) {
-    if (k.startsWith(prefix)) {
-      const node = rootQuery[k];
-      if (node && typeof node === 'object') return node[fieldName];
-    }
-  }
-  return undefined;
-}
+// Helpers imported from the job itself (exported since 2026-10-27; requiring it
+// no longer runs it), so there is no copy to drift.
+const { assertNumericTotal, pickByPrefix } = require('../market-totals-daily');
 
 let pass = 0;
 let fail = 0;
@@ -96,25 +78,6 @@ test('14: matching key with null node → undefined (no TypeError)', () =>
   assertEqual(pickByPrefix({ 'searchForSale({})': null }, 'searchForSale', 'totalCount'), undefined, 'null node'));
 test('15: booli searchForSale.totalCount → 60560', () =>
   assertEqual(pickByPrefix(booliShape, 'searchForSale', 'totalCount'), 60560, 'booli.till_salu'));
-
-// --- Source-equivalence sanity check (Test 16) ---
-test('16: market-totals-daily.js still contains the canonical helper bodies', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'market-totals-daily.js'), 'utf8');
-  const sentinel1 = `if (typeof n !== 'number' || !Number.isFinite(n) || Number.isNaN(n) || n <= 0)`;
-  const sentinel2 = `for (const k of Object.keys(rootQuery))`;
-  if (!src.includes(sentinel1)) {
-    throw new Error(
-      `market-totals-daily.js no longer contains the assertNumericTotal sentinel line — ` +
-      `update this test's local copy of the helper to match the source, then re-run.`
-    );
-  }
-  if (!src.includes(sentinel2)) {
-    throw new Error(
-      `market-totals-daily.js no longer contains the pickByPrefix sentinel line — ` +
-      `update this test's local copy of the helper to match the source, then re-run.`
-    );
-  }
-});
 
 // --- Final summary ---
 const total = pass + fail;

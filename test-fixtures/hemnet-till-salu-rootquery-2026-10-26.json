@@ -1,0 +1,93 @@
+{
+ "capturedAt": "2026-10-26T06:08:39.701Z",
+ "pages": {
+  "https://www.hemnet.se/till-salu": {
+   "status": 200,
+   "ROOT_QUERY": {
+    "__typename": "Query",
+    "search": {
+     "__typename": "Search",
+     "listings({\"limit\":0,\"search\":{\"locationSlugs\":null,\"minimal\":\"INCLUDE\",\"teaser\":\"INCLUDE\",\"upcoming\":\"ONLY\"}})": {
+      "__typename": "ListingResultsCombined",
+      "total": 7488
+     },
+     "listings({\"limit\":0,\"search\":{\"locationSlugs\":null,\"minimal\":\"INCLUDE\",\"teaser\":\"INCLUDE\"}})": {
+      "__typename": "ListingResultsCombined",
+      "total": 54885,
+      "totalViewable": 2500,
+      "sort": "NEWEST"
+     },
+     "listings({\"limit\":50,\"offset\":0,\"search\":{\"locationSlugs\":null,\"minimal\":\"INCLUDE\",\"teaser\":\"INCLUDE\"},\"sort\":\"NEWEST_DAY_AND_PACKAGE\"})": {
+      "__typename": "ListingResultsCombined",
+      "total": 54885,
+      "adTargeting": "{\"item_types\":[1],\"country\":[1]}",
+      "sort": "NEWEST_DAY_AND_PACKAGE",
+      "toplistingAd": null
+     }
+    },
+    "searchSales({\"limit\":0,\"search\":{\"locationSlugs\":null}})": {
+     "__typename": "SoldListingResults",
+     "total": 1644492,
+     "sort": "NEWEST",
+     "totalViewable": 2500
+    }
+   }
+  },
+  "https://www.hemnet.se/till-salu?upcoming=EXCLUDE": {
+   "status": 200,
+   "ROOT_QUERY": {
+    "__typename": "Query",
+    "search": {
+     "__typename": "Search",
+     "listings({\"limit\":0,\"search\":{\"locationSlugs\":null,\"minimal\":\"INCLUDE\",\"teaser\":\"INCLUDE\",\"upcoming\":\"EXCLUDE\"}})": {
+      "__typename": "ListingResultsCombined",
+      "total": 47397,
+      "totalViewable": 2500,
+      "sort": "NEWEST"
+     },
+     "listings({\"limit\":50,\"offset\":0,\"search\":{\"locationSlugs\":null,\"minimal\":\"INCLUDE\",\"teaser\":\"INCLUDE\",\"upcoming\":\"EXCLUDE\"},\"sort\":\"NEWEST_DAY_AND_PACKAGE\"})": {
+      "__typename": "ListingResultsCombined",
+      "total": 47397,
+      "adTargeting": "{\"item_types\":[1],\"country\":[1]}",
+      "sort": "NEWEST_DAY_AND_PACKAGE",
+      "toplistingAd": null
+     }
+    },
+    "searchSales({\"limit\":0,\"search\":{\"locationSlugs\":null}})": {
+     "__typename": "SoldListingResults",
+     "total": 1644492,
+     "sort": "NEWEST",
+     "totalViewable": 2500
+    }
+   }
+  },
+  "https://www.hemnet.se/till-salu?upcoming=ONLY": {
+   "status": 200,
+   "ROOT_QUERY": {
+    "__typename": "Query",
+    "search": {
+     "__typename": "Search",
+     "listings({\"limit\":0,\"search\":{\"locationSlugs\":null,\"minimal\":\"INCLUDE\",\"teaser\":\"INCLUDE\",\"upcoming\":\"ONLY\"}})": {
+      "__typename": "ListingResultsCombined",
+      "total": 7488,
+      "totalViewable": 2500,
+      "sort": "NEWEST"
+     },
+     "listings({\"limit\":50,\"offset\":0,\"search\":{\"locationSlugs\":null,\"minimal\":\"INCLUDE\",\"teaser\":\"INCLUDE\",\"upcoming\":\"ONLY\"},\"sort\":\"NEWEST_DAY_AND_PACKAGE\"})": {
+      "__typename": "ListingResultsCombined",
+      "total": 7488,
+      "adTargeting": "{\"item_types\":[1],\"country\":[1]}",
+      "sort": "NEWEST_DAY_AND_PACKAGE",
+      "toplistingAd": null
+     }
+    },
+    "searchSales({\"limit\":0,\"search\":{\"locationSlugs\":null}})": {
+     "__typename": "SoldListingResults",
+     "total": 1644492,
+     "sort": "NEWEST",
+     "totalViewable": 2500
+    }
+   }
+  }
+ }
+}
