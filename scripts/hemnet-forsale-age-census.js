@@ -81,6 +81,22 @@ const PRICE_BANDS = [                  // MECE-ish kr bands; dedupe by id absorb
   { min: 3000000, max: 4000000 }, { min: 4000000, max: 5500000 }, { min: 5500000, max: 8000000 },
   { min: 8000000, max: 12000000 }, { min: 12000000 },
 ];
+// Room bands, inclusive at both ends; Hemnet rooms come in half steps, so these are disjoint
+// and cover every listing that has a room count. The default second-level split since
+// 2026-10-28: a price filter silently drops listings with no asking price, and most
+// pre-market / aggregated listings have none (Stockholm pre-market apartments 2026-10-27:
+// 829 of 4,232 priced; price-split census found 1,059 of 4,466). Rooms split the same pool
+// exactly: rooms_max=2 2,643 + rooms_min=2.5 1,589 = 4,232.
+const ROOM_BANDS = [
+  { max: 1 }, { min: 1.5, max: 2 }, { min: 2.5, max: 3 }, { min: 3.5, max: 4 }, { min: 4.5 },
+];
+// Which dimension splits an item type that is still over the clamp. Kept switchable: the
+// selftest's synthetic universe below models price.
+let SPLIT_DIM = 'rooms';
+const SPLITS = {
+  rooms: { bands: ROOM_BANDS, min: 'roomsMin', max: 'roomsMax' },
+  price: { bands: PRICE_BANDS, min: 'priceMin', max: 'priceMax' },
+};
 
 function fsUrl(scope, page) {
   const p = new URLSearchParams();
@@ -89,6 +105,8 @@ function fsUrl(scope, page) {
   if (scope.itemType) p.append('item_types[]', scope.itemType);
   if (scope.priceMin != null) p.append('price_min', String(scope.priceMin));
   if (scope.priceMax != null) p.append('price_max', String(scope.priceMax));
+  if (scope.roomsMin != null) p.append('rooms_min', String(scope.roomsMin));
+  if (scope.roomsMax != null) p.append('rooms_max', String(scope.roomsMax));
   p.append('page', String(page));
   return `https://www.hemnet.se/till-salu?${p.toString()}`;
 }
@@ -102,6 +120,8 @@ function scopeMismatch(search, scope) {
     housingFormGroups: scope.itemType ? [ITEM_TYPE_GROUP[scope.itemType]] : null,
     priceMin: scope.priceMin != null ? scope.priceMin : null,
     priceMax: scope.priceMax != null ? scope.priceMax : null,
+    roomsMin: scope.roomsMin != null ? scope.roomsMin : null,
+    roomsMax: scope.roomsMax != null ? scope.roomsMax : null,
   };
   for (const [k, v] of Object.entries(want)) {
     const got = search && search[k] != null ? search[k] : null;
@@ -110,7 +130,9 @@ function scopeMismatch(search, scope) {
   return null;
 }
 function scopeLabel(scope) {
-  return [scope.name || scope.locationId, scope.itemType, scope.priceMin != null || scope.priceMax != null ? `${(scope.priceMin || 0) / 1e6}-${scope.priceMax ? scope.priceMax / 1e6 : '∞'}M` : null]
+  return [scope.name || scope.locationId, scope.itemType,
+    scope.priceMin != null || scope.priceMax != null ? `${(scope.priceMin || 0) / 1e6}-${scope.priceMax ? scope.priceMax / 1e6 : '∞'}M` : null,
+    scope.roomsMin != null || scope.roomsMax != null ? `${scope.roomsMin || 0}-${scope.roomsMax != null ? scope.roomsMax : '∞'}rooms` : null]
     .filter(Boolean).join('/');
 }
 
@@ -219,17 +241,24 @@ async function censusScope(scope, level, acc, nowSec, ctx) {
     return { headline: total, sub: ITEM_TYPES };
   }
   if (level === 1) {
-    log('INFO', `${scopeLabel(scope)} total=${total} > ${THRESHOLD} → splitting by price band`);
-    for (const b of PRICE_BANDS) {
-      const s = { ...scope, priceMin: b.min != null ? b.min : null, priceMax: b.max != null ? b.max : null };
+    const split = SPLITS[SPLIT_DIM];
+    log('INFO', `${scopeLabel(scope)} total=${total} > ${THRESHOLD} → splitting by ${SPLIT_DIM} band`);
+    let sumBands = 0;
+    for (const b of split.bands) {
+      const s = { ...scope, [split.min]: b.min != null ? b.min : null, [split.max]: b.max != null ? b.max : null };
       const r = await safeFetch(s, 1);
-      // A failed page 1 here skipped a price band of a big municipality without ever entering
+      // A failed page 1 here skipped a band of a big municipality without ever entering
       // censusScope, so it has to be booked as a scope failure explicitly — otherwise this one
       // path is the single place a coverage gap could still slip past the counters.
-      if (r.cards == null) { ctx.errorPages++; noteScopeFailure(ctx, s, 2); log('WARN', `${scopeLabel(s)} p1 status ${r.status} — price band skipped`); continue; }
+      if (r.cards == null) { ctx.errorPages++; noteScopeFailure(ctx, s, 2); log('WARN', `${scopeLabel(s)} p1 status ${r.status} — band skipped`); continue; }
+      sumBands += r.total || 0;
       if (r.total > 0) await censusScope(s, 2, acc, nowSec, ctx);
     }
-    return { headline: total, sub: PRICE_BANDS.length + ' price bands' };
+    // An item type's bands should add back up to its total. A shortfall means listings the
+    // split dimension cannot see (no room count, say); the reconciliation gate will catch a
+    // large one, this names where it came from.
+    if (total - sumBands > 0.02 * total) log('WARN', `${scopeLabel(scope)}: ${SPLIT_DIM} bands cover ${sumBands}/${total}; ~${total - sumBands} listings fall outside every band`);
+    return { headline: total, sub: `${split.bands.length} ${SPLIT_DIM} bands` };
   }
   // level 2: type+price still over clamp (rare) — walk anyway, warn about undercount.
   log('WARN', `${scopeLabel(scope)} total=${total} still > clamp after type+price — walking, will undercount by ~${total - CLAMP_LISTINGS}`);
@@ -457,6 +486,10 @@ async function selftest() {
   const assert = require('assert');
   let pass = 0, fail = 0;
   const check = async (n, fn) => { try { await fn(); pass++; } catch (e) { console.error(`SELFTEST FAIL [${n}]: ${e.message}`); fail++; } };
+
+  // The synthetic universe below models price, so these tests split by price; the room
+  // split (production default) has its own test at the end.
+  SPLIT_DIM = 'price';
 
   // Build a synthetic universe: listings with { id, muni, itemType, price, ageDays }.
   const universe = [];
@@ -788,6 +821,40 @@ async function selftest() {
       assert.ok(/excludes 50 listings/.test(res.notes) && /MINIMAL 20, AGGREGATED 30/.test(res.notes), res.notes);
       assert.strictEqual(res.status, 'ok');
     } finally { fetchScope = clean; }
+  });
+
+  // 2026-10-27 live: Stockholm pre-market split by price found 1,059 of 4,466 — 80% of the
+  // apartments have no asking price, and a price filter silently drops them.
+  await check('room split recovers unpriced listings that a price split loses', async () => {
+    const clean = fetchScope;
+    const rows = [];
+    const ROOMS = [1, 1.5, 2, 2.5, 3, 4, 5];
+    for (let i = 0; i < 3000; i++) rows.push({ id: 'R' + i, itemType: 'bostadsratt', rooms: ROOMS[i % ROOMS.length], price: i % 5 === 0 ? 2500000 : null, ageDays: i * 0.1 });
+    fetchScope = async (scope, p) => {
+      let r = rows.filter(x => !scope.itemType || x.itemType === scope.itemType);
+      if (scope.priceMin != null) r = r.filter(x => x.price != null && x.price >= scope.priceMin);
+      if (scope.priceMax != null) r = r.filter(x => x.price != null && x.price < scope.priceMax);
+      if (scope.roomsMin != null) r = r.filter(x => x.rooms >= scope.roomsMin);
+      if (scope.roomsMax != null) r = r.filter(x => x.rooms <= scope.roomsMax);
+      const start = (p - 1) * PAGE_SIZE;
+      const slice = start >= Math.min(r.length, CLAMP_LISTINGS) ? [] : r.slice(start, start + PAGE_SIZE);
+      return { status: 200, total: p === 1 ? r.length : undefined,
+        cards: slice.map(x => ({ id: x.id, published: NOW_SEC - Math.round(x.ageDays * DAY), isNewBuild: false, upcoming: true })) };
+    };
+    try {
+      SPLIT_DIM = 'price';
+      const byPrice = await run({ pool: 'premarket', locations: { Sthlm: 9400 }, nowSec: NOW_SEC, logger: () => {} });
+      assert.strictEqual(byPrice.nTotal, 600, 'price split sees only the 600 priced listings');
+      assert.strictEqual(byPrice.status, 'gate_failed', 'and reconciliation catches it');
+      SPLIT_DIM = 'rooms';
+      const byRooms = await run({ pool: 'premarket', locations: { Sthlm: 9400 }, nowSec: NOW_SEC, logger: () => {} });
+      assert.strictEqual(byRooms.nTotal, 3000, `room split recovers all 3,000 (got ${byRooms.nTotal})`);
+      assert.strictEqual(byRooms.status, 'ok', byRooms.notes);
+      assert.strictEqual(fsUrl({ locationId: 1, pool: 'premarket', itemType: 'bostadsratt', roomsMin: 1.5, roomsMax: 2 }, 1),
+        'https://www.hemnet.se/till-salu?upcoming=ONLY&location_ids%5B%5D=1&item_types%5B%5D=bostadsratt&rooms_min=1.5&rooms_max=2&page=1');
+      assert.ok(/roomsMin/.test(scopeMismatch({ upcoming: 'ONLY', locationIds: ['1'], housingFormGroups: ['APARTMENTS'] },
+        { locationId: 1, pool: 'premarket', itemType: 'bostadsratt', roomsMin: 1.5 })), 'an ignored rooms filter is caught');
+    } finally { fetchScope = clean; SPLIT_DIM = 'price'; }
   });
 
   await check('a page whose filter Hemnet ignored is a failed page, not a wrong count', async () => {
