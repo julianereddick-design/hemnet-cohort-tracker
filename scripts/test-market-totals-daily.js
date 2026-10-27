@@ -17,13 +17,29 @@ const path = require('path');
 // Requiring the job must NOT run it (require.main guard). If it did, runJob
 // would try the DB and process.exit before a single test ran.
 const job = require('../market-totals-daily');
-const { parseSearchTotals } = require('../lib/hemnet-fetch');
+const { parseSearchTotals, parseSearchIncludes } = require('../lib/hemnet-fetch');
 
 const FIX = require(path.join(__dirname, '..', 'test-fixtures', 'hemnet-till-salu-rootquery-2026-10-26.json'));
-const ROOT_ALL  = FIX.pages['https://www.hemnet.se/till-salu'].ROOT_QUERY;
-const ROOT_EXCL = FIX.pages['https://www.hemnet.se/till-salu?upcoming=EXCLUDE'].ROOT_QUERY;
+const ROOT_ALL_1026  = FIX.pages['https://www.hemnet.se/till-salu'].ROOT_QUERY;
+const ROOT_EXCL_1026 = FIX.pages['https://www.hemnet.se/till-salu?upcoming=EXCLUDE'].ROOT_QUERY;
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
+// Hemnet added "aggregated":"INCLUDE" to every listings key on ~2026-10-27
+// (seen live 2026-10-27 22:20 UTC). Same captured pages, re-keyed to today's shape.
+function withAggregated(root) {
+  const out = clone(root);
+  const search = {};
+  for (const [k, v] of Object.entries(out.search)) {
+    if (!k.startsWith('listings(')) { search[k] = v; continue; }
+    const args = JSON.parse(k.slice('listings('.length, -1));
+    args.search = Object.assign({ aggregated: 'INCLUDE' }, args.search);
+    search[`listings(${JSON.stringify(args)})`] = v;
+  }
+  out.search = search;
+  return out;
+}
+const ROOT_ALL  = withAggregated(ROOT_ALL_1026);
+const ROOT_EXCL = withAggregated(ROOT_EXCL_1026);
 const hemnetHtml = (rootQuery) =>
   `<html><script id="__NEXT_DATA__" type="application/json">${JSON.stringify(
     { props: { pageProps: { __APOLLO_STATE__: { ROOT_QUERY: rootQuery } } } })}</script></html>`;
@@ -109,6 +125,36 @@ test('conflicting totals for one population throw', () => {
     'listings({"limit":50,"search":{"locationSlugs":null,"upcoming":"ONLY"}})': { total: 7000 },
   } } }), /conflicting upcoming/);
 });
+test('INCLUDE args never disqualify a key (2026-10-27 aggregated break)', () => {
+  // Before this fix a new "aggregated":"INCLUDE" arg made every key look narrowed,
+  // so the job found no totals and failed — the same way it failed on 2026-10-06.
+  assert.deepStrictEqual(parseSearchTotals({ ROOT_QUERY: { search: {
+    'listings({"limit":0,"search":{"aggregated":"INCLUDE","locationSlugs":null,"minimal":"INCLUDE","someNewKind":"INCLUDE","teaser":"INCLUDE","upcoming":"ONLY"}})': { total: 27434 },
+  } } }), { upcoming: 27434 });
+});
+test('parseSearchIncludes lists the INCLUDE args, sorted', () => {
+  assert.deepStrictEqual(parseSearchIncludes({ ROOT_QUERY: ROOT_ALL }), ['aggregated', 'minimal', 'teaser']);
+  assert.deepStrictEqual(parseSearchIncludes({ ROOT_QUERY: ROOT_ALL_1026 }), ['minimal', 'teaser']);
+  assert.deepStrictEqual(parseSearchIncludes(null), []);
+});
+// --- scoped totals (used by the age censuses) — real keys seen live 2026-10-27 ---
+const SCOPED = { ROOT_QUERY: { search: {
+  'listings({"limit":0,"search":{"aggregated":"INCLUDE","locationIds":["18031"],"locationSlugs":null,"minimal":"INCLUDE","teaser":"INCLUDE","upcoming":"EXCLUDE"}})': { total: 3493 },
+  'listings({"limit":0,"search":{"aggregated":"INCLUDE","housingFormGroups":["APARTMENTS"],"locationIds":["18031"],"locationSlugs":null,"minimal":"INCLUDE","priceMax":4000000,"priceMin":3000000,"teaser":"INCLUDE","upcoming":"EXCLUDE"}})': { total: 399 },
+  'listings({"limit":0,"search":{"aggregated":"INCLUDE","locationSlugs":null,"minimal":"INCLUDE","teaser":"INCLUDE","upcoming":"EXCLUDE"}})': { total: 62844 },
+} } };
+test('scope picks exactly the matching narrowed key', () => {
+  assert.deepStrictEqual(parseSearchTotals(SCOPED), { forSale: 62844 }, 'default scope = nationwide only');
+  assert.deepStrictEqual(parseSearchTotals(SCOPED, { locationIds: ['18031'] }), { forSale: 3493 });
+  assert.deepStrictEqual(parseSearchTotals(SCOPED, {
+    locationIds: ['18031'], housingFormGroups: ['APARTMENTS'], priceMin: 3000000, priceMax: 4000000,
+  }), { forSale: 399 });
+});
+test('scope must match exactly: a subset or a different value matches nothing', () => {
+  assert.deepStrictEqual(parseSearchTotals(SCOPED, { locationIds: ['18031'], priceMin: 3000000 }), {});
+  assert.deepStrictEqual(parseSearchTotals(SCOPED, { locationIds: ['17866'] }), {});
+  assert.deepStrictEqual(parseSearchTotals(SCOPED, { locationIds: '18031' }), {}, 'string is not the array Hemnet uses');
+});
 test('missing / malformed state returns {}', () => {
   assert.deepStrictEqual(parseSearchTotals(null), {});
   assert.deepStrictEqual(parseSearchTotals({ ROOT_QUERY: { search: 'x' } }), {});
@@ -128,7 +174,24 @@ test('happy path: 4 rows, correct values + source URLs, no alert', async () => {
   assert.strictEqual(urls['hemnet.kommande'], 'https://www.hemnet.se/till-salu');
   assert.deepStrictEqual(summary.siteErrors, []);
   assert.strictEqual(summary.hemnetPartition.diff, 0);
+  assert.deepStrictEqual(summary.hemnetIncludes, ['aggregated', 'minimal', 'teaser']);
   assert.strictEqual(validation, null);
+});
+test('Hemnet changes the kinds of listing counted: rows written, plain warning', async () => {
+  // The 26 Oct pages lack "aggregated": exactly what the day before the break looked like.
+  const { summary, validation } = await run(livePages({
+    [job.HEMNET_TILL_SALU_URL]: hemnetHtml(ROOT_EXCL_1026), [job.HEMNET_ALL_URL]: hemnetHtml(ROOT_ALL_1026) }));
+  assert.strictEqual(summary.rowsWritten, 4, 'a definition change must not cost the day');
+  assert.strictEqual(validation.key, 'hemnet-listing-types-changed');
+  assert.strictEqual(validation.severity, 'warning');
+  assert.ok(/no longer including: aggregated/.test(validation.message), validation.message);
+  // and a brand-new kind is named
+  const added = (root) => { const r = clone(root); for (const k of Object.keys(r.search)) {
+    if (!k.startsWith('listings(')) continue; const v = r.search[k]; delete r.search[k];
+    r.search[k.replace('"aggregated":"INCLUDE"', '"aggregated":"INCLUDE","projects":"INCLUDE"')] = v; } return r; };
+  const v2 = (await run(livePages({
+    [job.HEMNET_TILL_SALU_URL]: hemnetHtml(added(ROOT_EXCL)), [job.HEMNET_ALL_URL]: hemnetHtml(added(ROOT_ALL)) }))).validation;
+  assert.ok(/now also including: projects/.test(v2.message), v2.message);
 });
 test('Hemnet on the OLD shape: Booli rows still written, run is a failure', async () => {
   const old = hemnetHtml({ 'searchForSaleListings({})': { total: 1 } });

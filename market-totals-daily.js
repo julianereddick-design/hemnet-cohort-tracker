@@ -11,7 +11,7 @@
 
 const { runJob } = require('./cron-wrapper');
 const { getWithRetry, extractApolloState, getOxylabsStats, resetOxylabsStats } = require('./lib/scrape-http');
-const { parseSearchTotals } = require('./lib/hemnet-fetch');
+const { parseSearchTotals, parseSearchIncludes } = require('./lib/hemnet-fetch');
 
 // till_salu must be upcoming=EXCLUDE: bare /till-salu's headline count is
 // for-sale + kommande. Bare /till-salu is still fetched — it carries kommande
@@ -25,6 +25,15 @@ const BOOLI_KOMMANDE_URL      = 'https://www.booli.se/sok/till-salu?upcomingSale
 // are fetched in parallel, so only a handful of listings can move between them;
 // a real partition change (EXCLUDE meaning something new) is thousands.
 const PARTITION_TOLERANCE = 0.005;
+
+// Kinds of listing Hemnet's counts include (its "INCLUDE" search args). Hemnet
+// cannot be asked to leave them out, so each addition is a series break in both
+// Hemnet rows. A change from this list still writes the rows but warns, so the
+// break is dated. History: minimal+teaser from 2026-10-06, aggregated from
+// ~2026-10-27 (kommande 7,645 -> 27,434, till_salu 47,397 -> 62,844 overnight).
+// See docs/handover/CHANGELOG.md. When it fires: note the date there, then add
+// the new name here.
+const KNOWN_HEMNET_INCLUDES = ['aggregated', 'minimal', 'teaser'];
 
 const CREATE_TABLE = `
   CREATE TABLE IF NOT EXISTS market_totals (
@@ -93,8 +102,11 @@ function settledHtml(settled, label) {
 // Returns { rows, check } or throws. check = the partition cross-check result;
 // a mismatch does NOT throw — the rows are still written and validate() warns.
 function parseHemnet(tillSaluSettled, allSettled) {
-  const excl = parseSearchTotals(extractApollo(settledHtml(tillSaluSettled, 'hemnet (till_salu)'), 'hemnet (till_salu)'));
-  const all  = parseSearchTotals(extractApollo(settledHtml(allSettled, 'hemnet (all)'), 'hemnet (all)'));
+  const exclApollo = extractApollo(settledHtml(tillSaluSettled, 'hemnet (till_salu)'), 'hemnet (till_salu)');
+  const allApollo  = extractApollo(settledHtml(allSettled, 'hemnet (all)'), 'hemnet (all)');
+  const excl = parseSearchTotals(exclApollo);
+  const all  = parseSearchTotals(allApollo);
+  const includes = [...new Set([...parseSearchIncludes(exclApollo), ...parseSearchIncludes(allApollo)])].sort();
 
   assertNumericTotal('hemnet.till_salu', excl.forSale);
   assertNumericTotal('hemnet.kommande',  all.upcoming);
@@ -113,6 +125,7 @@ function parseHemnet(tillSaluSettled, allSettled) {
       { site: 'hemnet', segment: 'kommande',  total: all.upcoming, source_url: HEMNET_ALL_URL       },
     ],
     check,
+    includes,
   };
 }
 
@@ -151,6 +164,7 @@ async function main(client, log, deps = {}) {
   const rows = [];
   const siteErrors = [];
   let hemnetPartition = null;
+  let hemnetIncludes = null;
   for (const [site, parse] of [
     ['hemnet', () => parseHemnet(hTS, hAll)],
     ['booli',  () => parseBooli(bTS, bKom)],
@@ -159,6 +173,7 @@ async function main(client, log, deps = {}) {
       const res = parse();
       rows.push(...res.rows);
       if (res.check) hemnetPartition = res.check;
+      if (res.includes) hemnetIncludes = res.includes;
     } catch (err) {
       siteErrors.push({ site, message: err.message });
       log(`site failed: ${site} — ${err.message}`);
@@ -184,6 +199,7 @@ async function main(client, log, deps = {}) {
     })),
     siteErrors,
     hemnetPartition,
+    hemnetIncludes,
     fetchElapsedMs,
     totalElapsedMs: Date.now() - t0,
     oxylabsFallbackRate: oxStats.oxylabsFallbackRate, // REPORTING FIELD ONLY — no validate() warn (D-07, Plan 10-02 lesson)
@@ -230,13 +246,27 @@ function validate(summary) {
         `upcoming=EXCLUDE/ONLY may have changed meaning`,
     };
   }
+  const inc = summary.hemnetIncludes;
+  if (inc && inc.join(',') !== KNOWN_HEMNET_INCLUDES.join(',')) {
+    const added = inc.filter(n => !KNOWN_HEMNET_INCLUDES.includes(n));
+    const gone = KNOWN_HEMNET_INCLUDES.filter(n => !inc.includes(n));
+    return {
+      key: 'hemnet-listing-types-changed',
+      severity: 'warning',
+      message: 'Hemnet changed which kinds of listing its totals count' +
+        (added.length ? `, now also including: ${added.join(', ')}` : '') +
+        (gone.length ? `, no longer including: ${gone.join(', ')}` : '') +
+        ". Today's Hemnet numbers were saved, but they are not comparable with earlier days. " +
+        'Note the date in docs/handover/CHANGELOG.md and update KNOWN_HEMNET_INCLUDES in market-totals-daily.js.',
+    };
+  }
   // No oxylabsFallbackRate check (D-07; Plan 10-02 lesson — those alerts became permanent noise).
   // No delta check (D-03 — deferred to future plan).
   return null;
 }
 
 module.exports = {
-  main, validate, parseHemnet, parseBooli, assertNumericTotal, pickByPrefix,
+  main, validate, parseHemnet, KNOWN_HEMNET_INCLUDES, parseBooli, assertNumericTotal, pickByPrefix,
   HEMNET_TILL_SALU_URL, HEMNET_ALL_URL, BOOLI_TILL_SALU_URL, BOOLI_KOMMANDE_URL,
 };
 
