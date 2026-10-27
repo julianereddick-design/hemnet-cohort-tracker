@@ -93,7 +93,102 @@ function shapeListingForDb(listing) {
     municipality,
     county,
     published_at_seconds: listing.publishedAt != null ? listing.publishedAt : null,
+    active_package: listing.activePackage != null ? listing.activePackage : null,
+    is_teaser: listing.isTeaser != null ? listing.isTeaser : null,
+    listing_typename: listing.typename != null ? listing.typename : null,
+    is_project: listing.isProject != null ? listing.isProject : null,
+    is_project_unit: listing.isProjectUnit != null ? listing.isProjectUnit : null,
   };
+}
+
+// ---------------------------------------------------------------
+// Listing format tracking (2026-10-27)
+//
+// Hemnet launched a free tier (package MINIMAL) on 2026-10-20 and is about to add
+// aggregated listings from agency websites. Both get far less exposure than paid
+// listings, so mixing them into the views data would pull Hemnet's share down for
+// reasons that have nothing to do with Booli. We record each listing's package and
+// type on every refresh, keep a history of changes, and alert the first time a
+// value appears that isn't in the lists below.
+//
+// When the alert fires: look at a listing with the new value, decide how the
+// views reports should treat it, then add it here. See docs/handover/CHANGELOG.md.
+// ---------------------------------------------------------------
+
+const KNOWN_PACKAGES = new Set([
+  'BASIC', 'PLUS', 'PREMIUM', 'MAX',              // paid
+  'MINIMAL',                                     // free tier, live 2026-10-20
+  'NC_PREMIUM_PROJECT', 'NC_PREMIUM_PROJECT_UNIT', // new-build projects
+]);
+const KNOWN_TYPENAMES = new Set(['ActivePropertyListing']);
+
+// One statement per listing, separate from SQL_REFRESH_ACTIVE so that the views
+// refresh never depends on these columns existing: if the migration hasn't run
+// (or was rolled back) the job skips this and carries on exactly as before.
+const SQL_REFRESH_FORMAT = `UPDATE hemnet_listingv2
+    SET active_package   = $1,
+        is_teaser        = $2,
+        listing_typename = $3,
+        is_project       = $4,
+        is_project_unit  = $5,
+        format_seen_at   = NOW()
+  WHERE hemnet_id = $6`;
+
+// Append a history row only when the format differs from the latest one we hold,
+// so the table records changes (paid -> free, upgrades) rather than every refresh.
+const SQL_FORMAT_HISTORY = `INSERT INTO hemnet_listing_format_history
+     (hemnet_id, active_package, is_teaser, listing_typename, is_project, is_project_unit)
+   SELECT $1::bigint, $2::text, $3::boolean, $4::text, $5::boolean, $6::boolean
+   WHERE NOT EXISTS (
+     SELECT 1 FROM (
+       SELECT active_package, is_teaser, listing_typename, is_project, is_project_unit
+         FROM hemnet_listing_format_history
+        WHERE hemnet_id = $1::bigint
+        ORDER BY observed_at DESC LIMIT 1
+     ) last
+     WHERE last.active_package   IS NOT DISTINCT FROM $2::text
+       AND last.is_teaser        IS NOT DISTINCT FROM $3::boolean
+       AND last.listing_typename IS NOT DISTINCT FROM $4::text
+       AND last.is_project       IS NOT DISTINCT FROM $5::boolean
+       AND last.is_project_unit  IS NOT DISTINCT FROM $6::boolean
+   )`;
+
+const SQL_FORMAT_READY = `SELECT
+    (SELECT count(*) FROM information_schema.columns
+      WHERE table_name = 'hemnet_listingv2' AND column_name = 'active_package') = 1
+    AND to_regclass('hemnet_listing_format_history') IS NOT NULL AS ready`;
+
+// Tally one parsed listing's format into the run summary.
+function tallyFormat(summary, shaped) {
+  const pkg = shaped.active_package || '(none)';
+  summary.packages[pkg] = (summary.packages[pkg] || 0) + 1;
+  if (shaped.is_teaser === true) summary.teaserCount++;
+  if (!KNOWN_PACKAGES.has(pkg)) {
+    summary.unseenPackages[pkg] = (summary.unseenPackages[pkg] || 0) + 1;
+  }
+  const tn = shaped.listing_typename || '(none)';
+  if (!KNOWN_TYPENAMES.has(tn)) {
+    summary.unrecognisedTypes[tn] = (summary.unrecognisedTypes[tn] || 0) + 1;
+  }
+}
+
+// Plain-English alert text, or null when nothing new appeared. Written to be read
+// in Slack without context: what changed, how many listings, what it means.
+function formatAlertMessage(summary) {
+  const lines = [];
+  for (const [pkg, n] of Object.entries(summary.unseenPackages || {})) {
+    lines.push(pkg === '(none)'
+      ? `${n} tracked listing(s) came back with no package at all. Hemnet may have changed the page.`
+      : `New Hemnet package "${pkg}" on ${n} tracked listing(s).`);
+  }
+  for (const [tn, n] of Object.entries(summary.unrecognisedTypes || {})) {
+    lines.push(`${n} tracked listing(s) now use a page type we don't recognise ("${tn}"). ` +
+      `Their view counts were not updated.`);
+  }
+  if (!lines.length) return null;
+  return 'Hemnet listing format changed. Check before using views data.\n' + lines.join('\n') +
+    '\nNext step: look at one of these listings and decide how the views report should treat it ' +
+    '(see docs/handover/CHANGELOG.md, 2026-10-27).';
 }
 
 // ---------------------------------------------------------------
@@ -230,6 +325,27 @@ async function processOne(id, client, log, dryRun, summary) {
         summary.rowsInserted++;
       }
     }
+
+    // Listing format — counted even in dry runs; written only when the columns exist.
+    const shapedFormat = shapeListingForDb(listing);
+    tallyFormat(summary, shapedFormat);
+    if (!dryRun && summary.formatTracking) {
+      const f = [shapedFormat.active_package, shapedFormat.is_teaser, shapedFormat.listing_typename,
+        shapedFormat.is_project, shapedFormat.is_project_unit];
+      await client.query(SQL_REFRESH_FORMAT, [...f, id]);
+      const h = await client.query(SQL_FORMAT_HISTORY, [id, ...f]);
+      summary.formatChanges += h.rowCount;
+    }
+    return;
+  }
+
+  // The page holds this listing under a type we don't recognise (see
+  // parseActiveListing). Leave the row exactly as it was: marking it inactive would
+  // start the drop streak and quietly remove the pair from the views data.
+  if (result.status === 'unrecognised') {
+    const tn = result.typename || '(unknown)';
+    summary.unrecognisedTypes[tn] = (summary.unrecognisedTypes[tn] || 0) + 1;
+    log('WARN', `id=${id} unrecognised listing type "${tn}" — row left untouched`);
     return;
   }
 
@@ -298,7 +414,18 @@ async function main(client, log) {
     // Plan 09-02 D-16 retrofit — symmetric to Job D's hardening:
     budgetExceeded: false,
     workerErrors: 0,
+    // Listing format tracking (2026-10-27).
+    formatTracking: false,   // true once migrate-hemnet-listing-format.js has run
+    packages: {},            // activePackage -> count of listings parsed this run
+    teaserCount: 0,
+    unseenPackages: {},      // packages not in KNOWN_PACKAGES -> count
+    unrecognisedTypes: {},   // listing types we couldn't read -> count
+    formatChanges: 0,        // history rows written (new listing, or package changed)
   };
+  summary.formatTracking = (await client.query(SQL_FORMAT_READY)).rows[0].ready === true;
+  if (!summary.formatTracking) {
+    log('WARN', 'listing-format columns not found — run migrate-hemnet-listing-format.js; tracking skipped');
+  }
 
   // 3. Hand-rolled worker pool, concurrency 8 (D-15 sizing, D-16 retrofit),
   //    100-300ms jitter per dispatch. Plan 09-01 hardened pattern: budget
@@ -387,6 +514,12 @@ function validate(summary) {
       summary.oxylabsFailureCount / summary.oxylabsCallCount > 0.10) {
     const pct = ((summary.oxylabsFailureCount / summary.oxylabsCallCount) * 100).toFixed(1);
     return `Oxylabs failures: ${summary.oxylabsFailureCount}/${summary.oxylabsCallCount} (${pct}%) — check API status or credit balance`;
+  }
+  // 2026-10-27: a Hemnet package or listing type we haven't seen before. Keyed, so
+  // it follows the re-notify ladder as one incident rather than alerting every run.
+  const formatMsg = formatAlertMessage(summary);
+  if (formatMsg) {
+    return { key: 'hemnet-new-listing-format', severity: 'warning', message: formatMsg };
   }
   // Plan 09-02 D-16 retrofit — symmetric to Job D's validate() (Plan 09-01 hardening):
   if (summary.budgetExceeded === true) {
@@ -513,6 +646,42 @@ if (process.argv.includes('--smoke')) {
       fail++;
     }
   }
+
+  // Listing format tracking (2026-10-27).
+  const fmtCheck = (name, fn) => { try { fn(); pass++; } catch (e) { console.error(`SMOKE FAIL [${name}]: ${e.message}`); fail++; } };
+  const newSummary = () => ({ packages: {}, teaserCount: 0, unseenPackages: {}, unrecognisedTypes: {} });
+  fmtCheck('known packages (paid + free) raise no alert', () => {
+    const s = newSummary();
+    for (const p of ['PREMIUM', 'MAX', 'MINIMAL', 'BASIC']) {
+      tallyFormat(s, { active_package: p, is_teaser: false, listing_typename: 'ActivePropertyListing' });
+    }
+    assert.deepStrictEqual(s.packages, { PREMIUM: 1, MAX: 1, MINIMAL: 1, BASIC: 1 });
+    assert.strictEqual(formatAlertMessage(s), null);
+    assert.strictEqual(validate({ totalIds: 4, parsed: 4, errors: 0, ...s }), null);
+  });
+  fmtCheck('an unseen package raises a keyed warning in plain English', () => {
+    const s = newSummary();
+    tallyFormat(s, { active_package: 'AGGREGATED', is_teaser: false, listing_typename: 'ActivePropertyListing' });
+    tallyFormat(s, { active_package: 'AGGREGATED', is_teaser: true, listing_typename: 'ActivePropertyListing' });
+    assert.strictEqual(s.teaserCount, 1);
+    const v = validate({ totalIds: 2, parsed: 2, errors: 0, ...s });
+    assert.strictEqual(v.key, 'hemnet-new-listing-format');
+    assert.strictEqual(v.severity, 'warning');
+    assert.ok(v.message.includes('New Hemnet package "AGGREGATED" on 2 tracked listing(s).'), v.message);
+  });
+  fmtCheck('a missing package and an unknown page type are both reported', () => {
+    const s = newSummary();
+    tallyFormat(s, { active_package: null, listing_typename: 'ActivePropertyListing' });
+    s.unrecognisedTypes.TeaserListing = 3;
+    const m = formatAlertMessage(s);
+    assert.ok(m.includes('no package at all'), m);
+    assert.ok(m.includes('3 tracked listing(s) now use a page type we don\'t recognise ("TeaserListing")'), m);
+  });
+  fmtCheck('format SQL is separate from the views update and history is change-only', () => {
+    assert.ok(!/active_package/.test(SQL_REFRESH_ACTIVE), 'views update must not depend on the new columns');
+    assert.ok(/WHERE NOT EXISTS/.test(SQL_FORMAT_HISTORY));
+    assert.ok(/IS NOT DISTINCT FROM/.test(SQL_FORMAT_HISTORY));
+  });
 
   console.log(`smoke: ${pass} pass, ${fail} fail`);
   process.exit(fail === 0 ? 0 : 1);
