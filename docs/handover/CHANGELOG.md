@@ -6,6 +6,39 @@ before it's fixed.
 
 ---
 
+## 2026-10-27 — Daily health report: plain-English summary on top
+
+**Why:** the daily report in #hemnet-ops was accurate but hard to read. It used script
+names, "tier 1", "assertions", "backstop" and raw error text, and listed most problems
+twice (in its section, then again under "Issues").
+
+**What changed (wording only; every check is unchanged):**
+- New `lib/health-plain.js` builds a short summary that now leads the message:
+  - **Needs attention:** one numbered line per broken job, merging every section that
+    complains about it. Each line gives the job's plain name, what went wrong in plain
+    words, and what we lose.
+  - **Keep an eye on:** warnings and repeating conditions.
+  - **All good:** a few key numbers (new cohort size, view refresh counts, disk).
+- The existing technical sections follow below a divider, unchanged, for whoever fixes
+  things. The duplicated trailing "Issues" list is gone.
+- `cron-health-slack.js` collects problems that belong to no single job (disk, stale
+  views, newest-cohort canary) in plain words for the summary. Exit codes, alerting and
+  the sweep/heartbeat modes are unchanged.
+
+**Extending it:**
+- New job: add its plain name and "what we lose" to `JOB_INFO` in `lib/health-plain.js`.
+  Otherwise it shows its script name.
+- New kind of error or check wording: add to `ERROR_RULES` / `ASSERT_RULES`. Otherwise the
+  raw text shows, trimmed and quoted.
+
+**Tests:** `node lib/health-plain.js --smoke` (8 pass) renders the real 27 Oct report's
+inputs and checks there is no jargon, each broken job appears once, and paths and crash
+text are hidden. It was also previewed read-only against live data.
+
+**Revert:** `git revert <commit>`. No data or schema involved.
+
+---
+
 ## 2026-10-27 — Hemnet listing format tracking (free tier, aggregated listings)
 
 ### Why

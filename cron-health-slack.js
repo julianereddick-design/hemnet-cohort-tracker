@@ -6,6 +6,7 @@ const { loadOpen, listOpen, saveState } = require('./lib/alert-state');
 const { selectSweepTargets, sweepConditionKey, renderSweep } = require('./lib/alert-sweep');
 const { parseDf, assessDisk, recordSample, recentSamples } = require('./lib/disk-floor');
 const { execFileSync } = require('child_process');
+const { buildPlainSummary, keyFactsFrom } = require('./lib/health-plain');
 
 // connectHardened (Phase 5, spec §4.3 "Hardening")
 //
@@ -103,6 +104,8 @@ async function run() {
   // ---------------------------------------------------------------
   const liveness = buildLiveness(JOBS, { now, rows: rows.rows, summarize: summarizeResult });
   const issues = [...liveness.issues];
+  // Problems that belong to no single job, worded for the plain summary (2026-10-27).
+  const crossCutting = [];
   const lines = [':satellite_antenna:  *Liveness* (did each scheduled job fire?)', ...liveness.lines];
 
   // cohort-track anomaly: a run can succeed having tracked nothing at all, which
@@ -111,6 +114,7 @@ async function run() {
   const trackSummary = trackRow && trackRow.lastRow && trackRow.lastRow.result_summary;
   if (trackSummary && trackSummary.totalTracked === 0 && trackSummary.cohortsTracked > 0) {
     issues.push(`cohort-track: 0 pairs tracked with ${trackSummary.cohortsTracked} active cohorts`);
+    crossCutting.push(`*Views tracking*: ran but recorded no homes, with ${trackSummary.cohortsTracked} cohorts active. _The views data has a gap._`);
   }
 
   // ---------------------------------------------------------------
@@ -197,6 +201,7 @@ async function run() {
   // inodes long before gigabytes. days_to_full is reported as context, never as
   // a breach in itself.
   // ---------------------------------------------------------------
+  let diskDetail = '';
   const diskRaw = readDisk();
   if (diskRaw) {
     await recordSample(client, diskRaw);
@@ -204,7 +209,11 @@ async function run() {
     const disk = assessDisk(Object.assign({ samples }, diskRaw));
     lines.push('');
     lines.push(`:floppy_disk:  *Disk headroom*  —  ${disk.detail}`);
-    for (const b of disk.breaches) issues.push(`Disk: ${b}`);
+    diskDetail = disk.detail;
+    for (const b of disk.breaches) {
+      issues.push(`Disk: ${b}`);
+      crossCutting.push(`*Server disk*: ${b}. _Jobs start failing if it fills up._`);
+    }
   }
 
   // ---------------------------------------------------------------
@@ -250,6 +259,7 @@ async function run() {
     lines.push(`:bar_chart:  *View Growth Check*  —  ${zero_growth_pairs}/${total_pairs} pairs (${zeroPct}%) had zero growth`);
     if (zeroPct >= 80) {
       issues.push(`Stale view data: ${zeroPct}% of pairs had zero incremental views — scrapers may be down`);
+      crossCutting.push(`*View counts*: ${zeroPct}% of tracked homes showed no new views on either site. _The scrapers may be down._`);
     }
   }
 
@@ -312,8 +322,14 @@ async function run() {
     const newest = nullViewRes.rows[lastIdx];
     const newestBPct = Math.round((newest.null_booli / newest.total_pairs) * 100);
     const newestHPct = Math.round((newest.null_hemnet / newest.total_pairs) * 100);
-    if (newestBPct > 30) issues.push(`Newest cohort ${newest.cohort_id}: ${newestBPct}% null Booli views — scraper may be down`);
-    if (newestHPct > 30) issues.push(`Newest cohort ${newest.cohort_id}: ${newestHPct}% null Hemnet views — scraper may be down`);
+    if (newestBPct > 30) {
+      issues.push(`Newest cohort ${newest.cohort_id}: ${newestBPct}% null Booli views — scraper may be down`);
+      crossCutting.push(`*Newest cohort ${newest.cohort_id}*: ${newestBPct}% of homes have no Booli view count. _The Booli scraper may be down._`);
+    }
+    if (newestHPct > 30) {
+      issues.push(`Newest cohort ${newest.cohort_id}: ${newestHPct}% null Hemnet views — scraper may be down`);
+      crossCutting.push(`*Newest cohort ${newest.cohort_id}*: ${newestHPct}% of homes have no Hemnet view count. _The Hemnet scraper may be down._`);
+    }
   }
 
   await client.end();
@@ -322,11 +338,20 @@ async function run() {
   const today = now.toISOString().slice(0, 10);
   const overall = issues.length === 0 ? ':white_check_mark: All healthy' : `:warning: ${issues.length} issue(s)`;
 
-  let message = `*Hemnet Monitor — Daily Health Report*\n${today}  |  ${overall}\n\n${lines.join('\n')}`;
-
-  if (issues.length > 0) {
-    message += '\n\n*Issues:*\n' + issues.map(i => `• ${i}`).join('\n');
-  }
+  // 2026-10-27: plain-English summary on top (lib/health-plain.js); the technical
+  // sections follow unchanged for whoever fixes things. The old trailing "Issues"
+  // list repeated the sections above it and is now covered by the summary.
+  const plain = buildPlainSummary({
+    now,
+    liveness: liveness.results,
+    assertions,
+    openConditions,
+    tier1Bad,
+    crossCutting,
+    healthyCount: liveness.results.filter(r => ['ok', 'in-flight', 'too-soon'].includes(r.state)).length,
+    keyFacts: keyFactsFrom(assertions, diskDetail),
+  });
+  const message = `${plain}\n\n────────────\n_Technical detail (for whoever fixes it) · ${today} · ${overall}_\n\n${lines.join('\n')}`;
 
   // The health monitor must never report success it did not deliver. postMessage
   // RETURNS {ok:false} on a failed delivery rather than throwing, and this script is
