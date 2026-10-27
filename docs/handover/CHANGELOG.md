@@ -6,6 +6,110 @@ before it's fixed.
 
 ---
 
+## 2026-10-28 — Hemnet aggregated listings go live; census, pre-market flow and ad-cost repaired
+
+### What Hemnet changed (seen live 2026-10-27 ~22:20 UTC)
+
+- **Aggregated listings** (copied from agency websites, `activePackage: "AGGREGATED"`) now
+  appear in search and in every count. Every search key gained `"aggregated":"INCLUDE"`.
+  They have **no view counter** (`timesViewed: null`) and often no asking price.
+- Overnight, Hemnet's own counts moved:
+  - pre-market (kommande): **7,645 → 27,435**; in Stockholm, 3,568 of 4,466 are aggregated (80%)
+  - for-sale: **47,397 → 62,844**
+- **No URL setting excludes them**: `aggregated=EXCLUDE`, `minimal=EXCLUDE` and
+  `aggregated=ONLY` are all ignored.
+- **More package values are in use:** `TEASER`, `NC_BASIC_PROJECT` and
+  `NC_BASIC_PROJECT_UNIT`. The listing-format alert (`hemnet-new-listing-format`) will fire
+  for these. That is expected; see "When the alert fires" in the 2026-10-27 entry.
+- **Short result pages are padded with recommendations.** A results page always shows 50
+  cards. When fewer results are left, the rest come from a separate `recommendations` list,
+  outside the filter. For example, Alingsås pre-market page 2 shows 25 real results and
+  25 others.
+
+### Series breaks
+
+| Series | From | Effect |
+|---|---|---|
+| `market_totals` Hemnet `till_salu`, `kommande` | 2026-10-28 | Hemnet's all-types count. Not comparable with earlier days, and cannot be made comparable from the totals page. |
+| Age census, Hemnet pools | 2026-11-01 | Stored histogram **excludes MINIMAL + AGGREGATED**, so it stays comparable. Hemnet's all-types figure is in notes and JSON. |
+| Pre-market flow, Hemnet | 2026-11-02 | Adds exclude MINIMAL + AGGREGATED. Stock = Hemnet's count × comparable share from the latest census. **No Hemnet rows for 12/19/26 Oct.** |
+
+The definition of "comparable" lives in one place: `NEW_LISTING_TYPES` in
+`lib/age-census.js`. Change it there if the team decides differently.
+
+Early reading (live, 2026-10-27): comparable second-hand pre-market adds on Hemnet were
+**621** in the last 7 days, against 793–1,003 a week in September. In the same 7 days there
+were 990 MINIMAL and 1,144 AGGREGATED adds. This fits agents moving pre-market listings to
+the free tier. One week of data; worth watching.
+
+### What changed in the code
+
+- `lib/hemnet-fetch.js`
+  - `parseSearchTotals` accepts any `"INCLUDE"` arg, and takes an optional exact `scope`.
+  - New `parseSearchIncludes` lists the INCLUDE args on a page.
+  - New `parseSearchPage` reads the page's own result list (`cards`), never the
+    recommendations. It also returns the filters Hemnet actually applied.
+  - Cards carry `activePackage`.
+- `market-totals-daily.js`
+  - Tonight's run would have failed on the new arg; fixed.
+  - Records `hemnetIncludes`.
+  - Warns with `hemnet-listing-types-changed` when the set differs from
+    `KNOWN_HEMNET_INCLUDES`. Rows are still written.
+- `lib/age-census.js`
+  - `newAccumulator({ splitTypes: true })` keeps an all-types tally (used by walk
+    termination and gates), plus `cmp` (comparable) and `byType`.
+  - New `allTypesSummary`.
+- `scripts/hemnet-forsale-age-census.js`: now the engine for **both** Hemnet pools,
+  `run({ pool })`.
+  - URLs are `/till-salu?upcoming=EXCLUDE|ONLY&location_ids[]=…`.
+  - The filters Hemnet applied are checked on every page. An ignored filter counts as a
+    failed page.
+  - Big scopes are split by property type, then by **rooms**, not price. Most pre-market
+    and aggregated listings have no price, so a price split found only 1,059 of
+    Stockholm's 4,466. Item type gains `other`.
+  - Gates run on all types. The stored row is comparable-only. `allTypes` holds the full
+    picture.
+- `scripts/hemnet-age-census.js` delegates to the engine with `pool: 'premarket'`.
+- `scripts/age-census-monthly.js` saves each pool's full result as
+  `verf-flow-probe/age-census-<platform>-<pool>-<date>.json` before writing to the DB.
+- `scripts/forsale-age-penetration.js` (Booli for-sale)
+  - The depth search treats a page that won't load as past the end.
+  - On 2026-10-01, page 1259 returned Oxylabs 613 on all 8 attempts and the rethrow lost
+    the whole pool. October's Booli for-sale snapshot is unrecoverable.
+- `scripts/premarket-flow-measure.js`
+  - Hemnet side rebuilt: `/till-salu?upcoming=ONLY`, walked per property type (7 national
+    walks; nationally the 7-day window now sits at the 2,500 cap), comparable listings only.
+  - Stock is scaled by the census share. With no census on disk, the Hemnet side fails.
+  - **Guarded with `require.main`.** It used to start the live job when loaded, so any
+    `node scripts/premarket-flow-measure.js --anything` was a real run.
+  - New `--selftest`.
+- `scripts/adcost-crawl.py`
+  - New retry pass: still-failed cells get one more round on a rebuilt session.
+  - On 2026-10-01, scattered failures (cells 5, 6, 23, 24) were never retried, and the
+    month stopped at 392/420.
+
+### Verified live (no writes)
+
+- Market totals: 62,844 for-sale + 27,435 pre-market = 90,279 combined, exact.
+- Census engine: every check reconciled exactly (counted = Hemnet's headline).
+  - Alingsås pre-market: 75/75, 3 requests.
+  - Alingsås for-sale: 169/169, 5 requests.
+  - Stockholm pre-market: 4,466/4,466, 111 requests.
+  - Stockholm for-sale: 3,493/3,493, 92 requests.
+- Pre-market flow Hemnet walk: 71 requests, no type hit the cap. Property types add to
+  Hemnet's total within 0.3%.
+- Expected size of the 1 Nov census: about 2,900 Oxylabs requests (up from ~2,140).
+
+### How to revert
+
+- `git revert` the commits: 00b58aa (market totals), 6868f87 + 0aded00 (census),
+  781f69b (flow), 178a08e (ad-cost).
+- No schema changes. Note that reverting the Hemnet parts brings back code that cannot
+  read Hemnet's current pages.
+- To count every listing type as comparable again, empty `NEW_LISTING_TYPES`.
+
+---
+
 ## 2026-10-27 — Daily health report: plain-English summary on top
 
 **Why:** the daily report in #hemnet-ops was accurate but hard to read. It used script
@@ -202,6 +306,5 @@ and anything built on the Hemnet/Booli kommande ratio as well.
 
 ### Still open (same Hemnet change)
 
-- `scripts/premarket-flow-measure.js`: Hemnet side broken.
-- `scripts/hemnet-age-census.js`: needs checking before the 2026-11-01 run.
-- `scripts/hemnet-forsale-age-census.js`: the OLDEST sort is gone and needs a redesign.
+All three were fixed on 2026-10-28; see that entry. The for-sale census never needed the
+OLDEST sort, because it walks every scope to the end.
