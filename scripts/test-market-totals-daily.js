@@ -7,6 +7,11 @@
 // __NEXT_DATA__, so the live extractApolloState path is exercised. Booli pages
 // are synthetic App Router flight payloads (Booli parsing is unchanged).
 //
+// Hemnet moved to the App Router ~2026-10-30: the REAL pages captured 2026-11-03
+// (test-fixtures/hemnet-approuter-2026-11-03/) run through the same path below.
+// Since then kommande comes from its own page (/till-salu?upcoming=ONLY): the
+// default page no longer carries a kommande count.
+//
 // Run: node scripts/test-market-totals-daily.js   (exit 0 = all pass)
 
 'use strict';
@@ -22,6 +27,8 @@ const { parseSearchTotals, parseSearchIncludes } = require('../lib/hemnet-fetch'
 const FIX = require(path.join(__dirname, '..', 'test-fixtures', 'hemnet-till-salu-rootquery-2026-10-26.json'));
 const ROOT_ALL_1026  = FIX.pages['https://www.hemnet.se/till-salu'].ROOT_QUERY;
 const ROOT_EXCL_1026 = FIX.pages['https://www.hemnet.se/till-salu?upcoming=EXCLUDE'].ROOT_QUERY;
+const ROOT_ONLY_1026 = FIX.pages['https://www.hemnet.se/till-salu?upcoming=ONLY'].ROOT_QUERY;
+const { loadHemnetPage } = require(path.join(__dirname, '..', 'test-fixtures', 'hemnet-approuter'));
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 // Hemnet added "aggregated":"INCLUDE" to every listings key on ~2026-10-27
@@ -40,6 +47,7 @@ function withAggregated(root) {
 }
 const ROOT_ALL  = withAggregated(ROOT_ALL_1026);
 const ROOT_EXCL = withAggregated(ROOT_EXCL_1026);
+const ROOT_ONLY = withAggregated(ROOT_ONLY_1026);
 const hemnetHtml = (rootQuery) =>
   `<html><script id="__NEXT_DATA__" type="application/json">${JSON.stringify(
     { props: { pageProps: { __APOLLO_STATE__: { ROOT_QUERY: rootQuery } } } })}</script></html>`;
@@ -61,6 +69,7 @@ function fakeFetch(pages) {
 function livePages(overrides = {}) {
   return Object.assign({
     [job.HEMNET_TILL_SALU_URL]: hemnetHtml(ROOT_EXCL),
+    [job.HEMNET_KOMMANDE_URL]:  hemnetHtml(ROOT_ONLY),
     [job.HEMNET_ALL_URL]:       hemnetHtml(ROOT_ALL),
     [job.BOOLI_TILL_SALU_URL]:  booliHtml(59181),
     [job.BOOLI_KOMMANDE_URL]:   booliHtml(29185),
@@ -171,7 +180,7 @@ test('happy path: 4 rows, correct values + source URLs, no alert', async () => {
   });
   const urls = Object.fromEntries(summary.perRow.map(r => [`${r.site}.${r.segment}`, r.source_url]));
   assert.strictEqual(urls['hemnet.till_salu'], 'https://www.hemnet.se/till-salu?upcoming=EXCLUDE');
-  assert.strictEqual(urls['hemnet.kommande'], 'https://www.hemnet.se/till-salu');
+  assert.strictEqual(urls['hemnet.kommande'], 'https://www.hemnet.se/till-salu?upcoming=ONLY');
   assert.deepStrictEqual(summary.siteErrors, []);
   assert.strictEqual(summary.hemnetPartition.diff, 0);
   assert.deepStrictEqual(summary.hemnetIncludes, ['aggregated', 'minimal', 'teaser']);
@@ -180,7 +189,8 @@ test('happy path: 4 rows, correct values + source URLs, no alert', async () => {
 test('Hemnet changes the kinds of listing counted: rows written, plain warning', async () => {
   // The 26 Oct pages lack "aggregated": exactly what the day before the break looked like.
   const { summary, validation } = await run(livePages({
-    [job.HEMNET_TILL_SALU_URL]: hemnetHtml(ROOT_EXCL_1026), [job.HEMNET_ALL_URL]: hemnetHtml(ROOT_ALL_1026) }));
+    [job.HEMNET_TILL_SALU_URL]: hemnetHtml(ROOT_EXCL_1026), [job.HEMNET_KOMMANDE_URL]: hemnetHtml(ROOT_ONLY_1026),
+    [job.HEMNET_ALL_URL]: hemnetHtml(ROOT_ALL_1026) }));
   assert.strictEqual(summary.rowsWritten, 4, 'a definition change must not cost the day');
   assert.strictEqual(validation.key, 'hemnet-listing-types-changed');
   assert.strictEqual(validation.severity, 'warning');
@@ -190,13 +200,14 @@ test('Hemnet changes the kinds of listing counted: rows written, plain warning',
     if (!k.startsWith('listings(')) continue; const v = r.search[k]; delete r.search[k];
     r.search[k.replace('"aggregated":"INCLUDE"', '"aggregated":"INCLUDE","projects":"INCLUDE"')] = v; } return r; };
   const v2 = (await run(livePages({
-    [job.HEMNET_TILL_SALU_URL]: hemnetHtml(added(ROOT_EXCL)), [job.HEMNET_ALL_URL]: hemnetHtml(added(ROOT_ALL)) }))).validation;
+    [job.HEMNET_TILL_SALU_URL]: hemnetHtml(added(ROOT_EXCL)), [job.HEMNET_KOMMANDE_URL]: hemnetHtml(added(ROOT_ONLY)),
+    [job.HEMNET_ALL_URL]: hemnetHtml(added(ROOT_ALL)) }))).validation;
   assert.ok(/now also including: projects/.test(v2.message), v2.message);
 });
 test('Hemnet on the OLD shape: Booli rows still written, run is a failure', async () => {
   const old = hemnetHtml({ 'searchForSaleListings({})': { total: 1 } });
   const { client, summary, validation } = await run(livePages({
-    [job.HEMNET_TILL_SALU_URL]: old, [job.HEMNET_ALL_URL]: old }));
+    [job.HEMNET_TILL_SALU_URL]: old, [job.HEMNET_KOMMANDE_URL]: old, [job.HEMNET_ALL_URL]: old }));
   assert.strictEqual(summary.rowsWritten, 2);
   assert.deepStrictEqual(client.upserts.map(p => p[0]), ['booli', 'booli']);
   assert.strictEqual(validation.severity, 'failure');
@@ -241,6 +252,35 @@ test('small drift between the two pages is tolerated', async () => {
 test('swapping the URLs is caught (default page has no forSale)', async () => {
   const { validation } = await run(livePages({ [job.HEMNET_TILL_SALU_URL]: hemnetHtml(ROOT_ALL) }));
   assert.strictEqual(validation.key, 'site-failed:hemnet');
+});
+
+// --- Hemnet App Router (~2026-10-30): the real pages captured 2026-11-03 ---
+const appRouterPages = (overrides = {}) => livePages(Object.assign({
+  [job.HEMNET_TILL_SALU_URL]: loadHemnetPage('till-salu-exclude'),
+  [job.HEMNET_KOMMANDE_URL]:  loadHemnetPage('till-salu-only'),
+  [job.HEMNET_ALL_URL]:       loadHemnetPage('till-salu-all'),
+}, overrides));
+test('App Router pages: 4 rows, partition exact (62802 + 27166 = 89968), no alert', async () => {
+  const { summary, validation } = await run(appRouterPages());
+  assert.strictEqual(summary.rowsWritten, 4);
+  assert.deepStrictEqual(bySeg(summary), {
+    'hemnet.till_salu': 62802, 'hemnet.kommande': 27166,
+    'booli.till_salu': 59181, 'booli.kommande': 29185,
+  });
+  assert.strictEqual(summary.hemnetPartition.combined, 89968);
+  assert.strictEqual(summary.hemnetPartition.diff, 0);
+  assert.deepStrictEqual(summary.hemnetIncludes, ['aggregated', 'minimal', 'teaser']);
+  assert.strictEqual(validation, null);
+});
+test('App Router: the default page alone cannot supply kommande (swap is a failure)', async () => {
+  const { validation } = await run(appRouterPages({ [job.HEMNET_KOMMANDE_URL]: loadHemnetPage('till-salu-all') }));
+  assert.strictEqual(validation.key, 'site-failed:hemnet');
+  assert.match(validation.message, /hemnet\.kommande/);
+});
+test('App Router kommande fetch rejects: Booli still written, failure names the page', async () => {
+  const { summary, validation } = await run(appRouterPages({ [job.HEMNET_KOMMANDE_URL]: new Error('timeout') }));
+  assert.strictEqual(summary.rowsWritten, 2);
+  assert.match(validation.message, /hemnet \(kommande\): fetch failed — timeout/);
 });
 
 (async () => {

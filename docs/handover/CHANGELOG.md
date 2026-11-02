@@ -6,6 +6,62 @@ before it's fixed.
 
 ---
 
+## 2026-11-03 — Hemnet moves to the App Router; every Hemnet reader repaired (NOT YET DEPLOYED)
+
+### What Hemnet changed (~2026-10-30)
+
+- hemnet.se now serves its search, sold and most listing pages from the Next.js **App
+  Router** (Booli made the same move on 2026-09-21). There is no `__NEXT_DATA__` and,
+  unlike Booli, **no Apollo cache at all**: no `initialApolloState`, no `ROOT_QUERY`.
+- The data is all still on the page, inside the flight payload (`self.__next_f`):
+  - search: `ListingResultsCombined { total, cards[], recommendations[] }`, with the
+    query in a separate `variables: { searchParams, offset, sort }` block. Some
+    `searchParams` values are RSC pointers (`"$61:props:…:housingFormGroups"`).
+  - sold search: `SoldListingResults { total, cards[] }` (`SaleCard`)
+  - listing page: `ActivePropertyListing` with every field we read (views, package, …),
+    but `municipality` / `county` nested inline instead of `__ref` pointers.
+- The **default /till-salu page no longer carries a kommande count** — only its own
+  combined total. Kommande has to be read from `/till-salu?upcoming=ONLY`.
+- Rollout was mixed on 2026-11-03: some sold listing pages were still Pages Router.
+
+### What broke, 2026-10-30 → fix deployed
+
+Every job that reads Hemnet: market-totals-daily (Hemnet rows), hemnet-targeted-refresh
+(no views updated), hemnet-targeted-match (0 matches), the 1 Nov age census (both Hemnet
+pools), cohort-create (W44: 25 pairs instead of ~1,000), cohort-spotcheck-gate, and the
+2 Nov pre-market flow (Hemnet side). Sold-match would have failed on its next run (16 Nov).
+
+### Data gaps
+
+| Series | Gap |
+|---|---|
+| `market_totals` Hemnet `till_salu`, `kommande` | 2026-10-30 → fix date |
+| Hemnet view counts (cohort tracking) | last good refresh 2026-10-29 → fix date |
+| Age census, Hemnet pools | 2026-11-01 run missing (re-run planned) |
+| Pre-market flow, Hemnet | 2026-11-02 missing |
+| Cohort 2026-W44 | 25 pairs only (re-create planned) |
+
+### The fix
+
+- `lib/scrape-http.js` `extractFlightSearchState`: rebuilds the OLD Apollo shape from the
+  page (`ROOT_QUERY.search["listings({limit,offset,search,sort})"]`, `searchSales(…)`,
+  `ListingCard:<id>` / `SaleCard:<id>`), resolving the RSC pointers. `extractApolloState`
+  uses it automatically for App Router pages without an Apollo cache, so
+  `parseSearchTotals`, `parseSearchPage`, `parseSearchIncludes` and the census filter
+  check are unchanged. Throws (never returns empty) when the result node or its query
+  variables are missing.
+- `extractDetailState`: listing pages from either router. Used by `fetchDetail` and
+  `lib/sold-serp.js`. `resolveRef` accepts inline entities.
+- `market-totals-daily.js`: kommande now from `/till-salu?upcoming=ONLY` (`source_url`
+  changes accordingly); 3 Hemnet fetches/day instead of 2. The partition cross-check is
+  unchanged and was exact on 2026-11-03: 62,802 + 27,166 = 89,968.
+- Census, sold transport and the three `fetch*` helpers switched to the router-agnostic
+  extractors.
+- Tests run against the real pages captured 2026-11-03:
+  `test-fixtures/hemnet-approuter-2026-11-03/` (gzipped; loader `test-fixtures/hemnet-approuter.js`).
+
+---
+
 ## 2026-10-28 — Hemnet aggregated listings go live; census, pre-market flow and ad-cost repaired
 
 ### What Hemnet changed (seen live 2026-10-27 ~22:20 UTC)

@@ -8,20 +8,25 @@
 // /bostader now renders /till-salu. See docs/handover/CHANGELOG.md. Sites are
 // isolated: one site breaking still writes the other's rows, but the run is a
 // failure — before this, a Hemnet-only break silently cost Booli 3 weeks of data.
+//
+// 2026-11-03: Hemnet moved to the App Router (~2026-10-30). Its pages now carry
+// only their OWN total, so bare /till-salu no longer holds the kommande count:
+// kommande is read from /till-salu?upcoming=ONLY (3 Hemnet fetches/day, was 2).
 
 const { runJob } = require('./cron-wrapper');
 const { getWithRetry, extractApolloState, getOxylabsStats, resetOxylabsStats } = require('./lib/scrape-http');
 const { parseSearchTotals, parseSearchIncludes } = require('./lib/hemnet-fetch');
 
 // till_salu must be upcoming=EXCLUDE: bare /till-salu's headline count is
-// for-sale + kommande. Bare /till-salu is still fetched — it carries kommande
-// AND the combined count, which cross-checks the partition every day.
+// for-sale + kommande. Bare /till-salu is still fetched — its combined count
+// cross-checks the partition every day.
 const HEMNET_TILL_SALU_URL    = 'https://www.hemnet.se/till-salu?upcoming=EXCLUDE';
+const HEMNET_KOMMANDE_URL     = 'https://www.hemnet.se/till-salu?upcoming=ONLY';
 const HEMNET_ALL_URL          = 'https://www.hemnet.se/till-salu';
 const BOOLI_TILL_SALU_URL     = 'https://www.booli.se/sok/till-salu?upcomingSale=0';
 const BOOLI_KOMMANDE_URL      = 'https://www.booli.se/sok/till-salu?upcomingSale=1';
 
-// |combined − (forSale + upcoming)| allowed as a share of combined. The two pages
+// |combined − (forSale + upcoming)| allowed as a share of combined. The pages
 // are fetched in parallel, so only a handful of listings can move between them;
 // a real partition change (EXCLUDE meaning something new) is thousands.
 const PARTITION_TOLERANCE = 0.005;
@@ -79,7 +84,7 @@ function pickByPrefix(rootQuery, prefix, fieldName) {
 }
 
 function extractApollo(html, siteLabel) {
-  // Router-agnostic: Booli is App Router since 2026-09-21, Hemnet is still Pages.
+  // Router-agnostic: Booli is App Router since 2026-09-21, Hemnet since ~2026-10-30.
   const apollo = extractApolloState(html, siteLabel);
   if (!apollo || typeof apollo !== 'object') {
     throw new Error(`${siteLabel}: apollo state missing`);
@@ -101,28 +106,30 @@ function settledHtml(settled, label) {
 
 // Returns { rows, check } or throws. check = the partition cross-check result;
 // a mismatch does NOT throw — the rows are still written and validate() warns.
-function parseHemnet(tillSaluSettled, allSettled) {
+function parseHemnet(tillSaluSettled, kommandeSettled, allSettled) {
   const exclApollo = extractApollo(settledHtml(tillSaluSettled, 'hemnet (till_salu)'), 'hemnet (till_salu)');
+  const onlyApollo = extractApollo(settledHtml(kommandeSettled, 'hemnet (kommande)'), 'hemnet (kommande)');
   const allApollo  = extractApollo(settledHtml(allSettled, 'hemnet (all)'), 'hemnet (all)');
   const excl = parseSearchTotals(exclApollo);
+  const only = parseSearchTotals(onlyApollo);
   const all  = parseSearchTotals(allApollo);
-  const includes = [...new Set([...parseSearchIncludes(exclApollo), ...parseSearchIncludes(allApollo)])].sort();
+  const includes = [...new Set([exclApollo, onlyApollo, allApollo].flatMap(parseSearchIncludes))].sort();
 
   assertNumericTotal('hemnet.till_salu', excl.forSale);
-  assertNumericTotal('hemnet.kommande',  all.upcoming);
+  assertNumericTotal('hemnet.kommande',  only.upcoming);
   assertNumericTotal('hemnet.combined',  all.combined);
 
-  const diff = all.combined - (excl.forSale + all.upcoming);
+  const diff = all.combined - (excl.forSale + only.upcoming);
   const check = {
     combined: all.combined,
-    forSalePlusUpcoming: excl.forSale + all.upcoming,
+    forSalePlusUpcoming: excl.forSale + only.upcoming,
     diff,
     ok: Math.abs(diff) <= all.combined * PARTITION_TOLERANCE,
   };
   return {
     rows: [
       { site: 'hemnet', segment: 'till_salu', total: excl.forSale, source_url: HEMNET_TILL_SALU_URL },
-      { site: 'hemnet', segment: 'kommande',  total: all.upcoming, source_url: HEMNET_ALL_URL       },
+      { site: 'hemnet', segment: 'kommande',  total: only.upcoming, source_url: HEMNET_KOMMANDE_URL },
     ],
     check,
     includes,
@@ -151,10 +158,11 @@ async function main(client, log, deps = {}) {
   await client.query(CREATE_TABLE);
   resetOxylabsStats();
 
-  // Four fetches in parallel (Hemnet 2 + Booli 2 = 4 reqs/day).
+  // Five fetches in parallel (Hemnet 3 + Booli 2 = 5 reqs/day).
   const t0 = Date.now();
-  const [hTS, hAll, bTS, bKom] = await Promise.allSettled([
+  const [hTS, hKom, hAll, bTS, bKom] = await Promise.allSettled([
     fetchPage(HEMNET_TILL_SALU_URL, { logger: log }),
+    fetchPage(HEMNET_KOMMANDE_URL,  { logger: log }),
     fetchPage(HEMNET_ALL_URL,       { logger: log }),
     fetchPage(BOOLI_TILL_SALU_URL,  { logger: log }),
     fetchPage(BOOLI_KOMMANDE_URL,   { logger: log }),
@@ -166,7 +174,7 @@ async function main(client, log, deps = {}) {
   let hemnetPartition = null;
   let hemnetIncludes = null;
   for (const [site, parse] of [
-    ['hemnet', () => parseHemnet(hTS, hAll)],
+    ['hemnet', () => parseHemnet(hTS, hKom, hAll)],
     ['booli',  () => parseBooli(bTS, bKom)],
   ]) {
     try {
@@ -267,7 +275,7 @@ function validate(summary) {
 
 module.exports = {
   main, validate, parseHemnet, KNOWN_HEMNET_INCLUDES, parseBooli, assertNumericTotal, pickByPrefix,
-  HEMNET_TILL_SALU_URL, HEMNET_ALL_URL, BOOLI_TILL_SALU_URL, BOOLI_KOMMANDE_URL,
+  HEMNET_TILL_SALU_URL, HEMNET_KOMMANDE_URL, HEMNET_ALL_URL, BOOLI_TILL_SALU_URL, BOOLI_KOMMANDE_URL,
 };
 
 if (require.main === module) {

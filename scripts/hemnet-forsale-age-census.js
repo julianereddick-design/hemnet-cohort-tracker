@@ -41,7 +41,7 @@ require('dotenv').config();
 
 const fs = require('fs');
 const path = require('path');
-const { getWithRetry, extractNextData, getOxylabsStats, resetOxylabsStats } = require('../lib/scrape-http');
+const { getWithRetry, extractApolloState, getOxylabsStats, resetOxylabsStats } = require('../lib/scrape-http');
 const { parseSearchPage } = require('../lib/hemnet-fetch');
 const { DAY } = require('../lib/premarket-flow');
 const {
@@ -136,11 +136,9 @@ function scopeLabel(scope) {
     .filter(Boolean).join('/');
 }
 
+// Router-agnostic (Hemnet moved to the App Router ~2026-10-30); throws when neither parses.
 function apolloFrom(html) {
-  const d = extractNextData(html);
-  const a = d && d.props && d.props.pageProps && d.props.pageProps.__APOLLO_STATE__;
-  if (!a) throw new Error('__APOLLO_STATE__ missing');
-  return a;
+  return extractApolloState(html, 'hemnet-forsale-age-census');
 }
 // Returns { status, cards, total } — cards null on persistent non-200 (error != end), and
 // also when the page carries no result list or Hemnet did not apply the scope's filters
