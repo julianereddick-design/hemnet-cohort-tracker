@@ -11,6 +11,8 @@
 //   salda-goteborg-apartments-2rooms              sold, total 30,446, 50 SaleCards
 //   bostad-22055372-minimal                       App Router detail, MINIMAL, 319 views, Göteborgs kommun
 //   bostad-sold-pages-router                      a sold listing page Hemnet still served as Pages Router
+//   till-salu-only-gnosjo-u2028                   Gnosjö pre-market, total 7; its result row holds a U+2028
+//                                                 (captured 2026-11-02 UTC after it failed the census re-run)
 
 'use strict';
 
