@@ -13,6 +13,8 @@
 //   bostad-sold-pages-router                      a sold listing page Hemnet still served as Pages Router
 //   till-salu-only-gnosjo-u2028                   Gnosjö pre-market, total 7; its result row holds a U+2028
 //                                                 (captured 2026-11-02 UTC after it failed the census re-run)
+//   bostad-19424955-after-text-row                detail whose listing row follows a length-prefixed TEXT row, 115 views
+//   bostader-orkelljunga-fritidshus-1-result      search whose variables row follows a TEXT row, total 1
 
 'use strict';
 
