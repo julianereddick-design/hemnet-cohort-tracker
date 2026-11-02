@@ -38,7 +38,7 @@ pools), cohort-create (W44: 25 pairs instead of ~1,000), cohort-spotcheck-gate, 
 | `market_totals` Hemnet `till_salu`, `kommande` | 2026-10-30 → 2026-11-01 | 2 Nov written: 62,801 + 27,167 |
 | Hemnet view counts (cohort tracking) | readings 31 Oct and 1 Nov frozen at 29 Oct | blanked; see "Views outage" below |
 | Age census, Hemnet pools | 2026-11-01 run missing | re-run for RUN_DATE 2026-11-01: pre-market 6,454, for-sale 43,043 (comparable) |
-| Pre-market flow, Hemnet | 2026-11-02 missing | re-run: 554 additions, 19.1% share |
+| Pre-market flow, Hemnet | 2026-11-02 missing | re-run: 554 Hemnet vs 2,346 Booli additions (report shows 23.6% = Hemnet ÷ Booli) |
 | Cohort 2026-W44 | 25 pairs only | rebuilt: 951 pairs (backup of the 25 in `/var/log/hemnet/backup-2026-W44-before-rebuild-2026-11-02.json`); spot-check 4.1% |
 
 ### Views outage: frozen readings blanked, charts show a labelled gap
