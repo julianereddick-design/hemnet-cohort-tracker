@@ -6,7 +6,7 @@ before it's fixed.
 
 ---
 
-## 2026-11-03 — Hemnet moves to the App Router; every Hemnet reader repaired (NOT YET DEPLOYED)
+## 2026-11-03 — Hemnet moves to the App Router; every Hemnet reader repaired (deployed 2026-11-02 UTC)
 
 ### What Hemnet changed (~2026-10-30)
 
@@ -33,13 +33,36 @@ pools), cohort-create (W44: 25 pairs instead of ~1,000), cohort-spotcheck-gate, 
 
 ### Data gaps
 
-| Series | Gap |
-|---|---|
-| `market_totals` Hemnet `till_salu`, `kommande` | 2026-10-30 → fix date |
-| Hemnet view counts (cohort tracking) | last good refresh 2026-10-29 → fix date |
-| Age census, Hemnet pools | 2026-11-01 run missing (re-run planned) |
-| Pre-market flow, Hemnet | 2026-11-02 missing |
-| Cohort 2026-W44 | 25 pairs only (re-create planned) |
+| Series | Gap | After the re-runs (2026-11-02 UTC) |
+|---|---|---|
+| `market_totals` Hemnet `till_salu`, `kommande` | 2026-10-30 → 2026-11-01 | 2 Nov written: 62,801 + 27,167 |
+| Hemnet view counts (cohort tracking) | readings 31 Oct and 1 Nov frozen at 29 Oct | blanked; see "Views outage" below |
+| Age census, Hemnet pools | 2026-11-01 run missing | re-run for RUN_DATE 2026-11-01: pre-market 6,454, for-sale 43,043 (comparable) |
+| Pre-market flow, Hemnet | 2026-11-02 missing | re-run: 554 additions, 19.1% share |
+| Cohort 2026-W44 | 25 pairs only | rebuilt: 951 pairs (backup of the 25 in `/var/log/hemnet/backup-2026-W44-before-rebuild-2026-11-02.json`); spot-check 4.1% |
+
+### Views outage: frozen readings blanked, charts show a labelled gap
+
+- Every Hemnet view reading on **31 Oct and 1 Nov** (5,919 rows, cohorts W36–W43) equalled
+  the pair's 29 Oct reading: `hemnet-targeted-refresh` updated nothing, so `cohort-track`
+  re-read stale counts. Left in, they show H% falling ~11–13 points on 31 Oct and then a
+  spike on the first good reading (3 Nov), when five days of Hemnet views meet two of Booli.
+- Those `cohort_daily_views.hemnet_views` were set to NULL (Booli kept). Only rows equal to
+  the previous reading were touched; W44's 2 Nov readings (post-fix) were not. Backup:
+  `/var/log/hemnet/backup-hemnet-views-outage-2026-10-30_2026-11-02.json` (id, pair_id,
+  date, hemnet_views). To revert: `UPDATE cohort_daily_views SET hemnet_views = <value>
+  WHERE id = <id>` for each row.
+- Every reader already skips a null reading, so nothing else changes. NULL here means
+  "not captured", not "not live"; this is the only such window.
+- The counters are cumulative, so no views are lost: 3 Nov carries everything since 29 Oct.
+  Lost is only how they spread over 30 Oct – 2 Nov, plus the last days of homes that came
+  off the market during the outage.
+- `lib/view-outages.js` lists the outage; the per-cohort `charts.html` and the cross-cohort
+  H% chart shade it ("Hemnet data outage, website change"), break the line across it
+  instead of `spanGaps` joining it up, and add a methodology note. The per-cohort chart
+  resumes on 5 Nov (it looks back one reading), the cross-cohort chart on 7 Nov (two).
+- `chart-hb-ratio.js` (x axis = days since listing) has no calendar band to draw; with the
+  nulls its 7-day lookback simply measures across the outage from good readings.
 
 ### The fix
 

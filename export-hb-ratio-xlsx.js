@@ -2,6 +2,7 @@ const { createClient } = require('./db');
 const ExcelJS = require('exceljs');
 const path = require('path');
 const fs = require('fs');
+const { outageChartJs, outageNoteHtml } = require('./lib/view-outages');
 
 function normalizeCounty(name) {
   if (!name) return '';
@@ -682,11 +683,14 @@ async function run() {
     '<li><strong>H/B Ratio:</strong> Per-pair ratio = Hemnet daily views / Booli daily views. Pairs with Booli daily &le; 0 or ratio &gt; 20 are excluded as outliers. Chart shows the <strong>median</strong> ratio across all included pairs per region per date (minimum 3 pairs required).</li>',
     '<li><strong>Hemnet % of Total:</strong> Sum of all included Hemnet daily incrementals / Sum of all included (Hemnet + Booli) daily incrementals, by region per date. This is the aggregate share based on <strong>total views</strong>, not a median of per-pair percentages.</li>',
     '<li><strong>Regions:</strong> Stockholm, Gotenberg (V&auml;stra G&ouml;talands), Skane (Sk&aring;ne), Olland (all other counties). TOTAL includes all regions.</li>',
+    outageNoteHtml(chartDates),
     '</ul></div>',
     '<script>',
+    outageChartJs(chartDates),
     'new Chart(document.getElementById("ratioChart"), {',
     '  type: "line",',
-    '  data: { labels: ' + labelsJson + ', datasets: ' + ratioDs + ' },',
+    '  data: { labels: ' + labelsJson + ', datasets: ' + ratioDs + '.map(withOutageGaps) },',
+    '  plugins: [viewOutagePlugin],',
     '  options: {',
     '    responsive: true, maintainAspectRatio: false,',
     '    plugins: {',
@@ -701,7 +705,8 @@ async function run() {
     '});',
     'new Chart(document.getElementById("hPctChart"), {',
     '  type: "line",',
-    '  data: { labels: ' + labelsJson + ', datasets: ' + hPctDs + ' },',
+    '  data: { labels: ' + labelsJson + ', datasets: ' + hPctDs + '.map(withOutageGaps) },',
+    '  plugins: [viewOutagePlugin],',
     '  options: {',
     '    responsive: true, maintainAspectRatio: false,',
     '    plugins: {',

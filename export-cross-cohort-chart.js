@@ -2,6 +2,7 @@ const ExcelJS = require('exceljs');
 const path = require('path');
 const fs = require('fs');
 const glob = require('glob');
+const { outageChartJs, outageNoteHtml } = require('./lib/view-outages');
 
 const SEC2_START = 8; // Column where cumulative views begin (col H)
 const SKIP_COHORTS = ['2026-W09', '2026-W10', '2026-W11']; // low data quality
@@ -199,7 +200,8 @@ function buildHtml(allCohortResults, unionDates) {
   const scripts = charts.map((c, i) => `
 new Chart(document.getElementById("chart${i}"), {
   type: "line",
-  data: { labels: ${labelsJson}, datasets: [${c.datasets.join(',')}] },
+  data: { labels: ${labelsJson}, datasets: [${c.datasets.join(',')}].map(withOutageGaps) },
+  plugins: [viewOutagePlugin],
   options: {
     responsive: true, maintainAspectRatio: false,
     plugins: {
@@ -239,8 +241,10 @@ ${canvases}
 <li><strong>Daily incremental:</strong> <code>max(0, (cumulative_today - cumulative_2_days_ago) / 2)</code> for both Hemnet and Booli. Negative deltas are floored to zero.</li>
 <li><strong>Hemnet % of Total:</strong> <code>mean(H_incremental) / (mean(H_incremental) + mean(B_incremental)) &times; 100</code> per region per date. Minimum 3 included pairs required.</li>
 <li><strong>Regions:</strong> Stockholm, Gotenberg (V&auml;stra G&ouml;talands), Skane (Sk&aring;ne), Olland (all other counties). TOTAL includes all regions. <strong>&Ouml;stermalm</strong> is an additive drill-down of Stockholm postcodes 11400&ndash;11599 (those pairs also remain in the Stockholm series).</li>
+${outageNoteHtml(unionDates)}
 </ul></div>
 <script>
+${outageChartJs(unionDates)}
 ${scripts}
 <\/script></body></html>`;
 }
