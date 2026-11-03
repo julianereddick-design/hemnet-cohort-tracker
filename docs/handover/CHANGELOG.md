@@ -6,6 +6,36 @@ before it's fixed.
 
 ---
 
+## 2026-11-03 — Weekly new listings for the MASTER workbook: now from our own data (GrokBot retired)
+
+- **The workbook**: Glenn's `DATA MASTER\WEEKLY PROPERTIES\MASTER_updated_DDMMYY.xlsx`, weekly new
+  pre-owned listings for Sweden, Stockholms län and Västra Götalands län (total, for sale,
+  pre-market = total − for sale), back to Dec 2013. Source was Hemnet's public
+  `hemnet.se/statistik/nytillkomna` (pre-owned), downloaded by hand or by GrokBot.
+- **Series break, wk 19 Oct 2026**: that page now counts free (MINIMAL) and aggregated ads too
+  (Sweden for sale ~1,850 → 4,022 a week). The workbook was brought to wk 12 Oct
+  (`MASTER_updated_121026.xlsx`, 4 weeks from GrokBot's file, checked against Hemnet) and
+  stops there on the public figure.
+- **From wk 19 Oct the workbook is PAID new listings counted from the ad registry**
+  (`lib/weekly-new-listings.js`): new ad = an id created that week (ids are sequential;
+  renewals keep their id), pre-owned only, total/for sale by the tier first seen, paid = ever
+  seen with a paid package, plus older free/aggregated ads upgraded to paid that week.
+  Every week our count of ALL new ads is checked against Hemnet's public figure (±5%).
+- **Wk 19 + 26 Oct are estimates** (no paid-only count exists): Hemnet's total × paid share of
+  that week's ads still live at the first sweep (`scripts/seed-weekly-master.js --estimate`).
+  Flagged in the table, the CSV, the Slack post and raw-sheet column C of the workbook.
+- **Pipeline**: `weekly-new-listings.js` (server, Mon 06:15 UTC) → table
+  `hemnet_weekly_new_listings` → `view-data/weekly-new-listings/master-series.csv` + Slack post
+  (the Dashboard's three lines). `tools/update-master-workbook.ps1` (Glenn's PC, scheduled task
+  "Hemnet MASTER weekly update", Mon 19:00 Sydney) adds the new weeks to a NEW
+  `MASTER_updated_DDMMYY.xlsx` through Excel; on failure it leaves
+  `MASTER_update_FAILED_<date>.txt` in the folder. Log: `%LOCALAPPDATA%\hemnet-master-update.log`.
+- Hemnet's public weekly data is fetched directly:
+  `/statistik/nytillkomna?resolution=WEEK&marketState=ALL|FOR_SALE&successionType=PRE_OWNED&locationId=17691|17744|17755`.
+  Hemnet revises past weeks by ±1–3; the workbook keeps the figures as first recorded.
+- Paid-only cross-check for the future: `/statistik/finansiell-rapportering` = "publicerade och
+  betalda objekt", monthly, Sweden (Hemnet's quarterly-report definition).
+
 ## 2026-11-04 — Hemnet ad registry: what kind of ad every live Hemnet ad is; sold-match "paid ad"
 
 - **Why**: Hemnet now shows free ads (MINIMAL, since 2026-10-20) and ads copied from agency

@@ -87,6 +87,7 @@ Tiers are declared in `lib/job-registry.js`; the reasoning is in
 | `0 3 * * *` (daily) | `cron-health-slack.js` | daily |
 | `30 5 * * *` (daily) | `scripts/hemnet-ad-daily.js` | daily |
 | `0 6 * * 0` (Sun) | `scripts/hemnet-ad-sweep.js` | weekly |
+| `15 6 * * 1` (Mon) | `weekly-new-listings.js` | weekly |
 
 ---
 
@@ -482,6 +483,32 @@ typed. See CHANGELOG 2026-11-04.
   (`lib/listing-segment.js homeClassOf`). Types: paid, newbuild, free, aggregated, teaser, other,
   `no_ad_found` (no id on the sold card and nothing in the registry — not proof of no ad; see
   CHANGELOG), `not_known` (an id the registry never saw live).
+
+## (b3) Weekly new listings — the MASTER workbook series
+
+Glenn's `DATA MASTER\WEEKLY PROPERTIES\MASTER_updated_DDMMYY.xlsx` (weekly new pre-owned listings,
+Sweden / Stockholms län / Västra Götalands län, total + for sale; pre-market = difference). To wk
+12 Oct 2026 = Hemnet's public nytillkomna; from wk 19 Oct = paid-only from the ad registry
+(19 + 26 Oct estimated). Definitions and the break: CHANGELOG 2026-11-03 and the header of
+`lib/weekly-new-listings.js`.
+
+- **Table** `hemnet_weekly_new_listings` (`migrate-weekly-new-listings.js`): (week_start, area,
+  market, series) → value, is_estimate, note. Series: `master` (the workbook), `hemnet_public`,
+  `registry_all`, `registry_paid`, `registry_upgrades`.
+- **`weekly-new-listings.js`** (SCHEDULED, tier 2, `15 6 * * 1`): refetches Hemnet's public weekly
+  figures (6 pages), counts each new complete week from the registry, checks our all-ads count
+  against Hemnet's (±5%, warning if off), writes `view-data/weekly-new-listings/master-series.csv`
+  (stable URL) + `view-data/<date>/weekly-new-listings.csv`, posts the Dashboard's three lines to
+  `#hemnet-status`. `--dry-run` = live reads, writes and posts nothing.
+- **`scripts/seed-weekly-master.js`** (manual): `--master <csv>` loads the workbook history (refuses
+  to overwrite differing values without `--force`); `--estimate w,w` writes flagged estimates.
+- **`tools/update-master-workbook.ps1`** (Glenn's PC, Windows task "Hemnet MASTER weekly update",
+  Mon 19:00 Sydney, registered by `tools/register-master-task.ps1`): appends the CSV's new weeks to
+  a temp copy of the newest workbook through Excel (raw sheets + col C source, PM sheets, analysis
+  rows above the summaries, charts extended, Dashboard week), checks it, saves a NEW
+  `MASTER_updated_DDMMYY.xlsx`. `-DryRun`, `-CsvPath` for testing. Failure →
+  `MASTER_update_FAILED_<date>.txt` in the folder + `%LOCALAPPDATA%\hemnet-master-update.log`.
+  Needs the PC on and logged in; catches up at the next chance if not.
 
 ## (c) Market supply totals
 

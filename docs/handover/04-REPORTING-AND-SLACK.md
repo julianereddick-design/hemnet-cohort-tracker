@@ -288,6 +288,17 @@ and is the backstop that makes tier-2 silence safe. Section-by-section reading g
 - **Manual trigger / dry-run:** `REPORT_DATE=2026-07-27 node premarket-flow-weekly-report.js --dry-run`.
   Also has a `--smoke` self-test (offline, no DB, no network).
 
+### 2.5b Weekly new listings — `weekly-new-listings.js` (from 2026-11-09)
+
+- **What:** replaces the GrokBot weekly properties numbers. The MASTER workbook Dashboard's three
+  "Slack draft" lines (total / for sale / pre-market: Sweden, Stockholm, VG, rest of Sweden; YoY,
+  last 4 weeks, 2-year stack, PM share) for the latest week, computed from
+  `hemnet_weekly_new_listings` series `master` — paid-only new listings from wk 19 Oct 2026.
+  Plus a line on the check against Hemnet's public figure, the estimated weeks, and the CSV link.
+- **Channel:** business → `#hemnet-status`, Mondays 06:15 UTC. Audience entry in `lib/slack-post.js`.
+- **Dry run:** `node weekly-new-listings.js --dry-run` (fetches Hemnet, reads the DB, prints the
+  post; writes and posts nothing). `--smoke` offline.
+
 ### 2.6 Sold-match weekly match-rate — `sold-match-report.js`
 
 - **What:** The **minimal** weekly message (blank-slate redesign 2026-07-07): a most-recent-first
