@@ -6,6 +6,22 @@ before it's fixed.
 
 ---
 
+## 2026-11-04 — Spot-check: clear mismatches removed automatically; backlog cleared
+
+- Nobody had reacted to the spot-check review queue since 24 Aug (Julian, the only allowed
+  reactor): 228 open items, W34–W44. Glenn's decision: the gate (`cohort-spotcheck-gate.js` 9a)
+  now soft-removes every CONFIRMED_MISMATCH pair itself (audited in `spotcheck_removed_pairs`,
+  `human_verdict` AUTO_REMOVED, reactor `auto-spotcheck`, recoverable with
+  `UPDATE cohort_pairs SET removed_at = NULL WHERE id = …`) and lists them in the review thread.
+  Only UNCERTAIN pairs are posted for a human; Glenn reviews them (added to
+  `SLACK_ALLOWED_REACTORS`). The 7-day unanswered warning stays.
+- Known accuracy: of 15 automatic MISMATCH verdicts Julian reviewed (Jun–Aug), 8 were real and 7
+  were the same home. Accepted: wrongly removing a pair costs ~1% of a cohort's sample, keeping a
+  wrong pair puts bad data in the views comparison. Removal leans on price/size divergence, so it
+  may slightly under-represent homes whose price changed between the sites.
+- Backlog (`scripts/clear-spotcheck-backlog.js`): open MISMATCH items removed the same way;
+  other open items before W44 marked CLEARED_STALE (pair kept); W44's uncertain items left open.
+
 ## 2026-11-04 — Removed Hemnet ads read as "unrecognised page type" (one refresh run)
 
 - The 3 Nov 15:01 UTC `hemnet-targeted-refresh` run (the first since the App Router fix) alerted

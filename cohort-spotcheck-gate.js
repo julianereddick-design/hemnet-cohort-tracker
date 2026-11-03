@@ -33,7 +33,7 @@ const { adjudicatePairs, adjudicatePair } = require('./lib/spotcheck-adjudicate'
 const { computeSummary, renderSlackAlert, renderSummaryMd } = require('./lib/spotcheck-summary');
 const { sharedPhotoPairs, filterDiscriminating } = require('./lib/spotcheck-dhash');
 const { postReviewMessage, postInfoMessage } = require('./lib/spotcheck-slack-bot');
-const { upsertReviewMessage } = require('./lib/spotcheck-review-store');
+const { upsertReviewMessage, autoRemoveMismatch } = require('./lib/spotcheck-review-store');
 const { resolveChannel } = require('./lib/slack-post');
 
 // ---------------------------------------------------------------
@@ -409,6 +409,20 @@ async function main(client, log) {
     v.page_status && (v.page_status.hemnet === 'delisted' || v.page_status.booli === 'delisted');
   const unreviewablePairs = uncertainAll.filter(isUnreviewable);
 
+  // 9a. 2026-11-04 (Glenn): CONFIRMED_MISMATCH pairs are removed automatically, Slack or
+  //     not (audited soft-remove, recoverable: UPDATE cohort_pairs SET removed_at = NULL).
+  //     Only UNCERTAIN pairs go to a human. The review row is written first with a
+  //     placeholder ts ('auto'), then marked AUTO_REMOVED, so the poller never sees it open.
+  const mismatchPairs = verdicts.filter(v => v.verdict === 'CONFIRMED_MISMATCH');
+  const autoRemoved = [];
+  for (const p of mismatchPairs) {
+    await upsertReviewMessage(client, { pairId: p.pair_id, cohortId, channel: 'auto', ts: 'auto', visionVerdict: 'MISMATCH' });
+    if (await autoRemoveMismatch(client, { pairId: p.pair_id, cohortId, visionVerdict: 'MISMATCH', reason: 'automatic spot-check: different homes' })) {
+      autoRemoved.push(p.pair_id);
+    }
+  }
+  if (mismatchPairs.length) log('INFO', `auto-removed ${autoRemoved.length} of ${mismatchPairs.length} CONFIRMED_MISMATCH pair(s): ${autoRemoved.join(', ')}`);
+
   const botToken = process.env.SLACK_BOT_TOKEN;
   let reviewChannel = null;
   try {
@@ -418,8 +432,7 @@ async function main(client, log) {
   }
   if (botToken && reviewChannel) {
     const uncertainPairs = uncertainAll.filter(v => !isUnreviewable(v));
-    const mismatchPairs  = verdicts.filter(v => v.verdict === 'CONFIRMED_MISMATCH');
-    const reviewable     = [...uncertainPairs, ...mismatchPairs];
+    const reviewable     = uncertainPairs;
 
     // Phase 0 (2026-08-17 alerting design §4.5): ONE parent message, every pair
     // threaded under it. This was the dominant volume in the ops channel — one
@@ -428,9 +441,10 @@ async function main(client, log) {
     // Threading removes ~90% of channel-level volume and changes nothing about
     // the reaction protocol: each reply still gets its own ts.
     let threadTs = null;
-    if (reviewable.length > 0 || unreviewablePairs.length > 0) {
+    if (reviewable.length > 0 || unreviewablePairs.length > 0 || autoRemoved.length > 0) {
       const parent = await postInfoMessage(reviewChannel,
-        `[REVIEW] ${cohortId}: ${reviewable.length} pair(s) need review` +
+        `[REVIEW] ${cohortId}: ${reviewable.length} pair(s) need review (react ✅ different homes / ❌ same home / ❓ unsure)` +
+        (autoRemoved.length > 0 ? `; ${autoRemoved.length} clear mismatch(es) removed automatically` : '') +
         (unreviewablePairs.length > 0 ? `, ${unreviewablePairs.length} unreviewable` : ''));
       // A failed parent must NOT cost us the queue — fall back to top-level posts.
       if (parent && parent.ts) threadTs = parent.ts;
@@ -438,7 +452,7 @@ async function main(client, log) {
     }
     const threadOpts = threadTs ? { threadTs } : {};
 
-    // One message per reviewable pair — UNCERTAIN and MISMATCH alike (own ts each).
+    // One message per UNCERTAIN pair (own ts each).
     for (const p of reviewable) {
       const res = await postReviewMessage(reviewChannel, p, threadOpts);
       if (res && res.ts) {
@@ -449,13 +463,18 @@ async function main(client, log) {
         });
       }
     }
+    if (autoRemoved.length > 0) {
+      await postInfoMessage(reviewChannel,
+        `[AUTO-REMOVED] ${cohortId}: ${autoRemoved.length} pair(s) the automatic check found to be different homes, taken out of the cohort: ` +
+        autoRemoved.join(', ') + '. Any wrongly removed can be put back.', threadOpts);
+    }
     // Unreviewable (delisted) pairs: ONE informational post, no review rows.
     if (unreviewablePairs.length > 0) {
       await postInfoMessage(reviewChannel,
         `[SPOT-CHECK] ${cohortId}: ${unreviewablePairs.length} pair(s) unreviewable — listing removed since cohort build: ` +
         unreviewablePairs.map(p => p.pair_id).join(', '), threadOpts);
     }
-    log('INFO', `review queue: ${uncertainPairs.length} UNCERTAIN + ${mismatchPairs.length} MISMATCH posted${threadTs ? ` threaded under ${threadTs}` : ' top-level'}; ${unreviewablePairs.length} unreviewable (delisted) diverted`);
+    log('INFO', `review queue: ${uncertainPairs.length} UNCERTAIN posted, ${autoRemoved.length} auto-removed listed${threadTs ? ` threaded under ${threadTs}` : ' top-level'}; ${unreviewablePairs.length} unreviewable (delisted) diverted`);
   } else if (!botToken) {
     // reviewChannel-missing case is already logged by the resolveChannel catch above.
     log('INFO', 'review queue: SLACK_BOT_TOKEN not set — skipping Slack post (verdicts still written)');
@@ -472,6 +491,7 @@ async function main(client, log) {
     confirmedMismatch: summary.confirmedMismatch,
     uncertain: summary.uncertain,
     uncertainUnreviewable: unreviewablePairs.length,
+    autoRemoved: autoRemoved.length,
     confirmedMismatchRate: summary.confirmedMismatchRate,
     wilsonLo: summary.wilsonLo,
     wilsonHi: summary.wilsonHi,
