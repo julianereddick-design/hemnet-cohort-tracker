@@ -85,6 +85,8 @@ Tiers are declared in `lib/job-registry.js`; the reasoning is in
 | `0 22 */2 * *` | `cohort-track.js` | every 2 days |
 | `0 12 * * *` (daily) | `spotcheck-reaction-poller.js` | daily |
 | `0 3 * * *` (daily) | `cron-health-slack.js` | daily |
+| `30 5 * * *` (daily) | `scripts/hemnet-ad-daily.js` | daily |
+| `0 6 * * 0` (Sun) | `scripts/hemnet-ad-sweep.js` | weekly |
 
 ---
 
@@ -114,6 +116,9 @@ Tiers are declared in `lib/job-registry.js`; the reasoning is in
 | `export-cross-cohort-chart.js` | Cross-cohort H%-of-views chart | none (reads xlsx) | via weekly-view-report | `view-data/…/cross-cohort-hpct.html` |
 | `chart-hb-ratio.js` | On-demand H/B ratio chart + CSVs | none (DB) | manual | `view-data/…/hb-ratio-*.{html,csv}` |
 | `export-views-wide.js` | Wide-format CSV dump of a cohort | none (DB) | manual | `view-data/…/*.csv` |
+| **Hemnet ad registry (what kind of ad each live ad is)** |||||
+| `scripts/hemnet-ad-daily.js` | Newest ads + upgrades into the registry | Hemnet `/till-salu` newest-first · Oxylabs | daily 05:30 | `hemnet_ad_registry`, `hemnet_ad_package_history`, `hemnet_ad_sweep_run` |
+| `scripts/hemnet-ad-sweep.js` | Every live ad; marks gone; counts by tier × package | Hemnet `/till-salu` via the census walker · Oxylabs | Sun 06:00 | same three tables |
 | **Sold-match (Hemnet market share)** |||||
 | `sold-match-batch.js` | Fortnightly national sold-match pipeline (sample→match→recheck) | Booli `/slutpriser` + Hemnet `/salda` + SERP bridge · Oxylabs | Mon 07:30 (even wks) | `booli_sold`, `hemnet_sold`, `sold_match`, `sold_spend` |
 | `sold-match-report.js` | Slack settled-rate summary | none (DB) | Mon 11:00 | Slack |
@@ -376,8 +381,11 @@ Apollo node → reclassifies as `matched` with `match_method='bostad_bridge'`.
 ### `sold-match-report.js` (Phase 20)
 - **Computes:** buckets `sold_match` by segment → region/national/family. Headline = settled
   genuine-non-Hemnet rate = `genuine_non_hemnet / (matched + genuine_non_hemnet)` over terminal
-  verdicts only. Live `run()` posts a minimal weekly table (Matched-on-Hemnet % + n, last ~5 cohorts) +
-  chart link (detailed renderers dormant). DB-only.
+  verdicts only. Live `run()` posts a minimal weekly table (Matched-on-Hemnet % + paid-ad % + n, last
+  ~5 cohorts) + a breakdown of the latest run by Hemnet ad type + chart link (detailed renderers
+  dormant). DB-only. Paid-ad % comes from `lib/sold-ad-type.js` over the ad registry (section (b2));
+  it shows "—" while over 25% of that run's matched homes were never seen live, and is left out
+  entirely if the registry query fails.
 - **Source:** none — reads `sold_match ⋈ booli_sold`. Posts to Slack via `lib/spotcheck-slack-bot`.
 - **Schedule:** `0 11 * * 1` (Mon 11:00), after the batch.
 - **Run manually:** `node sold-match-report.js`
@@ -391,7 +399,7 @@ Apollo node → reclassifies as `matched` with `match_method='bostad_bridge'`.
 
 ### `sold-match-xlsx.js`
 - **Computes:** one auditable workbook per cohort (`window_end`) — every sampled Booli property with
-  verdict + clickable Booli/Hemnet links.
+  verdict + clickable Booli/Hemnet links, and (matched rows) the Hemnet ad type from the ad registry.
 - **Source:** none — reads `sold_match ⋈ booli_sold`. Writes
   `view-data/<date>/sold-match/sold-audit-<cohort>.xlsx`.
 - **Schedule:** `10 11 * * 1` (Mon 11:10).
@@ -429,6 +437,51 @@ Apollo node → reclassifies as `matched` with `match_method='bostad_bridge'`.
   kungalv-apt, kungalv-villa), each with family + Booli areaIds/objectType + Hemnet locationId/itemType.
 
 ---
+
+## (b2) Hemnet ad registry — what kind of ad every live Hemnet ad is
+
+Since Oct 2026 Hemnet shows paid ads (BASIC/PLUS/PREMIUM/MAX), free ads (MINIMAL, from
+2026-10-20), ads copied from agency sites (AGGREGATED, from ~2026-10-27), teasers and new-build
+projects (NC_*). Sold pages carry no package, so we record each ad's package **while it is
+live**; sold-match then looks it up. Started 2026-11-04 — ads that came down earlier can never be
+typed. See CHANGELOG 2026-11-04.
+
+**Tables** (`migrate-ad-registry.js`, idempotent):
+- `hemnet_ad_registry` — one row per Hemnet ad id: address, kommun, area, rooms, current package
+  and `ad_class`, tier (`forsale`/`premarket`), `packages_seen` (every package ever seen),
+  `first_paid_seen`, `first_seen`/`last_seen`, `gone_on` (set by a complete weekly sweep).
+- `hemnet_ad_package_history` — a row on first sighting and on every package or tier change
+  (`prior_package` → `package`). Upgrades are `prior_package` aggregated/free → a paid package.
+- `hemnet_ad_sweep_run` — one row per walk: kind, status, ads read, new, changed, upgrades, gone,
+  Oxylabs calls, and `counts` = `{ forsale: {PACKAGE: n}, premarket: {…} }`.
+
+### `scripts/hemnet-ad-daily.js` (SCHEDULED, tier 1)
+- **Does:** walks `https://www.hemnet.se/till-salu?page=N` (for sale + coming soon together,
+  no filters) until a whole page was published before the cutoff (start of yesterday, or of the last good walk's day after a miss;
+  max 7 days back, less 2h for Swedish time). Hemnet orders by publish **day**, then package, then time
+  (sort= is ignored), and buying a package resets the publish date — so new paid/free ads and
+  upgrades are at the front. Over 50 pages → walks `upcoming=EXCLUDE` and `ONLY` separately.
+- **Misses by design:** newly aggregated ads (they carry the agency's old publish date) — the
+  weekly sweep finds them.
+- **Schedule:** `30 5 * * *`. ~25–30 Oxylabs calls/day (≈1,000 new or renewed ads a day, measured 2026-11-03).
+- **Run manually:** `node scripts/hemnet-ad-daily.js --dry-run` (live walk, writes nothing),
+  `--smoke` (offline), no flag = live into the registry.
+
+### `scripts/hemnet-ad-sweep.js` (SCHEDULED, tier 1)
+- **Does:** runs the age-census walker (`scripts/hemnet-forsale-age-census.js run({ onCards })`)
+  for both pools and writes every card to the registry, each pool as soon as it finishes. Marks
+  unseen ads gone **only if both pools passed the census gates** (reconciliation ≤2% vs
+  Hemnet's own totals, coverage, error pages); otherwise status `warning`, nothing marked gone.
+- **Schedule:** `0 6 * * 0` (Sun 06:00), ~2–3h, ~2,500 Oxylabs calls.
+- **Run manually:** `node scripts/hemnet-ad-sweep.js` (live, ~2–3h) or `--smoke`.
+
+### `lib/sold-ad-type.js` (read side, used by `sold-match-report.js` and `sold-match-xlsx.js`)
+- Matched sale → registry ads by (1) the ad id on the sold card or the SERP-bridge listing, and
+  (2) same street address + kommun + living area (±10%) + rooms, with the ad live within 180 days
+  before / 30 days after the sale. **Paid if any of those ads was ever seen with a paid package**
+  (`lib/listing-segment.js homeClassOf`). Types: paid, newbuild, free, aggregated, teaser, other,
+  `no_ad_found` (no id on the sold card and nothing in the registry — not proof of no ad; see
+  CHANGELOG), `not_known` (an id the registry never saw live).
 
 ## (c) Market supply totals
 

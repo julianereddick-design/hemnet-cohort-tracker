@@ -6,6 +6,40 @@ before it's fixed.
 
 ---
 
+## 2026-11-04 — Hemnet ad registry: what kind of ad every live Hemnet ad is; sold-match "paid ad"
+
+- **Why**: Hemnet now shows free ads (MINIMAL, since 2026-10-20) and ads copied from agency
+  sites (AGGREGATED, since ~2026-10-27). Sold-match's "matched on Hemnet" therefore no longer
+  means "a paid Hemnet ad". Hemnet's sold pages carry no package, so the only way to tell is
+  to record each ad's package **while it is live**.
+- **Two new tier-1 jobs** write `hemnet_ad_registry` (one row per ad id, every package it has
+  been seen with), `hemnet_ad_package_history` (first sighting + every package/tier change) and
+  `hemnet_ad_sweep_run` (one row per walk, with counts by tier × package):
+  - `scripts/hemnet-ad-daily.js`, daily 05:30 UTC — newest ads first until a page is older than
+    the cutoff. Hemnet orders by publish day, then package; buying a package resets the publish
+    date, so upgrades come back to the top and are caught the next morning.
+  - `scripts/hemnet-ad-sweep.js`, Sundays 06:00 UTC — every live ad via the age-census walker
+    (`run({ onCards })`), with its completeness gates. Ads not seen are marked gone **only**
+    when both pools pass the gates.
+- **Aggregated ads carry the agency's own publish date** (one seen 2026-11-03 said May 2026),
+  so the daily walk does not see newly aggregated ads; the weekly sweep does.
+- **Sold-match**: `lib/sold-ad-type.js` labels each matched home paid / new-build / free /
+  aggregated / no ad found / not seen live, by the ad id on the sold card (or the address
+  fallback's listing page), plus same address + kommun + living area + rooms within ~6 months
+  of the sale. Rule: **paid if any of the home's ads was seen with a paid package at any
+  point while listed**. New-build projects (NC_*) are reported separately, not as paid.
+  The weekly Slack post gains a "paid ad" column (a dash until ≥75% of that run's matched homes
+  have a known type) and a breakdown line; the audit xlsx gains a "Hemnet ad type" column.
+- **Coverage starts 2026-11-04**: ads that came down before then can never be typed. The 16 Nov
+  batch (sales from 26 Oct) will be mostly "not seen live"; it fills in over ~6–8 weeks.
+- **Finding, sold cards with no ad id**: 18–22% of matched sales per run since June match a
+  Hemnet sold card whose `listingId` is empty (no package, no labels, mostly "price on
+  request"). This is NOT proof of no ad: about half of them (517 of 1,028) had a live Hemnet
+  ad at the same address in `hemnet_listingv2`. The registry will settle it for new sales.
+- Card parser (`parseListingCards`) gains additive fields (slug, recordType, area, rooms,
+  coordinates, agency…). Cost: ~2,500 Oxylabs calls a week for the sweep plus ~25–30 a day
+  for the daily walk; within the flat plan.
+
 ## 2026-11-03 — Weekly view pack: like-for-like views (CSV + Slack block); package saved at match
 
 - **New measure**: `lib/views-like-for-like.js`. Weekly Hemnet share of views (H%) on

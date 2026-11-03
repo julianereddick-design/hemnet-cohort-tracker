@@ -29,7 +29,8 @@ const panel = require('./config/sold-panel.json');
 // incremental = matched/total) and the sample size — the exact numbers the trend chart
 // plots. The minimal weekly Slack message (below) reuses it so the posted % and the chart
 // are guaranteed to agree.
-const { buildSeries } = require('./sold-match-trend-chart');
+const { buildSeries, isoWeekKey } = require('./sold-match-trend-chart');
+const { classifyWindows, countByKey } = require('./lib/sold-ad-type');
 
 // REPORT-ONLY additive overlays (config/sold-panel.json overlays[]): each re-buckets rows whose
 // booli_sold.municipality === match_muni AND descriptive_area ∈ descriptive_areas as an extra
@@ -442,6 +443,28 @@ async function fetchCohortRows(client) {
 // chart. Nothing else. Matched-on-Hemnet = buildSeries firstPull + incremental (matched /
 // total), i.e. the same % the chart plots. `series` is the buildSeries output.
 // ---------------------------------------------------------------------------
+// The paid-ad share is shown only once most matched homes in that run have a known ad type;
+// before that it would understate paid simply because the ad tracking had not seen them.
+const PAID_MAX_NOT_KNOWN = 0.25;
+const AD_TYPE_WORDS = [
+  ['paid', 'paid'], ['newbuild', 'new-build'], ['free', 'free'], ['aggregated', 'copied from agency sites'],
+  ['teaser', 'teaser'], ['other', 'other'], ['no_ad_found', 'no ad found'], ['not_known', 'not seen live yet'],
+];
+
+// Plain-English lines under the table: what the two columns mean, and the latest run's
+// breakdown of the homes found on Hemnet by the kind of ad they had.
+function renderAdTypeNote(latestRow, counts) {
+  const out = [
+    '_Matched_ = found on Hemnet as any kind of ad. Since late Oct Hemnet also shows free ads and ads copied from agency sites, so this no longer means a paid ad.',
+    '_Paid ad_ = the home had a paid Hemnet ad (Basic to Max) at some point. Shown as — until we saw most of that run\'s homes while their ads were live (tracking began 4 Nov).',
+  ];
+  if (counts && counts.matched) {
+    const parts = AD_TYPE_WORDS.filter(([k]) => counts[k]).map(([k, w]) => `${counts[k]} ${w}`);
+    out.push(`Latest run (${latestRow.week}), the ${counts.matched} homes found on Hemnet: ${parts.join(' · ')}`);
+  }
+  return out;
+}
+
 function renderMatchRateSummary(series, opts = {}) {
   const limit = opts.limit || 5;
   const n = (series.periods || []).length;
@@ -452,16 +475,28 @@ function renderMatchRateSummary(series, opts = {}) {
     rows.push({ week: series.periods[i], pct: rate * 100, n: series.totals[i] });
   }
 
+  // opts.adTypes = { [period]: lib/sold-ad-type countByKey counts } adds the paid-ad column
+  // and a breakdown of the latest run. Without it the message is exactly as before.
+  const adTypes = opts.adTypes || null;
+  const paidCell = (r) => {
+    const c = adTypes && adTypes[r.week];
+    if (!c || !c.matched || c.not_known / c.matched > PAID_MAX_NOT_KNOWN) return lpad('—', 7);
+    return lpad(`${((c.paid / r.n) * 100).toFixed(1)}%`, 7);
+  };
+
   const lines = [':bar_chart: *Sold-match — Matched on Hemnet*', ''];
   if (rows.length === 0) {
     lines.push('_No cohorts with data yet._');
   } else {
     lines.push('```');
-    lines.push('week        matched      n');
+    lines.push(adTypes ? 'week        matched  paid ad       n' : 'week        matched      n');
     for (const r of rows) {
-      lines.push(`${rpad(r.week, 10)}  ${lpad(`${r.pct.toFixed(1)}%`, 6)}  ${lpad(String(r.n), 6)}`);
+      lines.push(adTypes
+        ? `${rpad(r.week, 10)}  ${lpad(`${r.pct.toFixed(1)}%`, 7)}  ${paidCell(r)}  ${lpad(String(r.n), 6)}`
+        : `${rpad(r.week, 10)}  ${lpad(`${r.pct.toFixed(1)}%`, 6)}  ${lpad(String(r.n), 6)}`);
     }
     lines.push('```');
+    if (adTypes) lines.push(...renderAdTypeNote(rows[0], adTypes[rows[0].week]));
   }
   if (opts.chartUrl) {
     lines.push(`:chart_with_upwards_trend: <${opts.chartUrl}|Historical chart>`);
@@ -480,13 +515,24 @@ async function run() {
   await client.connect();
 
   let cohortRows;
+  let series;
+  let adTypes = null;
   try {
     cohortRows = await fetchCohortRows(client);
+    series = buildSeries(cohortRows);
+    // Paid-ad split (lib/sold-ad-type.js) for the runs the message shows. A failure here
+    // (e.g. the ad registry not yet migrated) drops the column, never the report.
+    try {
+      const shown = new Set(series.periods.slice(-5));
+      const windowEnds = [...new Set(cohortRows.map(r => r.window_end).filter(w => shown.has(isoWeekKey(w))))];
+      const classified = await classifyWindows(client, windowEnds);
+      adTypes = countByKey(classified, s => isoWeekKey(s.window_end));
+    } catch (e) {
+      console.warn(`WARN: paid-ad split unavailable (${e.message}) — posting without it`);
+    }
   } finally {
     await client.end();
   }
-
-  const series = buildSeries(cohortRows);
 
   // Link the trend chart written by sold-match-trend-chart.js at view-data/<date>/sold-match/
   // trend.html and served by view-data-server.js. Same URL scheme as weekly-view-report.js.
@@ -495,7 +541,7 @@ async function run() {
   const port = process.env.VIEW_SERVER_PORT || 3800;
   const chartUrl = host ? `http://${host}:${port}/view-data/${today}/sold-match/trend.html` : null;
 
-  const message = renderMatchRateSummary(series, { chartUrl });
+  const message = renderMatchRateSummary(series, { chartUrl, adTypes });
   console.log(message);
 
   // A failed or throwing post must exit non-zero: this script is NOT wrapped by
@@ -796,6 +842,19 @@ function runSmoke() {
       const shown = (msg.match(/2026-W\d\d/g) || []);
       assert.strictEqual(shown.length, 5, `expected 5 rows, got ${shown.length}`);
       assert.strictEqual(shown[0], '2026-W09', 'newest first');
+    });
+
+    check('renderMatchRateSummary: paid-ad column, dash while mostly not seen live, latest breakdown', () => {
+      const series = { periods: ['2026-W44', '2026-W46'], firstPull: [0.827, 0.84], incremental: [0, 0], totals: [993, 1000] };
+      const adTypes = {
+        '2026-W44': { matched: 821, paid: 10, not_known: 600, no_ad_found: 211 },
+        '2026-W46': { matched: 840, paid: 700, newbuild: 20, free: 30, aggregated: 50, no_ad_found: 25, not_known: 15 },
+      };
+      const msg = renderMatchRateSummary(series, { adTypes });
+      assert.ok(/2026-W46\s+84\.0%\s+70\.0%\s+1000/.test(msg), `W46 shows matched 84.0%, paid 70.0% of all sold:\n${msg}`);
+      assert.ok(/2026-W44\s+82\.7%\s+—\s+993/.test(msg), 'W44 paid is a dash: 600 of 821 not seen live');
+      assert.ok(msg.includes('700 paid · 20 new-build · 30 free · 50 copied from agency sites · 25 no ad found · 15 not seen live yet'), msg);
+      assert.ok(msg.includes('no longer means a paid ad'), 'warns that matched includes non-paid ads');
     });
 
     check('renderMatchRateSummary: empty series → graceful "no cohorts" (no crash)', () => {

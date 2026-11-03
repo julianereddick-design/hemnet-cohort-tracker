@@ -294,6 +294,13 @@ and is the backstop that makes tier-2 silence safe. Section-by-section reading g
   table of Matched-on-Hemnet % + sample size `n` for the last 5 fortnightly cohorts, plus a link
   to the trend chart. Reuses `buildSeries` from `sold-match-trend-chart.js` so the % and the
   chart agree. Excludes `2026-W12` pilot (`EXCLUDED_COHORTS`).
+  - **Since 2026-11-04, a "paid ad" column and a breakdown line.** "Matched" now includes free
+    ads and ads copied from agency sites, so the post adds the share of sold homes whose Hemnet
+    ad was a paid package at any point (`lib/sold-ad-type.js` over the ad registry — see 02 §(b2)),
+    shown as "—" while over 25% of that run's matched homes were never seen live (the registry
+    started 4 Nov; expect dashes until about late Dec). Under the table: two lines explaining
+    the columns and "Latest run (W..), the N homes found on Hemnet: x paid · y new-build · …".
+    If the registry query fails, the post goes out in the old form and logs a WARN.
   - The file still contains the older **detailed** renderer (`renderReport`: settled
     genuine-non-Hemnet decision-grade rate vs preliminary lag-contaminated booli_only rate,
     per-region / per-type / overlay blocks) — **dormant, not posted** by `run()`.
@@ -317,11 +324,13 @@ and is the backstop that makes tier-2 silence safe. Section-by-section reading g
   :bar_chart: *Sold-match — Matched on Hemnet*
 
   ```
-  week        matched      n
-  2026-W28      77.0%     985
-  2026-W26      78.8%    1467
-  2026-W25      76.1%      67
+  week        matched  paid ad       n
+  2026-W46      84.0%    70.0%    1000
+  2026-W44      82.7%        —     993
   ```
+  _Matched_ = found on Hemnet as any kind of ad. Since late Oct Hemnet also shows free ads and …
+  _Paid ad_ = the home had a paid Hemnet ad (Basic to Max) at some point. Shown as — until …
+  Latest run (2026-W46), the 840 homes found on Hemnet: 700 paid · 20 new-build · 30 free · …
   :chart_with_upwards_trend: <http://HOST:3800/view-data/2026-07-28/sold-match/trend.html|Historical chart>
   ```
 - **Manual trigger / dry-run:**

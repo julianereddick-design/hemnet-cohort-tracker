@@ -18,6 +18,13 @@ const fs = require('fs');
 const ExcelJS = require('exceljs');
 const { createClient } = require('./db');
 const { runReporter } = require('./cron-wrapper');
+const { classifyWindows } = require('./lib/sold-ad-type');
+
+// Hemnet ad type of a matched home (lib/sold-ad-type.js), in words.
+const AD_TYPE_LABEL = {
+  paid: 'paid', newbuild: 'new-build', free: 'free', aggregated: 'copied from agency site',
+  teaser: 'teaser', other: 'other', no_ad_found: 'no ad found', not_known: 'not seen live',
+};
 
 // ---------------------------------------------------------------------------
 // Pure link/label helpers.
@@ -84,6 +91,7 @@ function buildAuditRows(rows) {
     sold_date: r.sold_date || '',
     on_hemnet: onHemnet(r),
     found_via: foundVia(r),
+    ad_type: r.verdict === 'matched' && r.ad_type ? (AD_TYPE_LABEL[r.ad_type] || r.ad_type) : '',
     verdict: r.verdict || '',
     match_method: r.match_method || '',
     window: r.window_end || '',
@@ -107,6 +115,7 @@ const COLUMNS = [
   { header: 'Sold date', key: 'sold_date', width: 12 },
   { header: 'On Hemnet', key: 'on_hemnet', width: 16 },
   { header: 'Found via', key: 'found_via', width: 15 },
+  { header: 'Hemnet ad type', key: 'ad_type', width: 22 },
   { header: 'Verdict', key: 'verdict', width: 16 },
   { header: 'Match method', key: 'match_method', width: 14 },
   { header: 'Cohort (window_end)', key: 'window', width: 18 },
@@ -135,7 +144,7 @@ function buildWorkbook(auditRows, meta = {}) {
     const row = ws.addRow({
       booli_id: r.booli_id, address: r.address, area: r.area, municipality: r.municipality,
       type: r.type, rooms: r.rooms, living_area: r.living_area, sold_price: r.sold_price,
-      sold_date: r.sold_date, on_hemnet: r.on_hemnet, found_via: r.found_via, verdict: r.verdict,
+      sold_date: r.sold_date, on_hemnet: r.on_hemnet, found_via: r.found_via, ad_type: r.ad_type, verdict: r.verdict,
       match_method: r.match_method, window: r.window,
     });
     if (r.sold_price != null) row.getCell('sold_price').numFmt = '# ##0';
@@ -207,6 +216,14 @@ async function run() {
     }
     rows = await fetchRows(client, { all, windowEnd });
     cohortLabel = all ? 'all' : windowEnd;
+    // Ad type per matched home. Optional: a failure leaves the column blank, never the file.
+    try {
+      const windows = [...new Set(rows.filter(r => r.verdict === 'matched').map(r => r.window_end).filter(Boolean))];
+      const typeById = new Map((await classifyWindows(client, windows)).map(s => [String(s.booli_id), s.type]));
+      for (const r of rows) r.ad_type = typeById.get(String(r.booli_id)) || null;
+    } catch (e) {
+      console.warn(`WARN: Hemnet ad type unavailable (${e.message}) — column left blank`);
+    }
   } finally {
     await client.end();
   }
@@ -303,6 +320,9 @@ function runSmoke() {
       assert.ok(a[2].hemnetSearch && /hemnet\.se/.test(decodeURIComponent(a[2].hemnetSearch)), 'booli_only has a Check-on-Hemnet search link');
       assert.strictEqual(a[0].on_hemnet, 'YES');
       assert.strictEqual(a[1].found_via, 'later (re-check)');
+      const typed = buildAuditRows([{ ...fixtureRows()[0], ad_type: 'aggregated' }, { ...fixtureRows()[2], ad_type: 'paid' }]);
+      assert.strictEqual(typed[0].ad_type, 'copied from agency site');
+      assert.strictEqual(typed[1].ad_type, '', 'only matched rows carry an ad type');
     });
 
     // 4. buildWorkbook produces a sheet with header + a row per audit row + hyperlink cells.

@@ -150,10 +150,15 @@ async function realFetch(scope, p) {
   if (!pg) return { status: 'no-result-list', cards: null, total: undefined };
   const bad = scopeMismatch(pg.search, scope);
   if (bad) { log('WARN', `${scopeLabel(scope)} p${p}: filter not applied (${bad})`); return { status: 'filter-not-applied', cards: null, total: undefined }; }
+  if (cardSink) cardSink(pg.cards, scope);
   const cards = pg.cards.map(c => ({ id: c.id, published: c.publishedAt, isNewBuild: c.newConstruction, upcoming: c.upcoming, pkg: c.activePackage }));
   return { status: 200, cards, total: p === 1 ? pg.total : undefined };
 }
 let fetchScope = realFetch;                 // swappable for --selftest
+// run({ onCards }) — the weekly ad sweep (scripts/hemnet-ad-sweep.js) receives every
+// verified page's full cards here. Only filter-checked pages reach it; the census itself
+// is unchanged whether or not a sink is set.
+let cardSink = null;
 
 // Retry transient throws (DNS blips) so one hiccup doesn't abort a long run.
 async function safeFetch(scope, p, tries = 4) {
@@ -270,7 +275,13 @@ async function censusMuni(name, id, acc, nowSec, ctx) {
   return { name, id, headline: r.headline, counted: acc.distinct - before, p1Error: !!r.p1Error };
 }
 
-async function run({ pool = 'forsale', locations = LOCATIONS, nowSec = NOW_SEC, logger = log, priorTotal = null, priorMuniSizes = null } = {}) {
+async function run(opts = {}) {
+  cardSink = typeof opts.onCards === 'function' ? opts.onCards : null;
+  try { return await runPool(opts); }
+  finally { cardSink = null; }
+}
+
+async function runPool({ pool = 'forsale', locations = LOCATIONS, nowSec = NOW_SEC, logger = log, priorTotal = null, priorMuniSizes = null } = {}) {
   if (!POOLS[pool]) throw new Error(`unknown pool "${pool}"`);
   const t0 = Math.floor(Date.now() / 1000);
   resetOxylabsStats();
