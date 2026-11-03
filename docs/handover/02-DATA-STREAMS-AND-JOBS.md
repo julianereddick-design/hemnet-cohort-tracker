@@ -109,7 +109,7 @@ Tiers are declared in `lib/job-registry.js`; the reasoning is in
 | `cohort-track.js` | Append daily view time-series per pair; manage drops | none (DB) | every 2d 22:00 | `cohort_daily_views`, `cohort_pairs` (UPDATE) |
 | ~~`sfpl-region-snapshot.js`~~ | RETIRED 2026-08-13 — unscheduled, no consumer | none (DB agg) | — | `sfpl_region_daily` (frozen) |
 | ~~`sfpl-region-analysis.js`~~ | Console ratio report of the frozen snapshot | none (DB) | manual | console only |
-| `weekly-view-report.js` | Orchestrate exports + Slack post | none (DB) | Mon 09:30 | Slack + child xlsx/HTML |
+| `weekly-view-report.js` | Orchestrate exports + Slack post | none (DB) | Mon 09:30 | Slack + child xlsx/HTML + `views-like-for-like.{csv,xlsx}` |
 | `export-hb-ratio-xlsx.js` | Per-cohort H/B xlsx + charts | none (DB) | via weekly-view-report | `view-data/…/*.xlsx`, `charts.html` |
 | `export-cross-cohort-chart.js` | Cross-cohort H%-of-views chart | none (reads xlsx) | via weekly-view-report | `view-data/…/cross-cohort-hpct.html` |
 | `chart-hb-ratio.js` | On-demand H/B ratio chart + CSVs | none (DB) | manual | `view-data/…/hb-ratio-*.{html,csv}` |
@@ -169,7 +169,7 @@ heart), plus source/inventory tables `booli_listing` and `hemnet_listingv2`.
 
 **Weekly build chain:** Job C (Sun 22:00) → Job B (Mon 03:00) → `cohort-create` (Mon 06:00).
 **Every-2-day refresh:** Jobs A + D (14:00, parallel) → `cohort-track` (22:00).
-**Reporting:** `weekly-view-report` (Mon 09:30) → `export-hb-ratio-xlsx` (per cohort) → `export-cross-cohort-chart`.
+**Reporting:** `weekly-view-report` (Mon 09:30) → `export-hb-ratio-xlsx` (per cohort) → `export-cross-cohort-chart` → like-for-like views (`lib/views-like-for-like.js`).
 
 ### `booli-targeted-discovery.js` — Job C (Booli fetch cohort)
 - **Computes:** weekly discovery of new Booli for-sale listings in the 4 cohort counties
@@ -261,10 +261,44 @@ heart), plus source/inventory tables `booli_listing` and `hemnet_listingv2`.
 
 ### `weekly-view-report.js`
 - **Computes:** finds cohorts with ≥5 days tracked (skips W09–W11), shells out `export-hb-ratio-xlsx.js`
-  per cohort then `export-cross-cohort-chart.js`, and posts a Slack message with chart links.
-- **Source:** none — reads `cohort_pairs ⋈ cohort_daily_views`. No DB writes.
+  per cohort then `export-cross-cohort-chart.js`, writes the like-for-like views CSV + workbook
+  (`lib/views-like-for-like.js`, below), and posts a Slack message with chart links and the
+  "Views, like-for-like" block.
+- **Source:** none — reads `cohort_pairs ⋈ cohort_daily_views` (+ the latest `hemnet_listingv2.active_package`
+  per pair for paid/free). No DB writes.
+- **Writes:** `view-data/<today>/…` (per-cohort folders, `cross-cohort-hpct.html`, `views-like-for-like.csv`, `views-like-for-like.xlsx`).
 - **Schedule:** `30 9 * * 1` (Mon 09:30).
-- **Run manually:** `node weekly-view-report.js`
+- **Run manually:** `node weekly-view-report.js` (posts). `node weekly-view-report.js --dry-run`
+  renders the post to stdout but still writes the pack for today's date — delete it afterwards if
+  it isn't a real pack day, or the scorecard bot may read it as the latest.
+
+### `lib/views-like-for-like.js` — like-for-like Hemnet share of views (H%)
+The headline views measure since 2026-11-03. Same readings as the per-cohort workbooks, a
+different summary: pooled across all cohorts, with the things that distort the cross-cohort
+chart taken out (listing age mix, Hemnet re-publishes, outages, free listings).
+- **Unit:** one home between two consecutive readings (every other day) where **both** sites
+  were read at both ends — a "step".
+- **Age window:** the step's midpoint is **8–28 days** after the Booli listing date.
+- **Left out (status on the Intervals sheet):** Hemnet counter fell (re-publish), Booli counter
+  fell, gap over 4 days, or the step spans a `lib/view-outages.js` window.
+- **Week:** Mon–Sun of the step's later reading. The pack reports the Mon–Sun week **before**
+  the pack date; the unfinished week is never written.
+- **H%** = Σ Hemnet views gained ÷ Σ (Hemnet + Booli views gained) over counted steps.
+  **Headline = paid listings only** (`lib/listing-segment.js`: BASIC/PLUS/PREMIUM/MAX/NC_* paid,
+  MINIMAL free, no package + listed before 2026-10-20 paid, else unknown). Splits: all, free,
+  Booli pre-market **carryover** (`booli_views_day0 ≥ 100`) / **fresh**. Also views per listing
+  per day for each site, homes counted, and a `flag` (partial week / frozen counters /
+  package unknown > 20% / under 200 paid homes).
+- **Outputs (always all three):** `views-like-for-like.csv` (history from 2026-06-01),
+  `views-like-for-like.xlsx` (Weekly = SUMIFS formulas over Intervals; Intervals = one row per
+  home-step with readings, gains and status; Method = the rules), and the Slack block.
+  Excel recalculation was checked to reproduce the CSV exactly (2026-11-03).
+- **Check by hand:** `node lib/views-like-for-like.js --live [pack-date]` (read-only: prints the
+  block and the last 8 weeks). Tests: `node lib/views-like-for-like.js --smoke`.
+- **Data note:** a NULL `cohort_daily_views.hemnet_views` normally means the listing wasn't live;
+  on 2026-10-31 and 2026-11-01 it means "not captured" (Hemnet outage, blanked; see CHANGELOG).
+- History of the method: the 2026-10-27 H% deep dive (republish artefact, carryover split,
+  age-fixed comparisons).
 
 ### `export-hb-ratio-xlsx.js`
 - **Computes:** per-cohort ExcelJS workbook (cumulative views, inclusion flags, 2-day incrementals,

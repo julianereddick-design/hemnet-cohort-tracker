@@ -198,8 +198,19 @@ and is the backstop that makes tier-2 silence safe. Section-by-section reading g
 ### 2.3 Weekly cohort view report — `weekly-view-report.js`
 
 - **What:** Finds cohorts with ≥5 days of data (skips `2026-W09/W10/W11`), shells out to
-  `export-hb-ratio-xlsx.js` per cohort and `export-cross-cohort-chart.js`, then posts a Slack
-  message with **clickable links** to the generated charts hosted by `view-data-server.js`.
+  `export-hb-ratio-xlsx.js` per cohort and `export-cross-cohort-chart.js`, builds the
+  **like-for-like views** outputs (below), then posts a Slack message with **clickable links**
+  to the generated charts and files hosted by `view-data-server.js`.
+- **Like-for-like views (since 2026-11-03), always all three:**
+  `view-data/<date>/views-like-for-like.csv` (weekly table, for the scorecard bot),
+  `view-data/<date>/views-like-for-like.xlsx` (same table as live SUMIFS formulas over a
+  per-home Intervals sheet, plus a Method sheet: check a number the way you check
+  `hb-ratio-<cohort>.xlsx`), and the **"Views, like-for-like"** block in the Slack post for
+  the Mon–Sun week before the pack date. Method: `02` §`lib/views-like-for-like.js`. The
+  per-cohort and cross-cohort charts are unchanged and stay in the pack.
+- **Outages:** periods when a site's counters were not captured are listed in
+  `lib/view-outages.js`; the charts shade them and break the line, and the like-for-like
+  outputs leave out readings across them and flag the week ("partial week").
 - **Script / transport:** `weekly-view-report.js` → `lib/slack-post.js` `postMessage('weekly-view-report', …)`
   (business audience). Also requires `VIEW_SERVER_HOST` (+ `VIEW_SERVER_PORT`, default 3800) to
   build links; skips Slack if it's missing (prints "Skipping Slack (VIEW_SERVER_HOST not set)").
@@ -211,10 +222,22 @@ and is the backstop that makes tier-2 silence safe. Section-by-section reading g
 
   <http://HOST:3800/view-data/2026-07-27/cross-cohort-hpct.html|:chart_with_upwards_trend: Cross-Cohort H% Chart>
   Per-cohort charts: <http://HOST:3800/view-data/2026-07-27/2026-W20/charts.html|2026-W20>  ...
+
+  *Views, like-for-like* · week of 26 Oct (Mon 26 Oct – Sun 1 Nov)
+  Hemnet share of views, paid listings: *67.4%* (prior week 69.4%, 4-week average 69.7%)
+  Views per listing per day: Hemnet 49, Booli 24
+  Pre-market carryover 66.6% · fresh 81.2% · free listings 63.7% (91 homes, too few to read)
+  ⚠ Partial week: Hemnet data outage, website change 30 Oct–2 Nov, readings across it left out
+  _Same homes on both sites, days 8–28 of listing, Hemnet re-publishes left out. Weekly history: <…csv> · per-home workbook <…xlsx>_
   ```
+  If the like-for-like step fails, the block says "not available this week (<error>)", the
+  rest of the post still goes, and the script exits 1.
 - **Manual trigger / dry-run:** `node weekly-view-report.js --dry-run` → regenerates xlsx/charts
-  (DB reads, no scraping) but renders the Slack message to stdout instead of posting. No
-  `--smoke`.
+  and the like-for-like files (DB reads, no scraping) but renders the Slack message to stdout
+  instead of posting. (Before 2026-11-03 the flag was ignored and it posted for real.) It still
+  writes `view-data/<today>/`: delete that folder if today isn't a pack day, or the scorecard
+  bot may read it as the latest pack. No `--smoke`; the like-for-like logic has its own
+  (`node lib/views-like-for-like.js --smoke`).
 
 ### 2.4 Market supply pulse — `market-totals-weekly-report.js`
 
@@ -398,6 +421,7 @@ weekly Slack reports as clickable full URLs). xlsx/csv are written to disk (`vie
 | `chart-hb-ratio.js` | `view-data/<date>/<cohort>/hb-ratio-chart.html` + `hb-ratio-summary.csv` + `hb-ratio-detail.csv` | port-3800 server (ad-hoc) |
 | `export-hb-ratio-xlsx.js` | `view-data/<date>/<cohort>/hb-ratio-<cohort>.xlsx` + `charts.html` | called by `weekly-view-report.js`; linked in its Slack post |
 | `export-cross-cohort-chart.js` | `view-data/<date>/cross-cohort-hpct.html` | linked in `weekly-view-report.js` Slack post |
+| `weekly-view-report.js` → `lib/views-like-for-like.js` | `view-data/<date>/views-like-for-like.csv` + `views-like-for-like.xlsx` (Weekly / Intervals / Method) | both linked in the "Views, like-for-like" block of the `weekly-view-report.js` post |
 | `sold-match-trend-chart.js` | `view-data/<date>/sold-match/trend.html` (stacked bar: matched first-pull + found-later) | linked in `sold-match-report.js` Slack post |
 | `sold-match-xlsx.js` | `view-data/<date>/sold-match/sold-audit-<cohort>.xlsx` (per-cohort audit, clickable links) | on-disk audit artifact |
 | `scripts/export-sold-match.js` | `view-data/<label>/sold-match/sold-match-national-<label>.xlsx` + `.csv` (Records / Uncertain / Summary sheets) | read-only export by created_at date |

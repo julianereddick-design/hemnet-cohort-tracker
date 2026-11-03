@@ -15,11 +15,20 @@ before it's fixed.
   listing per day for each site, homes counted, and a `flag` column (outage / partial
   week, frozen counters, unknown package, small sample). Method is the 2026-10-27 deep
   dive's (see the view-share notes), now automated.
-- **Always both outputs**: `weekly-view-report.js` writes
+- **Always all three outputs**: `weekly-view-report.js` writes
   `view-data/<date>/views-like-for-like.csv` (full weekly history from 1 Jun, unfinished
-  week left out) **and** adds a "Views, like-for-like" block to its Slack post for the
-  Mon–Sun week before the pack date. The scorecard bot reads either. The cross-cohort
-  and per-cohort charts are unchanged and still in the pack.
+  week left out) **and** `views-like-for-like.xlsx` **and** adds a "Views, like-for-like"
+  block to its Slack post for the Mon–Sun week before the pack date. The scorecard bot
+  reads the CSV or the post. The cross-cohort and per-cohort charts are unchanged and still
+  in the pack.
+- **Workbook** (`views-like-for-like.xlsx`): Weekly sheet = the CSV table with every share
+  and per-day figure as a SUMIFS over the Intervals sheet; Intervals = one row per home per
+  step between readings in the age window (readings, gains as formulas, counted or why
+  not); Method = the rules. ~138k rows / 16 MB for Jun–Oct; Excel's own recalculation
+  reproduced the CSV exactly (checked 2026-11-03).
+- Added to the 2 Nov pack after the fact (CSV + workbook), so that week's scorecard can use them.
+- `weekly-view-report.js --dry-run` now really is a dry run. It ignored the flag before and
+  posted for real, although the handover docs listed it as a safe preview.
 - First values: week of 26 Oct paid 67.4% (19 Oct 69.4%), half a week (27/29 Oct) because
   of the Hemnet outage. The 9 Nov pack (2–8 Nov) is also partial: the 3 Nov reading spans
   the outage, so only 5 and 7 Nov count. 16 Nov is the first complete week.

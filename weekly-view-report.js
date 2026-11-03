@@ -6,6 +6,10 @@ const { createClient } = require('./db');
 const { postMessage } = require('./lib/slack-post');
 const { runReporter } = require('./cron-wrapper');
 
+// --dry-run renders the post instead of sending it, as docs/handover/04 §1 promises for
+// every reporter. Until 2026-11-03 this script ignored the flag and posted for real.
+if (process.argv.includes('--dry-run')) process.env.SLACK_DRY_RUN = '1';
+
 const MIN_DAYS = 5; // cohorts need at least 5 days of data for meaningful charts
 const SKIP_COHORTS = ['2026-W09', '2026-W10', '2026-W11']; // low data quality
 
@@ -74,29 +78,30 @@ async function run() {
   const serverPort = process.env.VIEW_SERVER_PORT || 3800;
   const serverHost = process.env.VIEW_SERVER_HOST;
 
-  // 3b. Like-for-like views (lib/views-like-for-like.js): ALWAYS both the CSV in the pack
-  // and the block in the Slack post — the scorecard bot reads either. A failure here
-  // is reported in the post rather than stopping the rest of the report.
+  // 3b. Like-for-like views (lib/views-like-for-like.js): ALWAYS the CSV and the workbook
+  // in the pack AND the block in the Slack post — the scorecard bot reads the CSV or the
+  // post; people check numbers in the workbook. A failure here is reported in the post
+  // rather than stopping the rest of the report.
   let lflBlock;
   try {
     const lfl = require('./lib/views-like-for-like');
     const c = createClient();
     await c.connect();
-    let weekly;
+    let weekly, intervals;
     try {
       const { pairs, readings } = await lfl.loadInputs(c);
       weekly = lfl.computeWeekly(pairs, readings, { before: today });
+      ({ intervals } = lfl.classifyIntervals(pairs, readings, { before: today }));
     } finally {
       await c.end();
     }
-    const csvFile = path.join(__dirname, 'view-data', today, 'views-like-for-like.csv');
-    fs.mkdirSync(path.dirname(csvFile), { recursive: true });
-    fs.writeFileSync(csvFile, lfl.toCsv(weekly), 'utf8');
-    console.log(`Like-for-like views: ${csvFile} (${weekly.length} weeks)`);
-    const csvLink = serverHost
-      ? `<http://${serverHost}:${serverPort}/view-data/${today}/views-like-for-like.csv|views-like-for-like.csv>`
-      : 'views-like-for-like.csv';
-    lflBlock = lfl.slackBlock(weekly, today, csvLink);
+    const dir = path.join(__dirname, 'view-data', today);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'views-like-for-like.csv'), lfl.toCsv(weekly), 'utf8');
+    await lfl.writeWorkbook(path.join(dir, 'views-like-for-like.xlsx'), weekly, intervals);
+    console.log(`Like-for-like views: ${dir}/views-like-for-like.{csv,xlsx} (${weekly.length} weeks, ${intervals.length} home-steps)`);
+    const link = (f) => (serverHost ? `<http://${serverHost}:${serverPort}/view-data/${today}/${f}|${f}>` : f);
+    lflBlock = lfl.slackBlock(weekly, today, `${link('views-like-for-like.csv')} · per-home workbook ${link('views-like-for-like.xlsx')}`);
   } catch (err) {
     console.error(`Like-for-like views failed: ${err.message}`);
     lflBlock = `*Views, like-for-like*: not available this week (${err.message}).`;
