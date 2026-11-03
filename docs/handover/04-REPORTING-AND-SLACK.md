@@ -294,7 +294,10 @@ and is the backstop that makes tier-2 silence safe. Section-by-section reading g
   "Slack draft" lines (total / for sale / pre-market: Sweden, Stockholm, VG, rest of Sweden; YoY,
   last 4 weeks, 2-year stack, PM share) for the latest week, computed from
   `hemnet_weekly_new_listings` series `master` — paid-only new listings from wk 19 Oct 2026.
-  Plus a line on the check against Hemnet's public figure, the estimated weeks, and the CSV link.
+  Plus: our count (new paid ads, how many switched to paid, new free and copied ads, Hemnet's
+  own all-ads figure for comparison), a note when the week is partly reconstructed, a warning for
+  a held-back week, the monthly check against Hemnet's paid figure (from early Dec), the
+  estimated weeks, and the CSV link.
 - **Channel:** business → `#hemnet-status`, Mondays 06:15 UTC. Audience entry in `lib/slack-post.js`.
 - **Dry run:** `node weekly-new-listings.js --dry-run` (fetches Hemnet, reads the DB, prints the
   post; writes and posts nothing). `--smoke` offline.

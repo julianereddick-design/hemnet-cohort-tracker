@@ -5,12 +5,14 @@ require('dotenv').config();
 // for the definitions.
 //
 //   1. Refetch Hemnet's public weekly nytillkomna (6 pages: Sweden / Stockholms län / Västra
-//      Götalands län × total / for sale) into series hemnet_public.
+//      Götalands län × total / for sale) into series hemnet_public, and Hemnet's monthly paid
+//      figure (statistik/finansiell-rapportering) into hemnet_paid_monthly.
 //   2. For every complete week after the last one in the master series, count new pre-owned
-//      ads from the ad registry: all, paid, and upgrades to paid. The master series gets
-//      paid + upgrades. Weeks before COVERAGE_START are never computed here (estimates come
-//      from scripts/seed-weekly-master.js).
-//   3. Check our count of ALL new ads against Hemnet's own for the same week.
+//      PAID ads from the ad registry (new, or switched to paid). That is the master series.
+//      Weeks before COVERAGE_START are never computed here (estimates come from
+//      scripts/seed-weekly-master.js); weeks before FULL_COVERAGE are flagged as estimates.
+//      A week whose Monday daily walk did not run ok is held back until next Monday.
+//   3. Monthly check: our paid count for each complete month vs Hemnet's own paid figure.
 //   4. Write view-data/weekly-new-listings/master-series.csv (stable URL, read by the PC task
 //      that updates the workbook: tools/update-master-workbook.ps1) + a dated copy, and post
 //      the Dashboard's three Slack lines to the business channel.
@@ -23,7 +25,8 @@ const fs = require('fs');
 const path = require('path');
 const W = require('./lib/weekly-new-listings');
 
-const NOTE_PAID = 'paid-only (Decade ad registry)';
+const NOTE_PAID = 'paid ads (Decade ad registry)';
+const NOTE_PARTIAL = 'paid ads (Decade ad registry); 2–3 Nov reconstructed, before our full sweep';
 
 // Weeks to compute: after the last master week, up to the last complete week, from coverage start.
 function weeksToCompute(lastMasterWeek, lastComplete) {
@@ -33,16 +36,11 @@ function weeksToCompute(lastMasterWeek, lastComplete) {
   return out;
 }
 
-// Our all-ads count vs Hemnet's, per area/market. PURE.
-function checkWeek(all, publicRows, week) {
-  const out = [];
-  for (const area of W.AREAS) for (const market of ['tot', 'fs']) {
-    const pub = publicRows.find(r => r.week_start === week && r.area === area && r.market === market);
-    const ours = all[area][market];
-    const diff = pub && pub.value ? ours / pub.value - 1 : null;
-    out.push({ week, area, market, ours, hemnet: pub ? pub.value : null, diff, ok: diff != null && Math.abs(diff) <= W.CHECK_TOLERANCE });
-  }
-  return out;
+// Complete months to check against Hemnet's paid figure: from the first counted month, ended
+// before today (Swedish), with a Hemnet paid figure. PURE.
+function monthsToCheck(financial, today) {
+  return [...financial.keys()].filter(m => m >= W.COVERAGE_START.slice(0, 7) && financial.get(m).paid != null
+    && W.addDays(`${m}-01`, W.daysInMonth(m)) <= today).sort();
 }
 
 const UPSERT = `
@@ -55,60 +53,93 @@ async function upsert(client, rows) {
   for (let i = 0; i < rows.length; i += 2000) await client.query(UPSERT, [JSON.stringify(rows.slice(i, i + 2000))]);
 }
 
-function renderMessage({ week, lines, checks, estimates, csvLink, computed }) {
-  const out = [`:house: *Hemnet new listings — wk starting ${week}* (pre-owned, paid only)`];
-  if (!computed.length) out.push('_No new week added: the last complete week is already in the series._');
+const n = (x) => Number(x).toLocaleString('en-US');
+const monthName = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+function renderMessage({ week, lines, latest, hemnetSweden, held, monthly, estimates, csvLink, computed }) {
+  const out = [`:house: *Hemnet new listings — wk starting ${week}* (pre-owned, paid ads only)`];
+  if (!computed.length) out.push('_No new week added this time._');
   out.push(...lines.map(l => `• ${l}`));
-  const bad = checks.filter(c => !c.ok);
-  const sw = checks.find(c => c.area === 'sweden' && c.market === 'tot');
-  if (sw) {
-    out.push(bad.length
-      ? `:warning: Check against Hemnet's own figures is off this week: ${bad.map(c => `${W.AREA_LABEL[c.area]} ${c.market === 'fs' ? 'for sale' : 'total'} ours ${c.ours} vs Hemnet ${c.hemnet == null ? 'n/a' : c.hemnet}`).join('; ')}. Treat the week as provisional.`
-      : `Check: our count of all new ads matches Hemnet's own (Sweden ${sw.ours} vs ${sw.hemnet}, all within ${W.CHECK_TOLERANCE * 100}%).`);
+  if (latest) {
+    const s = latest.reg, na = (k) => (s.newAds[k] ? s.newAds[k].sweden.tot : 0);
+    out.push(`Counted by us: ${n(s.paid.sweden.tot)} new paid ads in Sweden (${n(s.switched.sweden.tot)} of them switched to paid from a free or copied ad).` +
+      ` Also new this week: ${n(na('free'))} free ads and ${n(na('aggregated'))} copied from agency sites.` +
+      (hemnetSweden != null ? ` Hemnet's own weekly figure, which counts all of these, is ${n(hemnetSweden)}.` : ''));
+    if (latest.partial) out.push('_This week is partly reconstructed (our full count of Hemnet started on 3 Nov), so it is marked as an estimate._');
   }
-  if (estimates.length) out.push(`_Estimated weeks in the last year of the series (no paid-only count exists): ${estimates.join(', ')}._`);
-  out.push(`_Hemnet's public figures count free and copied (aggregated) ads from wk ${W.SERIES_BREAK}; from then on these figures are paid ads only, counted by us._`);
+  for (const w of held) out.push(`:warning: Wk ${w} is held back: the daily read of new Hemnet ads did not run on the Monday after it. It will be added next Monday.`);
+  if (monthly) {
+    const pctOff = `${Math.abs(monthly.diff * 100).toFixed(0)}%`;
+    out.push(monthly.ok
+      ? `Monthly check, ${monthName(monthly.month)}: Hemnet reports ${n(monthly.hemnetPaid)} paid ads; our count points to ${n(Math.round(monthly.expected))} (within ${pctOff}).`
+      : `:warning: Monthly check, ${monthName(monthly.month)}: Hemnet reports ${n(monthly.hemnetPaid)} paid ads but our count points to ${n(Math.round(monthly.expected))} (${pctOff} apart). Treat that month's weeks with care.`);
+  }
+  if (estimates.length) out.push(`_Estimated weeks in the last year: ${estimates.join(', ')}._`);
+  out.push(`_From wk ${W.SERIES_BREAK} Hemnet's public figure also counts free and copied ads; from then on these figures are paid ads only, counted by us._`);
   if (csvLink) out.push(csvLink);
   return out.join('\n');
 }
 
 async function main(client, logger = (l, m) => console.log(`  [${l}] ${m}`), { dryRun = false } = {}) {
   const { getWithRetry } = require('./lib/scrape-http');
-  const publicRows = await W.fetchHemnetPublic((url) => getWithRetry(url, { logger: () => {} }));
-  logger('INFO', `Hemnet public: ${publicRows.length} weekly points`);
+  const fetchHtml = (url) => getWithRetry(url, { logger: () => {} });
+  const publicRows = await W.fetchHemnetPublic(fetchHtml);
+  const fin = await fetchHtml(W.FINANCIAL_URL);
+  if (fin.status !== 200) throw new Error(`financial page: HTTP ${fin.status}`);
+  const financial = W.parseFinancialPage(fin.html);
+  logger('INFO', `Hemnet public: ${publicRows.length} weekly points; monthly paid figures to ${[...financial.keys()].filter(m => financial.get(m).paid != null).sort().pop()}`);
 
   const lm = await client.query(`SELECT to_char(max(week_start), 'YYYY-MM-DD') AS w FROM hemnet_weekly_new_listings WHERE series = 'master'`);
   const lastMaster = lm.rows[0].w;
-  const lastComplete = W.lastCompleteWeek();
-  const weeks = weeksToCompute(lastMaster, lastComplete);
-  logger('INFO', `master series ends ${lastMaster}; computing ${weeks.length ? weeks.join(', ') : 'nothing new'}`);
+  const weeks = weeksToCompute(lastMaster, W.lastCompleteWeek());
+  logger('INFO', `master series ends ${lastMaster}; to compute: ${weeks.length ? weeks.join(', ') : 'nothing new'}`);
 
   const rows = publicRows.map(r => ({ ...r, series: 'hemnet_public', note: 'hemnet.se/statistik/nytillkomna, pre-owned' }));
-  const checks = [];
-  for (const week of weeks) {
-    const reg = await W.registryWeek(client, week);
-    if (reg.lo == null || reg.hi == null) throw new Error(`no ad-id boundary for wk ${week} — ad registry empty?`);
-    for (const area of W.AREAS) for (const market of ['tot', 'fs']) {
-      rows.push({ week_start: week, area, market, series: 'registry_all', value: reg.all[area][market] });
-      rows.push({ week_start: week, area, market, series: 'registry_paid', value: reg.paid[area][market] });
-      rows.push({ week_start: week, area, market, series: 'registry_upgrades', value: reg.upgrades[area][market] });
-      rows.push({ week_start: week, area, market, series: 'master', value: reg.paid[area][market] + reg.upgrades[area][market], note: NOTE_PAID });
-    }
-    checks.push(...checkWeek(reg.all, publicRows, week));
-    logger('INFO', `wk ${week}: Sweden all ${reg.all.sweden.tot}, paid ${reg.paid.sweden.tot} + ${reg.upgrades.sweden.tot} upgrades (ids ${reg.lo}..${reg.hi})`);
+  for (const [m, v] of financial) if (v.paid != null) {
+    rows.push({ week_start: `${m}-01`, area: 'sweden', market: 'tot', series: 'hemnet_paid_monthly', value: v.paid, note: 'hemnet.se/statistik/finansiell-rapportering, paid' });
   }
-  if (!dryRun) await upsert(client, rows);
+  const computed = [], held = [];
+  let latest = null;
+  for (const week of weeks) {
+    // Keep the series week after week: once a week is held, so are the ones after it.
+    if (held.length || !(await W.dailyWalkCovered(client, week))) { held.push(week); continue; }
+    const reg = await W.registryWeek(client, week);
+    const partial = week < W.FULL_COVERAGE;
+    for (const area of W.AREAS) for (const market of ['tot', 'fs']) {
+      rows.push({ week_start: week, area, market, series: 'master', value: reg.paid[area][market], is_estimate: partial, note: partial ? NOTE_PARTIAL : NOTE_PAID });
+      rows.push({ week_start: week, area, market, series: 'registry_switched', value: reg.switched[area][market] });
+      for (const [kind, c] of Object.entries(reg.newAds)) rows.push({ week_start: week, area, market, series: `registry_new_${kind}`, value: c[area][market] });
+    }
+    computed.push(week);
+    latest = { week, reg, partial };
+    logger('INFO', `wk ${week}: Sweden ${reg.paid.sweden.tot} paid (${reg.switched.sweden.tot} switched); new ids ${Object.entries(reg.newAds).map(([k, c]) => `${k} ${c.sweden.tot}`).join(', ')}`);
+  }
+  if (held.length) logger('WARN', `held back (no ok daily walk on the Monday after): ${held.join(', ')}`);
 
   // The master series as it now stands (dry run: as it would stand).
+  if (!dryRun) await upsert(client, rows);
   const ms = await client.query(
     `SELECT to_char(week_start, 'YYYY-MM-DD') AS week_start, area, market, value, is_estimate, note
        FROM hemnet_weekly_new_listings WHERE series = 'master' ORDER BY week_start`);
   const master = [...ms.rows];
   if (dryRun) master.push(...rows.filter(r => r.series === 'master'));
   const series = W.toSeries(master);
-  const latest = master.map(r => r.week_start).sort().pop();
-  const yearAgo = W.addDays(latest, -364);
+  const last = master.map(r => r.week_start).sort().pop();
+  const yearAgo = W.addDays(last, -364);
   const estimates = [...new Set(master.filter(r => r.is_estimate && r.week_start > yearAgo).map(r => r.week_start))].sort();
+
+  // Monthly check against Hemnet's own paid figure.
+  const checks = [];
+  const months = monthsToCheck(financial, W.swedishToday());
+  if (months.length) {
+    const ratio = W.paidRatio(series, financial);
+    for (const m of months) {
+      const reg = await W.registryCounts(client, `${m}-01`, W.addDays(`${m}-01`, W.daysInMonth(m)));
+      checks.push(W.monthlyCheck({ month: m, ours: reg.paid.sweden.tot, hemnetPaid: financial.get(m).paid, ratio }));
+    }
+  }
+  const monthly = checks[checks.length - 1] || null;
+  if (monthly) logger('INFO', `monthly check ${monthly.month}: Hemnet ${monthly.hemnetPaid} vs expected ${Math.round(monthly.expected)} (${(monthly.diff * 100).toFixed(1)}%)`);
 
   const today = new Date().toISOString().slice(0, 10);
   const csv = W.toCsv(master);
@@ -121,23 +152,28 @@ async function main(client, logger = (l, m) => console.log(`  [${l}] ${m}`), { d
     }
     if (host) csvLink = `<http://${host}:${port}/view-data/${today}/weekly-new-listings.csv|weekly-new-listings.csv> (full series; the MASTER workbook is updated from it)`;
   }
-  const message = renderMessage({ week: latest, lines: W.dashboardLines(series, latest), checks, estimates, csvLink, computed: weeks });
+  const pub = latest && publicRows.find(r => r.week_start === latest.week && r.area === 'sweden' && r.market === 'tot');
+  const message = renderMessage({
+    week: last, lines: W.dashboardLines(series, last), latest: latest && latest.week === last ? latest : null,
+    hemnetSweden: pub ? pub.value : null, held, monthly, estimates, csvLink, computed,
+  });
   console.log(message);
   if (!dryRun) {
     const { postMessage } = require('./lib/slack-post');
     const res = await postMessage('weekly-new-listings', message);
     if (!res.ok && !res.dryRun) throw new Error('Slack post failed on both the bot and the webhook fallback');
   }
-  return { lastMaster, computed: weeks, latest, checks, checksFailed: checks.filter(c => !c.ok).length, dryRun };
+  return { lastMaster, computed, held, latest: last, monthlyChecks: checks, monthlyFailed: checks.filter(c => !c.ok).length, dryRun };
 }
 
 function validate(s) {
   if (!s) return 'no summary returned';
-  if (s.checksFailed) return `our new-ads count is more than ${W.CHECK_TOLERANCE * 100}% off Hemnet's own for ${s.checksFailed} area/market(s) — week provisional`;
+  if (s.held && s.held.length) return `week(s) ${s.held.join(', ')} held back: the daily new-ads walk did not run ok on the Monday after`;
+  if (s.monthlyFailed) return `our monthly paid count is more than ${W.MONTHLY_TOLERANCE * 100}% off Hemnet's own for ${s.monthlyFailed} month(s)`;
   return null;
 }
 
-module.exports = { weeksToCompute, checkWeek, renderMessage, validate, main };
+module.exports = { weeksToCompute, monthsToCheck, renderMessage, validate, main };
 
 const ACCEPTED_ARGV = new Set(['--smoke', '--dry-run']);
 const USAGE = 'Usage: node weekly-new-listings.js [--smoke | --dry-run]';
@@ -174,30 +210,41 @@ function smoke() {
     assert.deepStrictEqual(weeksToCompute('2026-10-12', '2026-11-02'), ['2026-11-02'], 'gap weeks are estimates, not computed');
     assert.deepStrictEqual(weeksToCompute('2026-11-09', '2026-11-09'), []);
   });
-  check('checkWeek: within tolerance is ok, a big gap or a missing Hemnet figure is not', () => {
-    const all = { sweden: { tot: 3000, fs: 2000 }, stockholm: { tot: 1000, fs: 700 }, vg: { tot: 400, fs: 300 } };
-    const pub = [
-      { week_start: 'w', area: 'sweden', market: 'tot', value: 3050 }, { week_start: 'w', area: 'sweden', market: 'fs', value: 2500 },
-      { week_start: 'w', area: 'stockholm', market: 'tot', value: 1000 }, { week_start: 'w', area: 'stockholm', market: 'fs', value: 700 },
-      { week_start: 'w', area: 'vg', market: 'tot', value: 400 },
-    ];
-    const c = checkWeek(all, pub, 'w');
-    assert.strictEqual(c.find(x => x.area === 'sweden' && x.market === 'tot').ok, true);
-    assert.strictEqual(c.find(x => x.area === 'sweden' && x.market === 'fs').ok, false);
-    assert.strictEqual(c.find(x => x.area === 'vg' && x.market === 'fs').ok, false, 'no Hemnet figure');
-    assert.match(validate({ checksFailed: 2 }), /provisional/);
-    assert.strictEqual(validate({ checksFailed: 0 }), null);
+  check('monthsToCheck: complete months from November with a paid figure', () => {
+    const fin = new Map([['2026-10', { paid: 1 }], ['2026-11', { paid: 2 }], ['2026-12', { published: 3 }]]);
+    assert.deepStrictEqual(monthsToCheck(fin, '2026-11-30'), []);
+    assert.deepStrictEqual(monthsToCheck(fin, '2026-12-01'), ['2026-11']);
+    assert.deepStrictEqual(monthsToCheck(fin, '2027-01-05'), ['2026-11'], 'December has no paid figure yet');
   });
-  check('renderMessage: plain lines, check result, estimates and the series-break note', () => {
+  check('validate: held weeks and a failed monthly check make the run amber', () => {
+    assert.match(validate({ held: ['2026-11-09'] }), /held back/);
+    assert.match(validate({ held: [], monthlyFailed: 1 }), /monthly/);
+    assert.strictEqual(validate({ held: [], monthlyFailed: 0 }), null);
+  });
+  const c3 = (s, a, b) => ({ sweden: { tot: s, fs: 0 }, stockholm: { tot: a, fs: 0 }, vg: { tot: b, fs: 0 } });
+  const reg = { paid: c3(2345, 700, 300), switched: c3(310, 90, 40), newAds: { free: c3(1500, 0, 0), aggregated: c3(900, 0, 0) } };
+  check('renderMessage: plain lines, our count, partial week, checks and the series-break note', () => {
     const msg = renderMessage({
-      week: '2026-11-02', lines: ['Total, wk starting 2 Nov 2026: …'],
-      checks: [{ area: 'sweden', market: 'tot', ours: 3010, hemnet: 3000, ok: true }],
-      estimates: ['2026-10-19', '2026-10-26'], csvLink: null, computed: ['2026-11-02'],
+      week: '2026-11-02', lines: ['Total, wk starting 2 Nov 2026: …'], latest: { week: '2026-11-02', reg, partial: true },
+      hemnetSweden: 4100, held: [], monthly: { month: '2026-11', ok: true, diff: 0.04, hemnetPaid: 8000, expected: 7700 },
+      estimates: ['2026-10-19', '2026-10-26', '2026-11-02'], csvLink: null, computed: ['2026-11-02'],
     });
-    assert.match(msg, /paid only/);
-    assert.match(msg, /matches Hemnet's own \(Sweden 3010 vs 3000/);
-    assert.match(msg, /Estimated weeks .*2026-10-19, 2026-10-26/);
-    assert.match(msg, /from wk 2026-10-19/);
+    assert.match(msg, /paid ads only/);
+    assert.match(msg, /Counted by us: 2,345 new paid ads in Sweden \(310 of them switched/);
+    assert.match(msg, /1,500 free ads and 900 copied from agency sites\. Hemnet's own weekly figure, which counts all of these, is 4,100\./);
+    assert.match(msg, /partly reconstructed/);
+    assert.match(msg, /Monthly check, November 2026: Hemnet reports 8,000 paid ads; our count points to 7,700 \(within 4%\)/);
+    assert.match(msg, /Estimated weeks in the last year: 2026-10-19, 2026-10-26, 2026-11-02/);
+    assert.match(msg, /from wk 2026-10-19/i);
+  });
+  check('renderMessage: held week and a failed monthly check are flagged', () => {
+    const msg = renderMessage({
+      week: '2026-11-02', lines: [], latest: null, hemnetSweden: null, held: ['2026-11-09'],
+      monthly: { month: '2026-11', ok: false, diff: -0.2, hemnetPaid: 6000, expected: 7500 }, estimates: [], csvLink: null, computed: [],
+    });
+    assert.match(msg, /No new week added/);
+    assert.match(msg, /:warning: Wk 2026-11-09 is held back/);
+    assert.match(msg, /:warning: Monthly check, November 2026: .* \(20% apart\)/);
   });
   console.log(`smoke: ${pass} pass, ${fail} fail`);
   if (fail) process.exit(1);

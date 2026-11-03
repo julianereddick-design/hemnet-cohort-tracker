@@ -488,20 +488,24 @@ typed. See CHANGELOG 2026-11-04.
 
 Glenn's `DATA MASTER\WEEKLY PROPERTIES\MASTER_updated_DDMMYY.xlsx` (weekly new pre-owned listings,
 Sweden / Stockholms län / Västra Götalands län, total + for sale; pre-market = difference). To wk
-12 Oct 2026 = Hemnet's public nytillkomna; from wk 19 Oct = paid-only from the ad registry
-(19 + 26 Oct estimated). Definitions and the break: CHANGELOG 2026-11-03 and the header of
-`lib/weekly-new-listings.js`.
+12 Oct 2026 = Hemnet's public nytillkomna; from wk 19 Oct = new PAID listings from the ad registry
+(19 + 26 Oct estimated from Hemnet's monthly paid figure; 2 Nov partly reconstructed). Definitions
+and the break: CHANGELOG 2026-11-04 / 2026-11-03 and the header of `lib/weekly-new-listings.js`.
 
 - **Table** `hemnet_weekly_new_listings` (`migrate-weekly-new-listings.js`): (week_start, area,
   market, series) → value, is_estimate, note. Series: `master` (the workbook), `hemnet_public`,
-  `registry_all`, `registry_paid`, `registry_upgrades`.
+  `hemnet_paid_monthly` (month start, Sweden), `registry_switched`,
+  `registry_new_paid|free|aggregated|other`.
 - **`weekly-new-listings.js`** (SCHEDULED, tier 2, `15 6 * * 1`): refetches Hemnet's public weekly
-  figures (6 pages), counts each new complete week from the registry, checks our all-ads count
-  against Hemnet's (±5%, warning if off), writes `view-data/weekly-new-listings/master-series.csv`
-  (stable URL) + `view-data/<date>/weekly-new-listings.csv`, posts the Dashboard's three lines to
+  figures (6 pages) and monthly paid figure, counts each new complete week from the registry
+  (held back if that Monday's daily walk did not run ok), checks each complete month from Nov
+  2026 against Hemnet's paid figure (±12% around the usual 0.76 ratio; amber if off), writes
+  `view-data/weekly-new-listings/master-series.csv` (stable URL) +
+  `view-data/<date>/weekly-new-listings.csv`, posts the Dashboard's three lines to
   `#hemnet-status`. `--dry-run` = live reads, writes and posts nothing.
 - **`scripts/seed-weekly-master.js`** (manual): `--master <csv>` loads the workbook history (refuses
-  to overwrite differing values without `--force`); `--estimate w,w` writes flagged estimates.
+  to overwrite differing values without `--force`); `--estimate w,w` writes flagged estimates for
+  the rest of a month from Hemnet's monthly paid figure.
 - **`tools/update-master-workbook.ps1`** (Glenn's PC, Windows task "Hemnet MASTER weekly update",
   Mon 19:00 Sydney, registered by `tools/register-master-task.ps1`): appends the CSV's new weeks to
   a temp copy of the newest workbook through Excel (raw sheets + col C source, PM sheets, analysis

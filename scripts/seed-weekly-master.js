@@ -9,11 +9,12 @@ require('dotenv').config();
 //                       unless --force: the workbook is the record.
 //   --estimate <w,w>    Flagged estimates for weeks with no paid-only count (wk 19 + 26 Oct 2026:
 //                       Hemnet's public figure counts free + aggregated ads, and our ad registry
-//                       started 2 Nov). Method: the ads created that week that are still live
-//                       now are in the registry with their packages, so
-//                         estimate = Hemnet's published total × (paid ÷ all) among those still live.
-//                       Survivors are biased (paid ads sell faster than aggregated ones linger),
-//                       so this leans low; it is marked as an estimate everywhere.
+//                       started 2 Nov). Method (W.estimateWeeks): Hemnet's monthly paid figure
+//                       for the month (statistik/finansiell-rapportering) ÷ its usual ratio to
+//                       the workbook (Feb–Sep 2026) gives the month on the workbook's scale; less
+//                       the days already in the workbook, spread evenly over the weeks asked for.
+//                       Stockholm / VG / for sale by their shares over the 8 weeks before.
+//                       The weeks must cover the rest of the month. Marked as estimates everywhere.
 //   --dry-run           Print, write nothing.
 //
 //   node scripts/seed-weekly-master.js --master view-data/master-history.csv --dry-run
@@ -62,23 +63,22 @@ async function loadMaster(client, file, { dryRun, force }) {
 
 async function estimate(client, weeks, { dryRun }) {
   const { getWithRetry } = require('../lib/scrape-http');
-  const pub = await W.fetchHemnetPublic((url) => getWithRetry(url, { logger: () => {} }));
-  const today = new Date().toISOString().slice(0, 10);
-  const out = [];
-  for (const week of weeks) {
-    if (W.mondayOf(week) !== week) throw new Error(`${week} is not a Monday`);
-    const reg = await W.registryWeek(client, week);
-    for (const area of W.AREAS) for (const market of ['tot', 'fs']) {
-      const p = pub.find(r => r.week_start === week && r.area === area && r.market === market);
-      const all = reg.all[area][market], paid = reg.paid[area][market];
-      if (!p || !all) throw new Error(`cannot estimate ${week} ${area} ${market}: Hemnet ${p ? p.value : 'n/a'}, live ads ${all}`);
-      const est = Math.round(p.value * paid / all);
-      console.log(`${week} ${area.padEnd(9)} ${market}: Hemnet ${String(p.value).padStart(5)}  still live ${String(all).padStart(5)} (${(100 * all / p.value).toFixed(0)}%)  of which paid ${String(paid).padStart(5)} (${(100 * paid / all).toFixed(1)}%)  → estimate ${est}`);
-      out.push({ week_start: week, area, market, series: 'master', value: est, is_estimate: true,
-        note: `estimate: Hemnet total × paid share of that week's ads still live on ${today}` });
-      out.push({ week_start: week, area, market, series: 'hemnet_public', value: p.value, note: 'hemnet.se/statistik/nytillkomna, pre-owned' });
-    }
-  }
+  const fin = await getWithRetry(W.FINANCIAL_URL, { logger: () => {} });
+  if (fin.status !== 200) throw new Error(`financial page: HTTP ${fin.status}`);
+  const financial = W.parseFinancialPage(fin.html);
+  for (const week of weeks) if (W.mondayOf(week) !== week) throw new Error(`${week} is not a Monday`);
+  const ms = await client.query(
+    `SELECT to_char(week_start, 'YYYY-MM-DD') AS week_start, area, market, value FROM hemnet_weekly_new_listings
+      WHERE series = 'master' AND NOT is_estimate AND week_start < $1::date`, [weeks[0]]);
+  const series = W.toSeries(ms.rows);
+  const month = weeks[0].slice(0, 7);
+  const e = W.estimateWeeks({ series, financial, month, weeks });
+  console.log(`Hemnet paid ${month}: ${financial.get(month).paid}; usual ratio to the workbook ${e.ratio.toFixed(3)} → month on workbook scale ${Math.round(e.target)}`);
+  console.log(`already in the workbook: ${Math.round(e.known)} over ${e.knownDays} days; left ${Math.round(e.target - e.known)} over ${e.missingDays} days = ${e.perDay.toFixed(0)} a day`);
+  console.log(`shares (8 weeks before): ${W.AREAS.map(a => `${a} ${(e.shares[a].area * 100).toFixed(1)}% of Sweden, for sale ${(e.shares[a].fs * 100).toFixed(1)}%`).join('; ')}`);
+  for (const r of e.rows) console.log(`  ${r.week_start} ${r.area.padEnd(9)} ${r.market}: ${r.value}`);
+  const note = `estimate from Hemnet's ${month} paid figure (${financial.get(month).paid}) on the workbook scale`;
+  const out = e.rows.map(r => ({ ...r, series: 'master', is_estimate: true, note }));
   if (!dryRun) await client.query(UPSERT, [JSON.stringify(out)]);
 }
 

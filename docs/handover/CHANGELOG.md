@@ -6,7 +6,43 @@ before it's fixed.
 
 ---
 
+## 2026-11-04 — Weekly new listings: counting method replaced before first use
+
+The 2026-11-03 method below was never used: checked against the first full sweep it counted
+almost nothing. **Hemnet ids are not a clock**: the ads copied from agency sites since October
+got fresh ids but keep the agency's old publish date, so "ids between Monday's highest and the
+next Monday's" collapses. Nothing was written or posted with it.
+
+- **New paid listing** = an ad first seen with a paid package (BASIC/PREMIUM/MAX) after the full
+  sweep of 3 Nov: a new ad, or a free / copied / teaser ad switching to paid. Week = its publish
+  time (buying a package resets it). Re-publishing, renewing or upgrading an ad already paid does
+  not count: on 2 Nov ~900 of ~1,100 paid ads with that day's date were old ads re-published,
+  and only ~190 were new. Total vs for sale by the tier at that sighting.
+- **Wk 2 Nov is partly reconstructed** (flagged estimate): 2–3 Nov were before the sweep, so only
+  recent ids (≥ 22.0M) published from 2 Nov count; old ads switching back to paid those two days
+  are missed. Wk 9 Nov is the first fully counted week.
+- **Wk 19 + 26 Oct estimates** now come from **Hemnet's monthly paid figure**
+  (`/statistik/finansiell-rapportering`, type `paid`, from Feb 2026): Feb–Sep 2026 it ran at
+  0.76× the workbook total (range 0.70–0.81; Hemnet's "paid" leaves out some ads the weekly page
+  always counted; its `published` series ≈ the workbook, 0.91–1.01). October paid 8,592 ÷ 0.764 =
+  11,243 on the workbook scale, less 6,496 already in the workbook for 1–18 Oct = 365 a day for
+  19–31 Oct → **2,556 total / 1,763 for sale a week (Sweden)**, Stockholm/VG/for sale by their
+  shares over the previous 8 weeks. Both weeks get the same figure. About ±10%.
+- **The weekly check against Hemnet's public figure is gone** (it counts free and copied ads, so
+  it cannot check a paid count). Instead, **every complete month from November** our paid count
+  (scaled for days before 2 Nov) × 0.764 is checked against Hemnet's monthly paid figure, ±12%;
+  outside that the post warns and the job goes amber. First check: early December.
+- A week whose Monday daily walk did not run ok is **held back** to the next Monday (the walk
+  catches up on its own), so the series never gets a half-read week.
+- New series in `hemnet_weekly_new_listings`: `registry_switched` (of the paid count, ads that
+  switched to paid), `registry_new_paid|free|aggregated|other` (ad ids first seen that week, by
+  first package), `hemnet_paid_monthly` (month start, Sweden). `registry_all/paid/upgrades` are
+  not written.
+- Early sign (2 Nov only, not yet a finding): new free ads (~280) outnumbered new paid ones (~190).
+
 ## 2026-11-03 — Weekly new listings for the MASTER workbook: now from our own data (GrokBot retired)
+
+*(Counting method and estimates superseded by 2026-11-04 above before first use.)*
 
 - **The workbook**: Glenn's `DATA MASTER\WEEKLY PROPERTIES\MASTER_updated_DDMMYY.xlsx`, weekly new
   pre-owned listings for Sweden, Stockholms län and Västra Götalands län (total, for sale,
