@@ -507,7 +507,7 @@ and the break: CHANGELOG 2026-11-04 / 2026-11-03 and the header of `lib/weekly-n
   to overwrite differing values without `--force`); `--estimate w,w` writes flagged estimates for
   the rest of a month from Hemnet's monthly paid figure.
 - **`tools/update-master-workbook.ps1`** (Glenn's PC, Windows task "Hemnet MASTER weekly update",
-  Mon 19:00 Sydney, registered by `tools/register-master-task.ps1`): appends the CSV's new weeks to
+  Tue 09:00 Sydney, registered by `tools/register-master-task.ps1`): appends the CSV's new weeks to
   a temp copy of the newest workbook through Excel (raw sheets + col C source, PM sheets, analysis
   rows above the summaries, charts extended, Dashboard week), checks it, saves a NEW
   `MASTER_updated_DDMMYY.xlsx`. `-DryRun`, `-CsvPath` for testing. Failure →

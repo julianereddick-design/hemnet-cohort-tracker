@@ -2,7 +2,7 @@
 # (DATA MASTER\WEEKLY PROPERTIES\MASTER_updated_DDMMYY.xlsx) from the server's weekly CSV.
 #
 # Runs on Glenn's PC (Excel is needed: editing through Excel keeps the charts and formulas;
-# ExcelJS drops charts). Scheduled weekly by tools/register-master-task.ps1, Mondays 19:00
+# ExcelJS drops charts). Scheduled weekly by tools/register-master-task.ps1, Tuesdays 09:00
 # Sydney time, after the server's weekly-new-listings job (Mon 06:15 UTC) has written
 #   http://<server>:3800/view-data/weekly-new-listings/master-series.csv
 #

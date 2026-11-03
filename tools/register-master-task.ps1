@@ -1,9 +1,9 @@
 # tools/register-master-task.ps1 - registers the weekly Windows task that updates the MASTER
 # workbook (tools/update-master-workbook.ps1) on Glenn's PC.
 #
-# Mondays 19:00 local (Sydney) time = 08:00/09:00 UTC, after the server's weekly-new-listings
+# Tuesdays 09:00 local (Sydney) time = Mon 22:00/23:00 UTC, the morning after the server's weekly-new-listings
 # job (Mon 06:15 UTC). Runs only while Glenn is logged on (Excel needs the desktop session).
-# If the PC was off or asleep at 19:00 it runs at the next chance (StartWhenAvailable).
+# If the PC was off or asleep at 09:00 it runs at the next chance (StartWhenAvailable).
 #
 #   powershell -ExecutionPolicy Bypass -File tools\register-master-task.ps1            # create / replace
 #   powershell -ExecutionPolicy Bypass -File tools\register-master-task.ps1 -Remove    # delete
@@ -14,7 +14,7 @@ if ($Remove) { Unregister-ScheduledTask -TaskName $name -Confirm:$false; "remove
 $script = Join-Path $PSScriptRoot 'update-master-workbook.ps1'
 if (-not (Test-Path -LiteralPath $script)) { throw "missing $script" }
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$script`""
-$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday -At '19:00'
+$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Tuesday -At '09:00'
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -MultipleInstances IgnoreNew
 $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
 Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger -Settings $settings -Principal $principal `

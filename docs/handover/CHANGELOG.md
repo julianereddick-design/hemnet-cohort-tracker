@@ -6,6 +6,16 @@ before it's fixed.
 
 ---
 
+## 2026-11-04 — Removed Hemnet ads read as "unrecognised page type" (one refresh run)
+
+- The 3 Nov 15:01 UTC `hemnet-targeted-refresh` run (the first since the App Router fix) alerted
+  on 133 `DeactivatedPropertyListing` + 4 `DeactivatedBeforeOpenHousePropertyListing` pages.
+  These are ordinary removed ads (label REMOVED "Borttagen från Hemnet", `deactivatedAt` set):
+  the App Router pages now carry an entity for them, the old pages carried none. Those 137 rows
+  were left untouched for that run (no drop-streak step); nothing else affected.
+- `parseActiveListing` (lib/hemnet-fetch.js) now reads them as inactive, as before
+  (`DeactivatedBeforeOpenHouse…` → `removed-before-showing`).
+
 ## 2026-11-04 — Weekly new listings: counting method replaced before first use
 
 The 2026-11-03 method below was never used: checked against the first full sweep it counted
@@ -63,7 +73,7 @@ next Monday's" collapses. Nothing was written or posted with it.
 - **Pipeline**: `weekly-new-listings.js` (server, Mon 06:15 UTC) → table
   `hemnet_weekly_new_listings` → `view-data/weekly-new-listings/master-series.csv` + Slack post
   (the Dashboard's three lines). `tools/update-master-workbook.ps1` (Glenn's PC, scheduled task
-  "Hemnet MASTER weekly update", Mon 19:00 Sydney) adds the new weeks to a NEW
+  "Hemnet MASTER weekly update", Tue 09:00 Sydney (moved from Mon 19:00 on 2026-11-04)) adds the new weeks to a NEW
   `MASTER_updated_DDMMYY.xlsx` through Excel; on failure it leaves
   `MASTER_update_FAILED_<date>.txt` in the folder. Log: `%LOCALAPPDATA%\hemnet-master-update.log`.
 - Hemnet's public weekly data is fetched directly:
