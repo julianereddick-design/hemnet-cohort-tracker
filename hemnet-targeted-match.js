@@ -192,8 +192,28 @@ function shapeListingForDb(listing) {
     municipality,
     county,
     published_at_seconds: listing.publishedAt != null ? listing.publishedAt : null,
+    // Listing format, same fields as hemnet-targeted-refresh.js shapeListingForDb.
+    active_package: listing.activePackage != null ? listing.activePackage : null,
+    is_teaser: listing.isTeaser != null ? listing.isTeaser : null,
+    listing_typename: listing.typename != null ? listing.typename : null,
+    is_project: listing.isProject != null ? listing.isProject : null,
+    is_project_unit: listing.isProjectUnit != null ? listing.isProjectUnit : null,
   };
 }
+
+// The listing format (paid / free package) as of this match, so a new cohort's pairs
+// can be split paid/free from day 0. Before 2026-11-03 only hemnet-targeted-refresh
+// wrote it, so a new cohort had no package until its first refresh, and none at all
+// when the refresh was down (W44: 926 of 951). Same statement as the refresh's
+// SQL_REFRESH_FORMAT; the refresh keeps the history table.
+const SQL_MATCH_FORMAT = `UPDATE hemnet_listingv2
+    SET active_package   = $1,
+        is_teaser        = $2,
+        listing_typename = $3,
+        is_project       = $4,
+        is_project_unit  = $5,
+        format_seen_at   = NOW()
+  WHERE hemnet_id = $6`;
 
 // ---------------------------------------------------------------
 // per-county summary helpers
@@ -582,6 +602,15 @@ async function processOne(booli, client, log, dryRun, summary, searchCache, sear
       );
       summary.rowsInserted++;
     }
+    // Separate statement, never fatal: a match must not fail over the format columns.
+    try {
+      await client.query(SQL_MATCH_FORMAT, [
+        shaped.active_package, shaped.is_teaser, shaped.listing_typename,
+        shaped.is_project, shaped.is_project_unit, listing.id,
+      ]);
+    } catch (err) {
+      log('WARN', `format not saved hemnet_id=${listing.id}: ${err && err.message}`);
+    }
     summary.inserted++;
     bucket(summary, booli.county).matched++;
     bucket(summary, booli.county).inserted++;
@@ -925,6 +954,30 @@ if (process.argv.includes('--smoke')) {
       timesViewed: 0, isUpcoming: true, publishedAt: 1,
     });
     assert.strictEqual(r.is_pre_market, true);
+  });
+
+  // --- Listing format saved at match time (2026-11-03) ---
+  check('format: shapeListingForDb carries the package and type for SQL_MATCH_FORMAT', () => {
+    const r = shapeListingForDb({
+      municipality: { fullName: 'Göteborgs kommun' }, county: { fullName: 'Västra Götalands län' },
+      streetAddress: 'X', postCode: '41101', timesViewed: 319, isUpcoming: false, publishedAt: 1,
+      activePackage: 'MINIMAL', isTeaser: false, typename: 'ActivePropertyListing', isProject: false, isProjectUnit: false,
+    });
+    assert.strictEqual(r.active_package, 'MINIMAL');
+    assert.strictEqual(r.is_teaser, false);
+    assert.strictEqual(r.listing_typename, 'ActivePropertyListing');
+    assert.strictEqual(r.is_project, false);
+  });
+  check('format: a listing with no package stores null, not undefined', () => {
+    const r = shapeListingForDb({ municipality: {}, county: {}, timesViewed: 1, isUpcoming: false });
+    assert.strictEqual(r.active_package, null);
+    assert.strictEqual(r.listing_typename, null);
+  });
+  check('format: SQL_MATCH_FORMAT writes the same columns as the refresh and stamps format_seen_at', () => {
+    for (const col of ['active_package', 'is_teaser', 'listing_typename', 'is_project', 'is_project_unit', 'format_seen_at']) {
+      assert.ok(SQL_MATCH_FORMAT.includes(col), col);
+    }
+    assert.ok(/WHERE hemnet_id = \$6/.test(SQL_MATCH_FORMAT));
   });
 
   // --- LIBC-02 (nullTitleSkipped) ---

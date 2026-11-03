@@ -1,5 +1,7 @@
 require('dotenv').config();
 const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 const { createClient } = require('./db');
 const { postMessage } = require('./lib/slack-post');
 const { runReporter } = require('./cron-wrapper');
@@ -69,10 +71,39 @@ async function run() {
     console.error(`Cross-cohort chart failed: ${err.message}`);
   }
 
-  // 4. Slack notification
   const serverPort = process.env.VIEW_SERVER_PORT || 3800;
   const serverHost = process.env.VIEW_SERVER_HOST;
 
+  // 3b. Like-for-like views (lib/views-like-for-like.js): ALWAYS both the CSV in the pack
+  // and the block in the Slack post — the scorecard bot reads either. A failure here
+  // is reported in the post rather than stopping the rest of the report.
+  let lflBlock;
+  try {
+    const lfl = require('./lib/views-like-for-like');
+    const c = createClient();
+    await c.connect();
+    let weekly;
+    try {
+      const { pairs, readings } = await lfl.loadInputs(c);
+      weekly = lfl.computeWeekly(pairs, readings, { before: today });
+    } finally {
+      await c.end();
+    }
+    const csvFile = path.join(__dirname, 'view-data', today, 'views-like-for-like.csv');
+    fs.mkdirSync(path.dirname(csvFile), { recursive: true });
+    fs.writeFileSync(csvFile, lfl.toCsv(weekly), 'utf8');
+    console.log(`Like-for-like views: ${csvFile} (${weekly.length} weeks)`);
+    const csvLink = serverHost
+      ? `<http://${serverHost}:${serverPort}/view-data/${today}/views-like-for-like.csv|views-like-for-like.csv>`
+      : 'views-like-for-like.csv';
+    lflBlock = lfl.slackBlock(weekly, today, csvLink);
+  } catch (err) {
+    console.error(`Like-for-like views failed: ${err.message}`);
+    lflBlock = `*Views, like-for-like*: not available this week (${err.message}).`;
+    process.exitCode = 1;
+  }
+
+  // 4. Slack notification
   if (serverHost) {
     const chartUrl = `http://${serverHost}:${serverPort}/view-data/${today}/cross-cohort-hpct.html`;
     const cohortLinks = exportedCohorts.map(id =>
@@ -85,6 +116,8 @@ async function run() {
       ``,
       `<${chartUrl}|:chart_with_upwards_trend: Cross-Cohort H% Chart>`,
       `Per-cohort charts: ${cohortLinks}`,
+      ``,
+      lflBlock,
     ].join('\n');
 
     // postMessage RETURNS {ok:false} on a failed delivery — it does not throw — so the

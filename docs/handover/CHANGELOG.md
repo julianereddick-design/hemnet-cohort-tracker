@@ -6,6 +6,34 @@ before it's fixed.
 
 ---
 
+## 2026-11-03 — Weekly view pack: like-for-like views (CSV + Slack block); package saved at match
+
+- **New measure**: `lib/views-like-for-like.js`. Weekly Hemnet share of views (H%) on
+  the same homes on both sites, days 8–28 of listing, Hemnet re-publishes and outage
+  spans left out, pooled per Mon–Sun week; headline is **paid listings only**, with
+  free, pre-market carryover (`booli_views_day0 >= 100`) and fresh splits, views per
+  listing per day for each site, homes counted, and a `flag` column (outage / partial
+  week, frozen counters, unknown package, small sample). Method is the 2026-10-27 deep
+  dive's (see the view-share notes), now automated.
+- **Always both outputs**: `weekly-view-report.js` writes
+  `view-data/<date>/views-like-for-like.csv` (full weekly history from 1 Jun, unfinished
+  week left out) **and** adds a "Views, like-for-like" block to its Slack post for the
+  Mon–Sun week before the pack date. The scorecard bot reads either. The cross-cohort
+  and per-cohort charts are unchanged and still in the pack.
+- First values: week of 26 Oct paid 67.4% (19 Oct 69.4%), half a week (27/29 Oct) because
+  of the Hemnet outage. The 9 Nov pack (2–8 Nov) is also partial: the 3 Nov reading spans
+  the outage, so only 5 and 7 Nov count. 16 Nov is the first complete week.
+- `lib/listing-segment.js` (paid/free classification) moved onto master from the
+  `draft/paid-free-split` branch for this block only; the xlsx/chart paid/free split on
+  that branch is still awaiting the team.
+- **hemnet-targeted-match now saves the listing format** (`active_package`, `is_teaser`,
+  `listing_typename`, `is_project`, `is_project_unit`, `format_seen_at`) when it matches a
+  home. Before, only hemnet-targeted-refresh did, so a new cohort had no package until
+  its first refresh, and none while the refresh was down (W44: 926 of 951 unknown).
+  Separate statement, never fatal to the match.
+
+---
+
 ## 2026-11-03 — Hemnet moves to the App Router; every Hemnet reader repaired (deployed 2026-11-02 UTC)
 
 ### What Hemnet changed (~2026-10-30)
