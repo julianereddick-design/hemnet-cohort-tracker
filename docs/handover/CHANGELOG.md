@@ -36,6 +36,7 @@ before it's fixed.
   Hemnet sold card whose `listingId` is empty (no package, no labels, mostly "price on
   request"). This is NOT proof of no ad: about half of them (517 of 1,028) had a live Hemnet
   ad at the same address in `hemnet_listingv2`. The registry will settle it for new sales.
+- **Hemnet has dropped the Plus package** (confirmed by Glenn 2026-11-03; none among ~2,200 new ads 1–3 Nov). PLUS stays in the paid set so older ads still classify.
 - Card parser (`parseListingCards`) gains additive fields (slug, recordType, area, rooms,
   coordinates, agency…). Cost: ~2,500 Oxylabs calls a week for the sweep plus ~25–30 a day
   for the daily walk; within the flat plan.
