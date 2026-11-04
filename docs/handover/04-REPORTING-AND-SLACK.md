@@ -313,6 +313,22 @@ and is the backstop that makes tier-2 silence safe. Section-by-section reading g
 - **Dry run:** `node weekly-new-listings.js --dry-run` (fetches Hemnet, reads the DB, prints the
   post; writes and posts nothing). `--smoke` offline.
 
+### 2.5c Ad tiers: views and upgrades — `tier-views-report.js` (monthly, from 2026-12-01)
+
+- **What:** for cohort homes whose days 8–28 of listing ended in the previous month: Hemnet
+  views per Booli view for Free / Basic / Plus / Max against a comparable Premium ad (same cohort,
+  municipality, property type, price band), with a likely range; a check that free homes are not
+  less wanted (Booli views alone); the same comparison within an agency (paid tiers only — free
+  ads show no agency); and the free-to-paid upgrade rate (registry history, free ads published
+  from 3 Nov 2026). Tiers with under 30 homes compared are shown as "too few". Method:
+  `lib/tier-views.js` header.
+- **Files:** `view-data/<date>/tier-views/tier-views.{xlsx,csv}` (full monthly history; the xlsx has
+  a per-home sheet and a Method sheet) and `upgrades.csv`.
+- **Channel:** business → `#hemnet-status`, 1st of the month 07:20 UTC. First run 2026-12-01
+  (November: cohorts W41–W44; free homes from W43).
+- **Dry run:** `node tier-views-report.js --dry-run` (`REPORT_DATE=YYYY-MM-DD` to pick the run
+  date; note it still writes a `cron_job_log` row). `node lib/tier-views.js --smoke` offline.
+
 ### 2.6 Sold-match weekly match-rate — `sold-match-report.js`
 
 - **What:** The **minimal** weekly message (blank-slate redesign 2026-07-07): a most-recent-first
@@ -429,6 +445,7 @@ and is the backstop that makes tier-2 silence safe. Section-by-section reading g
 | Market supply pulse | `market-totals-weekly-report.js` | Mon 09:35 | business → `#hemnet-status` | `35 9 * * 1` |
 | Pre-market flow pulse | `premarket-flow-weekly-report.js` | Mon 09:40 | business → `#hemnet-status` | `40 9 * * 1` |
 | Age-penetration census | `age-census-report.js` | monthly, 1st 07:00 | business → `#hemnet-status` | `0 7 1 * *` |
+| Ad tiers: views and upgrades | `tier-views-report.js` | monthly, 1st 07:20 | business → `#hemnet-status` | `20 7 1 * *` |
 | Sold-match match-rate summary | `sold-match-report.js` | Mon 11:00 | business → `#hemnet-status` | `0 11 * * 1` |
 | Spot-check reaction poller (+ stale alert) | `spotcheck-reaction-poller.js` | daily 12:00 | ops → `#hemnet-ops` (reads); stale alert via `cron-wrapper` `postAlert` | `0 12 * * *` |
 | Market-totals daily capture (silent) | `market-totals-daily.js` | daily 08:30 | ops → `#hemnet-ops`, only on failure/warning (via `cron-wrapper` `postAlert`) | `30 8 * * *` |

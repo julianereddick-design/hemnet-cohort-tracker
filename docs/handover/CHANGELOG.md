@@ -6,6 +6,20 @@ before it's fixed.
 
 ---
 
+## 2026-11-04 — New monthly report: views by Hemnet ad tier, and free-to-paid upgrades
+
+- `tier-views-report.js` (1st of the month 07:20 UTC, `#hemnet-status`, method in
+  `lib/tier-views.js`): Hemnet views per Booli view by package tier against comparable Premium
+  ads, a selection check, a same-agency check (paid tiers only: free ads carry no agency), and
+  the share of free ads that upgrade to paid. New series, no change to existing data.
+- First read (ad hoc, W43, 26 Oct–3 Nov, early listing days): Free ≈ 68–72% of Premium per Booli
+  view, Basic ≈ 90% (range reaches 100%); free homes get ≥ Premium's Booli views, so the gap is
+  not "worse homes". First scheduled report 2026-12-01 (November: W41–W44).
+- Upgrade rates only cover free ads published from 3 Nov 2026 (registry history start); an
+  earlier ad could have upgraded unseen.
+
+---
+
 ## 2026-11-04 — Views tracked on paid Hemnet ads only; new "sellers paying for Hemnet" line
 
 - Team decision: the H% view share compares Booli for-sale homes with their **paid** Hemnet ad
