@@ -230,13 +230,14 @@ h1 { font-size: 22px; margin-bottom: 5px; }
 .notes li { margin-bottom: 4px; }
 .notes code { background: #e8e8e8; padding: 1px 4px; border-radius: 2px; font-size: 12px; }
 </style></head><body>
-<h1>Cross-Cohort Analysis: Hemnet % of Incremental Views</h1>
+<h1>Cross-Cohort Analysis: Hemnet % of Incremental Views (paid Hemnet ads)</h1>
 <div class="subtitle">Generated ${runDate} | Cohorts: ${cohortIds.join(', ')} | Dates: ${unionDates[0]} to ${unionDates[unionDates.length - 1]}</div>
 ${canvases}
 <div class="notes">
 <h3>Methodology</h3>
 <ul>
 <li><strong>Data source:</strong> Per-pair cumulative view data from each cohort's <code>hb-ratio-*.xlsx</code> workbook.</li>
+<li><strong>Paid Hemnet ads only</strong> (from 4 Nov 2026): the workbooks hold only pairs whose Hemnet ad is paid (Basic, Plus, Premium, Max, new-build). Cohorts before Hemnet's free tier (20 Oct 2026) were all paid, so the series is like-for-like; free ads are left out. How many sellers still pay is shown separately in <code>paid-share.html</code>.</li>
 <li><strong>Include criteria:</strong> A pair-date is included only if both the current date and 2 dates prior have positive cumulative views (replicates the Section 3 flags in the xlsx).</li>
 <li><strong>Daily incremental:</strong> <code>max(0, (cumulative_today - cumulative_2_days_ago) / 2)</code> for both Hemnet and Booli. Negative deltas are floored to zero.</li>
 <li><strong>Hemnet % of Total:</strong> <code>mean(H_incremental) / (mean(H_incremental) + mean(B_incremental)) &times; 100</code> per region per date. Minimum 3 included pairs required.</li>

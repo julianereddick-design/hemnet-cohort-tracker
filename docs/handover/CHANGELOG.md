@@ -6,6 +6,24 @@ before it's fixed.
 
 ---
 
+## 2026-11-04 — Views tracked on paid Hemnet ads only; new "sellers paying for Hemnet" line
+
+- Team decision: the H% view share compares Booli for-sale homes with their **paid** Hemnet ad
+  only. Hemnet's free tier (MINIMAL, 20 Oct) was ~40% of the W43/W44 pairs and gets less
+  visibility, which pulled H% down for reasons unrelated to buyer demand. Every cohort before
+  20 Oct was all paid, so the paid series is like-for-like with history (W41: 0 pairs left out;
+  W44: 547 paid kept, 382 free/other left out).
+- `export-hb-ratio-xlsx.js` (per-cohort workbook + charts, and so the cross-cohort chart) keeps
+  paid pairs only; `--all-packages` restores the blended view. The like-for-like Slack headline
+  was already paid. Free pairs are still collected and tracked (`hpct_free` in the CSV).
+- New `lib/paid-coverage.js`: share of each cohort's Booli new homes with a paid Hemnet ad
+  (pairs + unmatched; removed pairs count as not matched), in the weekly view pack. History:
+  ~45% in May and Aug, ~37% in summer, drifting to 31.8% by W42 (before the free tier), then
+  26.0% W43 and 24.9% W44, with 17–18% on free ads.
+- `hemnet-targeted-match.js`: twins that are aggregated (copied agency ads) or have no view
+  counter are counted as `untrackableTwins` and skipped instead of failing the INSERT as parse
+  errors; they leave the match-rate denominator (from draft branch `draft/paid-free-split`).
+
 ## 2026-11-04 — Spot-check: clear mismatches removed automatically; backlog cleared
 
 - Nobody had reacted to the spot-check review queue since 24 Aug (Julian, the only allowed

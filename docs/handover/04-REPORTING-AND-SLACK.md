@@ -206,8 +206,15 @@ and is the backstop that makes tier-2 silence safe. Section-by-section reading g
   `view-data/<date>/views-like-for-like.xlsx` (same table as live SUMIFS formulas over a
   per-home Intervals sheet, plus a Method sheet: check a number the way you check
   `hb-ratio-<cohort>.xlsx`), and the **"Views, like-for-like"** block in the Slack post for
-  the Mon–Sun week before the pack date. Method: `02` §`lib/views-like-for-like.js`. The
-  per-cohort and cross-cohort charts are unchanged and stay in the pack.
+  the Mon–Sun week before the pack date. Method: `02` §`lib/views-like-for-like.js`.
+- **Paid Hemnet ads only (since 2026-11-04, team decision):** the per-cohort workbooks/charts
+  and the cross-cohort chart keep only pairs whose Hemnet ad is paid (`lib/listing-segment.js`
+  `segmentOf` = paid; `export-hb-ratio-xlsx.js --all-packages` puts free/other back). Cohorts
+  before 20 Oct were all paid, so the series is unchanged for them. Free pairs are still collected.
+- **Sellers paying for Hemnet (since 2026-11-04):** `lib/paid-coverage.js` → 
+  `view-data/<date>/paid-share.{csv,html}` and a block in the post: share of each cohort's Booli
+  new homes (pairs + `cohort_unmatched`) with a paid / free / no Hemnet twin, latest cohort vs
+  prior week and the 4 cohorts before the free tier. Fails the same way as like-for-like.
 - **Outages:** periods when a site's counters were not captured are listed in
   `lib/view-outages.js`; the charts shade them and break the line, and the like-for-like
   outputs leave out readings across them and flag the week ("partial week").
@@ -229,6 +236,10 @@ and is the backstop that makes tier-2 silence safe. Section-by-section reading g
   Pre-market carryover 66.6% · fresh 81.2% · free listings 63.7% (91 homes, too few to read)
   ⚠ Partial week: Hemnet data outage, website change 30 Oct–2 Nov, readings across it left out
   _Same homes on both sites, days 8–28 of listing, Hemnet re-publishes left out. Weekly history: <…csv> · per-home workbook <…xlsx>_
+
+  *Sellers paying for Hemnet*
+  Booli's new homes with a paid Hemnet ad, W44: *24.9%* (prior week 26%, before the free tier 35.7% (W39–W42)). Free Hemnet ad 17.1%, not found on Hemnet 57.8% (2201 homes).
+  Chart and table: <…paid-share.html> · <…paid-share.csv>
   ```
   If the like-for-like step fails, the block says "not available this week (<error>)", the
   rest of the post still goes, and the script exits 1.

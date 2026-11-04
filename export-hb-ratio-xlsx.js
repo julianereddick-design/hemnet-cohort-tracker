@@ -2,6 +2,7 @@ const { createClient } = require('./db');
 const ExcelJS = require('exceljs');
 const path = require('path');
 const fs = require('fs');
+const { segmentOf, latestPackageJoin } = require('./lib/listing-segment');
 const { outageChartJs, outageNoteHtml } = require('./lib/view-outages');
 
 function normalizeCounty(name) {
@@ -38,9 +39,11 @@ async function run() {
   const args = process.argv.slice(2);
   let cohortId = null;
   let includeLatest = false;
+  let allPackages = false;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--cohort' && args[i + 1]) cohortId = args[i + 1];
     if (args[i] === '--include-latest') includeLatest = true;
+    if (args[i] === '--all-packages') allPackages = true;
   }
 
   if (!cohortId) {
@@ -49,17 +52,24 @@ async function run() {
     console.log(`Using latest cohort: ${cohortId}`);
   }
 
-  // Query pairs
+  // Query pairs. 2026-11-04 (team decision): paid Hemnet ads only, so H% stays like-for-like
+  // with every cohort before Hemnet's free tier (20 Oct). Free / other / unknown-package
+  // pairs are still collected and tracked; --all-packages puts them back in.
   const pairsRes = await client.query(`
-    SELECT id, booli_id, hemnet_id, street_address, municipality, county, postcode,
-           booli_listed::text AS booli_listed
-    FROM cohort_pairs
-    WHERE cohort_id = $1
-      AND removed_at IS NULL
-    ORDER BY county, municipality, id
+    SELECT cp.id, cp.booli_id, cp.hemnet_id, cp.street_address, cp.municipality, cp.county, cp.postcode,
+           cp.booli_listed::text AS booli_listed, cp.hemnet_listed::text AS hemnet_listed, pkg.active_package
+    FROM cohort_pairs cp ${latestPackageJoin('cp')}
+    WHERE cp.cohort_id = $1
+      AND cp.removed_at IS NULL
+    ORDER BY cp.county, cp.municipality, cp.id
   `, [cohortId]);
-  const pairs = pairsRes.rows;
-  console.log(`Cohort: ${cohortId}, ${pairs.length} pairs`);
+  const pairs = allPackages
+    ? pairsRes.rows
+    : pairsRes.rows.filter(p => segmentOf(p.active_package, p.hemnet_listed) === 'paid');
+  const leftOut = pairsRes.rows.length - pairs.length;
+  const scopeNote = allPackages ? 'all Hemnet packages' : `paid Hemnet ads only (${leftOut} free / other / unknown left out)`;
+  console.log(`Cohort: ${cohortId}, ${pairs.length} pairs, ${scopeNote}`);
+  const keep = new Set(pairs.map(p => p.id));
 
   // Query all views
   const viewsRes = await client.query(`
@@ -69,6 +79,7 @@ async function run() {
     WHERE cp.cohort_id = $1
       AND cp.removed_at IS NULL
   `, [cohortId]);
+  viewsRes.rows = viewsRes.rows.filter(v => keep.has(v.pair_id));
 
   // Build view lookup: pair_id -> date -> {hemnet_views, booli_views}
   const viewMap = new Map();
@@ -671,13 +682,14 @@ async function run() {
     '.notes code { background: #e8e8e8; padding: 1px 4px; border-radius: 2px; font-size: 12px; }',
     '</style></head><body>',
     '<h1>Cohort Analysis: ' + cohortId + '</h1>',
-    '<div class="subtitle">Generated ' + runDate + ' | ' + pairs.length + ' pairs | ' + dates.length + ' dates (' + dates[0] + ' to ' + dates[dates.length - 1] + ')</div>',
+    '<div class="subtitle">Generated ' + runDate + ' | ' + pairs.length + ' pairs, ' + scopeNote + ' | ' + dates.length + ' dates (' + dates[0] + ' to ' + dates[dates.length - 1] + ')</div>',
     '<div class="chart-container"><canvas id="ratioChart"></canvas></div>',
     '<div class="chart-container"><canvas id="hPctChart"></canvas></div>',
     '<div class="notes">',
     '<h3>Methodology</h3>',
     '<ul>',
     '<li><strong>Data source:</strong> Cumulative view counts scraped daily from Hemnet and Booli for matched listing pairs in cohort ' + cohortId + '.</li>',
+    '<li><strong>Paid Hemnet ads only</strong> (Basic, Plus, Premium, Max, new-build): free ads (Hemnet\'s free tier, from 20 Oct 2026) are left out so the share compares like-for-like with earlier cohorts, which were all paid.</li>',
     '<li><strong>Daily incremental:</strong> For each pair on each date, the daily view rate is calculated as <code>(cumulative_today - cumulative_2_days_ago) / 2</code>. Both Hemnet and Booli use this 2-day average to keep the comparison window consistent (Booli\'s scraper only updates view counts every other day).</li>',
     '<li><strong>Inclusion criteria:</strong> A pair-date is included only if both the current date and 2 dates prior have non-null, non-zero cumulative views for that platform.</li>',
     '<li><strong>H/B Ratio:</strong> Per-pair ratio = Hemnet daily views / Booli daily views. Pairs with Booli daily &le; 0 or ratio &gt; 20 are excluded as outliers. Chart shows the <strong>median</strong> ratio across all included pairs per region per date (minimum 3 pairs required).</li>',

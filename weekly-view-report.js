@@ -108,6 +108,32 @@ async function run() {
     process.exitCode = 1;
   }
 
+  // 3c. Share of Booli's new homes with a paid Hemnet ad (lib/paid-coverage.js) — the
+  // companion to the paid-only H%: how many sellers still pay. Same failure rule as 3b.
+  let coverageBlock;
+  try {
+    const cov = require('./lib/paid-coverage');
+    const c = createClient();
+    await c.connect();
+    let rows;
+    try {
+      rows = cov.computeCoverage(await cov.loadInputs(c));
+    } finally {
+      await c.end();
+    }
+    const dir = path.join(__dirname, 'view-data', today);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'paid-share.csv'), cov.toCsv(rows), 'utf8');
+    fs.writeFileSync(path.join(dir, 'paid-share.html'), cov.buildHtml(rows, today), 'utf8');
+    console.log(`Paid share: ${dir}/paid-share.{csv,html} (${rows.length} cohorts)`);
+    const link = (f) => (serverHost ? `<http://${serverHost}:${serverPort}/view-data/${today}/${f}|${f}>` : f);
+    coverageBlock = cov.slackLine(rows, `${link('paid-share.html')} · ${link('paid-share.csv')}`);
+  } catch (err) {
+    console.error(`Paid share failed: ${err.message}`);
+    coverageBlock = `*Sellers paying for Hemnet*: not available this week (${err.message}).`;
+    process.exitCode = 1;
+  }
+
   // 4. Slack notification
   if (serverHost) {
     const chartUrl = `http://${serverHost}:${serverPort}/view-data/${today}/cross-cohort-hpct.html`;
@@ -119,10 +145,12 @@ async function run() {
       `:bar_chart: *Weekly Cohort View Report — ${today}*`,
       `Cohorts: ${exportedCohorts.join(', ')}`,
       ``,
-      `<${chartUrl}|:chart_with_upwards_trend: Cross-Cohort H% Chart>`,
+      `<${chartUrl}|:chart_with_upwards_trend: Cross-Cohort H% Chart> (paid Hemnet ads only)`,
       `Per-cohort charts: ${cohortLinks}`,
       ``,
       lflBlock,
+      ``,
+      coverageBlock,
     ].join('\n');
 
     // postMessage RETURNS {ok:false} on a failed delivery — it does not throw — so the

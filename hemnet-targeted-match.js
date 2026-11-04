@@ -480,6 +480,13 @@ async function processOne(booli, client, log, dryRun, summary, searchCache, sear
     summary.detailFetched++;
     const listing = detail.listing;
 
+    const untrackable = untrackableReason(listing);
+    if (untrackable) {
+      summary.untrackableTwins++;
+      log('INFO', `untrackable-twin booli_id=${booli.booli_id} hemnet_id=${listing.id} reason=${untrackable} package=${listing.activePackage}`);
+      return;
+    }
+
     // 5. Postcode validation gate (the critical Booli<->Hemnet contradiction
     //    guard — runs in dry-run too; only the UPSERT is conditional).
     const hp = listing.postCode;
@@ -625,6 +632,18 @@ async function processOne(booli, client, log, dryRun, summary, searchCache, sear
   }
 }
 
+// untrackableReason(listing) — why a matched Hemnet twin can never be tracked, or null.
+// Aggregated listings (copied from agency websites, live on Hemnet ~2026-10-28) carry no
+// view counter and usually no postcode, so they cannot enter a cohort. Until 2026-11 they
+// reached the INSERT, failed hemnet_listingv2's NOT NULL times_viewed and were reported as
+// parse errors (~130 on the W44 re-run). They are counted instead, never stored or alerted on.
+function untrackableReason(listing) {
+  if (!listing) return null;
+  if (listing.activePackage === 'AGGREGATED') return 'aggregated';
+  if (listing.timesViewed == null) return 'no-view-counter';
+  return null;
+}
+
 // ---------------------------------------------------------------
 // main()
 // ---------------------------------------------------------------
@@ -717,6 +736,7 @@ async function main(client, log) {
     rowsUpdated: 0,
     rowsInserted: 0,
     nullTitleSkipped: 0,            // LIBC-02 / D-06
+    untrackableTwins: 0,            // matched an aggregated / no-views Hemnet listing (2026-11)
     perCounty: {},
     perMuni: {},                    // LIBC-03 / D-07
     paginationExhaustedAny: false,  // LIBC-03 / D-09
@@ -812,9 +832,12 @@ function validate(summary) {
   // healthy range is 40-55% (e.g., W21 id=439 hit 45.3%); the prior 50% threshold fired
   // every Monday as cosmetic noise. A true regression below 30% indicates real upstream
   // breakage worth waking someone up for.
-  if (!summary.dryRun && summary.booliCount > 0 && (summary.inserted / summary.booliCount) < 0.3) {
-    const pct = ((summary.inserted / summary.booliCount) * 100).toFixed(1);
-    return `low match rate: ${summary.inserted}/${summary.booliCount} (${pct}%) — well below 40-55% healthy range; investigate`;
+  // A twin that exists but cannot be tracked (aggregated) is not a matching failure, so it
+  // leaves the denominator rather than dragging the rate down as aggregated listings grow.
+  const matchable = summary.booliCount - (summary.untrackableTwins || 0);
+  if (!summary.dryRun && matchable > 0 && (summary.inserted / matchable) < 0.3) {
+    const pct = ((summary.inserted / matchable) * 100).toFixed(1);
+    return `low match rate: ${summary.inserted}/${matchable} (${pct}%) — well below 40-55% healthy range; investigate`;
   }
   if (summary.booliCount > 0 && (summary.fetchErrors / summary.booliCount) > 0.05) {
     const pct = ((summary.fetchErrors / summary.booliCount) * 100).toFixed(1);
@@ -994,6 +1017,17 @@ if (process.argv.includes('--smoke')) {
     assert.strictEqual(nullTitleGuard('   '), true);
     assert.strictEqual(nullTitleGuard(42), true);                 // wrong type
     assert.strictEqual(nullTitleGuard('Storgatan 5'), false);
+  });
+  check('untrackableReason: aggregated / no view counter are untrackable, paid and free are not', () => {
+    assert.strictEqual(untrackableReason({ activePackage: 'AGGREGATED', timesViewed: null }), 'aggregated');
+    assert.strictEqual(untrackableReason({ activePackage: 'PREMIUM', timesViewed: null }), 'no-view-counter');
+    assert.strictEqual(untrackableReason({ activePackage: 'MINIMAL', timesViewed: 319 }), null);
+    assert.strictEqual(untrackableReason({ activePackage: 'MAX', timesViewed: 0 }), null, '0 views is a real count');
+  });
+  check('validate: untrackable twins leave the match-rate denominator', () => {
+    const base = { booliCount: 1000, dryRun: false, budgetExceeded: false, workerErrors: 0, fetchErrors: 0, postcodeMismatch: 0 };
+    assert.match(validate({ ...base, inserted: 280, untrackableTwins: 0 }), /low match rate: 280\/1000/);
+    assert.strictEqual(validate({ ...base, inserted: 280, untrackableTwins: 100 }), null, '280/900 = 31% is healthy');
   });
   check('nullTitleSkipped: summary pre-allocation includes the counter default 0', () => {
     // Synthesize the same literal that main() pre-allocates, without DB.
