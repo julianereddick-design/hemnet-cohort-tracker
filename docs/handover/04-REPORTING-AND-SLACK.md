@@ -215,6 +215,14 @@ and is the backstop that makes tier-2 silence safe. Section-by-section reading g
   `view-data/<date>/paid-share.{csv,html}` and a block in the post: share of each cohort's Booli
   new homes (pairs + `cohort_unmatched`) with a paid / free / no Hemnet twin, latest cohort vs
   prior week and the 4 cohorts before the free tier. Fails the same way as like-for-like.
+- **Weekly data pack (since 2026-11-09):** after the post, `lib/weekly-pack.js` builds and
+  `lib/slack-files.js` `uploadFiles('weekly-view-report', …)` attaches in the post's thread:
+  `methodology.md`, `weekly-pack.xlsx`, `cross-cohort-hpct.csv`, `views-like-for-like.csv`,
+  `paid-share.csv`, `market-totals.csv` (all also left in `view-data/<date>/`). This is what
+  GrokBot reads for the team's weekly deliverable. A CSV whose step failed is left out and named
+  in the note; a failed upload is logged and the script exits 1, the post stays. Dry run lists
+  the files instead of uploading. Smoke: `node lib/weekly-pack.js --smoke`,
+  `node lib/slack-files.js --smoke`.
 - **Outages:** periods when a site's counters were not captured are listed in
   `lib/view-outages.js`; the charts shade them and break the line, and the like-for-like
   outputs leave out readings across them and flag the week ("partial week").

@@ -311,6 +311,16 @@ async function run() {
   const outFile = path.join(baseDir, 'cross-cohort-hpct.html');
   fs.writeFileSync(outFile, html, 'utf8');
 
+  // The same numbers as data (2026-11-09), for the weekly pack GrokBot reads: one row per
+  // cohort x region x date, h_pct as plotted (points the chart skips are left out).
+  const csvLines = ['cohort_id,region,date,h_pct'];
+  for (const { cohortId, hPct } of allResults) {
+    for (const region of REGIONS) {
+      for (const d of unionDates) if (hPct[region][d] != null) csvLines.push([cohortId, region, d, hPct[region][d]].join(','));
+    }
+  }
+  fs.writeFileSync(path.join(baseDir, 'cross-cohort-hpct.csv'), csvLines.join('\n') + '\n', 'utf8');
+
   console.log(`\nWrote: ${outFile}`);
   console.log(`Cohorts: ${allResults.map(r => r.cohortId).join(', ')}`);
   console.log(`Date range: ${unionDates[0]} to ${unionDates[unionDates.length - 1]} (${unionDates.length} dates)`);

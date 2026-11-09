@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { createClient } = require('./db');
 const { postMessage } = require('./lib/slack-post');
+const { uploadFiles } = require('./lib/slack-files');
 const { runReporter } = require('./cron-wrapper');
 
 // --dry-run renders the post instead of sending it, as docs/handover/04 §1 promises for
@@ -134,6 +135,26 @@ async function run() {
     process.exitCode = 1;
   }
 
+  // 3d. The weekly data pack (lib/weekly-pack.js): the CSVs above plus market totals, one
+  // workbook and a method note, attached in the report's thread for GrokBot, which builds the
+  // team's weekly deliverable from Slack and cannot reach the drive or the :3800 links. Same
+  // failure rule as 3b: a broken pack is logged and fails the run, the report still posts.
+  let pack = null;
+  try {
+    const c = createClient();
+    await c.connect();
+    try {
+      pack = await require('./lib/weekly-pack').buildPack({ dir: path.join(__dirname, 'view-data', today), runDate: today, client: c });
+    } finally {
+      await c.end();
+    }
+    console.log(`Weekly pack: ${pack.files.length} files${pack.missing.length ? ` (missing: ${pack.missing.join(', ')})` : ''}`);
+    if (pack.marketError) console.error(`Weekly pack: market totals left out (${pack.marketError})`);
+  } catch (err) {
+    console.error(`Weekly pack failed: ${err.message}`);
+    process.exitCode = 1;
+  }
+
   // 4. Slack notification
   if (serverHost) {
     const chartUrl = `http://${serverHost}:${serverPort}/view-data/${today}/cross-cohort-hpct.html`;
@@ -166,6 +187,17 @@ async function run() {
       } else {
         console.error('Slack post failed on both the bot and the webhook fallback');
         process.exitCode = 1;
+      }
+      // The pack goes in the report's thread (or the channel, if the post fell back to the
+      // webhook and has no ts). uploadFiles never throws; it reports.
+      if (pack && result.ok) {
+        const up = await uploadFiles('weekly-view-report', pack.files, {
+          threadTs: result.ts,
+          comment: 'Data pack for this report: tables as CSV and one workbook, plus a short method note.',
+        });
+        if (up.dryRun) console.log('Dry run — data pack not uploaded');
+        else if (up.ok) console.log(`Data pack attached: ${up.uploaded.join(', ')}`);
+        else { console.error(`Data pack upload failed: ${up.error}`); process.exitCode = 1; }
       }
     } catch (err) {
       console.error(`Slack failed: ${err.message}`);
