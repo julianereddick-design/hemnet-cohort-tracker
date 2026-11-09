@@ -56,10 +56,19 @@ async function upsert(client, rows) {
 const n = (x) => Number(x).toLocaleString('en-US');
 const monthName = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
-function renderMessage({ week, lines, latest, hemnetSweden, held, monthly, estimates, csvLink, computed }) {
+function renderMessage({ week, lines, numbers = [], latest, hemnetSweden, held, monthly, estimates, csvLink, computed }) {
   const out = [`:house: *Hemnet new listings — wk starting ${week}* (pre-owned, paid ads only)`];
-  if (!computed.length) out.push('_No new week added this time._');
+  // Say which week is missing and why, never just leave it out.
+  if (!computed.length) {
+    out.push(held.length
+      ? `_No new week added: wk ${held[0]} is held back (see below). The figures are for wk ${week}, the latest complete week in the series._`
+      : `_No new week added: the series already runs to wk ${week}._`);
+  }
   out.push(...lines.map(l => `• ${l}`));
+  if (numbers.length) {
+    out.push(`*Numbers*, wk starting ${week} vs the same week last year${estimates.includes(week) ? ' (this week is an estimate)' : ''}:`);
+    out.push(...numbers.map(l => `• ${l}`));
+  }
   if (latest) {
     const s = latest.reg, na = (k) => (s.newAds[k] ? s.newAds[k].sweden.tot : 0);
     out.push(`Counted by us: ${n(s.paid.sweden.tot)} new paid ads in Sweden (${n(s.switched.sweden.tot)} of them switched to paid from a free or copied ad).` +
@@ -154,22 +163,32 @@ async function main(client, logger = (l, m) => console.log(`  [${l}] ${m}`), { d
   }
   const pub = latest && publicRows.find(r => r.week_start === latest.week && r.area === 'sweden' && r.market === 'tot');
   const message = renderMessage({
-    week: last, lines: W.dashboardLines(series, last), latest: latest && latest.week === last ? latest : null,
+    week: last, lines: W.dashboardLines(series, last), numbers: W.numberLines(series, last), latest: latest && latest.week === last ? latest : null,
     hemnetSweden: pub ? pub.value : null, held, monthly, estimates, csvLink, computed,
   });
   console.log(message);
+  let csvUploadError = null;
   if (!dryRun) {
     const { postMessage } = require('./lib/slack-post');
     const res = await postMessage('weekly-new-listings', message);
     if (!res.ok && !res.dryRun) throw new Error('Slack post failed on both the bot and the webhook fallback');
+    // The CSV itself in the post's thread (GrokBot cannot open the :3800 link). The same file
+    // goes into the evening views report's data pack (lib/weekly-pack.js). Never fails the run.
+    const { uploadFiles } = require('./lib/slack-files');
+    const up = await uploadFiles('weekly-new-listings', [{ path: path.join(__dirname, 'view-data', today, 'weekly-new-listings.csv'), title: 'weekly-new-listings.csv' }], {
+      threadTs: res.ts,
+      comment: 'Full weekly series: paid new listings of existing homes (no new-build), Sweden / Stockholm / Västra Götaland, total and for sale (pre-market = total − for sale).',
+    });
+    if (!up.ok && !up.dryRun) { csvUploadError = up.error; logger('WARN', `CSV upload failed: ${up.error}`); }
   }
-  return { lastMaster, computed, held, latest: last, monthlyChecks: checks, monthlyFailed: checks.filter(c => !c.ok).length, dryRun };
+  return { lastMaster, computed, held, latest: last, monthlyChecks: checks, monthlyFailed: checks.filter(c => !c.ok).length, csvUploadError, dryRun };
 }
 
 function validate(s) {
   if (!s) return 'no summary returned';
   if (s.held && s.held.length) return `week(s) ${s.held.join(', ')} held back: the daily new-ads walk did not run ok on the Monday after`;
   if (s.monthlyFailed) return `our monthly paid count is more than ${W.MONTHLY_TOLERANCE * 100}% off Hemnet's own for ${s.monthlyFailed} month(s)`;
+  if (s.csvUploadError) return `posted, but the CSV could not be attached in Slack (${s.csvUploadError})`;
   return null;
 }
 
@@ -242,9 +261,32 @@ function smoke() {
       week: '2026-11-02', lines: [], latest: null, hemnetSweden: null, held: ['2026-11-09'],
       monthly: { month: '2026-11', ok: false, diff: -0.2, hemnetPaid: 6000, expected: 7500 }, estimates: [], csvLink: null, computed: [],
     });
-    assert.match(msg, /No new week added/);
+    assert.match(msg, /No new week added: wk 2026-11-09 is held back \(see below\)\. The figures are for wk 2026-11-02/);
     assert.match(msg, /:warning: Wk 2026-11-09 is held back/);
     assert.match(msg, /:warning: Monthly check, November 2026: .* \(20% apart\)/);
+  });
+  check('renderMessage: numbers block, estimate marked; up-to-date series says so', () => {
+    const msg = renderMessage({
+      week: '2026-11-02', lines: [], numbers: ['For sale: Sweden 2,000 (last year 2,200, -9.1%)'], latest: null, hemnetSweden: null,
+      held: [], monthly: null, estimates: ['2026-11-02'], csvLink: null, computed: [],
+    });
+    assert.match(msg, /\*Numbers\*, wk starting 2026-11-02 vs the same week last year \(this week is an estimate\):\n• For sale: Sweden 2,000/);
+    assert.match(msg, /No new week added: the series already runs to wk 2026-11-02\./);
+  });
+  check('numberLines: this week, last year and change per area; pre-market = total − for sale', () => {
+    const s = W.toSeries([
+      ['2026-11-02', 'sweden', 'tot', 3000], ['2026-11-02', 'stockholm', 'tot', 800], ['2026-11-02', 'vg', 'tot', 500],
+      ['2026-11-02', 'sweden', 'fs', 2000], ['2026-11-02', 'stockholm', 'fs', 600], ['2026-11-02', 'vg', 'fs', 300],
+      ['2025-11-03', 'sweden', 'tot', 3300], ['2025-11-03', 'stockholm', 'tot', 900], ['2025-11-03', 'vg', 'tot', 500],
+      ['2025-11-03', 'sweden', 'fs', 2200], ['2025-11-03', 'stockholm', 'fs', 700], ['2025-11-03', 'vg', 'fs', 300],
+    ].map(([week_start, area, market, value]) => ({ week_start, area, market, value })));
+    const [tot, fs, pm] = W.numberLines(s, '2026-11-02');
+    assert.strictEqual(fs, 'For sale: Sweden 2,000 (last year 2,200, -9.1%) | Stockholm 600 (last year 700, -14.3%) | VG 300 (last year 300, +0.0%) | Rest of Sweden 1,100 (last year 1,200, -8.3%)');
+    assert.match(tot, /^Total: Sweden 3,000 \(last year 3,300, -9\.1%\)/);
+    assert.match(pm, /^Pre-market: Sweden 1,000 \(last year 1,100, -9\.1%\) \| Stockholm 200 \(last year 200, \+0\.0%\)/);
+  });
+  check('validate: a failed CSV upload is amber, not red', () => {
+    assert.match(validate({ held: [], monthlyFailed: 0, csvUploadError: 'not_in_channel' }), /CSV could not be attached/);
   });
   console.log(`smoke: ${pass} pass, ${fail} fail`);
   if (fail) process.exit(1);
