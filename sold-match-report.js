@@ -456,11 +456,13 @@ const AD_TYPE_WORDS = [
 function renderAdTypeNote(latestRow, counts) {
   const out = [
     '_Matched_ = found on Hemnet as any kind of ad. Since late Oct Hemnet also shows free ads and ads copied from agency sites, so this no longer means a paid ad.',
-    '_Paid ad_ = the home had a paid Hemnet ad (Basic to Max) at some point. Shown as — until we saw most of that run\'s homes while their ads were live (tracking began 4 Nov).',
+    '_Paid ad_ = the home had a paid Hemnet ad (Basic to Max) at some point, from our ad tracking (began 4 Nov) or, for ads that came down before that, our earlier crawls and cohort matches. Shown as — until we saw most of that run\'s homes.',
+    '_Unknown_ = found on Hemnet but its ad type could not be seen (the ad came down before our tracking began, or the sold record has no ad). The true paid share lies between _paid ad_ and _paid ad_ + _unknown_.',
   ];
   if (counts && counts.matched) {
     const parts = AD_TYPE_WORDS.filter(([k]) => counts[k]).map(([k, w]) => `${counts[k]} ${w}`);
-    out.push(`Latest run (${latestRow.week}), the ${counts.matched} homes found on Hemnet: ${parts.join(' · ')}`);
+    out.push(`Latest run (${latestRow.week}), the ${counts.matched} homes found on Hemnet: ${parts.join(' · ')}` +
+      (counts.paid_earlier ? ` (${counts.paid_earlier} of the paid from our earlier data)` : ''));
   }
   return out;
 }
@@ -478,10 +480,17 @@ function renderMatchRateSummary(series, opts = {}) {
   // opts.adTypes = { [period]: lib/sold-ad-type countByKey counts } adds the paid-ad column
   // and a breakdown of the latest run. Without it the message is exactly as before.
   const adTypes = opts.adTypes || null;
+  const shown = (c) => c && c.matched && c.not_known / c.matched <= PAID_MAX_NOT_KNOWN;
   const paidCell = (r) => {
     const c = adTypes && adTypes[r.week];
-    if (!c || !c.matched || c.not_known / c.matched > PAID_MAX_NOT_KNOWN) return lpad('—', 7);
+    if (!shown(c)) return lpad('—', 7);
     return lpad(`${((c.paid / r.n) * 100).toFixed(1)}%`, 7);
+  };
+  // Unknown: matched homes whose ad type could not be seen, as a share of all sold.
+  const unknownCell = (r) => {
+    const c = adTypes && adTypes[r.week];
+    if (!shown(c)) return lpad('—', 7);
+    return lpad(`${((((c.not_known || 0) + (c.no_ad_found || 0)) / r.n) * 100).toFixed(1)}%`, 7);
   };
 
   const lines = [':bar_chart: *Sold-match — Matched on Hemnet*', ''];
@@ -489,10 +498,10 @@ function renderMatchRateSummary(series, opts = {}) {
     lines.push('_No cohorts with data yet._');
   } else {
     lines.push('```');
-    lines.push(adTypes ? 'week        matched  paid ad       n' : 'week        matched      n');
+    lines.push(adTypes ? 'week        matched  paid ad  unknown       n' : 'week        matched      n');
     for (const r of rows) {
       lines.push(adTypes
-        ? `${rpad(r.week, 10)}  ${lpad(`${r.pct.toFixed(1)}%`, 7)}  ${paidCell(r)}  ${lpad(String(r.n), 6)}`
+        ? `${rpad(r.week, 10)}  ${lpad(`${r.pct.toFixed(1)}%`, 7)}  ${paidCell(r)}  ${unknownCell(r)}  ${lpad(String(r.n), 6)}`
         : `${rpad(r.week, 10)}  ${lpad(`${r.pct.toFixed(1)}%`, 6)}  ${lpad(String(r.n), 6)}`);
     }
     lines.push('```');
@@ -848,12 +857,13 @@ function runSmoke() {
       const series = { periods: ['2026-W44', '2026-W46'], firstPull: [0.827, 0.84], incremental: [0, 0], totals: [993, 1000] };
       const adTypes = {
         '2026-W44': { matched: 821, paid: 10, not_known: 600, no_ad_found: 211 },
-        '2026-W46': { matched: 840, paid: 700, newbuild: 20, free: 30, aggregated: 50, no_ad_found: 25, not_known: 15 },
+        '2026-W46': { matched: 840, paid: 700, paid_earlier: 90, newbuild: 20, free: 30, aggregated: 50, no_ad_found: 25, not_known: 15 },
       };
       const msg = renderMatchRateSummary(series, { adTypes });
-      assert.ok(/2026-W46\s+84\.0%\s+70\.0%\s+1000/.test(msg), `W46 shows matched 84.0%, paid 70.0% of all sold:\n${msg}`);
-      assert.ok(/2026-W44\s+82\.7%\s+—\s+993/.test(msg), 'W44 paid is a dash: 600 of 821 not seen live');
-      assert.ok(msg.includes('700 paid · 20 new-build · 30 free · 50 copied from agency sites · 25 no ad found · 15 not seen live yet'), msg);
+      assert.ok(/2026-W46\s+84\.0%\s+70\.0%\s+4\.0%\s+1000/.test(msg), `W46 shows matched 84.0%, paid 70.0%, unknown 4.0% of all sold:\n${msg}`);
+      assert.ok(/2026-W44\s+82\.7%\s+—\s+—\s+993/.test(msg), 'W44 paid and unknown are dashes: 600 of 821 not seen live');
+      assert.ok(msg.includes('700 paid · 20 new-build · 30 free · 50 copied from agency sites · 25 no ad found · 15 not seen live yet (90 of the paid from our earlier data)'), msg);
+      assert.ok(msg.includes('between _paid ad_ and _paid ad_ + _unknown_'), 'explains the range');
       assert.ok(msg.includes('no longer means a paid ad'), 'warns that matched includes non-paid ads');
     });
 
