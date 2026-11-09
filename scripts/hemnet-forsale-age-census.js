@@ -107,6 +107,7 @@ function fsUrl(scope, page) {
   if (scope.priceMax != null) p.append('price_max', String(scope.priceMax));
   if (scope.roomsMin != null) p.append('rooms_min', String(scope.roomsMin));
   if (scope.roomsMax != null) p.append('rooms_max', String(scope.roomsMax));
+  if (scope.newConstruction) p.append('new_construction', scope.newConstruction);
   p.append('page', String(page));
   return `https://www.hemnet.se/till-salu?${p.toString()}`;
 }
@@ -122,6 +123,7 @@ function scopeMismatch(search, scope) {
     priceMax: scope.priceMax != null ? scope.priceMax : null,
     roomsMin: scope.roomsMin != null ? scope.roomsMin : null,
     roomsMax: scope.roomsMax != null ? scope.roomsMax : null,
+    newConstruction: scope.newConstruction ? scope.newConstruction.toUpperCase() : null,
   };
   for (const [k, v] of Object.entries(want)) {
     const got = search && search[k] != null ? search[k] : null;
@@ -269,10 +271,35 @@ async function censusScope(scope, level, acc, nowSec, ctx) {
   return { headline: total, sub: [] };
 }
 
+// New-build units. From 2026-11-06 Hemnet's totals count every unit of a new-build project,
+// while its result list still shows one card per project (plus some unit cards): nationally
+// 9,026 new-build units for sale against ~1,400 new-build cards, so the headline ran ~6-7k
+// above anything a walk can see and the reconciliation gate failed on a complete walk.
+// Without new builds the count and the list agree exactly (Uppsala 2026-11-09: 1,118 = 1,118).
+// So each municipality's page 1 is also fetched with new_construction=exclude, and the walk
+// is expected to find that many second-hand listings plus whatever new-build cards it saw.
+// One extra request per municipality. If that page fails, the muni falls back to Hemnet's
+// own count (stricter, never looser). See docs/handover/CHANGELOG.md, 2026-11-09.
+async function secondhandHeadline(scope) {
+  try {
+    const r = await safeFetch({ ...scope, newConstruction: 'exclude' }, 1);
+    return r.cards == null || typeof r.total !== 'number' ? null : r.total;
+  } catch (e) {
+    log('WARN', `${scopeLabel(scope)} excl. new builds p1 threw (${e.message.slice(0, 50)}) — using Hemnet's own count`);
+    return null;
+  }
+}
+// What a complete walk of this muni should have found.
+function expectedOf(st, acc) {
+  return st.secondhand != null ? st.secondhand + (acc.newbuildN || 0) : (st.headline || 0);
+}
+
 async function censusMuni(name, id, acc, nowSec, ctx) {
   const before = acc.distinct;
-  const r = await censusScope({ locationId: id, name, pool: ctx.pool || 'forsale' }, 0, acc, nowSec, ctx);
-  return { name, id, headline: r.headline, counted: acc.distinct - before, p1Error: !!r.p1Error };
+  const scope = { locationId: id, name, pool: ctx.pool || 'forsale' };
+  const r = await censusScope(scope, 0, acc, nowSec, ctx);
+  const secondhand = r.p1Error ? null : await secondhandHeadline(scope);
+  return { name, id, headline: r.headline, secondhand, counted: acc.distinct - before, p1Error: !!r.p1Error };
 }
 
 async function run(opts = {}) {
@@ -363,7 +390,7 @@ async function runPool({ pool = 'forsale', locations = LOCATIONS, nowSec = NOW_S
       unmeasurableSubs.push(...recs.map(r => r.label));           // no headline to measure against
       continue;
     }
-    const missing = Math.max(0, st.headline - accs[k].distinct);
+    const missing = Math.max(0, expectedOf(st, accs[k]) - accs[k].distinct);
     measuredMissing.push({ label: recs.length === 1 ? recs[0].label : `${muni} ×${recs.length} sub-scopes`, missing });
   }
 
@@ -377,8 +404,10 @@ async function runPool({ pool = 'forsale', locations = LOCATIONS, nowSec = NOW_S
   // type — that is what Hemnet's own totals count. The stored histogram (and so the drift
   // gate against last month) is the comparable one, without NEW_LISTING_TYPES.
   const cmp = nat.cmp;
+  const expectedSum = stats.reduce((a, s, k) => a + expectedOf(s, accs[k]), 0);
+  const newbuildUnits = headlineSum - expectedSum;          // counted by Hemnet, not listed as cards
   const gates = [
-    gateReconciliation({ headlineSum, distinct: nat.distinct, maxPct: 2 }),
+    gateReconciliation({ headlineSum: expectedSum, distinct: nat.distinct, maxPct: 2 }),
     // A skipped municipality subtracts itself from BOTH sides of gateReconciliation, so that
     // gate cannot see it. gateCoverage is the only thing standing between a run missing a whole
     // municipality and a status='ok' row posted to Slack as a validated figure. It is SIZED:
@@ -398,6 +427,7 @@ async function runPool({ pool = 'forsale', locations = LOCATIONS, nowSec = NOW_S
     : null;
   const notes = [
     excludedNote,
+    newbuildUnits > 0 ? `Hemnet's count (${headlineSum}) also includes ${newbuildUnits} new-build units its list does not show one by one (${nat.newbuildN} new-build cards seen)` : null,
     ctx.failedMunis.length ? `munis skipped entirely (p1 never fetched): ${ctx.failedMunis.join(', ')}` : null,
     // A sub-scope gap that PASSES the sized threshold must still be visible on the published
     // row, with its measured volume, so a reader knows exactly what the number is missing.
@@ -429,6 +459,7 @@ async function runPool({ pool = 'forsale', locations = LOCATIONS, nowSec = NOW_S
       bucketsSecondhand: secondhandToObject(accs[k].cmp.buckets, accs[k].cmp.newbuild, accs[k].cmp.undated),
     })),
     allTypes,
+    headlineSum, expectedSum, newbuildCards: nat.newbuildN,
     oxCalls, errorPages: ctx.errorPages, runtimeS: Math.floor(Date.now() / 1000) - t0,
     gates, status: ev.passed ? 'ok' : 'gate_failed', notes,
   };
@@ -606,7 +637,8 @@ async function selftest() {
     let flakyP1Calls = 0;
     addListings('Flaky', 'bostadsratt', 2000000, 80, 2);
     fetchScope = async (scope, p) => {
-      if ((scope.name || scope.locationId) === 'Flaky' && p === 1) {
+      // The listing walk's page 1 only: the excl.-new-build count is a separate request.
+      if ((scope.name || scope.locationId) === 'Flaky' && p === 1 && !scope.newConstruction) {
         flakyP1Calls++;
         if (flakyP1Calls === 1) return { status: 500, cards: null, total: undefined };   // fails only the FIRST time
       }
@@ -624,6 +656,52 @@ async function selftest() {
     } finally {
       fetchScope = clean;
     }
+  });
+
+  // --- new-build units (2026-11-06): Hemnet counts every unit, lists one card per project ---
+  // 100 second-hand listings + 5 project cards standing for 20 units each. Hemnet's count is
+  // 200, its list holds 105 cards, and its count without new builds is 100.
+  const nbFetch = ({ secondhandListed = 100, exclFails = false } = {}) => async (scope, p) => {
+    if (scope.newConstruction) {
+      if (exclFails) return { status: 500, cards: null, total: undefined };
+      return { status: 200, cards: [], total: p === 1 ? 100 : undefined };
+    }
+    const rows = [];
+    for (let i = 0; i < secondhandListed; i++) rows.push({ id: 'S' + i, isNewBuild: false });
+    for (let i = 0; i < 5; i++) rows.push({ id: 'P' + i, isNewBuild: true });
+    const slice = rows.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
+    return { status: 200, total: p === 1 ? 200 : undefined,
+      cards: slice.map(r => ({ id: r.id, published: NOW_SEC - 3 * DAY, isNewBuild: r.isNewBuild, upcoming: false, pkg: 'PREMIUM' })) };
+  };
+  await check("new-build units in Hemnet's count do not fail a complete walk", async () => {
+    const clean = fetchScope;
+    fetchScope = nbFetch();
+    try {
+      const res = await run({ locations: { NB: 9101 }, nowSec: NOW_SEC, logger: () => {} });
+      assert.strictEqual(res.status, 'ok', `a complete walk must pass (notes: ${res.notes})`);
+      assert.strictEqual(res.headlineSum, 200);
+      assert.strictEqual(res.expectedSum, 105, '100 second-hand + 5 new-build cards seen');
+      assert.strictEqual(res.muni[0].headlineN, 200, "headlineN stays Hemnet's own count");
+      assert.match(res.notes, /includes 95 new-build units/);
+    } finally { fetchScope = clean; }
+  });
+  await check('a walk missing second-hand listings still fails reconciliation', async () => {
+    const clean = fetchScope;
+    fetchScope = nbFetch({ secondhandListed: 90 });
+    try {
+      const res = await run({ locations: { NB: 9101 }, nowSec: NOW_SEC, logger: () => {} });
+      assert.strictEqual(res.status, 'gate_failed', '10 of 100 second-hand listings missing must fail');
+      assert.strictEqual(res.gates.find(g => g.name === 'reconciliation').passed, false);
+    } finally { fetchScope = clean; }
+  });
+  await check("if the excl.-new-build count cannot be read, Hemnet's own count is used (stricter)", async () => {
+    const clean = fetchScope;
+    fetchScope = nbFetch({ exclFails: true });
+    try {
+      const res = await run({ locations: { NB: 9101 }, nowSec: NOW_SEC, logger: () => {} });
+      assert.strictEqual(res.expectedSum, 200);
+      assert.strictEqual(res.status, 'gate_failed');
+    } finally { fetchScope = clean; }
   });
 
   // --- the coverage gate is SIZED, and a passing gap stays visible ---------------------------

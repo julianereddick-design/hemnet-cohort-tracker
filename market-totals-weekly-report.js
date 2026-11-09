@@ -4,6 +4,10 @@
 // × {till_salu, kommande}. Renders two stacked blocks (For Sale + Pre-market) in
 // the locked Slack format (D-04) and posts via lib/slack-post.js to the business channel.
 // Missing prior-week rows render as `?` (D-04); does NOT crash.
+//
+// 2026-11-09: from 6 Nov Hemnet's for-sale total counts every unit of a new-build project
+// (docs/handover/CHANGELOG.md). The For Sale block splits Hemnet into new-build units and
+// second-hand (till_salu_excl_newbuild, recorded from 9 Nov), the comparable line.
 
 require('dotenv').config();
 const { createClient } = require('./db');
@@ -69,6 +73,23 @@ function renderBlock(title, seg) {
   ];
 }
 
+// Hemnet's for-sale split: new-build units (total − second-hand) and second-hand, indented
+// under the Hemnet row. While the comparison spans the 6 Nov break, or second-hand has no
+// prior week yet, a note says which line is like-for-like.
+const NEWBUILD_BREAK = '2026-11-06';
+function renderHemnetSplit(total, secondhand, priorDay) {
+  const sub = (a, b) => (a == null || b == null ? null : a - b);
+  const lines = [
+    renderRow('  new builds', sub(total.prior, secondhand.prior), sub(total.curr, secondhand.curr), true),
+    renderRow('  second-hand', secondhand.prior, secondhand.curr, true),
+  ];
+  if (secondhand.curr != null && (secondhand.prior == null || priorDay < NEWBUILD_BREAK)) {
+    lines.push('  Note: since 6 Nov Hemnet counts each new-build unit separately,');
+    lines.push('  so its total jumped ~6,200. Second-hand is the like-for-like line.');
+  }
+  return lines;
+}
+
 // Sum two segments cell by cell, for the combined For Sale + Pre-market total.
 //
 // A missing part propagates as null so the cell renders `?` (D-04) rather than a
@@ -104,7 +125,7 @@ async function run() {
     const res = await client.query(`
       SELECT site, segment, to_char(day, 'YYYY-MM-DD') AS day, total
       FROM market_totals
-      WHERE segment IN ('till_salu', 'kommande')
+      WHERE segment IN ('till_salu', 'kommande', 'till_salu_excl_newbuild')
         AND day IN ($1::date, $1::date - INTERVAL '7 days')
       ORDER BY segment, site, day
     `, [today]);
@@ -118,9 +139,11 @@ async function run() {
     till_salu: { hemnet: { prior: null, curr: null }, booli: { prior: null, curr: null } },
     kommande:  { hemnet: { prior: null, curr: null }, booli: { prior: null, curr: null } },
   };
+  const secondhand = { prior: null, curr: null };       // hemnet till_salu_excl_newbuild
   for (const r of rows) {
     // r.day is already a 'YYYY-MM-DD' string (to_char in SQL) — no JS Date / TZ math.
     const slot = r.day === today ? 'curr' : 'prior';
+    if (r.segment === 'till_salu_excl_newbuild') { if (r.site === 'hemnet') secondhand[slot] = Number(r.total); continue; }
     if (buckets[r.segment] && buckets[r.segment][r.site]) {
       buckets[r.segment][r.site][slot] = Number(r.total);
     }
@@ -143,10 +166,13 @@ async function run() {
     );
   }
 
+  const forSale = renderBlock('Till salu (For Sale)', buckets.till_salu);
+  const priorDay = new Date(Date.parse(`${today}T00:00:00Z`) - 7 * 864e5).toISOString().slice(0, 10);
+  if (secondhand.curr != null) forSale.splice(2, 0, ...renderHemnetSplit(buckets.till_salu.hemnet, secondhand, priorDay));
   const bodyLines = [
     `Market supply pulse — week of ${today}`,
     '',
-    ...renderBlock('Till salu (For Sale)', buckets.till_salu),
+    ...forSale,
     '',
     ...renderBlock('Kommande (Pre-market)', buckets.kommande),
     '',
@@ -243,6 +269,19 @@ function smoke() {
     assert.ok(!lines.some(l => /NaN|undefined|null/.test(l)), 'no NaN/undefined/null leaked into output');
   });
 
+  check('Hemnet split: new builds = total − second-hand; note while the break is in the window', () => {
+    const lines = renderHemnetSplit({ prior: 62726, curr: 69468 }, { prior: null, curr: 60442 }, '2026-11-02');
+    assert.match(lines[0], /new builds:\s+\?\s+→\s+9,026/);
+    assert.match(lines[1], /second-hand:\s+\?\s+→\s+60,442/);
+    assert.match(lines[2], /since 6 Nov/);
+  });
+
+  check('Hemnet split: no note once both weeks are after the break', () => {
+    const lines = renderHemnetSplit({ prior: 69468, curr: 69900 }, { prior: 60442, curr: 60800 }, '2026-11-09');
+    assert.strictEqual(lines.length, 2);
+    assert.match(lines[0], /9,026 →\s+9,100\s+\(\+74, \+0\.8%\)/);
+  });
+
   console.log(`smoke: ${pass} pass, ${fail} fail`);
   process.exit(fail === 0 ? 0 : 1);
 }
@@ -261,4 +300,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { sumSegments, renderBlock };
+module.exports = { sumSegments, renderBlock, renderHemnetSplit };

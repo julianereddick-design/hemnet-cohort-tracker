@@ -12,6 +12,13 @@
 // 2026-11-03: Hemnet moved to the App Router (~2026-10-30). Its pages now carry
 // only their OWN total, so bare /till-salu no longer holds the kommande count:
 // kommande is read from /till-salu?upcoming=ONLY (3 Hemnet fetches/day, was 2).
+//
+// 2026-11-09: from 2026-11-06 Hemnet's for-sale count includes every unit of a new-build
+// project (till_salu 63,136 -> 69,307 overnight; nationally ~9,000 new-build units), so
+// till_salu has a break there. A 5th row, hemnet / till_salu_excl_newbuild
+// (/till-salu?upcoming=EXCLUDE&new_construction=exclude), is the comparable second-hand
+// series. It is an extra: its failure warns but never costs the 4 core rows, and
+// rowsWritten / the 4-row assertion count the core rows only.
 
 const { runJob } = require('./cron-wrapper');
 const { getWithRetry, extractApolloState, getOxylabsStats, resetOxylabsStats } = require('./lib/scrape-http');
@@ -23,6 +30,8 @@ const { parseSearchTotals, parseSearchIncludes } = require('./lib/hemnet-fetch')
 const HEMNET_TILL_SALU_URL    = 'https://www.hemnet.se/till-salu?upcoming=EXCLUDE';
 const HEMNET_KOMMANDE_URL     = 'https://www.hemnet.se/till-salu?upcoming=ONLY';
 const HEMNET_ALL_URL          = 'https://www.hemnet.se/till-salu';
+const HEMNET_EXCL_NEWBUILD_URL = 'https://www.hemnet.se/till-salu?upcoming=EXCLUDE&new_construction=exclude';
+const EXCL_NEWBUILD_SEGMENT   = 'till_salu_excl_newbuild';
 const BOOLI_TILL_SALU_URL     = 'https://www.booli.se/sok/till-salu?upcomingSale=0';
 const BOOLI_KOMMANDE_URL      = 'https://www.booli.se/sok/till-salu?upcomingSale=1';
 
@@ -158,14 +167,15 @@ async function main(client, log, deps = {}) {
   await client.query(CREATE_TABLE);
   resetOxylabsStats();
 
-  // Five fetches in parallel (Hemnet 3 + Booli 2 = 5 reqs/day).
+  // Six fetches in parallel (Hemnet 4 + Booli 2 = 6 reqs/day).
   const t0 = Date.now();
-  const [hTS, hKom, hAll, bTS, bKom] = await Promise.allSettled([
+  const [hTS, hKom, hAll, bTS, bKom, hExNb] = await Promise.allSettled([
     fetchPage(HEMNET_TILL_SALU_URL, { logger: log }),
     fetchPage(HEMNET_KOMMANDE_URL,  { logger: log }),
     fetchPage(HEMNET_ALL_URL,       { logger: log }),
     fetchPage(BOOLI_TILL_SALU_URL,  { logger: log }),
     fetchPage(BOOLI_KOMMANDE_URL,   { logger: log }),
+    fetchPage(HEMNET_EXCL_NEWBUILD_URL, { logger: log }),
   ]);
   const fetchElapsedMs = Date.now() - t0;
 
@@ -195,6 +205,22 @@ async function main(client, log, deps = {}) {
     log(`upsert ok: site=${r.site} segment=${r.segment} total=${r.total}`);
   }
 
+  // The extra second-hand row. Only the key whose args say newConstruction EXCLUDE counts,
+  // so a page where Hemnet ignored the filter yields nothing rather than a wrong number.
+  let hemnetExclNewbuild = null, hemnetExclNewbuildError = null;
+  try {
+    const apollo = extractApollo(settledHtml(hExNb, 'hemnet (excl. new builds)'), 'hemnet (excl. new builds)');
+    const n = parseSearchTotals(apollo, { newConstruction: 'EXCLUDE' }).forSale;
+    assertNumericTotal('hemnet.till_salu_excl_newbuild', n);
+    await client.query(UPSERT, ['hemnet', EXCL_NEWBUILD_SEGMENT, n, HEMNET_EXCL_NEWBUILD_URL]);
+    hemnetExclNewbuild = n;
+    log(`upsert ok: site=hemnet segment=${EXCL_NEWBUILD_SEGMENT} total=${n}`);
+  } catch (err) {
+    hemnetExclNewbuildError = err.message;
+    log(`extra row failed: hemnet ${EXCL_NEWBUILD_SEGMENT} — ${err.message}`);
+  }
+  const hemnetForSale = rows.find(r => r.site === 'hemnet' && r.segment === 'till_salu');
+
   const oxStats = getOxylabsStats();
 
   return {
@@ -208,6 +234,9 @@ async function main(client, log, deps = {}) {
     siteErrors,
     hemnetPartition,
     hemnetIncludes,
+    hemnetExclNewbuild,
+    hemnetNewbuildUnits: hemnetForSale && hemnetExclNewbuild != null ? hemnetForSale.total - hemnetExclNewbuild : null,
+    hemnetExclNewbuildError,
     fetchElapsedMs,
     totalElapsedMs: Date.now() - t0,
     oxylabsFallbackRate: oxStats.oxylabsFallbackRate, // REPORTING FIELD ONLY — no validate() warn (D-07, Plan 10-02 lesson)
@@ -268,6 +297,14 @@ function validate(summary) {
         'Note the date in docs/handover/CHANGELOG.md and update KNOWN_HEMNET_INCLUDES in market-totals-daily.js.',
     };
   }
+  if (summary.hemnetExclNewbuildError) {
+    return {
+      key: 'hemnet-excl-newbuild-missing',
+      severity: 'warning',
+      message: `Hemnet for-sale excluding new builds was not saved today (${summary.hemnetExclNewbuildError}). ` +
+        'The 4 main counts were saved.',
+    };
+  }
   // No oxylabsFallbackRate check (D-07; Plan 10-02 lesson — those alerts became permanent noise).
   // No delta check (D-03 — deferred to future plan).
   return null;
@@ -276,6 +313,7 @@ function validate(summary) {
 module.exports = {
   main, validate, parseHemnet, KNOWN_HEMNET_INCLUDES, parseBooli, assertNumericTotal, pickByPrefix,
   HEMNET_TILL_SALU_URL, HEMNET_KOMMANDE_URL, HEMNET_ALL_URL, BOOLI_TILL_SALU_URL, BOOLI_KOMMANDE_URL,
+  HEMNET_EXCL_NEWBUILD_URL, EXCL_NEWBUILD_SEGMENT,
 };
 
 if (require.main === module) {

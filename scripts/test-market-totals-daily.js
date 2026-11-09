@@ -66,8 +66,14 @@ function fakeFetch(pages) {
     return { status: 200, html: p };
   };
 }
+// The excl.-new-build page (2026-11-09). Its key carries newConstruction EXCLUDE; a page
+// where Hemnet ignored the filter has the plain for-sale key only.
+const ROOT_EXCL_NB = { search: {
+  'listings({"limit":0,"search":{"aggregated":"INCLUDE","locationSlugs":null,"minimal":"INCLUDE","newConstruction":"EXCLUDE","teaser":"INCLUDE","upcoming":"EXCLUDE"}})': { total: 60442 },
+} };
 function livePages(overrides = {}) {
   return Object.assign({
+    [job.HEMNET_EXCL_NEWBUILD_URL]: hemnetHtml(ROOT_EXCL_NB),
     [job.HEMNET_TILL_SALU_URL]: hemnetHtml(ROOT_EXCL),
     [job.HEMNET_KOMMANDE_URL]:  hemnetHtml(ROOT_ONLY),
     [job.HEMNET_ALL_URL]:       hemnetHtml(ROOT_ALL),
@@ -90,6 +96,8 @@ async function run(pages) {
   const summary = await job.main(client, () => {}, { getWithRetry: fakeFetch(pages) });
   return { client, summary, validation: job.validate(summary) };
 }
+// The 4 core rows; the excl.-new-build extra row has its own tests below.
+const coreUpserts = (client) => client.upserts.filter(p => p[1] !== job.EXCL_NEWBUILD_SEGMENT);
 const bySeg = (summary) => Object.fromEntries(summary.perRow.map(r => [`${r.site}.${r.segment}`, r.total]));
 
 const tests = [];
@@ -173,7 +181,7 @@ test('missing / malformed state returns {}', () => {
 test('happy path: 4 rows, correct values + source URLs, no alert', async () => {
   const { client, summary, validation } = await run(livePages());
   assert.strictEqual(summary.rowsWritten, 4);
-  assert.strictEqual(client.upserts.length, 4);
+  assert.strictEqual(coreUpserts(client).length, 4);
   assert.deepStrictEqual(bySeg(summary), {
     'hemnet.till_salu': 47397, 'hemnet.kommande': 7488,
     'booli.till_salu': 59181, 'booli.kommande': 29185,
@@ -209,7 +217,7 @@ test('Hemnet on the OLD shape: Booli rows still written, run is a failure', asyn
   const { client, summary, validation } = await run(livePages({
     [job.HEMNET_TILL_SALU_URL]: old, [job.HEMNET_KOMMANDE_URL]: old, [job.HEMNET_ALL_URL]: old }));
   assert.strictEqual(summary.rowsWritten, 2);
-  assert.deepStrictEqual(client.upserts.map(p => p[0]), ['booli', 'booli']);
+  assert.deepStrictEqual(coreUpserts(client).map(p => p[0]), ['booli', 'booli']);
   assert.strictEqual(validation.severity, 'failure');
   assert.strictEqual(validation.key, 'site-failed:hemnet');
   assert.match(validation.message, /hemnet\.till_salu/);
@@ -223,7 +231,7 @@ test('Hemnet fetch rejects: Booli still written, failure', async () => {
 test('Booli breaks: Hemnet still written, failure keyed to booli', async () => {
   const { client, summary, validation } = await run(livePages({ [job.BOOLI_KOMMANDE_URL]: booliHtml(0) }));
   assert.strictEqual(summary.rowsWritten, 2);
-  assert.deepStrictEqual(client.upserts.map(p => p[0]), ['hemnet', 'hemnet']);
+  assert.deepStrictEqual(coreUpserts(client).map(p => p[0]), ['hemnet', 'hemnet']);
   assert.strictEqual(validation.key, 'site-failed:booli');
 });
 test('both sites break: 0 rows, one combined failure key', async () => {
@@ -252,6 +260,30 @@ test('small drift between the two pages is tolerated', async () => {
 test('swapping the URLs is caught (default page has no forSale)', async () => {
   const { validation } = await run(livePages({ [job.HEMNET_TILL_SALU_URL]: hemnetHtml(ROOT_ALL) }));
   assert.strictEqual(validation.key, 'site-failed:hemnet');
+});
+
+// --- Hemnet for sale excluding new builds (2026-11-09) ---
+test('excl. new builds: 5th row saved, not counted in rowsWritten, no alert', async () => {
+  const { client, summary, validation } = await run(livePages());
+  assert.strictEqual(summary.rowsWritten, 4);
+  assert.strictEqual(summary.hemnetExclNewbuild, 60442);
+  assert.strictEqual(summary.hemnetNewbuildUnits, 47397 - 60442, 'units = till_salu - excl (fixture predates the change)');
+  const extra = client.upserts.find(p => p[1] === job.EXCL_NEWBUILD_SEGMENT);
+  assert.deepStrictEqual(extra, ['hemnet', 'till_salu_excl_newbuild', 60442, job.HEMNET_EXCL_NEWBUILD_URL]);
+  assert.strictEqual(validation, null);
+});
+test('excl. new builds: filter ignored by Hemnet -> no row, warning, core rows kept', async () => {
+  const { client, summary, validation } = await run(livePages({ [job.HEMNET_EXCL_NEWBUILD_URL]: hemnetHtml(ROOT_EXCL) }));
+  assert.strictEqual(summary.rowsWritten, 4);
+  assert.strictEqual(client.upserts.length, 4);
+  assert.strictEqual(validation.key, 'hemnet-excl-newbuild-missing');
+});
+test('excl. new builds: fetch rejects -> warning only; a core failure still wins', async () => {
+  const only = await run(livePages({ [job.HEMNET_EXCL_NEWBUILD_URL]: new Error('timeout') }));
+  assert.strictEqual(only.validation.key, 'hemnet-excl-newbuild-missing');
+  assert.match(only.validation.message, /timeout/);
+  const both = await run(livePages({ [job.HEMNET_EXCL_NEWBUILD_URL]: new Error('x'), [job.BOOLI_KOMMANDE_URL]: new Error('y') }));
+  assert.strictEqual(both.validation.key, 'site-failed:booli');
 });
 
 // --- Hemnet App Router (~2026-10-30): the real pages captured 2026-11-03 ---

@@ -6,6 +6,40 @@ before it's fixed.
 
 ---
 
+## 2026-11-09 — Hemnet's for-sale total now counts new-build units one by one (break from 6 Nov)
+
+- Between the 5 and 6 Nov daily reads Hemnet's for-sale total went 63,136 → 69,307 (banner
+  ~89k → ~96.5k) with coming soon flat. Cause, checked live 9 Nov: the total now counts **every
+  unit of a new-build project**, while the result list still shows one card per project (plus
+  some unit cards). Nationally: for sale 69,468 = 60,442 without new builds + 9,026 new-build
+  units; ~1,400 new-build cards are listed. Uppsala: without new builds count = cards exactly
+  (1,118 = 1,118); new builds 440 counted vs 135 cards. Not market growth.
+- **market_totals:** `hemnet / till_salu` has a ~10% step on 2026-11-06. New 5th row
+  `hemnet / till_salu_excl_newbuild` (`?upcoming=EXCLUDE&new_construction=exclude`) from
+  2026-11-09 is the comparable series. It is an extra: its failure warns
+  (`hemnet-excl-newbuild-missing`) but never costs the 4 core rows, and the 4-row assertion
+  counts `till_salu`/`kommande` only. Earlier days have no excl. figure. The weekly supply
+  pulse (`market-totals-weekly-report.js`) splits Hemnet For Sale into new-build units and
+  second-hand under the Hemnet row, with a note while the comparison spans the break.
+- **Ad sweep / age census walker** (`scripts/hemnet-forsale-age-census.js`): the 8 Nov sweep
+  failed reconciliation on for-sale (63,492 found vs 69,728 counted), so gone ads were not marked
+  that week. Each municipality now also reads its count without new builds (one extra request
+  per muni, ~290/week); expected = that + new-build cards seen. Verified live on Uppsala:
+  1,253 expected = 1,253 found (was 20% short). If that page fails the muni falls back to
+  Hemnet's own count (stricter). `headlineN` in the stored rows stays Hemnet's own count.
+
+## 2026-11-09 — Weekly data pack attached to the Monday views report (for GrokBot)
+
+- `weekly-view-report.js` now attaches, in the report's Slack thread: `methodology.md`,
+  `weekly-pack.xlsx` (all tables as sheets + Method), `cross-cohort-hpct.csv` (new: the chart's
+  numbers), `views-like-for-like.csv`, `paid-share.csv` and `market-totals.csv` (new: last 8
+  weeks of daily totals). Builder `lib/weekly-pack.js`, uploader `lib/slack-files.js` (bot scope
+  `files:write`, already granted). GrokBot builds the team's weekly deliverable from Slack and
+  cannot reach the shared drive or the :3800 links. No change to any series. Known breaks for the
+  method note live in `KNOWN_BREAKS` in `lib/weekly-pack.js`: add new ones there.
+
+---
+
 ## 2026-11-04 — New monthly report: views by Hemnet ad tier, and free-to-paid upgrades
 
 - `tier-views-report.js` (1st of the month 07:20 UTC, `#hemnet-status`, method in
