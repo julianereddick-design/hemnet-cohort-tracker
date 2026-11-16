@@ -6,6 +6,29 @@ before it's fixed.
 
 ---
 
+## 2026-11-17 — Booli card dates, W46 cohort rebuilt, "Sellers paying" line removed
+
+- **Booli card ages:** around 15 Nov Booli shortened its card age text ('2 dagar på Booli' →
+  '2 dagar', 'En månad på Booli' → 'En månad'). `parseDisplayDateToAgeDays` matched only the
+  long form, so every card was undated and the 15 Nov `booli-targeted-discovery` found 0 W46
+  listings. Fixed (both forms parse, commit 3c580e9) and discovery re-run 16 Nov 02:52–04:00
+  UTC: 4,041 in window, 2,848 inserted, 1,193 updated.
+- **Cohort 2026-W46:** the re-run finished after `hemnet-targeted-match` (03:00 UTC), so the
+  06:00 cohort-create built W46 with 26 pairs (0.9%). Rebuilt 16 Nov 22:00–23:42 UTC: match
+  re-run, the 26 pairs backed up to `/var/log/hemnet/backup-2026-W46-before-rebuild-2026-11-17.json`
+  and removed, cohort re-created with **891 pairs (31.5%)**, spot-check 4.5% (7 removed, 884
+  live). Day-0 views are 16 Nov, not the usual Monday. Monday's view-data/2026-11-16 paid-share
+  files and pack were regenerated (old paid-share.csv kept in /var/log/hemnet).
+- **"Sellers paying for Hemnet" removed** from the Monday post and the data pack (team decision):
+  its same-week, same-address match never measured Hemnet reach (~36% pre-free-tier while ~80%
+  of sold homes were on Hemnet). The 16 Nov post showed 0.5% for W46 (the fault above; 20.6%
+  after the rebuild). `lib/paid-coverage.js` stays for ad-hoc use.
+- **New-listings post:** adds "For sale: N new paid ads = X paid from day one + Y upgraded from a
+  free ad or teaser". Upgrades stay in the series: each is that home's first paid ad, which last
+  year would have counted the week it went up (wk 9 Nov: 1,267 = 1,087 + 180).
+
+---
+
 ## 2026-11-09 — Hemnet's for-sale total now counts new-build units one by one (break from 6 Nov)
 
 - Between the 5 and 6 Nov daily reads Hemnet's for-sale total went 63,136 → 69,307 (banner

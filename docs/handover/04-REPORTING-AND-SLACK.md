@@ -211,14 +211,16 @@ and is the backstop that makes tier-2 silence safe. Section-by-section reading g
   and the cross-cohort chart keep only pairs whose Hemnet ad is paid (`lib/listing-segment.js`
   `segmentOf` = paid; `export-hb-ratio-xlsx.js --all-packages` puts free/other back). Cohorts
   before 20 Oct were all paid, so the series is unchanged for them. Free pairs are still collected.
-- **Sellers paying for Hemnet (since 2026-11-04):** `lib/paid-coverage.js` → 
+- **Sellers paying for Hemnet (2026-11-04 to 2026-11-16, REMOVED 2026-11-17):** dropped from the post and
+  the pack by team decision: its same-week, same-address match cannot measure Hemnet reach (pre-free-tier
+  it read ~36% while ~80% of sold homes were on Hemnet). The library stays for ad-hoc use. It was: `lib/paid-coverage.js` → 
   `view-data/<date>/paid-share.{csv,html}` and a block in the post: share of each cohort's Booli
   new homes (pairs + `cohort_unmatched`) with a paid / free / no Hemnet twin, latest cohort vs
   prior week and the 4 cohorts before the free tier. Fails the same way as like-for-like.
 - **Weekly data pack (since 2026-11-09):** after the post, `lib/weekly-pack.js` builds and
   `lib/slack-files.js` `uploadFiles('weekly-view-report', …)` attaches in the post's thread:
   `methodology.md`, `weekly-pack.xlsx`, `cross-cohort-hpct.csv`, `views-like-for-like.csv`,
-  `paid-share.csv`, `market-totals.csv` (all also left in `view-data/<date>/`). This is what
+  `market-totals.csv`, `weekly-new-listings.csv` (all also left in `view-data/<date>/`). This is what
   GrokBot reads for the team's weekly deliverable. A CSV whose step failed is left out and named
   in the note; a failed upload is logged and the script exits 1, the post stays. Dry run lists
   the files instead of uploading. Smoke: `node lib/weekly-pack.js --smoke`,
@@ -245,9 +247,6 @@ and is the backstop that makes tier-2 silence safe. Section-by-section reading g
   ⚠ Partial week: Hemnet data outage, website change 30 Oct–2 Nov, readings across it left out
   _Same homes on both sites, days 8–28 of listing, Hemnet re-publishes left out. Weekly history: <…csv> · per-home workbook <…xlsx>_
 
-  *Sellers paying for Hemnet*
-  Booli's new homes with a paid Hemnet ad, W44: *24.9%* (prior week 26%, before the free tier 35.7% (W39–W42)). Free Hemnet ad 17.1%, not found on Hemnet 57.8% (2201 homes).
-  Chart and table: <…paid-share.html> · <…paid-share.csv>
   ```
   If the like-for-like step fails, the block says "not available this week (<error>)", the
   rest of the post still goes, and the script exits 1.
