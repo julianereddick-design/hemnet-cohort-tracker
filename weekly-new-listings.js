@@ -71,9 +71,13 @@ function renderMessage({ week, lines, numbers = [], latest, hemnetSweden, held, 
   }
   if (latest) {
     const s = latest.reg, na = (k) => (s.newAds[k] ? s.newAds[k].sweden.tot : 0);
-    out.push(`Counted by us: ${n(s.paid.sweden.tot)} new paid ads in Sweden (${n(s.switched.sweden.tot)} of them switched to paid from a free or copied ad).` +
+    out.push(`Counted by us: ${n(s.paid.sweden.tot)} new paid ads in Sweden (${n(s.switched.sweden.tot)} of them switched to paid from a free ad or a pre-market teaser).` +
       ` Also new this week: ${n(na('free'))} free ads and ${n(na('aggregated'))} copied from agency sites.` +
       (hemnetSweden != null ? ` Hemnet's own weekly figure, which counts all of these, is ${n(hemnetSweden)}.` : ''));
+    // Every switch is that home's first paid ad, so it belongs in the series (last year it would
+    // have counted the week it went up); the split shows up-front payers vs later upgrades.
+    const fsPaid = s.paid.sweden.fs, fsSw = s.switched.sweden.fs;
+    if (fsPaid) out.push(`For sale: ${n(fsPaid)} new paid ads = ${n(fsPaid - fsSw)} paid from day one + ${n(fsSw)} upgraded from a free ad or teaser.`);
     if (latest.partial) out.push('_This week is partly reconstructed (our full count of Hemnet started on 3 Nov), so it is marked as an estimate._');
   }
   for (const w of held) out.push(`:warning: Wk ${w} is held back: the daily read of new Hemnet ads did not run on the Monday after it. It will be added next Monday.`);
@@ -240,8 +244,8 @@ function smoke() {
     assert.match(validate({ held: [], monthlyFailed: 1 }), /monthly/);
     assert.strictEqual(validate({ held: [], monthlyFailed: 0 }), null);
   });
-  const c3 = (s, a, b) => ({ sweden: { tot: s, fs: 0 }, stockholm: { tot: a, fs: 0 }, vg: { tot: b, fs: 0 } });
-  const reg = { paid: c3(2345, 700, 300), switched: c3(310, 90, 40), newAds: { free: c3(1500, 0, 0), aggregated: c3(900, 0, 0) } };
+  const c3 = (s, a, b, fs = 0) => ({ sweden: { tot: s, fs }, stockholm: { tot: a, fs: 0 }, vg: { tot: b, fs: 0 } });
+  const reg = { paid: c3(2345, 700, 300, 1267), switched: c3(310, 90, 40, 180), newAds: { free: c3(1500, 0, 0), aggregated: c3(900, 0, 0) } };
   check('renderMessage: plain lines, our count, partial week, checks and the series-break note', () => {
     const msg = renderMessage({
       week: '2026-11-02', lines: ['Total, wk starting 2 Nov 2026: …'], latest: { week: '2026-11-02', reg, partial: true },
@@ -250,6 +254,7 @@ function smoke() {
     });
     assert.match(msg, /paid ads only/);
     assert.match(msg, /Counted by us: 2,345 new paid ads in Sweden \(310 of them switched/);
+    assert.match(msg, /For sale: 1,267 new paid ads = 1,087 paid from day one \+ 180 upgraded from a free ad or teaser\./);
     assert.match(msg, /1,500 free ads and 900 copied from agency sites\. Hemnet's own weekly figure, which counts all of these, is 4,100\./);
     assert.match(msg, /partly reconstructed/);
     assert.match(msg, /Monthly check, November 2026: Hemnet reports 8,000 paid ads; our count points to 7,700 \(within 4%\)/);
