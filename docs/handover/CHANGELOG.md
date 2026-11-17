@@ -23,6 +23,16 @@ before it's fixed.
   its same-week, same-address match never measured Hemnet reach (~36% pre-free-tier while ~80%
   of sold homes were on Hemnet). The 16 Nov post showed 0.5% for W46 (the fault above; 20.6%
   after the rebuild). `lib/paid-coverage.js` stays for ad-hoc use.
+- **Day-0 step no longer counted** in the per-cohort workbooks, per-cohort charts and the
+  cross-cohort chart (`FIRST_COUNTED`, `d >= 3` lookback). Day-0 counts come from the Booli
+  discovery and Hemnet match crawls, taken ~5 hours apart (Sun 22:00 vs Mon 03:00 UTC) and about
+  a day apart after a rebuild, so the step into the first reading compares unequal windows
+  (W44 2→3 Nov: 37% vs ~66% after). Effect on earlier cohorts' Wk 2 is ≤0.4 pts; the weekly
+  like-for-like headline (days 8–28) moves ≤0.1 pts and is unchanged. Cohort workbooks also now
+  store every formula's result, so regions and totals show in previews and non-365 Excel.
+- **Cohort workbooks to the Decade drive:** `scripts/sync-cohort-workbooks.js`, run on Glenn's PC
+  by Task Scheduler (daily 22:00 + log-on), copies the latest run's workbooks to
+  `Hemnet/DATA MASTER/WEEKLY COHORT VIEWS/Cohort <id> views.xlsx`.
 - **New-listings post:** adds "For sale: N new paid ads = X paid from day one + Y upgraded from a
   free ad or teaser". Upgrades stay in the series: each is that home's first paid ad, which last
   year would have counted the week it went up (wk 9 Nov: 1,267 = 1,087 + 180).

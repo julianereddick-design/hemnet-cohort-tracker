@@ -107,7 +107,9 @@ function computeHPct(cohortData) {
   for (const region of REGIONS) {
     result[region] = {};
 
-    for (let d = 2; d < dates.length; d++) {
+    // d - 2 >= 1: a point never reaches back to the day-0 snapshot (see export-hb-ratio-xlsx.js
+    // FIRST_COUNTED), which compares unequal Booli/Hemnet windows.
+    for (let d = 3; d < dates.length; d++) {
       const hIncrVals = [];
       const bIncrVals = [];
 

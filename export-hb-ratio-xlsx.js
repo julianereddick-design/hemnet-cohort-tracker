@@ -252,6 +252,10 @@ async function run() {
   // workbook shows numbers without a recalculation: Protected View, previews (Slack,
   // OneDrive, browser) and non-365 Excel (no FILTER) all left the aggregation blank before.
   // A blank cumulative cell counts as 0, as it does in the formulas.
+  // The first step (day-0 snapshot -> first reading) is never counted: the day-0 counts come
+  // from the Booli and Hemnet crawls that found the home, taken hours (or, after a rebuild, a
+  // day) apart, so that step compares unequal windows. W44 2->3 Nov read 37% for this reason.
+  const FIRST_COUNTED = 2;   // dates[0] is day 0; the step into dates[1] is left out
   const num = (x) => (x == null ? 0 : Number(x));
   const flagOf = (cur, back) => (num(cur) > 0 && num(back) > 0 ? 1 : 0);
   const incOf = (cur, back, flag) => Math.max(0, (num(cur) - num(back)) / 2) * flag;
@@ -283,7 +287,7 @@ async function run() {
 
     const calc = { region, hFlag: [], bFlag: [], hInc: [], bInc: [] };
     for (let d = 0; d < dates.length; d++) {
-      if (d < 1) { calc.hFlag.push(0); calc.bFlag.push(0); calc.hInc.push(0); calc.bInc.push(0); continue; }
+      if (d < FIRST_COUNTED) { calc.hFlag.push(0); calc.bFlag.push(0); calc.hInc.push(0); calc.bInc.push(0); continue; }
       const cur = viewMap.get(`${pair.id}_${dates[d]}`) || {}, back = viewMap.get(`${pair.id}_${dates[d - 1]}`) || {};
       const hf = flagOf(cur.hemnet_views, back.hemnet_views), bf = flagOf(cur.booli_views, back.booli_views);
       calc.hFlag.push(hf); calc.bFlag.push(bf);
@@ -299,8 +303,8 @@ async function run() {
       const hColSec3 = SEC3_START + d * 2;
       const bColSec3 = SEC3_START + d * 2 + 1;
 
-      if (d < 1) {
-        // No prior tracked sample for the first date
+      if (d < FIRST_COUNTED) {
+        // Day 0 has no prior sample; the step into the first reading is not counted (FIRST_COUNTED)
         row.getCell(hColSec3).value = 0;
         row.getCell(bColSec3).value = 0;
       } else {
@@ -317,8 +321,8 @@ async function run() {
       const hColSec4 = SEC4_START + d * 2;
       const bColSec4 = SEC4_START + d * 2 + 1;
 
-      if (d < 1) {
-        // No prior tracked sample for the first date
+      if (d < FIRST_COUNTED) {
+        // Day 0 has no prior sample; the step into the first reading is not counted (FIRST_COUNTED)
         row.getCell(hColSec4).value = 0;
         row.getCell(bColSec4).value = 0;
       } else {
@@ -586,7 +590,7 @@ async function run() {
   for (const pair of pairs) {
     const region = countyToRegion(pair.county);
 
-    for (let d = 1; d < dates.length; d++) {
+    for (let d = FIRST_COUNTED; d < dates.length; d++) {
       const curr = viewMap.get(`${pair.id}_${dates[d]}`);
       const back = viewMap.get(`${pair.id}_${dates[d - 1]}`);
       if (!curr || !back) continue;
