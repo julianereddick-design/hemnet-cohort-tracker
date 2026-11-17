@@ -219,8 +219,8 @@ async function run() {
     const bColSec2 = SEC2_START + d * 2 + 1;
     const hColSec3 = SEC3_START + d * 2;
     const bColSec3 = SEC3_START + d * 2 + 1;
-    row2.getCell(hColSec3).value = { formula: `${colLetter(hColSec2)}2` };
-    row2.getCell(bColSec3).value = { formula: `${colLetter(bColSec2)}2` };
+    row2.getCell(hColSec3).value = { formula: `${colLetter(hColSec2)}2`, result: `H_${dates[d]}` };
+    row2.getCell(bColSec3).value = { formula: `${colLetter(bColSec2)}2`, result: `B_${dates[d]}` };
     row2.getCell(hColSec3).fill = HEADER_FILL_ORANGE;
     row2.getCell(bColSec3).fill = HEADER_FILL_ORANGE;
     ws.getColumn(hColSec3).width = 10;
@@ -233,8 +233,8 @@ async function run() {
     const bColSec2 = SEC2_START + d * 2 + 1;
     const hColSec4 = SEC4_START + d * 2;
     const bColSec4 = SEC4_START + d * 2 + 1;
-    row2.getCell(hColSec4).value = { formula: `${colLetter(hColSec2)}2` };
-    row2.getCell(bColSec4).value = { formula: `${colLetter(bColSec2)}2` };
+    row2.getCell(hColSec4).value = { formula: `${colLetter(hColSec2)}2`, result: `H_${dates[d]}` };
+    row2.getCell(bColSec4).value = { formula: `${colLetter(bColSec2)}2`, result: `B_${dates[d]}` };
     row2.getCell(hColSec4).fill = HEADER_FILL_GREEN;
     row2.getCell(bColSec4).fill = HEADER_FILL_GREEN;
     ws.getColumn(hColSec4).width = 10;
@@ -248,6 +248,14 @@ async function run() {
   // =====================
   // DATA ROWS (row 3 onward)
   // =====================
+  // Every formula below also carries its RESULT, computed here by the same rule, so the
+  // workbook shows numbers without a recalculation: Protected View, previews (Slack,
+  // OneDrive, browser) and non-365 Excel (no FILTER) all left the aggregation blank before.
+  // A blank cumulative cell counts as 0, as it does in the formulas.
+  const num = (x) => (x == null ? 0 : Number(x));
+  const flagOf = (cur, back) => (num(cur) > 0 && num(back) > 0 ? 1 : 0);
+  const incOf = (cur, back, flag) => Math.max(0, (num(cur) - num(back)) / 2) * flag;
+  const rowCalc = [];   // per pair: { region, hFlag[], bFlag[], hInc[], bInc[] }, for the aggregation results
   for (let p = 0; p < pairs.length; p++) {
     const pair = pairs[p];
     const r = p + 3; // Excel row number
@@ -273,6 +281,17 @@ async function run() {
       if (v && v.booli_views != null) row.getCell(bCol).value = v.booli_views;
     }
 
+    const calc = { region, hFlag: [], bFlag: [], hInc: [], bInc: [] };
+    for (let d = 0; d < dates.length; d++) {
+      if (d < 1) { calc.hFlag.push(0); calc.bFlag.push(0); calc.hInc.push(0); calc.bInc.push(0); continue; }
+      const cur = viewMap.get(`${pair.id}_${dates[d]}`) || {}, back = viewMap.get(`${pair.id}_${dates[d - 1]}`) || {};
+      const hf = flagOf(cur.hemnet_views, back.hemnet_views), bf = flagOf(cur.booli_views, back.booli_views);
+      calc.hFlag.push(hf); calc.bFlag.push(bf);
+      calc.hInc.push(incOf(cur.hemnet_views, back.hemnet_views, hf));
+      calc.bInc.push(incOf(cur.booli_views, back.booli_views, bf));
+    }
+    rowCalc.push(calc);
+
     // Section 3: inclusion flags (formulas)
     for (let d = 0; d < dates.length; d++) {
       const hColSec2 = colLetter(SEC2_START + d * 2);       // current H
@@ -288,8 +307,8 @@ async function run() {
         // Prior tracked sample (d-1) is 2 calendar days back under the every-2-days cadence
         const hCol2back = colLetter(SEC2_START + (d - 1) * 2);     // H 1 date back
         const bCol2back = colLetter(SEC2_START + (d - 1) * 2 + 1); // B 1 date back
-        row.getCell(hColSec3).value = { formula: `IF(AND(${hColSec2}${r}>0,${hCol2back}${r}>0),1,0)` };
-        row.getCell(bColSec3).value = { formula: `IF(AND(${bColSec2}${r}>0,${bCol2back}${r}>0),1,0)` };
+        row.getCell(hColSec3).value = { formula: `IF(AND(${hColSec2}${r}>0,${hCol2back}${r}>0),1,0)`, result: calc.hFlag[d] };
+        row.getCell(bColSec3).value = { formula: `IF(AND(${bColSec2}${r}>0,${bCol2back}${r}>0),1,0)`, result: calc.bFlag[d] };
       }
     }
 
@@ -310,8 +329,8 @@ async function run() {
         const hFlag = colLetter(SEC3_START + d * 2);
         const bFlag = colLetter(SEC3_START + d * 2 + 1);
 
-        row.getCell(hColSec4).value = { formula: `MAX(0,(${hCurr}${r}-${h2back}${r})/2)*${hFlag}${r}` };
-        row.getCell(bColSec4).value = { formula: `MAX(0,(${bCurr}${r}-${b2back}${r})/2)*${bFlag}${r}` };
+        row.getCell(hColSec4).value = { formula: `MAX(0,(${hCurr}${r}-${h2back}${r})/2)*${hFlag}${r}`, result: calc.hInc[d] };
+        row.getCell(bColSec4).value = { formula: `MAX(0,(${bCurr}${r}-${b2back}${r})/2)*${bFlag}${r}`, result: calc.bInc[d] };
         row.getCell(hColSec4).numFmt = '0.0';
         row.getCell(bColSec4).numFmt = '0.0';
       }
@@ -346,8 +365,8 @@ async function run() {
   for (let d = 0; d < dates.length; d++) {
     const hCol = SEC4_START + d * 2;
     const bCol = SEC4_START + d * 2 + 1;
-    aggSubHeader.getCell(hCol).value = { formula: `${colLetter(hCol)}2` };
-    aggSubHeader.getCell(bCol).value = { formula: `${colLetter(bCol)}2` };
+    aggSubHeader.getCell(hCol).value = { formula: `${colLetter(hCol)}2`, result: `H_${dates[d]}` };
+    aggSubHeader.getCell(bCol).value = { formula: `${colLetter(bCol)}2`, result: `B_${dates[d]}` };
     aggSubHeader.getCell(hCol).fill = HEADER_FILL_PURPLE;
     aggSubHeader.getCell(bCol).fill = HEADER_FILL_PURPLE;
   }
@@ -359,6 +378,22 @@ async function run() {
   // Store row references for H/B ratio calculations
   const meanRows = {};
   const medianRows = {};
+
+  // Results for the aggregation formulas, same rules: COUNTIFS / AVERAGEIFS / MEDIAN(FILTER)
+  // over rows whose flag is 1, '' where Excel's IFERROR would give ''.
+  const medianOf = (a) => { if (!a.length) return ''; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+  const meanOf = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : '');
+  const ratioOf = (h, b) => (typeof h === 'number' && typeof b === 'number' && b !== 0 ? h / b : '');
+  const pctOf = (h, b) => (!Number(h) || !Number(b) ? '' : h / (h + b));
+  const aggCalc = {};   // region -> d -> { hN, bN, hMean, bMean, hMed, bMed }
+  for (const region of REGIONS) {
+    aggCalc[region] = dates.map((_, d) => {
+      const rows = rowCalc.filter(c => region === 'Total' || c.region === region);
+      const hv = rows.filter(c => c.hFlag[d] === 1).map(c => c.hInc[d]);
+      const bv = rows.filter(c => c.bFlag[d] === 1).map(c => c.bInc[d]);
+      return { hN: hv.length, bN: bv.length, hMean: meanOf(hv), bMean: meanOf(bv), hMed: medianOf(hv), bMed: medianOf(bv) };
+    });
+  }
 
   for (const region of REGIONS) {
     const isTotal = region === 'Total';
@@ -381,11 +416,11 @@ async function run() {
       const bCol = SEC4_START + d * 2 + 1;
 
       if (isTotal) {
-        countRow.getCell(hCol).value = { formula: `COUNTIFS(${hFlagRange},1)` };
-        countRow.getCell(bCol).value = { formula: `COUNTIFS(${bFlagRange},1)` };
+        countRow.getCell(hCol).value = { formula: `COUNTIFS(${hFlagRange},1)`, result: aggCalc[region][d].hN };
+        countRow.getCell(bCol).value = { formula: `COUNTIFS(${bFlagRange},1)`, result: aggCalc[region][d].bN };
       } else {
-        countRow.getCell(hCol).value = { formula: `COUNTIFS(${hFlagRange},1,${regionRange},"${region}")` };
-        countRow.getCell(bCol).value = { formula: `COUNTIFS(${bFlagRange},1,${regionRange},"${region}")` };
+        countRow.getCell(hCol).value = { formula: `COUNTIFS(${hFlagRange},1,${regionRange},"${region}")`, result: aggCalc[region][d].hN };
+        countRow.getCell(bCol).value = { formula: `COUNTIFS(${bFlagRange},1,${regionRange},"${region}")`, result: aggCalc[region][d].bN };
       }
     }
     countRow.commit();
@@ -411,11 +446,11 @@ async function run() {
       const bCol = SEC4_START + d * 2 + 1;
 
       if (isTotal) {
-        meanRow.getCell(hCol).value = { formula: `IFERROR(AVERAGEIFS(${hIncRange},${hFlagRange},1),"")` };
-        meanRow.getCell(bCol).value = { formula: `IFERROR(AVERAGEIFS(${bIncRange},${bFlagRange},1),"")` };
+        meanRow.getCell(hCol).value = { formula: `IFERROR(AVERAGEIFS(${hIncRange},${hFlagRange},1),"")`, result: aggCalc[region][d].hMean };
+        meanRow.getCell(bCol).value = { formula: `IFERROR(AVERAGEIFS(${bIncRange},${bFlagRange},1),"")`, result: aggCalc[region][d].bMean };
       } else {
-        meanRow.getCell(hCol).value = { formula: `IFERROR(AVERAGEIFS(${hIncRange},${hFlagRange},1,${regionRange},"${region}"),"")` };
-        meanRow.getCell(bCol).value = { formula: `IFERROR(AVERAGEIFS(${bIncRange},${bFlagRange},1,${regionRange},"${region}"),"")` };
+        meanRow.getCell(hCol).value = { formula: `IFERROR(AVERAGEIFS(${hIncRange},${hFlagRange},1,${regionRange},"${region}"),"")`, result: aggCalc[region][d].hMean };
+        meanRow.getCell(bCol).value = { formula: `IFERROR(AVERAGEIFS(${bIncRange},${bFlagRange},1,${regionRange},"${region}"),"")`, result: aggCalc[region][d].bMean };
       }
       meanRow.getCell(hCol).numFmt = '0.0';
       meanRow.getCell(bCol).numFmt = '0.0';
@@ -443,11 +478,11 @@ async function run() {
 
       // MEDIAN(FILTER(...)) with _xlfn._xlws. prefix for ExcelJS compatibility
       if (isTotal) {
-        medianRow.getCell(hCol).value = { formula: `IFERROR(MEDIAN(_xlfn._xlws.FILTER(${hIncRange},${hFlagRange}=1)),"")` };
-        medianRow.getCell(bCol).value = { formula: `IFERROR(MEDIAN(_xlfn._xlws.FILTER(${bIncRange},${bFlagRange}=1)),"")` };
+        medianRow.getCell(hCol).value = { formula: `IFERROR(MEDIAN(_xlfn._xlws.FILTER(${hIncRange},${hFlagRange}=1)),"")`, result: aggCalc[region][d].hMed };
+        medianRow.getCell(bCol).value = { formula: `IFERROR(MEDIAN(_xlfn._xlws.FILTER(${bIncRange},${bFlagRange}=1)),"")`, result: aggCalc[region][d].bMed };
       } else {
-        medianRow.getCell(hCol).value = { formula: `IFERROR(MEDIAN(_xlfn._xlws.FILTER(${hIncRange},(${hFlagRange}=1)*(${regionRange}="${region}"))),"")` };
-        medianRow.getCell(bCol).value = { formula: `IFERROR(MEDIAN(_xlfn._xlws.FILTER(${bIncRange},(${bFlagRange}=1)*(${regionRange}="${region}"))),"")` };
+        medianRow.getCell(hCol).value = { formula: `IFERROR(MEDIAN(_xlfn._xlws.FILTER(${hIncRange},(${hFlagRange}=1)*(${regionRange}="${region}"))),"")`, result: aggCalc[region][d].hMed };
+        medianRow.getCell(bCol).value = { formula: `IFERROR(MEDIAN(_xlfn._xlws.FILTER(${bIncRange},(${bFlagRange}=1)*(${regionRange}="${region}"))),"")`, result: aggCalc[region][d].bMed };
       }
       medianRow.getCell(hCol).numFmt = '0.0';
       medianRow.getCell(bCol).numFmt = '0.0';
@@ -468,7 +503,7 @@ async function run() {
       const hMeanRef = `${colLetter(hCol)}${mr}`;
       const bMeanRef = `${colLetter(bCol)}${mr}`;
       // Put ratio in the H column position, leave B blank
-      hbMeanRow.getCell(hCol).value = { formula: `IFERROR(${hMeanRef}/${bMeanRef},"")` };
+      hbMeanRow.getCell(hCol).value = { formula: `IFERROR(${hMeanRef}/${bMeanRef},"")`, result: ratioOf(aggCalc[region][d].hMean, aggCalc[region][d].bMean) };
       hbMeanRow.getCell(hCol).numFmt = '0.00';
     }
     hbMeanRow.commit();
@@ -485,7 +520,7 @@ async function run() {
       const mr = medianRows[region];
       const hMedRef = `${colLetter(hCol)}${mr}`;
       const bMedRef = `${colLetter(bCol)}${mr}`;
-      hbMedianRow.getCell(hCol).value = { formula: `IFERROR(${hMedRef}/${bMedRef},"")` };
+      hbMedianRow.getCell(hCol).value = { formula: `IFERROR(${hMedRef}/${bMedRef},"")`, result: ratioOf(aggCalc[region][d].hMed, aggCalc[region][d].bMed) };
       hbMedianRow.getCell(hCol).numFmt = '0.00';
     }
     hbMedianRow.commit();
@@ -503,7 +538,7 @@ async function run() {
       const mr = meanRows[region];
       const hRef = `${colLetter(hCol)}${mr}`;
       const bRef = `${colLetter(bCol)}${mr}`;
-      hPctMeanRow.getCell(hCol).value = { formula: `IF(OR(N(${hRef})=0,N(${bRef})=0),"",IFERROR(${hRef}/(${hRef}+${bRef}),""))` };
+      hPctMeanRow.getCell(hCol).value = { formula: `IF(OR(N(${hRef})=0,N(${bRef})=0),"",IFERROR(${hRef}/(${hRef}+${bRef}),""))`, result: pctOf(aggCalc[region][d].hMean, aggCalc[region][d].bMean) };
       hPctMeanRow.getCell(hCol).numFmt = '0.0%';
     }
     hPctMeanRow.commit();
@@ -520,7 +555,7 @@ async function run() {
       const mr = medianRows[region];
       const hRef = `${colLetter(hCol)}${mr}`;
       const bRef = `${colLetter(bCol)}${mr}`;
-      hPctMedianRow.getCell(hCol).value = { formula: `IF(OR(N(${hRef})=0,N(${bRef})=0),"",IFERROR(${hRef}/(${hRef}+${bRef}),""))` };
+      hPctMedianRow.getCell(hCol).value = { formula: `IF(OR(N(${hRef})=0,N(${bRef})=0),"",IFERROR(${hRef}/(${hRef}+${bRef}),""))`, result: pctOf(aggCalc[region][d].hMed, aggCalc[region][d].bMed) };
       hPctMedianRow.getCell(hCol).numFmt = '0.0%';
     }
     hPctMedianRow.commit();
